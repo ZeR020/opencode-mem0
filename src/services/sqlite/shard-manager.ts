@@ -180,7 +180,9 @@ export class ShardManager {
         interference_penalty REAL DEFAULT 0.0,
         strength REAL DEFAULT 0.5,
         access_count INTEGER DEFAULT 0,
-        last_accessed INTEGER
+        last_accessed INTEGER,
+        store_type TEXT DEFAULT 'stm',
+        decay_rate REAL DEFAULT 0.05
       )
     `);
 
@@ -191,6 +193,8 @@ export class ShardManager {
     db.run(`CREATE INDEX IF NOT EXISTS idx_strength ON memories(strength DESC)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_recency ON memories(recency_score DESC)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_access_count ON memories(access_count DESC)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_store_type ON memories(store_type)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_decay_strength ON memories(strength, created_at)`);
 
     // Migrate existing databases to add scoring columns
     this.migrateScoringColumns(db);
@@ -211,6 +215,8 @@ export class ShardManager {
       { name: "strength", type: "REAL DEFAULT 0.5" },
       { name: "access_count", type: "INTEGER DEFAULT 0" },
       { name: "last_accessed", type: "INTEGER" },
+      { name: "store_type", type: "TEXT DEFAULT 'stm'" },
+      { name: "decay_rate", type: "REAL DEFAULT 0.05" },
     ];
 
     for (const col of scoringColumns) {

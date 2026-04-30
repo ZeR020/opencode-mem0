@@ -7,6 +7,7 @@ import { log } from "./logger.js";
 import type { MemoryType } from "../types/index.js";
 import type { MemoryRecord } from "./sqlite/types.js";
 import { calculateAllScores } from "./memory-scoring.js";
+import { classifyMemory } from "./memory-lifecycle.js";
 
 export type MemoryScope = "project" | "all-projects";
 
@@ -222,6 +223,9 @@ export class LocalMemoryClient {
         type,
       });
 
+      // Classify memory store type and decay rate
+      const { storeType, decayRate } = classifyMemory(type);
+
       const record: MemoryRecord = {
         id,
         content,
@@ -250,6 +254,8 @@ export class LocalMemoryClient {
         strength: scores.strength,
         accessCount: 0,
         lastAccessed: undefined,
+        storeType,
+        decayRate,
       };
 
       await vectorSearch.insertVector(db, record, shard);

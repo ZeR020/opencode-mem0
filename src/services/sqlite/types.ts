@@ -37,6 +37,9 @@ export interface MemoryRecord {
   strength?: number;
   accessCount?: number;
   lastAccessed?: number;
+  // Lifecycle fields
+  storeType?: "stm" | "ltm";
+  decayRate?: number;
 }
 
 export interface SearchResult {

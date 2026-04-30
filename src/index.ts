@@ -19,6 +19,11 @@ import {
   stopScoringRecalculation,
   runOneTimeScoringRecalculation,
 } from "./services/memory-scoring-service.js";
+import {
+  startLifecycleJob,
+  stopLifecycleJob,
+  runLifecycleMaintenance,
+} from "./services/memory-lifecycle.js";
 
 import { isConfigured, CONFIG, initConfig } from "./config.js";
 import { log } from "./services/logger.js";
@@ -146,9 +151,17 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
     });
   }
 
+  // Start memory lifecycle job (STM/LTM decay, promotion, archiving)
+  startLifecycleJob();
+  // Run initial lifecycle maintenance on startup
+  runLifecycleMaintenance().catch((error) => {
+    log("Initial lifecycle maintenance failed", { error: String(error) });
+  });
+
   const shutdownHandler = async () => {
     try {
       stopScoringRecalculation();
+      stopLifecycleJob();
       if (webServer) {
         await webServer.stop();
       }

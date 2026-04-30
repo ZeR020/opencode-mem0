@@ -35,8 +35,9 @@ export class VectorSearch {
         id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
         metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url,
         recency_score, frequency_score, importance_score, utility_score, novelty_score,
-        confidence_score, interference_penalty, strength, access_count, last_accessed
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        confidence_score, interference_penalty, strength, access_count, last_accessed,
+        store_type, decay_rate
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     insertMemory.run(
@@ -65,7 +66,9 @@ export class VectorSearch {
       record.interferencePenalty ?? 0.0,
       record.strength ?? 0.5,
       record.accessCount ?? 0,
-      record.lastAccessed || null
+      record.lastAccessed || null,
+      record.storeType || "stm",
+      record.decayRate ?? 0.05
     );
 
     try {

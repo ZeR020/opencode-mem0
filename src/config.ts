@@ -76,6 +76,14 @@ interface OpenCodeMemConfig {
     recencyHalfLifeDays?: number;
     utilityHalfLifeDays?: number;
   };
+  memoryLifecycle?: {
+    stmDecayDays?: number;
+    ltmDecayDays?: number;
+    promotionThreshold?: number;
+    archiveThreshold?: number;
+    archiveAfterDays?: number;
+    checkIntervalMinutes?: number;
+  };
   compaction?: {
     enabled?: boolean;
     memoryLimit?: number;
@@ -167,6 +175,14 @@ const DEFAULTS: Required<
     recalculationIntervalMinutes: 60,
     recencyHalfLifeDays: 7,
     utilityHalfLifeDays: 3,
+  },
+  memoryLifecycle: {
+    stmDecayDays: 7,
+    ltmDecayDays: 90,
+    promotionThreshold: 0.7,
+    archiveThreshold: 0.2,
+    archiveAfterDays: 30,
+    checkIntervalMinutes: 60,
   },
   compaction: {
     enabled: true,
@@ -462,6 +478,24 @@ const CONFIG_TEMPLATE = `{
   },
 
   // ============================================
+  // Memory Lifecycle (STM/LTM)
+  // ============================================
+
+  // Dual-store memory system with forgetting curve.
+  // Memories are classified into Short-Term (STM) or Long-Term (LTM) on creation.
+  // STM decays fast (decay_rate=0.05), LTM decays slow (decay_rate=0.01) or never (0.0).
+  // High-strength, frequently-accessed STM memories get promoted to LTM.
+  // Weak old memories are archived when strength drops below threshold.
+  "memoryLifecycle": {
+    "stmDecayDays": 7,
+    "ltmDecayDays": 90,
+    "promotionThreshold": 0.7,
+    "archiveThreshold": 0.2,
+    "archiveAfterDays": 30,
+    "checkIntervalMinutes": 60
+  },
+
+  // ============================================
   // Advanced Settings
   // ============================================
   
@@ -614,6 +648,24 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
       utilityHalfLifeDays:
         fileConfig.memoryScoring?.utilityHalfLifeDays ??
         DEFAULTS.memoryScoring.utilityHalfLifeDays,
+    },
+    memoryLifecycle: {
+      stmDecayDays:
+        fileConfig.memoryLifecycle?.stmDecayDays ?? DEFAULTS.memoryLifecycle.stmDecayDays,
+      ltmDecayDays:
+        fileConfig.memoryLifecycle?.ltmDecayDays ?? DEFAULTS.memoryLifecycle.ltmDecayDays,
+      promotionThreshold:
+        fileConfig.memoryLifecycle?.promotionThreshold ??
+        DEFAULTS.memoryLifecycle.promotionThreshold,
+      archiveThreshold:
+        fileConfig.memoryLifecycle?.archiveThreshold ??
+        DEFAULTS.memoryLifecycle.archiveThreshold,
+      archiveAfterDays:
+        fileConfig.memoryLifecycle?.archiveAfterDays ??
+        DEFAULTS.memoryLifecycle.archiveAfterDays,
+      checkIntervalMinutes:
+        fileConfig.memoryLifecycle?.checkIntervalMinutes ??
+        DEFAULTS.memoryLifecycle.checkIntervalMinutes,
     },
     chatMessage: {
       enabled: fileConfig.chatMessage?.enabled ?? DEFAULTS.chatMessage.enabled,
