@@ -41,7 +41,10 @@ describe("migration with backend abstraction", () => {
         project_path TEXT,
         project_name TEXT,
         git_repo_url TEXT,
-        is_pinned INTEGER DEFAULT 0
+        is_pinned INTEGER DEFAULT 0,
+        is_deprecated INTEGER DEFAULT 0,
+        store_type TEXT,
+        decay_rate REAL
       )
     `);
 

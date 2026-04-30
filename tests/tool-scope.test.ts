@@ -71,6 +71,7 @@ mock.module(${JSON.stringify(clientUrl)}, () => ({
 mock.module(${JSON.stringify(configUrl)}, () => ({
   CONFIG: {
     autoCaptureLanguage: "auto",
+    storagePath: "/tmp/opencode-mem-test",
     memory: { defaultScope },
   },
   initConfig: () => {},

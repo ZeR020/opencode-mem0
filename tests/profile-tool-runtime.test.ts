@@ -171,10 +171,9 @@ describe("memory tool profile runtime behavior", () => {
       autoCaptureEnabled: false,
     });
 
-    mock.module("node:child_process", () => ({
-      execSync: () => {
-        throw new Error("git config unavailable");
-      },
+    mock.module("../src/services/tags.js", () => ({
+      getTags: () => ({ project: { tag: "project-tag" }, user: { userEmail: undefined } }),
+      getProjectName: (dir: string) => dir.split(/[\\/]/).pop() || dir,
     }));
 
     const plugin = await createPlugin();

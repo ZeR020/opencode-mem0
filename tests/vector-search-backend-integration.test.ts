@@ -59,7 +59,20 @@ describe("vector search backend integration", () => {
         project_path TEXT,
         project_name TEXT,
         git_repo_url TEXT,
-        is_pinned INTEGER DEFAULT 0
+        is_pinned INTEGER DEFAULT 0,
+        is_deprecated INTEGER DEFAULT 0,
+        recency_score REAL DEFAULT 0.5,
+        frequency_score REAL DEFAULT 0.5,
+        importance_score REAL DEFAULT 0.5,
+        utility_score REAL DEFAULT 0.5,
+        novelty_score REAL DEFAULT 0.5,
+        confidence_score REAL DEFAULT 0.5,
+        interference_penalty REAL DEFAULT 0,
+        strength REAL DEFAULT 0.5,
+        access_count INTEGER DEFAULT 0,
+        last_accessed INTEGER,
+        store_type TEXT,
+        decay_rate REAL
       )
     `);
 
@@ -143,7 +156,20 @@ describe("vector search backend integration", () => {
         project_path TEXT,
         project_name TEXT,
         git_repo_url TEXT,
-        is_pinned INTEGER DEFAULT 0
+        is_pinned INTEGER DEFAULT 0,
+        is_deprecated INTEGER DEFAULT 0,
+        recency_score REAL DEFAULT 0.5,
+        frequency_score REAL DEFAULT 0.5,
+        importance_score REAL DEFAULT 0.5,
+        utility_score REAL DEFAULT 0.5,
+        novelty_score REAL DEFAULT 0.5,
+        confidence_score REAL DEFAULT 0.5,
+        interference_penalty REAL DEFAULT 0,
+        strength REAL DEFAULT 0.5,
+        access_count INTEGER DEFAULT 0,
+        last_accessed INTEGER,
+        store_type TEXT,
+        decay_rate REAL
       )
     `);
 
