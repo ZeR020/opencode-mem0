@@ -55,24 +55,27 @@ open http://localhost:4747
 ## What's New in v2.14.0
 
 ### Transcript Storage Layer
+
 Every conversation is captured, stripped of synthetic noise, and stored in a dedicated FTS5-indexed database. Searchable, retrievable, and auto-purged by age.
 
 ### 7-Factor Memory Scoring
+
 Every memory is scored on seven dimensions:
 
-| Factor | What It Measures | Weight |
-|---|---|---|
-| **Recency** | How old is the memory? | 20% |
-| **Frequency** | How often is it accessed? | 15% |
-| **Importance** | Code, technical keywords, file paths? | 25% |
-| **Utility** | Accessed recently in relevant context? | 20% |
-| **Novelty** | How unique vs existing memories? | 10% |
-| **Confidence** | Manual, auto-captured, or imported? | 10% |
-| **Interference** | Contradicts other memories? | −10% |
+| Factor           | What It Measures                       | Weight |
+| ---------------- | -------------------------------------- | ------ |
+| **Recency**      | How old is the memory?                 | 20%    |
+| **Frequency**    | How often is it accessed?              | 15%    |
+| **Importance**   | Code, technical keywords, file paths?  | 25%    |
+| **Utility**      | Accessed recently in relevant context? | 20%    |
+| **Novelty**      | How unique vs existing memories?       | 10%    |
+| **Confidence**   | Manual, auto-captured, or imported?    | 10%    |
+| **Interference** | Contradicts other memories?            | −10%   |
 
 Rolls up into a single **Strength** score (0-1) that drives ranking, promotion, and archival.
 
 ### STM / LTM Dual-Store Lifecycle
+
 - **Short-Term Memory (STM)** — Ephemeral, conversational. Decays fast (5%/day). Archived below strength 0.2 after 30 days.
 - **Long-Term Memory (LTM)** — Preferences, architecture, constraints. Slow decay (1%/day) or **zero decay** for critical rules.
 
@@ -81,11 +84,13 @@ Rolls up into a single **Strength** score (0-1) that drives ranking, promotion, 
 Decay follows the **Ebbinghaus curve**: `strength *= e^(-decay_rate * age_in_days)`.
 
 ### Intelligent Conflict Resolution
+
 When a new memory contradicts an existing one, opencode-mem0 detects it — first with an **LLM-powered structured check**, then with a **heuristic fallback** using negation patterns and action-verb analysis.
 
 Four resolution strategies: `keep_newer`, `keep_both`, `merge`, `manual`. All conflicts tracked in `memory_conflicts` with resolution history.
 
 ### Hybrid Search & Context-Aware Retrieval
+
 Not just "nearest neighbor." A multi-stage pipeline:
 
 1. **Vector + Tag Similarity** — Content vectors 60%, tag vectors 40%
@@ -166,11 +171,14 @@ Edit `~/.config/opencode/opencode-mem.jsonc`:
 ```
 
 ### Memory Scope
+
 - `scope: "project"` — query only current project (default)
 - `scope: "all-projects"` — query across all project shards
 
 ### Auto-Capture AI Provider
+
 Recommended: use opencode's built-in providers (no separate API key):
+
 ```json
 {
   "opencodeProvider": "anthropic",
@@ -195,6 +203,7 @@ bun run scripts/migrate-v1-to-v2.ts ~/.opencode-mem/data
 ```
 
 This will:
+
 - Detect v1 schema and add all v2 columns safely
 - Backfill recency scores for existing memories
 - Create `memory_conflicts` and `transcripts` databases
@@ -209,17 +218,17 @@ The migration is **idempotent** — safe to run multiple times.
 
 The built-in web server exposes a REST API:
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/memories` | GET | List all memories |
-| `/api/memories/search?q=...` | GET | Search memories |
-| `/api/memories` | POST | Add a new memory |
-| `/api/memories/:id` | DELETE | Delete a memory |
-| `/api/conflicts` | GET | List unresolved conflicts |
-| `/api/conflicts/:id` | POST | Resolve a conflict |
-| `/api/conflicts/stats` | GET | Conflict statistics |
-| `/api/transcripts` | GET | List transcripts |
-| `/api/transcripts/search?q=...` | GET | Search transcripts |
+| Endpoint                        | Method | Description               |
+| ------------------------------- | ------ | ------------------------- |
+| `/api/memories`                 | GET    | List all memories         |
+| `/api/memories/search?q=...`    | GET    | Search memories           |
+| `/api/memories`                 | POST   | Add a new memory          |
+| `/api/memories/:id`             | DELETE | Delete a memory           |
+| `/api/conflicts`                | GET    | List unresolved conflicts |
+| `/api/conflicts/:id`            | POST   | Resolve a conflict        |
+| `/api/conflicts/stats`          | GET    | Conflict statistics       |
+| `/api/transcripts`              | GET    | List transcripts          |
+| `/api/transcripts/search?q=...` | GET    | Search transcripts        |
 
 Access the UI at `http://localhost:4747`.
 
@@ -247,17 +256,27 @@ bun run build
 
 ## Development
 
+### Platform Requirements
+
+**Linux / macOS**: Native support. Requires [Bun](https://bun.sh/) runtime.
+
+**Windows**: Not natively supported. Bun does not currently run on Windows. Use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) with a Linux distribution, then install Bun inside WSL.
+
 ### Prerequisites
+
 - [Bun](https://bun.sh/) 1.x
 - TypeScript 5.7+
 
 ### Build
+
 ```bash
 bun run build
 ```
+
 Output goes to `dist/`. Web UI assets are copied to `dist/web/`.
 
 ### Format
+
 ```bash
 bun run format        # auto-fix
 bun run format:check  # verify
