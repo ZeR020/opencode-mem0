@@ -33,8 +33,10 @@ export class VectorSearch {
     const insertMemory = db.prepare(`
       INSERT INTO memories (
         id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
-        metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url,
+        recency_score, frequency_score, importance_score, utility_score, novelty_score,
+        confidence_score, interference_penalty, strength, access_count, last_accessed
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     insertMemory.run(
@@ -53,7 +55,17 @@ export class VectorSearch {
       record.userEmail || null,
       record.projectPath || null,
       record.projectName || null,
-      record.gitRepoUrl || null
+      record.gitRepoUrl || null,
+      record.recencyScore ?? 0.5,
+      record.frequencyScore ?? 0.0,
+      record.importanceScore ?? 0.5,
+      record.utilityScore ?? 0.3,
+      record.noveltyScore ?? 0.5,
+      record.confidenceScore ?? 0.7,
+      record.interferencePenalty ?? 0.0,
+      record.strength ?? 0.5,
+      record.accessCount ?? 0,
+      record.lastAccessed || null
     );
 
     try {
@@ -179,7 +191,12 @@ export class VectorSearch {
       }
 
       const finalTagsSim = Math.max(scores.tagsSim, exactMatchBoost);
-      const similarity = scores.contentSim * 0.6 + finalTagsSim * 0.4;
+      const vectorSimilarity = scores.contentSim * 0.6 + finalTagsSim * 0.4;
+
+      // Combine vector similarity with memory strength for final ranking
+      const strength = row.strength ?? 0.5;
+      // Weighted combination: 60% vector similarity + 40% memory strength
+      const similarity = vectorSimilarity * 0.6 + strength * 0.4;
 
       return {
         id: row.id,
@@ -195,10 +212,40 @@ export class VectorSearch {
         projectName: row.project_name,
         gitRepoUrl: row.git_repo_url,
         isPinned: row.is_pinned,
+        strength: row.strength,
+        recencyScore: row.recency_score,
+        importanceScore: row.importance_score,
+        accessCount: row.access_count,
       };
     });
 
-    hydratedResults.sort((a, b) => b.similarity - a.similarity);
+    // Sort by: pinned first, then combined similarity+strength, then recency
+    hydratedResults.sort((a, b) => {
+      // Pinned memories always first
+      if ((a.isPinned || 0) !== (b.isPinned || 0)) {
+        return (b.isPinned || 0) - (a.isPinned || 0);
+      }
+      // Then by combined score
+      if (b.similarity !== a.similarity) {
+        return b.similarity - a.similarity;
+      }
+      // Tie-breaker: recency score
+      return (b.recencyScore || 0) - (a.recencyScore || 0);
+    });
+
+    // Update access_count for retrieved memories
+    try {
+      const updateAccessStmt = db.prepare(
+        `UPDATE memories SET access_count = access_count + 1, last_accessed = ? WHERE id = ?`
+      );
+      const now = Date.now();
+      for (const result of hydratedResults) {
+        updateAccessStmt.run(now, result.id);
+      }
+    } catch (error) {
+      log("Failed to update access count", { error: String(error) });
+    }
+
     return hydratedResults;
   }
 
@@ -265,13 +312,13 @@ export class VectorSearch {
       containerTag === ""
         ? `
       SELECT * FROM memories
-      ORDER BY created_at DESC
+      ORDER BY is_pinned DESC, strength DESC, recency_score DESC
       LIMIT ?
     `
         : `
       SELECT * FROM memories
       WHERE container_tag = ?
-      ORDER BY created_at DESC
+      ORDER BY is_pinned DESC, strength DESC, recency_score DESC
       LIMIT ?
     `
     );

@@ -26,6 +26,17 @@ export interface MemoryRecord {
   projectPath?: string;
   projectName?: string;
   gitRepoUrl?: string;
+  // Scoring fields
+  recencyScore?: number;
+  frequencyScore?: number;
+  importanceScore?: number;
+  utilityScore?: number;
+  noveltyScore?: number;
+  confidenceScore?: number;
+  interferencePenalty?: number;
+  strength?: number;
+  accessCount?: number;
+  lastAccessed?: number;
 }
 
 export interface SearchResult {
@@ -40,4 +51,10 @@ export interface SearchResult {
   projectPath?: string;
   projectName?: string;
   gitRepoUrl?: string;
+  isPinned?: number;
+  // Scoring fields
+  strength?: number;
+  recencyScore?: number;
+  importanceScore?: number;
+  accessCount?: number;
 }

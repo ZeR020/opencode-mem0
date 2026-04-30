@@ -1,7 +1,7 @@
 # Graph Report - opencode-mem0  (2026-04-30)
 
 ## Corpus Check
-- 72 files · ~42,855 words
+- 72 files · ~42,863 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary

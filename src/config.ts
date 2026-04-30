@@ -70,6 +70,12 @@ interface OpenCodeMemConfig {
     enabled?: boolean;
     maxAgeDays?: number;
   };
+  memoryScoring?: {
+    enabled?: boolean;
+    recalculationIntervalMinutes?: number;
+    recencyHalfLifeDays?: number;
+    utilityHalfLifeDays?: number;
+  };
   compaction?: {
     enabled?: boolean;
     memoryLimit?: number;
@@ -155,6 +161,12 @@ const DEFAULTS: Required<
   transcriptStorage: {
     enabled: true,
     maxAgeDays: 30,
+  },
+  memoryScoring: {
+    enabled: true,
+    recalculationIntervalMinutes: 60,
+    recencyHalfLifeDays: 7,
+    utilityHalfLifeDays: 3,
   },
   compaction: {
     enabled: true,
@@ -435,6 +447,21 @@ const CONFIG_TEMPLATE = `{
   },
 
   // ============================================
+  // Memory Scoring System
+  // ============================================
+
+  // Multi-dimensional memory scoring with automatic recalculation
+  // Each memory gets scores for: recency, frequency, importance, utility,
+  // novelty, confidence, and interference. These combine into a "strength"
+  // score that determines search ranking and retention priority.
+  "memoryScoring": {
+    "enabled": true,
+    "recalculationIntervalMinutes": 60,
+    "recencyHalfLifeDays": 7,
+    "utilityHalfLifeDays": 3
+  },
+
+  // ============================================
   // Advanced Settings
   // ============================================
   
@@ -574,6 +601,19 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
         fileConfig.transcriptStorage?.enabled ?? DEFAULTS.transcriptStorage.enabled,
       maxAgeDays:
         fileConfig.transcriptStorage?.maxAgeDays ?? DEFAULTS.transcriptStorage.maxAgeDays,
+    },
+    memoryScoring: {
+      enabled:
+        fileConfig.memoryScoring?.enabled ?? DEFAULTS.memoryScoring.enabled,
+      recalculationIntervalMinutes:
+        fileConfig.memoryScoring?.recalculationIntervalMinutes ??
+        DEFAULTS.memoryScoring.recalculationIntervalMinutes,
+      recencyHalfLifeDays:
+        fileConfig.memoryScoring?.recencyHalfLifeDays ??
+        DEFAULTS.memoryScoring.recencyHalfLifeDays,
+      utilityHalfLifeDays:
+        fileConfig.memoryScoring?.utilityHalfLifeDays ??
+        DEFAULTS.memoryScoring.utilityHalfLifeDays,
     },
     chatMessage: {
       enabled: fileConfig.chatMessage?.enabled ?? DEFAULTS.chatMessage.enabled,

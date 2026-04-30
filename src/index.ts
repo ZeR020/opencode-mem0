@@ -14,6 +14,11 @@ import {
   cleanupOldTranscripts,
 } from "./services/transcript-capture.js";
 import { startWebServer, WebServer } from "./services/web-server.js";
+import {
+  startScoringRecalculation,
+  stopScoringRecalculation,
+  runOneTimeScoringRecalculation,
+} from "./services/memory-scoring-service.js";
 
 import { isConfigured, CONFIG, initConfig } from "./config.js";
 import { log } from "./services/logger.js";
@@ -132,8 +137,18 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
       });
   }
 
+  // Start background memory scoring recalculation
+  if (CONFIG.memoryScoring.enabled) {
+    startScoringRecalculation();
+    // Run one-time recalculation on startup to ensure existing memories are scored
+    runOneTimeScoringRecalculation().catch((error) => {
+      log("Initial scoring recalculation failed", { error: String(error) });
+    });
+  }
+
   const shutdownHandler = async () => {
     try {
+      stopScoringRecalculation();
       if (webServer) {
         await webServer.stop();
       }

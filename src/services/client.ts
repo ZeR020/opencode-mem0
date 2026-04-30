@@ -6,6 +6,7 @@ import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
 import type { MemoryType } from "../types/index.js";
 import type { MemoryRecord } from "./sqlite/types.js";
+import { calculateAllScores } from "./memory-scoring.js";
 
 export type MemoryScope = "project" | "all-projects";
 
@@ -186,6 +187,41 @@ export class LocalMemoryClient {
         ...dynamicMetadata
       } = metadata || {};
 
+      // Fetch existing memories from same container for novelty and interference
+      const db = connectionManager.getConnection(shard.dbPath);
+      let existingContents: string[] = [];
+      let conflictingMemories: string[] = [];
+
+      try {
+        const existingMemories = vectorSearch.listMemories(db, containerTag, 50);
+        existingContents = existingMemories.map((m: any) => m.content || "");
+
+        // Check for potential conflicts (simplified: memories with similar content)
+        conflictingMemories = existingContents.filter((existing) => {
+          const existingLower = existing.toLowerCase();
+          const contentLower = content.toLowerCase();
+          // Simple overlap check for potential conflicts
+          const words = contentLower.split(/\s+/).filter((w) => w.length > 4);
+          return words.some((w) => existingLower.includes(w));
+        }).slice(0, 10);
+      } catch (error) {
+        log("addMemory: failed to fetch existing memories for scoring", {
+          error: String(error),
+        });
+      }
+
+      // Calculate all scores
+      const scores = calculateAllScores({
+        createdAt: now,
+        accessCount: 0,
+        lastAccessed: null,
+        content,
+        existingContents,
+        conflictingMemories,
+        source: metadata?.source,
+        type,
+      });
+
       const record: MemoryRecord = {
         id,
         content,
@@ -204,9 +240,18 @@ export class LocalMemoryClient {
         gitRepoUrl,
         metadata:
           Object.keys(dynamicMetadata).length > 0 ? JSON.stringify(dynamicMetadata) : undefined,
+        recencyScore: scores.recency,
+        frequencyScore: scores.frequency,
+        importanceScore: scores.importance,
+        utilityScore: scores.utility,
+        noveltyScore: scores.novelty,
+        confidenceScore: scores.confidence,
+        interferencePenalty: scores.interference,
+        strength: scores.strength,
+        accessCount: 0,
+        lastAccessed: undefined,
       };
 
-      const db = connectionManager.getConnection(shard.dbPath);
       await vectorSearch.insertVector(db, record, shard);
       shardManager.incrementVectorCount(shard.id);
 
@@ -272,7 +317,14 @@ export class LocalMemoryClient {
         allMemories.push(...memories);
       }
 
-      allMemories.sort((a, b) => Number(b.created_at) - Number(a.created_at));
+      // Sort by pinned first, then strength, then recency
+      allMemories.sort((a, b) => {
+        const pinnedDiff = (b.is_pinned || 0) - (a.is_pinned || 0);
+        if (pinnedDiff !== 0) return pinnedDiff;
+        const strengthDiff = (b.strength || 0) - (a.strength || 0);
+        if (strengthDiff !== 0) return strengthDiff;
+        return (b.recency_score || 0) - (a.recency_score || 0);
+      });
 
       const memories = allMemories.slice(0, limit).map((r: any) => ({
         id: r.id,
@@ -285,6 +337,16 @@ export class LocalMemoryClient {
         projectPath: r.project_path,
         projectName: r.project_name,
         gitRepoUrl: r.git_repo_url,
+        strength: r.strength,
+        recencyScore: r.recency_score,
+        frequencyScore: r.frequency_score,
+        importanceScore: r.importance_score,
+        utilityScore: r.utility_score,
+        noveltyScore: r.novelty_score,
+        confidenceScore: r.confidence_score,
+        interferencePenalty: r.interference_penalty,
+        accessCount: r.access_count,
+        isPinned: r.is_pinned,
       }));
 
       return {

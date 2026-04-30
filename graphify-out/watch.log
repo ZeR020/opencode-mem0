@@ -376,3 +376,190 @@
 [graphify] WARNING: new graph has 500 nodes but existing graph.json has 596. Refusing to overwrite — you may be missing chunk files from a previous session. Pass force=True to override.
 [graphify] WARNING: new graph has 513 nodes but existing graph.json has 596. Refusing to overwrite — you may be missing chunk files from a previous session. Pass force=True to override.
 [graphify] WARNING: new graph has 516 nodes but existing graph.json has 596. Refusing to overwrite — you may be missing chunk files from a previous session. Pass force=True to override.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 1 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 1 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 2 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 1 file(s) changed
+[graphify watch] Rebuilt: 500 nodes, 1244 edges, 20 communities
+[graphify watch] graph.json, graph.html and GRAPH_REPORT.md updated in graphify-out
+
+[graphify watch] 73 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 1 file(s) changed
+[graphify watch] Rebuilt: 513 nodes, 1280 edges, 22 communities
+[graphify watch] graph.json, graph.html and GRAPH_REPORT.md updated in graphify-out
+
+[graphify watch] 74 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 4 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 2 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 1 file(s) changed
+[graphify watch] Rebuilt: 516 nodes, 1291 edges, 21 communities
+[graphify watch] graph.json, graph.html and GRAPH_REPORT.md updated in graphify-out
+
+[graphify watch] 75 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 2 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 955 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 3 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 3 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 54 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 957 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 853 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 1 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 75 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 1 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 3 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 1 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 1 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 2 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 3 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 3 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.
+[graphify watch] Run `/graphify --update` in Claude Code to update the graph.
+[graphify watch] Flag written to graphify-out/needs_update
+
+[graphify watch] 3 file(s) changed
+
+[graphify watch] New or changed files detected in .
+[graphify watch] Non-code files changed - semantic re-extraction requires LLM.

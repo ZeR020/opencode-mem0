@@ -170,7 +170,17 @@ export class ShardManager {
         project_path TEXT,
         project_name TEXT,
         git_repo_url TEXT,
-        is_pinned INTEGER DEFAULT 0
+        is_pinned INTEGER DEFAULT 0,
+        recency_score REAL DEFAULT 0.5,
+        frequency_score REAL DEFAULT 0.0,
+        importance_score REAL DEFAULT 0.5,
+        utility_score REAL DEFAULT 0.3,
+        novelty_score REAL DEFAULT 0.5,
+        confidence_score REAL DEFAULT 0.7,
+        interference_penalty REAL DEFAULT 0.0,
+        strength REAL DEFAULT 0.5,
+        access_count INTEGER DEFAULT 0,
+        last_accessed INTEGER
       )
     `);
 
@@ -178,6 +188,42 @@ export class ShardManager {
     db.run(`CREATE INDEX IF NOT EXISTS idx_type ON memories(type)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_created_at ON memories(created_at DESC)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_is_pinned ON memories(is_pinned)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_strength ON memories(strength DESC)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_recency ON memories(recency_score DESC)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_access_count ON memories(access_count DESC)`);
+
+    // Migrate existing databases to add scoring columns
+    this.migrateScoringColumns(db);
+  }
+
+  private migrateScoringColumns(db: DatabaseType): void {
+    const columns = db.prepare("PRAGMA table_info(memories)").all() as any[];
+    const columnNames = new Set(columns.map((c) => c.name));
+
+    const scoringColumns = [
+      { name: "recency_score", type: "REAL DEFAULT 0.5" },
+      { name: "frequency_score", type: "REAL DEFAULT 0.0" },
+      { name: "importance_score", type: "REAL DEFAULT 0.5" },
+      { name: "utility_score", type: "REAL DEFAULT 0.3" },
+      { name: "novelty_score", type: "REAL DEFAULT 0.5" },
+      { name: "confidence_score", type: "REAL DEFAULT 0.7" },
+      { name: "interference_penalty", type: "REAL DEFAULT 0.0" },
+      { name: "strength", type: "REAL DEFAULT 0.5" },
+      { name: "access_count", type: "INTEGER DEFAULT 0" },
+      { name: "last_accessed", type: "INTEGER" },
+    ];
+
+    for (const col of scoringColumns) {
+      if (!columnNames.has(col.name)) {
+        try {
+          db.run(`ALTER TABLE memories ADD COLUMN ${col.name} ${col.type}`);
+        } catch (error) {
+          log(`Schema migration: failed to add column ${col.name}`, {
+            error: String(error),
+          });
+        }
+      }
+    }
   }
 
   private isShardValid(shard: ShardInfo): boolean {
