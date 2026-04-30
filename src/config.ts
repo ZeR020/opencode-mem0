@@ -66,6 +66,10 @@ interface OpenCodeMemConfig {
   showAutoCaptureToasts?: boolean;
   showUserProfileToasts?: boolean;
   showErrorToasts?: boolean;
+  transcriptStorage?: {
+    enabled?: boolean;
+    maxAgeDays?: number;
+  };
   compaction?: {
     enabled?: boolean;
     memoryLimit?: number;
@@ -147,6 +151,10 @@ const DEFAULTS: Required<
   showErrorToasts: true,
   memory: {
     defaultScope: "project",
+  },
+  transcriptStorage: {
+    enabled: true,
+    maxAgeDays: 30,
   },
   compaction: {
     enabled: true,
@@ -416,6 +424,17 @@ const CONFIG_TEMPLATE = `{
   "maxMemories": 10,
 
   // ============================================
+  // ============================================
+  // Transcript Storage Settings
+  // ============================================
+
+  // Automatically save full conversation transcripts for later review
+  "transcriptStorage": {
+    "enabled": true,
+    "maxAgeDays": 30
+  },
+
+  // ============================================
   // Advanced Settings
   // ============================================
   
@@ -549,6 +568,12 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
     compaction: {
       enabled: fileConfig.compaction?.enabled ?? DEFAULTS.compaction.enabled,
       memoryLimit: fileConfig.compaction?.memoryLimit ?? DEFAULTS.compaction.memoryLimit,
+    },
+    transcriptStorage: {
+      enabled:
+        fileConfig.transcriptStorage?.enabled ?? DEFAULTS.transcriptStorage.enabled,
+      maxAgeDays:
+        fileConfig.transcriptStorage?.maxAgeDays ?? DEFAULTS.transcriptStorage.maxAgeDays,
     },
     chatMessage: {
       enabled: fileConfig.chatMessage?.enabled ?? DEFAULTS.chatMessage.enabled,

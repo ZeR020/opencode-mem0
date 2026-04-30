@@ -9,6 +9,10 @@ import { stripPrivateContent, isFullyPrivate } from "./services/privacy.js";
 import { performAutoCapture } from "./services/auto-capture.js";
 import { performUserProfileLearning } from "./services/user-memory-learning.js";
 import { userPromptManager } from "./services/user-prompt/user-prompt-manager.js";
+import {
+  performTranscriptCapture,
+  cleanupOldTranscripts,
+} from "./services/transcript-capture.js";
 import { startWebServer, WebServer } from "./services/web-server.js";
 
 import { isConfigured, CONFIG, initConfig } from "./config.js";
@@ -494,6 +498,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
               await performUserProfileLearning(ctx, directory);
               const { cleanupService } = await import("./services/cleanup-service.js");
               if (await cleanupService.shouldRunCleanup()) await cleanupService.runCleanup();
+              await cleanupOldTranscripts();
               const { connectionManager } = await import("./services/sqlite/connection-manager.js");
               connectionManager.checkpointAll();
             }
