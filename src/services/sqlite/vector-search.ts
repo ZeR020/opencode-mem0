@@ -164,11 +164,11 @@ export class VectorSearch {
         containerTag === ""
           ? `
       SELECT * FROM memories
-      WHERE id IN (${placeholders})
+      WHERE id IN (${placeholders}) AND is_deprecated = 0
     `
           : `
       SELECT * FROM memories
-      WHERE id IN (${placeholders}) AND container_tag = ?
+      WHERE id IN (${placeholders}) AND container_tag = ? AND is_deprecated = 0
     `
       )
       .all(...ids, ...(containerTag === "" ? [] : [containerTag])) as any[];
@@ -315,12 +315,13 @@ export class VectorSearch {
       containerTag === ""
         ? `
       SELECT * FROM memories
+      WHERE is_deprecated = 0
       ORDER BY is_pinned DESC, strength DESC, recency_score DESC
       LIMIT ?
     `
         : `
       SELECT * FROM memories
-      WHERE container_tag = ?
+      WHERE container_tag = ? AND is_deprecated = 0
       ORDER BY is_pinned DESC, strength DESC, recency_score DESC
       LIMIT ?
     `
@@ -330,7 +331,7 @@ export class VectorSearch {
   }
 
   getAllMemories(db: DatabaseType): any[] {
-    const stmt = db.prepare(`SELECT * FROM memories ORDER BY created_at DESC`);
+    const stmt = db.prepare(`SELECT * FROM memories WHERE is_deprecated = 0 ORDER BY created_at DESC`);
     return stmt.all() as any[];
   }
 
@@ -342,7 +343,7 @@ export class VectorSearch {
   getMemoriesBySessionID(db: DatabaseType, sessionID: string): any[] {
     const stmt = db.prepare(`
       SELECT * FROM memories
-      WHERE metadata LIKE ?
+      WHERE metadata LIKE ? AND is_deprecated = 0
       ORDER BY created_at DESC
     `);
 
@@ -356,13 +357,13 @@ export class VectorSearch {
   }
 
   countVectors(db: DatabaseType, containerTag: string): number {
-    const stmt = db.prepare(`SELECT COUNT(*) as count FROM memories WHERE container_tag = ?`);
+    const stmt = db.prepare(`SELECT COUNT(*) as count FROM memories WHERE container_tag = ? AND is_deprecated = 0`);
     const result = stmt.get(containerTag) as any;
     return result.count;
   }
 
   countAllVectors(db: DatabaseType): number {
-    const stmt = db.prepare(`SELECT COUNT(*) as count FROM memories`);
+    const stmt = db.prepare(`SELECT COUNT(*) as count FROM memories WHERE is_deprecated = 0`);
     const result = stmt.get() as any;
     return result.count;
   }

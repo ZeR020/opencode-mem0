@@ -41,6 +41,10 @@
           <i data-lucide="folder" class="icon"></i>
           PROJECT MEMORIES
         </button>
+        <button id="tab-conflicts" class="tab-btn" data-i18n="tab-conflicts">
+          <i data-lucide="alert-triangle" class="icon"></i>
+          CONFLICTS <span id="conflict-badge" class="tab-badge hidden">0</span>
+        </button>
         <button id="tab-profile" class="tab-btn" data-i18n="tab-profile">
           <i data-lucide="user" class="icon"></i>
           USER PROFILE
@@ -145,6 +149,19 @@
           <button id="next-page-bottom" disabled>
             <i data-lucide="chevron-right" class="icon"></i>
           </button>
+        </div>
+      </div>
+
+      <div class="conflicts-section hidden" id="conflicts-section">
+        <div class="section-header">
+          <h2 data-i18n="section-conflicts">└─ MEMORY CONFLICTS ──</h2>
+          <button id="refresh-conflicts-btn" class="btn-secondary">
+            <i data-lucide="refresh-cw" class="icon"></i> Refresh
+          </button>
+        </div>
+        <div id="conflicts-stats" class="conflicts-stats"></div>
+        <div id="conflicts-list" class="conflicts-list">
+          <div class="loading" data-i18n="loading-conflicts">Loading conflicts...</div>
         </div>
       </div>
 
@@ -279,6 +296,32 @@
         <div id="changelog-list" class="changelog-list">
           <div class="loading" data-i18n="loading-changelog">Loading changelog...</div>
         </div>
+      </div>
+    </div>
+
+    <div id="merge-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Merge Conflicting Memories</h3>
+          <button class="modal-close" id="merge-modal-close">
+            <i data-lucide="x" class="icon"></i>
+          </button>
+        </div>
+        <form id="merge-form">
+          <input type="hidden" id="merge-conflict-id" />
+          <div class="form-group">
+            <label>Merged Content:</label>
+            <textarea id="merge-content" rows="8" required></textarea>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" id="cancel-merge">
+              <i data-lucide="x" class="icon"></i> Cancel
+            </button>
+            <button type="submit" class="btn-primary">
+              <i data-lucide="check" class="icon"></i> Merge
+            </button>
+          </div>
+        </form>
       </div>
     </div>
 

@@ -182,7 +182,8 @@ export class ShardManager {
         access_count INTEGER DEFAULT 0,
         last_accessed INTEGER,
         store_type TEXT DEFAULT 'stm',
-        decay_rate REAL DEFAULT 0.05
+        decay_rate REAL DEFAULT 0.05,
+        is_deprecated INTEGER DEFAULT 0
       )
     `);
 
@@ -195,6 +196,27 @@ export class ShardManager {
     db.run(`CREATE INDEX IF NOT EXISTS idx_access_count ON memories(access_count DESC)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_store_type ON memories(store_type)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_decay_strength ON memories(strength, created_at)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_is_deprecated ON memories(is_deprecated)`);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS memory_conflicts (
+        id TEXT PRIMARY KEY,
+        memory_id_1 TEXT NOT NULL,
+        memory_id_2 TEXT NOT NULL,
+        similarity_score REAL NOT NULL,
+        detected_at INTEGER NOT NULL,
+        resolved INTEGER DEFAULT 0,
+        resolution_type TEXT,
+        resolved_at INTEGER,
+        resolution_data TEXT,
+        FOREIGN KEY (memory_id_1) REFERENCES memories(id) ON DELETE CASCADE,
+        FOREIGN KEY (memory_id_2) REFERENCES memories(id) ON DELETE CASCADE
+      )
+    `);
+
+    db.run(`CREATE INDEX IF NOT EXISTS idx_conflict_m1 ON memory_conflicts(memory_id_1)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_conflict_m2 ON memory_conflicts(memory_id_2)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_conflict_resolved ON memory_conflicts(resolved, detected_at)`);
 
     // Migrate existing databases to add scoring columns
     this.migrateScoringColumns(db);
@@ -217,6 +239,7 @@ export class ShardManager {
       { name: "last_accessed", type: "INTEGER" },
       { name: "store_type", type: "TEXT DEFAULT 'stm'" },
       { name: "decay_rate", type: "REAL DEFAULT 0.05" },
+      { name: "is_deprecated", type: "INTEGER DEFAULT 0" },
     ];
 
     for (const col of scoringColumns) {

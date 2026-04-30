@@ -40,6 +40,19 @@ export interface MemoryRecord {
   // Lifecycle fields
   storeType?: "stm" | "ltm";
   decayRate?: number;
+  isDeprecated?: number;
+}
+
+export interface MemoryConflict {
+  id: string;
+  memoryId1: string;
+  memoryId2: string;
+  similarityScore: number;
+  detectedAt: number;
+  resolved: number;
+  resolutionType?: string;
+  resolvedAt?: number;
+  resolutionData?: string;
 }
 
 export interface SearchResult {

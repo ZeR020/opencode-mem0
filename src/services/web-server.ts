@@ -26,6 +26,9 @@ import {
   handleGetProfileChangelog,
   handleGetProfileSnapshot,
   handleRefreshProfile,
+  handleListConflicts,
+  handleResolveConflict,
+  handleConflictStats,
 } from "./api-handlers.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -275,6 +278,29 @@ export class WebServer {
 
       if (path === "/api/stats" && method === "GET") {
         const result = await handleStats();
+        return this.jsonResponse(result);
+      }
+
+      if (path === "/api/conflicts" && method === "GET") {
+        const resolved = url.searchParams.get("resolved") === "true";
+        const limit = parseInt(url.searchParams.get("limit") || "100");
+        const result = await handleListConflicts(resolved, limit);
+        return this.jsonResponse(result);
+      }
+
+      if (path === "/api/conflicts/stats" && method === "GET") {
+        const result = await handleConflictStats();
+        return this.jsonResponse(result);
+      }
+
+      if (path.startsWith("/api/conflicts/") && method === "POST") {
+        const parts = path.split("/");
+        const conflictId = parts[3];
+        if (!conflictId || conflictId === "stats") {
+          return this.jsonResponse({ success: false, error: "Invalid conflict ID" });
+        }
+        const body = (await req.json().catch(() => ({}))) as any;
+        const result = await handleResolveConflict(conflictId, body.strategy, body.mergedContent);
         return this.jsonResponse(result);
       }
 

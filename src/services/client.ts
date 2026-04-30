@@ -8,6 +8,7 @@ import type { MemoryType } from "../types/index.js";
 import type { MemoryRecord } from "./sqlite/types.js";
 import { calculateAllScores } from "./memory-scoring.js";
 import { classifyMemory } from "./memory-lifecycle.js";
+import { detectConflicts } from "./memory-conflicts.js";
 
 export type MemoryScope = "project" | "all-projects";
 
@@ -260,6 +261,11 @@ export class LocalMemoryClient {
 
       await vectorSearch.insertVector(db, record, shard);
       shardManager.incrementVectorCount(shard.id);
+
+      // Run conflict detection asynchronously (don't block addMemory response)
+      detectConflicts(id, content, containerTag, metadata?.sessionID).catch((err) => {
+        log("addMemory: conflict detection failed", { error: String(err) });
+      });
 
       return { success: true as const, id };
     } catch (error) {

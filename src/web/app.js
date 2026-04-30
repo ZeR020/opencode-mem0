@@ -14,6 +14,7 @@ const state = {
   selectedMemories: new Set(),
   autoRefreshInterval: null,
   userProfile: null,
+  conflicts: [],
 };
 
 marked.setOptions({
@@ -370,6 +371,18 @@ async function loadStats() {
     document.getElementById("stats-total").textContent = t("text-total", {
       count: result.data.total,
     });
+  }
+
+  // Also fetch conflict stats for badge
+  const conflictResult = await fetchAPI("/api/conflicts/stats");
+  if (conflictResult.success) {
+    const badge = document.getElementById("conflict-badge");
+    if (conflictResult.data.unresolved > 0) {
+      badge.textContent = conflictResult.data.unresolved;
+      badge.classList.remove("hidden");
+    } else {
+      badge.classList.add("hidden");
+    }
   }
 }
 
@@ -1113,16 +1126,173 @@ function switchView(view) {
   if (view === "project") {
     document.getElementById("tab-project").classList.add("active");
     document.getElementById("project-section").classList.remove("hidden");
+    document.getElementById("conflicts-section").classList.add("hidden");
     document.getElementById("profile-section").classList.add("hidden");
     document.querySelector(".controls").classList.remove("hidden");
     document.querySelector(".add-section").classList.remove("hidden");
+  } else if (view === "conflicts") {
+    document.getElementById("tab-conflicts").classList.add("active");
+    document.getElementById("project-section").classList.add("hidden");
+    document.getElementById("conflicts-section").classList.remove("hidden");
+    document.getElementById("profile-section").classList.add("hidden");
+    document.querySelector(".controls").classList.add("hidden");
+    document.querySelector(".add-section").classList.add("hidden");
+    loadConflicts();
   } else if (view === "profile") {
     document.getElementById("tab-profile").classList.add("active");
     document.getElementById("project-section").classList.add("hidden");
+    document.getElementById("conflicts-section").classList.add("hidden");
     document.getElementById("profile-section").classList.remove("hidden");
     document.querySelector(".controls").classList.add("hidden");
     document.querySelector(".add-section").classList.add("hidden");
     loadUserProfile();
+  }
+}
+
+async function loadConflicts() {
+  const list = document.getElementById("conflicts-list");
+  list.innerHTML = `<div class="loading">Loading conflicts...</div>`;
+
+  const result = await fetchAPI("/api/conflicts");
+  const statsResult = await fetchAPI("/api/conflicts/stats");
+
+  if (statsResult.success) {
+    const stats = document.getElementById("conflicts-stats");
+    stats.innerHTML = `
+      <div class="conflict-stat-pill">
+        <span class="label">Unresolved:</span>
+        <span class="value ${statsResult.data.unresolved > 0 ? 'warning' : ''}">${statsResult.data.unresolved}</span>
+      </div>
+      <div class="conflict-stat-pill">
+        <span class="label">Resolved:</span>
+        <span class="value">${statsResult.data.resolved}</span>
+      </div>
+    `;
+    // Update badge
+    const badge = document.getElementById("conflict-badge");
+    if (statsResult.data.unresolved > 0) {
+      badge.textContent = statsResult.data.unresolved;
+      badge.classList.remove("hidden");
+    } else {
+      badge.classList.add("hidden");
+    }
+  }
+
+  if (result.success) {
+    state.conflicts = result.data;
+    renderConflicts();
+  } else {
+    list.innerHTML = `<div class="error-state">Error: ${escapeHtml(result.error || "Failed to load conflicts")}</div>`;
+  }
+}
+
+function renderConflicts() {
+  const container = document.getElementById("conflicts-list");
+
+  if (state.conflicts.length === 0) {
+    container.innerHTML = `<div class="empty-state">No unresolved conflicts found. Great!</div>`;
+    return;
+  }
+
+  container.innerHTML = state.conflicts
+    .map(
+      (c) => `
+    <div class="conflict-card" data-id="${c.id}">
+      <div class="conflict-header">
+        <span class="badge badge-conflict"><i data-lucide="alert-triangle" class="icon-sm"></i> CONFLICT</span>
+        <span class="similarity-score">${Math.round(c.similarityScore * 100)}% similarity</span>
+        <span class="conflict-date">${formatDate(c.detectedAt)}</span>
+      </div>
+      <div class="conflict-memories">
+        <div class="conflict-memory">
+          <div class="conflict-label">Memory A</div>
+          <div class="conflict-content">${escapeHtml(c.memory1Content || "N/A")}</div>
+        </div>
+        <div class="conflict-divider">
+          <i data-lucide="arrow-right-left" class="icon"></i>
+        </div>
+        <div class="conflict-memory">
+          <div class="conflict-label">Memory B</div>
+          <div class="conflict-content">${escapeHtml(c.memory2Content || "N/A")}</div>
+        </div>
+      </div>
+      <div class="conflict-actions">
+        <button class="btn-resolve" onclick="resolveConflictAction('${c.id}', 'keep_newer')">
+          <i data-lucide="check" class="icon"></i> Keep Newer
+        </button>
+        <button class="btn-resolve" onclick="resolveConflictAction('${c.id}', 'keep_both')">
+          <i data-lucide="git-merge" class="icon"></i> Keep Both
+        </button>
+        <button class="btn-resolve" onclick="showMergeModal('${c.id}')">
+          <i data-lucide="combine" class="icon"></i> Merge
+        </button>
+        <button class="btn-resolve btn-manual" onclick="resolveConflictAction('${c.id}', 'manual')">
+          <i data-lucide="flag" class="icon"></i> Flag for Review
+        </button>
+      </div>
+    </div>
+  `
+    )
+    .join("");
+
+  lucide.createIcons();
+}
+
+async function resolveConflictAction(conflictId, strategy) {
+  if (strategy === "merge") return;
+
+  const result = await fetchAPI(`/api/conflicts/${conflictId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ strategy }),
+  });
+
+  if (result.success) {
+    showToast("Conflict resolved", "success");
+    await loadConflicts();
+    await loadStats();
+  } else {
+    showToast(result.error || "Failed to resolve conflict", "error");
+  }
+}
+
+function showMergeModal(conflictId) {
+  const conflict = state.conflicts.find((c) => c.id === conflictId);
+  if (!conflict) return;
+
+  const modal = document.getElementById("merge-modal");
+  document.getElementById("merge-conflict-id").value = conflictId;
+  document.getElementById("merge-content").value = `${conflict.memory1Content}\n\n---\n\n${conflict.memory2Content}`;
+  modal.classList.remove("hidden");
+}
+
+function closeMergeModal() {
+  document.getElementById("merge-modal").classList.add("hidden");
+}
+
+async function submitMerge(e) {
+  e.preventDefault();
+  const conflictId = document.getElementById("merge-conflict-id").value;
+  const mergedContent = document.getElementById("merge-content").value.trim();
+
+  if (!mergedContent) {
+    showToast("Merged content is required", "error");
+    return;
+  }
+
+  const result = await fetchAPI(`/api/conflicts/${conflictId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ strategy: "merge", mergedContent }),
+  });
+
+  if (result.success) {
+    showToast("Conflicts merged successfully", "success");
+    closeMergeModal();
+    await loadConflicts();
+    await loadStats();
+  } else {
+    showToast(result.error || "Failed to merge conflicts", "error");
   }
 }
 
@@ -1134,8 +1304,10 @@ function escapeHtml(text) {
 
 document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("tab-project").addEventListener("click", () => switchView("project"));
+  document.getElementById("tab-conflicts").addEventListener("click", () => switchView("conflicts"));
   document.getElementById("tab-profile").addEventListener("click", () => switchView("profile"));
   document.getElementById("refresh-profile-btn")?.addEventListener("click", refreshProfile);
+  document.getElementById("refresh-conflicts-btn")?.addEventListener("click", loadConflicts);
   document.getElementById("changelog-close")?.addEventListener("click", () => {
     document.getElementById("changelog-modal").classList.add("hidden");
   });
@@ -1197,6 +1369,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("edit-modal").addEventListener("click", (e) => {
     if (e.target.id === "edit-modal") closeModal();
+  });
+
+  document.getElementById("merge-form")?.addEventListener("submit", submitMerge);
+  document.getElementById("merge-modal-close")?.addEventListener("click", closeMergeModal);
+  document.getElementById("cancel-merge")?.addEventListener("click", closeMergeModal);
+  document.getElementById("merge-modal")?.addEventListener("click", (e) => {
+    if (e.target.id === "merge-modal") closeMergeModal();
   });
 
   await loadTags();
