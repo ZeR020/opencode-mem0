@@ -1,5 +1,5 @@
 {
-  "name": "opencode-mem",
+  "name": "opencode-mem0",
   "version": "2.13.0",
   "description": "OpenCode plugin that gives coding agents persistent memory using local vector database",
   "type": "module",
@@ -33,11 +33,11 @@
     "local",
     "standalone"
   ],
-  "author": "opencode-mem",
+  "author": "ZeR020",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tickernelz/opencode-mem.git"
+    "url": "git+https://github.com/ZeR020/opencode-mem0.git"
   },
   "publishConfig": {
     "access": "public"
