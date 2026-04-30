@@ -63,3 +63,7 @@ src/graphify-out/
 .opencode/command/gsd-graphify.md
 .opencode/get-shit-done/bin/lib/graphify.cjs
 .opencode/plugins/graphify.js
+
+# personal agent configuration and tooling (not for public repos)
+.opencode/
+AGENTS.md
