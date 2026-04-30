@@ -123,9 +123,11 @@ export function getProjectIdentity(directory: string): string {
 }
 
 export function getProjectName(directory: string): string {
-  // Normalize path to handle both Unix and Windows separators
-  const normalized = normalize(directory);
-  const parts = normalized.split(sep).filter((p) => p);
+  // Normalize path to handle both Unix and Windows separators.
+  // path.normalize on Linux does not convert backslashes, so we
+  // manually replace them before normalizing.
+  const normalized = normalize(directory.replace(/\\/g, "/"));
+  const parts = normalized.split("/").filter((p) => p);
   return parts[parts.length - 1] || directory;
 }
 
