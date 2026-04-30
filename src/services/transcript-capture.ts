@@ -6,6 +6,15 @@ import { CONFIG } from "../config.js";
 
 let isCaptureRunning = false;
 
+/**
+ * Capture and store a session transcript from the OpenCode client.
+ * Filters out synthetic parts to avoid bloat, then saves to the transcript
+ * database with FTS5 indexing for full-text search.
+ *
+ * @param ctx - Plugin input context with client access
+ * @param sessionID - Session identifier to capture
+ * @param directory - Project directory for tagging
+ */
 export async function performTranscriptCapture(
   ctx: PluginInput,
   sessionID: string,
@@ -70,6 +79,11 @@ export async function performTranscriptCapture(
   }
 }
 
+/**
+ * Remove transcripts older than the configured maxAgeDays threshold.
+ *
+ * @returns Number of transcripts deleted
+ */
 export async function cleanupOldTranscripts(): Promise<number> {
   if (!CONFIG.transcriptStorage.enabled) return 0;
 

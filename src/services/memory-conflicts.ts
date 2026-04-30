@@ -11,6 +11,15 @@ type DatabaseType = typeof Database.prototype;
 
 let isConflictCheckRunning = false;
 
+/**
+ * Check if two memory statements contradict each other using an LLM.
+ * Falls back to a heuristic-based check if the LLM is unavailable.
+ *
+ * @param memory1 - Content of the first memory
+ * @param memory2 - Content of the second memory
+ * @param sessionID - Optional session ID for provider routing
+ * @returns true if the statements are logically incompatible
+ */
 async function checkContradictionWithLLM(
   memory1: string,
   memory2: string,
@@ -91,6 +100,14 @@ async function checkContradictionWithLLM(
   return checkContradictionHeuristic(memory1, memory2);
 }
 
+/**
+ * Heuristic contradiction detection using negation patterns and keyword overlap.
+ * Used as a fallback when LLM-based detection is unavailable.
+ *
+ * @param a - First memory content
+ * @param b - Second memory content
+ * @returns true if a likely contradiction is detected
+ */
 function checkContradictionHeuristic(a: string, b: string): boolean {
   const negationPatterns = [
     /not\s+/i,
@@ -120,6 +137,17 @@ function checkContradictionHeuristic(a: string, b: string): boolean {
   return false;
 }
 
+/**
+ * Detect conflicts between a newly added memory and existing similar memories.
+ * Performs similarity search, then LLM-based or heuristic contradiction detection.
+ * Runs asynchronously to avoid blocking memory insertion.
+ *
+ * @param newMemoryId - ID of the newly created memory
+ * @param newMemoryContent - Content of the new memory
+ * @param containerTag - Container tag for scoping the search
+ * @param sessionID - Optional session ID for provider routing
+ * @returns Array of detected conflicts (may be empty)
+ */
 export async function detectConflicts(
   newMemoryId: string,
   newMemoryContent: string,
@@ -194,6 +222,13 @@ export async function detectConflicts(
   }
 }
 
+/**
+ * Extract scope and hash from a container tag string.
+ * Container tags follow the format `mem_<scope>_<hash>`.
+ *
+ * @param containerTag - The container tag to parse
+ * @returns Object with scope ('user' or 'project') and hash
+ */
 function extractScopeFromContainerTag(containerTag: string): {
   scope: "user" | "project";
   hash: string;
@@ -214,6 +249,15 @@ interface SimilarMemory {
   is_deprecated: number;
 }
 
+/**
+ * Find memories similar to the given content within the same container.
+ * Uses FTS5 full-text search when available, falling back to LIKE queries.
+ *
+ * @param db - SQLite database handle
+ * @param content - Content to search for similar memories
+ * @param containerTag - Container tag to restrict the search
+ * @returns Array of similar memories with similarity scores
+ */
 function findSimilarMemories(
   db: DatabaseType,
   content: string,
@@ -298,6 +342,15 @@ function findSimilarMemories(
   return results.filter((r) => r.similarity > 0.3).sort((a, b) => b.similarity - a.similarity);
 }
 
+/**
+ * Check if a conflict between two memory IDs already exists in the database.
+ * Looks for the conflict in either direction (memory1 vs memory2 or vice versa).
+ *
+ * @param db - SQLite database handle
+ * @param memoryId1 - First memory ID
+ * @param memoryId2 - Second memory ID
+ * @returns The existing conflict record, or null if not found
+ */
 function findExistingConflict(
   db: DatabaseType,
   memoryId1: string,
@@ -329,6 +382,12 @@ function findExistingConflict(
   };
 }
 
+/**
+ * Persist a detected conflict to the database.
+ *
+ * @param db - SQLite database handle
+ * @param conflict - The conflict record to save
+ */
 function saveConflict(db: DatabaseType, conflict: MemoryConflict): void {
   db.prepare(
     `
@@ -350,6 +409,18 @@ function saveConflict(db: DatabaseType, conflict: MemoryConflict): void {
 }
 
 // Resolution strategies
+/**
+ * Resolve a conflict using one of four strategies:
+ * - `keep_newer`: Deprecate the older memory, keep the newer
+ * - `keep_both`: Mark as complementary, no changes to memories
+ * - `merge`: Create a new merged memory, deprecate both originals
+ * - `manual`: Flag for user review without automatic action
+ *
+ * @param conflictId - ID of the conflict to resolve
+ * @param strategy - Resolution strategy to apply
+ * @param mergedContent - Required when using the `merge` strategy
+ * @returns Object indicating success and optionally the merged memory ID
+ */
 export async function resolveConflict(
   conflictId: string,
   strategy: "keep_newer" | "keep_both" | "merge" | "manual",
@@ -490,6 +561,14 @@ export async function resolveConflict(
   }
 }
 
+/**
+ * Retrieve conflicts from a single database shard.
+ *
+ * @param db - SQLite database handle
+ * @param resolved - If true, return resolved conflicts; otherwise unresolved
+ * @param limit - Maximum number of conflicts to return
+ * @returns Array of conflicts with optional memory content previews
+ */
 export function getConflicts(
   db: DatabaseType,
   resolved: boolean = false,
@@ -524,6 +603,12 @@ export function getConflicts(
   }));
 }
 
+/**
+ * Retrieve all unresolved conflicts across every shard in the system.
+ *
+ * @param limit - Maximum total number of conflicts to return
+ * @returns Array of unresolved conflicts sorted by detection time (newest first)
+ */
 export function getAllUnresolvedConflicts(limit: number = 1000): (MemoryConflict & { memory1Content?: string; memory2Content?: string })[] {
   const allConflicts: (MemoryConflict & { memory1Content?: string; memory2Content?: string })[] = [];
   const shards = [...shardManager.getAllShards("user", ""), ...shardManager.getAllShards("project", "")];

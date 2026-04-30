@@ -36,3 +36,26 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # local design and implementation plans
 docs/plans/
 .sisyphus
+
+# test artifacts & temporary databases
+*.test.db
+*.tmp.db
+/test-databases/
+/test-data/
+temp/
+tmp/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# migration backups
+*.migrate-backup
+
+# coverage reports (already covered by coverage/, but belt-and-suspenders)
+*.lcov
+
+# graphify knowledge graph cache and memory
+graphify-out/cache/
+graphify-out/memory/
+graphify-out/*.db

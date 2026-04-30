@@ -30,6 +30,14 @@ export class VectorSearch {
     return this.backendPromise;
   }
 
+  /**
+   * Insert a memory vector into the SQLite database and optionally index it
+   * in the vector backend (usearch or exact-scan). Rolls back on backend failure.
+   *
+   * @param db - SQLite database handle
+   * @param record - Complete memory record including vector and scores
+   * @param shard - Optional shard info for vector backend indexing
+   */
   async insertVector(db: DatabaseType, record: MemoryRecord, shard?: ShardInfo): Promise<void> {
     const insertMemory = db.prepare(`
       INSERT INTO memories (
@@ -86,6 +94,20 @@ export class VectorSearch {
     }
   }
 
+  /**
+   * Search for memories within a single shard using hybrid ranking.
+   * Combines vector similarity (60%), tag similarity (40%), and FTS5 boost,
+   * then applies multi-factor ranking (strength 40% + recency 30% + semantic 30%),
+   * context boosting, and diversity filtering.
+   *
+   * @param shard - Shard to search
+   * @param queryVector - Embedded query vector
+   * @param containerTag - Container tag to filter by (empty string for all)
+   * @param limit - Maximum results to return from this shard
+   * @param queryText - Raw query text for FTS5 and tag matching
+   * @param context - Optional retrieval context for project/file boosting
+   * @returns Ranked search results with score breakdowns
+   */
   async searchInShard(
     shard: ShardInfo,
     queryVector: Float32Array,
@@ -329,6 +351,20 @@ export class VectorSearch {
     return diverseResults;
   }
 
+  /**
+   * Execute a vector search across multiple shards and merge results.
+   * Applies global diversity filtering to ensure the final result set
+   * is not redundant across shards.
+   *
+   * @param shards - Array of shards to search
+   * @param queryVector - Embedded query vector
+   * @param containerTag - Container tag to filter by
+   * @param limit - Per-shard result limit
+   * @param similarityThreshold - Minimum similarity score to include
+   * @param queryText - Raw query text for FTS5
+   * @param context - Optional retrieval context for boosting
+   * @returns Globally ranked and deduplicated search results
+   */
   async searchAcrossShards(
     shards: ShardInfo[],
     queryVector: Float32Array,
@@ -390,6 +426,13 @@ export class VectorSearch {
     return finalResults.filter((r) => r.similarity >= similarityThreshold);
   }
 
+  /**
+   * Delete a memory from SQLite and the vector backend.
+   *
+   * @param db - SQLite database handle
+   * @param memoryId - ID of the memory to delete
+   * @param shard - Optional shard info for backend index cleanup
+   */
   async deleteVector(db: DatabaseType, memoryId: string, shard?: ShardInfo): Promise<void> {
     db.prepare(`DELETE FROM memories WHERE id = ?`).run(memoryId);
 
@@ -400,6 +443,15 @@ export class VectorSearch {
     }
   }
 
+  /**
+   * Update a memory's vector in SQLite and the vector backend.
+   *
+   * @param db - SQLite database handle
+   * @param memoryId - ID of the memory to update
+   * @param vector - New content vector
+   * @param shard - Optional shard info for backend re-indexing
+   * @param tagsVector - Optional new tags vector
+   */
   async updateVector(
     db: DatabaseType,
     memoryId: string,
@@ -424,6 +476,14 @@ export class VectorSearch {
     }
   }
 
+  /**
+   * List non-deprecated memories from a shard, ordered by pinned, strength, recency.
+   *
+   * @param db - SQLite database handle
+   * @param containerTag - Container tag to filter by (empty for all)
+   * @param limit - Maximum memories to return
+   * @returns Raw database rows
+   */
   listMemories(db: DatabaseType, containerTag: string, limit: number): any[] {
     const stmt = db.prepare(
       containerTag === ""
@@ -444,16 +504,36 @@ export class VectorSearch {
     return (containerTag === "" ? stmt.all(limit) : stmt.all(containerTag, limit)) as any[];
   }
 
+  /**
+   * Retrieve all non-deprecated memories from a shard.
+   *
+   * @param db - SQLite database handle
+   * @returns All memory rows ordered by creation time
+   */
   getAllMemories(db: DatabaseType): any[] {
     const stmt = db.prepare(`SELECT * FROM memories WHERE is_deprecated = 0 ORDER BY created_at DESC`);
     return stmt.all() as any[];
   }
 
+  /**
+   * Fetch a single memory by its ID.
+   *
+   * @param db - SQLite database handle
+   * @param memoryId - Memory ID to look up
+   * @returns The memory row, or null if not found
+   */
   getMemoryById(db: DatabaseType, memoryId: string): any | null {
     const stmt = db.prepare(`SELECT * FROM memories WHERE id = ?`);
     return stmt.get(memoryId) as any;
   }
 
+  /**
+   * Find memories associated with a specific session ID via metadata.
+   *
+   * @param db - SQLite database handle
+   * @param sessionID - Session ID to search for in metadata
+   * @returns Matching memory rows with parsed tags and metadata
+   */
   getMemoriesBySessionID(db: DatabaseType, sessionID: string): any[] {
     const stmt = db.prepare(`
       SELECT * FROM memories
@@ -470,12 +550,25 @@ export class VectorSearch {
     }));
   }
 
+  /**
+   * Count non-deprecated memories for a specific container tag.
+   *
+   * @param db - SQLite database handle
+   * @param containerTag - Container tag to count
+   * @returns Number of matching memories
+   */
   countVectors(db: DatabaseType, containerTag: string): number {
     const stmt = db.prepare(`SELECT COUNT(*) as count FROM memories WHERE container_tag = ? AND is_deprecated = 0`);
     const result = stmt.get(containerTag) as any;
     return result.count;
   }
 
+  /**
+   * Count all non-deprecated memories in a shard.
+   *
+   * @param db - SQLite database handle
+   * @returns Total number of memories
+   */
   countAllVectors(db: DatabaseType): number {
     const stmt = db.prepare(`SELECT COUNT(*) as count FROM memories WHERE is_deprecated = 0`);
     const result = stmt.get() as any;
@@ -497,11 +590,23 @@ export class VectorSearch {
     return stmt.all() as any[];
   }
 
+  /**
+   * Pin a memory so it always appears at the top of search results.
+   *
+   * @param db - SQLite database handle
+   * @param memoryId - ID of the memory to pin
+   */
   pinMemory(db: DatabaseType, memoryId: string): void {
     const stmt = db.prepare(`UPDATE memories SET is_pinned = 1 WHERE id = ?`);
     stmt.run(memoryId);
   }
 
+  /**
+   * Unpin a memory, returning it to normal ranking.
+   *
+   * @param db - SQLite database handle
+   * @param memoryId - ID of the memory to unpin
+   */
   unpinMemory(db: DatabaseType, memoryId: string): void {
     const stmt = db.prepare(`UPDATE memories SET is_pinned = 0 WHERE id = ?`);
     stmt.run(memoryId);

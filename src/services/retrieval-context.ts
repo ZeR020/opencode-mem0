@@ -46,6 +46,15 @@ class ContextTracker {
 
 export const contextTracker = new ContextTracker();
 
+/**
+ * Calculate a context-based score boost for a memory result.
+ * Boosts scores when the memory's project path, project name, or metadata
+ * references match the current retrieval context (recent files, queries).
+ *
+ * @param result - Memory result with project and metadata info
+ * @param context - Current retrieval context
+ * @returns Multiplicative boost factor (>= 1.0)
+ */
 export function calculateContextBoost(
   result: {
     projectPath?: string;
@@ -99,6 +108,16 @@ export function calculateContextBoost(
   return score;
 }
 
+/**
+ * Calculate a diversity penalty for a candidate memory based on Jaccard similarity
+ * with already-selected memories. If similarity exceeds the threshold, a proportional
+ * penalty is applied to discourage redundant results.
+ *
+ * @param content - Candidate memory content
+ * @param selectedContents - Already selected memory contents
+ * @param threshold - Jaccard similarity threshold (default 0.9 from config)
+ * @returns Penalty value in [0, 1] range
+ */
 export function calculateDiversityPenalty(
   content: string,
   selectedContents: string[],
