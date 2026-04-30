@@ -2,28 +2,30 @@
 
 > God node · 27 connections · `/home/verge/projects/opencode-mem0/src/services/web-server-worker.ts`
 
+**Community:** [[Community 1]]
+
 ## Connections by Relation
 
 ### calls
 - [[handleSearch()]] `INFERRED`
-- [[handleDeleteMemory()]] `INFERRED`
 - [[handleUpdateMemory()]] `INFERRED`
 - [[handleListMemories()]] `INFERRED`
-- [[handleRunTagMigrationBatch()]] `INFERRED`
 - [[handleAddMemory()]] `INFERRED`
+- [[handleDeleteMemory()]] `INFERRED`
+- [[handleRunTagMigrationBatch()]] `INFERRED`
 - [[handleListTags()]] `INFERRED`
 - [[handleStats()]] `INFERRED`
 - [[handlePinMemory()]] `INFERRED`
 - [[handleUnpinMemory()]] `INFERRED`
 - [[handleDeletePrompt()]] `INFERRED`
 - [[handleGetUserProfile()]] `INFERRED`
+- [[handleRunCleanup()]] `INFERRED`
+- [[handleDetectTagMigration()]] `INFERRED`
 - [[handleGetProfileSnapshot()]] `INFERRED`
 - [[handleRefreshProfile()]] `INFERRED`
 - [[handleBulkDelete()]] `INFERRED`
-- [[handleRunCleanup()]] `INFERRED`
 - [[handleRunDeduplication()]] `INFERRED`
 - [[handleDetectMigration()]] `INFERRED`
-- [[handleDetectTagMigration()]] `INFERRED`
 - [[handleRunMigration()]] `INFERRED`
 
 ### contains

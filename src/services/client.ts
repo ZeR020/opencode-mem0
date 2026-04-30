@@ -111,7 +111,12 @@ export class LocalMemoryClient {
     connectionManager.closeAll();
   }
 
-  async searchMemories(query: string, containerTag: string, scope: MemoryScope = "project") {
+  async searchMemories(
+    query: string,
+    containerTag: string,
+    scope: MemoryScope = "project",
+    context?: { projectPath?: string; projectName?: string; recentFiles?: string[] }
+  ) {
     try {
       await this.initialize();
 
@@ -123,13 +128,25 @@ export class LocalMemoryClient {
         return { success: true as const, results: [], total: 0, timing: 0 };
       }
 
+      // Build retrieval context
+      const retrievalContext = context
+        ? {
+            projectPath: context.projectPath,
+            projectName: context.projectName,
+            recentFiles: context.recentFiles,
+            recentQueries: [query],
+            currentQuery: query,
+          }
+        : undefined;
+
       const results = await vectorSearch.searchAcrossShards(
         shards,
         queryVector,
         scope === "all-projects" ? "" : containerTag,
         CONFIG.maxMemories,
         CONFIG.similarityThreshold,
-        query
+        query,
+        retrievalContext
       );
 
       return { success: true as const, results, total: results.length, timing: 0 };

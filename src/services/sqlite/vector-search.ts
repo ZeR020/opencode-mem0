@@ -6,6 +6,7 @@ import type { MemoryRecord, SearchResult, ShardInfo } from "./types.js";
 import { createVectorBackend } from "../vector-backends/backend-factory.js";
 import { ExactScanBackend } from "../vector-backends/exact-scan-backend.js";
 import type { VectorBackend } from "../vector-backends/types.js";
+import { calculateContextBoost, calculateDiversityPenalty, type RetrievalContext } from "../retrieval-context.js";
 
 const Database = getDatabase();
 type DatabaseType = typeof Database.prototype;
@@ -90,7 +91,8 @@ export class VectorSearch {
     queryVector: Float32Array,
     containerTag: string,
     limit: number,
-    queryText?: string
+    queryText?: string,
+    context?: RetrievalContext
   ): Promise<SearchResult[]> {
     const db = connectionManager.getConnection(shard.dbPath);
     const backend = await this.getBackend();
@@ -158,6 +160,34 @@ export class VectorSearch {
     const ids = Array.from(scoreMap.keys());
     if (ids.length === 0) return [];
 
+    // Hybrid search: also get FTS5 results for query text
+    let ftsResults: string[] = [];
+    if (queryText && queryText.length > 0) {
+      try {
+        const ftsStmt = db.prepare(`
+          SELECT id FROM memories_fts
+          WHERE memories_fts MATCH ?
+          ORDER BY rank
+          LIMIT ?
+        `);
+        const ftsRows = ftsStmt.all(queryText, limit * 2) as any[];
+        ftsResults = ftsRows.map((r: any) => r.id);
+      } catch {
+        // FTS5 not available, fallback to LIKE
+        try {
+          const likeStmt = db.prepare(`
+            SELECT id FROM memories
+            WHERE content LIKE ? AND is_deprecated = 0
+            LIMIT ?
+          `);
+          const likeRows = likeStmt.all(`%${queryText}%`, limit * 2) as any[];
+          ftsResults = likeRows.map((r: any) => r.id);
+        } catch {
+          // Ignore FTS/like errors
+        }
+      }
+    }
+
     const placeholders = ids.map(() => "?").join(",");
     const rows = db
       .prepare(
@@ -180,7 +210,7 @@ export class VectorSearch {
           .filter((w) => w.length > 1)
       : [];
 
-    const hydratedResults = rows.map((row: any) => {
+    const hydratedResults: SearchResult[] = rows.map((row: any) => {
       const scores = scoreMap.get(row.id)!;
       const memoryTagsStr = row.tags || "";
       const memoryTags = memoryTagsStr.split(",").map((t: string) => t.trim().toLowerCase());
@@ -193,18 +223,42 @@ export class VectorSearch {
         exactMatchBoost = matches / Math.max(queryWords.length, 1);
       }
 
-      const finalTagsSim = Math.max(scores.tagsSim, exactMatchBoost);
-      const vectorSimilarity = scores.contentSim * 0.6 + finalTagsSim * 0.4;
+      // Hybrid: boost if in FTS results
+      let ftsBoost = 0;
+      if (ftsResults.includes(row.id)) {
+        ftsBoost = 0.1; // Small boost for being in FTS results
+      }
 
-      // Combine vector similarity with memory strength for final ranking
+      const finalTagsSim = Math.max(scores.tagsSim, exactMatchBoost);
+      const vectorSimilarity = scores.contentSim * 0.6 + finalTagsSim * 0.4 + ftsBoost;
+
+      // Get scoring fields
       const strength = row.strength ?? 0.5;
-      // Weighted combination: 60% vector similarity + 40% memory strength
-      const similarity = vectorSimilarity * 0.6 + strength * 0.4;
+      const recencyScore = row.recency_score ?? 0.5;
+      
+      // Multi-factor ranking: strength (40%) + recency (30%) + vector similarity (30%)
+      const strengthWeight = strength * 0.4;
+      const recencyWeight = recencyScore * 0.3;
+      const vectorWeight = vectorSimilarity * 0.3;
+      const similarity = strengthWeight + recencyWeight + vectorWeight;
+
+      // Context boost
+      let contextBoost = 1.0;
+      if (context) {
+        contextBoost = calculateContextBoost(
+          {
+            projectPath: row.project_path,
+            projectName: row.project_name,
+            metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+          },
+          context
+        );
+      }
 
       return {
         id: row.id,
         memory: row.content,
-        similarity,
+        similarity: similarity * contextBoost,
         tags: memoryTagsStr ? memoryTagsStr.split(",") : [],
         metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
         containerTag: row.container_tag,
@@ -219,22 +273,45 @@ export class VectorSearch {
         recencyScore: row.recency_score,
         importanceScore: row.importance_score,
         accessCount: row.access_count,
+        // Store score components for transparency
+        vectorSimilarity,
+        recencyWeight,
+        strengthWeight,
+        contextBoost,
+        finalScore: similarity * contextBoost,
       };
     });
 
-    // Sort by: pinned first, then combined similarity+strength, then recency
+    // Sort by: pinned first, then final score
     hydratedResults.sort((a, b) => {
-      // Pinned memories always first
       if ((a.isPinned || 0) !== (b.isPinned || 0)) {
         return (b.isPinned || 0) - (a.isPinned || 0);
       }
-      // Then by combined score
-      if (b.similarity !== a.similarity) {
-        return b.similarity - a.similarity;
-      }
-      // Tie-breaker: recency score
-      return (b.recencyScore || 0) - (a.recencyScore || 0);
+      return (b.finalScore || 0) - (a.finalScore || 0);
     });
+
+    // Apply diversity penalty
+    const diversityThreshold = CONFIG.retrieval.diversityThreshold || 0.9;
+    const diverseResults: SearchResult[] = [];
+    
+    for (const candidate of hydratedResults) {
+      if (diverseResults.length >= limit) break;
+      
+      const penalty = calculateDiversityPenalty(
+        candidate.memory,
+        diverseResults.map(r => r.memory),
+        diversityThreshold
+      );
+      
+      candidate.diversityPenalty = penalty;
+      
+      // Apply penalty to final score for ranking, but keep original for reference
+      const penalizedScore = (candidate.finalScore || 0) * (1 - penalty);
+      
+      if (penalizedScore > 0.01 || diverseResults.length < limit / 2) {
+        diverseResults.push(candidate);
+      }
+    }
 
     // Update access_count for retrieved memories
     try {
@@ -242,14 +319,14 @@ export class VectorSearch {
         `UPDATE memories SET access_count = access_count + 1, last_accessed = ? WHERE id = ?`
       );
       const now = Date.now();
-      for (const result of hydratedResults) {
+      for (const result of diverseResults) {
         updateAccessStmt.run(now, result.id);
       }
     } catch (error) {
       log("Failed to update access count", { error: String(error) });
     }
 
-    return hydratedResults;
+    return diverseResults;
   }
 
   async searchAcrossShards(
@@ -258,11 +335,12 @@ export class VectorSearch {
     containerTag: string,
     limit: number,
     similarityThreshold: number,
-    queryText?: string
+    queryText?: string,
+    context?: RetrievalContext
   ): Promise<SearchResult[]> {
     const shardPromises = shards.map(async (shard) => {
       try {
-        return await this.searchInShard(shard, queryVector, containerTag, limit, queryText);
+        return await this.searchInShard(shard, queryVector, containerTag, limit, queryText, context);
       } catch (error) {
         log("Shard search error", { shardId: shard.id, error: String(error) });
         return [];
@@ -272,8 +350,44 @@ export class VectorSearch {
     const resultsArray = await Promise.all(shardPromises);
     const allResults = resultsArray.flat();
 
-    allResults.sort((a, b) => b.similarity - a.similarity);
-    return allResults.filter((r) => r.similarity >= similarityThreshold).slice(0, limit);
+    // Re-sort with full global diversity penalty
+    allResults.sort((a, b) => {
+      if ((a.isPinned || 0) !== (b.isPinned || 0)) {
+        return (b.isPinned || 0) - (a.isPinned || 0);
+      }
+      return (b.finalScore || 0) - (a.finalScore || 0);
+    });
+
+    // Apply global diversity filtering across shards
+    const diversityThreshold = CONFIG.retrieval.diversityThreshold || 0.9;
+    const finalResults: SearchResult[] = [];
+    const maxResults = CONFIG.retrieval.maxResults || limit;
+    
+    for (const candidate of allResults) {
+      if (finalResults.length >= maxResults) break;
+      
+      // Only filter by diversity, don't re-penalize scores
+      let isDiverse = true;
+      for (const selected of finalResults) {
+        // Simple text-based diversity check as fallback
+        const candidateWords = new Set(candidate.memory.toLowerCase().split(/\s+/).filter(w => w.length > 4));
+        const selectedWords = new Set(selected.memory.toLowerCase().split(/\s+/).filter(w => w.length > 4));
+        const intersection = [...candidateWords].filter(w => selectedWords.has(w));
+        const union = new Set([...candidateWords, ...selectedWords]);
+        const jaccard = union.size > 0 ? intersection.length / union.size : 0;
+        
+        if (jaccard > diversityThreshold) {
+          isDiverse = false;
+          break;
+        }
+      }
+      
+      if (isDiverse || finalResults.length < maxResults / 2) {
+        finalResults.push(candidate);
+      }
+    }
+
+    return finalResults.filter((r) => r.similarity >= similarityThreshold);
   }
 
   async deleteVector(db: DatabaseType, memoryId: string, shard?: ShardInfo): Promise<void> {

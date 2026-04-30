@@ -2,6 +2,8 @@
 
 > God node · 23 connections · `/home/verge/projects/opencode-mem0/src/services/user-prompt/user-prompt-manager.ts`
 
+**Community:** [[Community 4]]
+
 ## Connections by Relation
 
 ### contains

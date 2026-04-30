@@ -95,6 +95,11 @@ interface OpenCodeMemConfig {
     maxAgeDays?: number;
     injectOn?: "first" | "always";
   };
+  retrieval?: {
+    maxResults?: number;
+    diversityThreshold?: number;
+    contextBoost?: number;
+  };
 }
 
 const DEFAULTS: Required<
@@ -192,8 +197,13 @@ const DEFAULTS: Required<
     enabled: true,
     maxMemories: 3,
     excludeCurrentSession: true,
-    maxAgeDays: undefined,
     injectOn: "first",
+    maxAgeDays: undefined,
+  },
+  retrieval: {
+    maxResults: 20,
+    diversityThreshold: 0.9,
+    contextBoost: 1.5,
   },
 };
 
@@ -499,6 +509,24 @@ const CONFIG_TEMPLATE = `{
   // Advanced Settings
   // ============================================
   
+  // ============================================
+  // Intelligent Retrieval Settings
+  // ============================================
+
+  // Multi-factor memory retrieval with diversity filtering and context awareness.
+  // Re-ranks results by strength (40%), recency (30%), and semantic similarity (30%).
+  // Applies diversity penalty to avoid returning nearly identical memories.
+  "retrieval": {
+    // Maximum number of memories to return (overrides maxMemories for search)
+    "maxResults": 20,
+    // Diversity threshold: if similarity between two results > this, apply penalty
+    // (0.9 = very strict, 0.7 = moderate, 0.5 = lenient)
+    "diversityThreshold": 0.9,
+    // Context boost multiplier: memories matching current project/files/queries
+    // get multiplied by this factor (1.5 = 50% boost)
+    "contextBoost": 1.5
+  },
+
   // Inject user profile into AI context (preferences, patterns, workflows)
   "injectProfile": true
 }
@@ -676,6 +704,11 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
       injectOn: (fileConfig.chatMessage?.injectOn ?? DEFAULTS.chatMessage.injectOn) as
         | "first"
         | "always",
+    },
+    retrieval: {
+      maxResults: fileConfig.retrieval?.maxResults ?? DEFAULTS.retrieval.maxResults,
+      diversityThreshold: fileConfig.retrieval?.diversityThreshold ?? DEFAULTS.retrieval.diversityThreshold,
+      contextBoost: fileConfig.retrieval?.contextBoost ?? DEFAULTS.retrieval.contextBoost,
     },
   };
 }

@@ -73,4 +73,11 @@ export interface SearchResult {
   recencyScore?: number;
   importanceScore?: number;
   accessCount?: number;
+  // Retrieval scoring fields
+  vectorSimilarity?: number;
+  recencyWeight?: number;
+  strengthWeight?: number;
+  diversityPenalty?: number;
+  contextBoost?: number;
+  finalScore?: number;
 }

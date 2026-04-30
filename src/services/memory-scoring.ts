@@ -310,10 +310,14 @@ export function calculateImportance(
 /**
  * Calculate utility based on how recently the memory was accessed.
  * Similar to recency but applied to last_accessed instead of created_at.
+ * 
+ * Context-aware: boosts score if memory content matches current project/files/queries.
  */
 export function calculateUtility(
   lastAccessed: number | null,
-  halfLifeDays: number = 3
+  halfLifeDays: number = 3,
+  content?: string,
+  context?: { projectPath?: string; projectName?: string; recentFiles?: string[]; recentQueries?: string[] }
 ): number {
   if (!lastAccessed) return 0.3; // Default for never accessed
 
@@ -324,7 +328,37 @@ export function calculateUtility(
   if (ageDays < 0) return 1.0;
 
   const lambda = Math.log(2) / halfLifeDays;
-  const score = Math.exp(-lambda * ageDays);
+  let score = Math.exp(-lambda * ageDays);
+
+  // Context-aware boost
+  if (content && context) {
+    const lowerContent = content.toLowerCase();
+    
+    // Boost if content mentions recent files
+    if (context.recentFiles && context.recentFiles.length > 0) {
+      for (const file of context.recentFiles) {
+        if (lowerContent.includes(file.toLowerCase())) {
+          score = Math.min(1, score * 1.2); // 20% boost
+          break;
+        }
+      }
+    }
+    
+    // Boost if content matches recent query terms
+    if (context.recentQueries && context.recentQueries.length > 0) {
+      const queryWords = context.recentQueries
+        .join(" ")
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(w => w.length > 3);
+      
+      const matches = queryWords.filter(w => lowerContent.includes(w)).length;
+      if (matches > 0) {
+        const boost = 1 + (matches / queryWords.length) * 0.3; // Up to 30% boost
+        score = Math.min(1, score * boost);
+      }
+    }
+  }
 
   return Math.max(0, Math.min(1, score));
 }

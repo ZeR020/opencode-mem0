@@ -2,29 +2,31 @@
 
 > God node · 58 connections · `/home/verge/projects/opencode-mem0/src/services/logger.ts`
 
+**Community:** [[Community 1]]
+
 ## Connections by Relation
 
 ### calls
 - [[handleSearch()]] `INFERRED`
-- [[.executeToolCall()]] `INFERRED`
-- [[.reEmbedMigration()]] `INFERRED`
-- [[handleDeleteMemory()]] `INFERRED`
 - [[handleUpdateMemory()]] `INFERRED`
-- [[.executeToolCall()]] `INFERRED`
-- [[handleListMemories()]] `INFERRED`
-- [[handleRunTagMigrationBatch()]] `INFERRED`
-- [[generateSummary()]] `INFERRED`
-- [[handleAddMemory()]] `INFERRED`
-- [[analyzeUserProfile()]] `INFERRED`
-- [[.executeToolCall()]] `INFERRED`
 - [[OpenCodeMemPlugin()]] `INFERRED`
+- [[handleListMemories()]] `INFERRED`
+- [[handleAddMemory()]] `INFERRED`
+- [[handleDeleteMemory()]] `INFERRED`
 - [[.addMemory()]] `INFERRED`
 - [[.executeToolCall()]] `INFERRED`
-- [[.detectAndRemoveDuplicates()]] `INFERRED`
+- [[handleRunTagMigrationBatch()]] `INFERRED`
+- [[.reEmbedMigration()]] `INFERRED`
+- [[.executeToolCall()]] `INFERRED`
+- [[generateSummary()]] `INFERRED`
 - [[handleListTags()]] `INFERRED`
 - [[handleStats()]] `INFERRED`
+- [[analyzeUserProfile()]] `INFERRED`
 - [[handlePinMemory()]] `INFERRED`
 - [[handleUnpinMemory()]] `INFERRED`
+- [[.executeToolCall()]] `INFERRED`
+- [[handleDeletePrompt()]] `INFERRED`
+- [[.getWriteShard()]] `INFERRED`
 
 ### contains
 - [[logger.ts]] `EXTRACTED`

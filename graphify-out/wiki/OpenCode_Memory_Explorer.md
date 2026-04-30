@@ -2,6 +2,8 @@
 
 > God node · 22 connections · `src/web/index.html`
 
+**Community:** [[Community 9]]
+
 ## Connections by Relation
 
 ### conceptually_related_to

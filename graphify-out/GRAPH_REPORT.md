@@ -1,56 +1,58 @@
-# Graph Report - opencode-mem0  (2026-04-30)
+# Graph Report - .  (2026-04-30)
 
 ## Corpus Check
-- 75 files · ~47,529 words
+- 79 files · ~50,403 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 544 nodes · 1391 edges · 17 communities detected
-- Extraction: 67% EXTRACTED · 33% INFERRED · 0% AMBIGUOUS · INFERRED: 460 edges (avg confidence: 0.8)
+- 713 nodes · 2071 edges · 19 communities detected
+- Extraction: 75% EXTRACTED · 25% INFERRED · 0% AMBIGUOUS · INFERRED: 517 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
-- [[_COMMUNITY_Community 0|Community 0]]
-- [[_COMMUNITY_Community 1|Community 1]]
-- [[_COMMUNITY_Community 2|Community 2]]
-- [[_COMMUNITY_Community 3|Community 3]]
-- [[_COMMUNITY_Community 4|Community 4]]
-- [[_COMMUNITY_Community 5|Community 5]]
-- [[_COMMUNITY_Community 6|Community 6]]
-- [[_COMMUNITY_Community 7|Community 7]]
-- [[_COMMUNITY_Community 8|Community 8]]
-- [[_COMMUNITY_Community 9|Community 9]]
-- [[_COMMUNITY_Community 10|Community 10]]
-- [[_COMMUNITY_Community 11|Community 11]]
-- [[_COMMUNITY_Community 12|Community 12]]
-- [[_COMMUNITY_Community 13|Community 13]]
-- [[_COMMUNITY_Community 14|Community 14]]
-- [[_COMMUNITY_Community 15|Community 15]]
-- [[_COMMUNITY_Community 21|Community 21]]
+- [[_COMMUNITY_AI Provider Tests|AI Provider Tests]]
+- [[_COMMUNITY_API Handlers|API Handlers]]
+- [[_COMMUNITY_Backend & Cleanup Services|Backend & Cleanup Services]]
+- [[_COMMUNITY_Web UI Application|Web UI Application]]
+- [[_COMMUNITY_AI Session Management|AI Session Management]]
+- [[_COMMUNITY_Core Plugin Services|Core Plugin Services]]
+- [[_COMMUNITY_Auto Capture|Auto Capture]]
+- [[_COMMUNITY_Context & User Profile|Context & User Profile]]
+- [[_COMMUNITY_HTML UI Components|HTML UI Components]]
+- [[_COMMUNITY_Plugin Index Operations|Plugin Index Operations]]
+- [[_COMMUNITY_Backend Factory|Backend Factory]]
+- [[_COMMUNITY_USearch Vector Backend|USearch Vector Backend]]
+- [[_COMMUNITY_Memory Scoring|Memory Scoring]]
+- [[_COMMUNITY_Transcript Storage|Transcript Storage]]
+- [[_COMMUNITY_Conflict Resolution|Conflict Resolution]]
+- [[_COMMUNITY_Exact Scan Backend|Exact Scan Backend]]
+- [[_COMMUNITY_Documentation & Graphify|Documentation & Graphify]]
+- [[_COMMUNITY_Plugin Loader Tests|Plugin Loader Tests]]
+- [[_COMMUNITY_Tool Scope Tests|Tool Scope Tests]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `log()` - 79 edges
-2. `run()` - 53 edges
-3. `getConnection()` - 36 edges
-4. `t()` - 29 edges
-5. `handleRequest()` - 26 edges
-6. `getAllShards()` - 25 edges
-7. `UserPromptManager` - 22 edges
-8. `loadMemories()` - 21 edges
-9. `fetchAPI()` - 19 edges
-10. `USearchBackend` - 19 edges
+1. `log()` - 58 edges
+2. `run()` - 45 edges
+3. `getConnection()` - 31 edges
+4. `t()` - 30 edges
+5. `handleRequest()` - 27 edges
+6. `fetchAPI()` - 24 edges
+7. `loadMemories()` - 23 edges
+8. `UserPromptManager` - 23 edges
+9. `OpenCode Memory Explorer` - 22 edges
+10. `Main Application Script` - 22 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `OpenCodeMemPlugin()` --calls--> `createPlugin()`  [INFERRED]
-  src/index.ts → tests/profile-tool-runtime.test.ts
-- `recalculateAllScores()` --calls--> `getAllShards()`  [INFERRED]
-  src/services/memory-scoring-service.ts → tests/memory-scope.test.ts
-- `recalculateAllScores()` --calls--> `getConnection()`  [INFERRED]
-  src/services/memory-scoring-service.ts → tests/memory-scope.test.ts
-- `recalculateAllScores()` --calls--> `run()`  [INFERRED]
-  src/services/memory-scoring-service.ts → tests/project-scope.test.ts
-- `handleRunTagMigrationBatch()` --calls--> `run()`  [INFERRED]
-  src/services/api-handlers.ts → tests/project-scope.test.ts
+- `opencode-mem0` --conceptually_related_to--> `OpenCode Memory Explorer`  [INFERRED]
+  README.md → src/web/index.html
+- `OpenCodeMemPlugin()` --calls--> `initConfig()`  [INFERRED]
+  /home/verge/projects/opencode-mem0/src/index.ts → /home/verge/projects/opencode-mem0/src/config.ts
+- `OpenCodeMemPlugin()` --calls--> `getTags()`  [INFERRED]
+  /home/verge/projects/opencode-mem0/src/index.ts → /home/verge/projects/opencode-mem0/src/services/tags.ts
+- `OpenCodeMemPlugin()` --calls--> `isConfigured()`  [INFERRED]
+  /home/verge/projects/opencode-mem0/src/index.ts → /home/verge/projects/opencode-mem0/src/config.ts
+- `OpenCodeMemPlugin()` --calls--> `log()`  [INFERRED]
+  /home/verge/projects/opencode-mem0/src/index.ts → /home/verge/projects/opencode-mem0/src/services/logger.ts
 
 ## Hyperedges (group relationships)
 - **Memory Management Workflow** — index_cleanup, index_deduplication, index_bulk_operations, index_add_memory, index_edit_memory [INFERRED 0.85]
@@ -61,104 +63,108 @@
 
 ## Communities
 
-### Community 0 - "Community 0"
+### Community 0 - "AI Provider Tests"
+Cohesion: 0.04
+Nodes (18): FakeSessionManager, AIProviderFactory, AnthropicMessagesProvider, FakeSessionManager, applySafeExtraParams(), constructor(), GoogleGeminiProvider, hasNonEmptyChoices() (+10 more)
+
+### Community 1 - "API Handlers"
+Cohesion: 0.09
+Nodes (47): extractScopeFromTag(), getProjectPathFromTag(), handleAddMemory(), handleBulkDelete(), handleBulkDeletePrompts(), handleConflictStats(), handleDeleteMemory(), handleDeletePrompt() (+39 more)
+
+### Community 2 - "Backend & Cleanup Services"
 Cohesion: 0.07
-Nodes (51): extractScopeFromTag(), getProjectPathFromTag(), handleAddMemory(), handleBulkDelete(), handleBulkDeletePrompts(), handleDeleteMemory(), handleDeletePrompt(), handleDetectMigration() (+43 more)
+Nodes (20): defaultUSearchProbe(), createThrowingBackend(), CleanupService, buildConfig(), ensureConfigExists(), expandPath(), getEmbeddingDimensions(), initConfig() (+12 more)
 
-### Community 1 - "Community 1"
-Cohesion: 0.05
-Nodes (13): FakeSessionManager, AnthropicMessagesProvider, FakeSessionManager, applySafeExtraParams(), GoogleGeminiProvider, hasNonEmptyChoices(), isErrorResponseBody(), OpenAIChatCompletionProvider (+5 more)
+### Community 3 - "Web UI Application"
+Cohesion: 0.14
+Nodes (59): addMemory(), bulkDelete(), changePage(), checkMigrationStatus(), clearSearch(), closeMergeModal(), closeModal(), deleteMemoryWithLink() (+51 more)
 
-### Community 2 - "Community 2"
-Cohesion: 0.05
-Nodes (15): AISessionManager, buildMarkdownContext(), extractAIContent(), getLatestProjectMemory(), performAutoCapture(), ConnectionManager, closeAll(), safeArray() (+7 more)
-
-### Community 3 - "Community 3"
+### Community 4 - "AI Session Management"
 Cohesion: 0.06
-Nodes (23): CleanupService, buildConfig(), ensureConfigExists(), expandPath(), getEmbeddingDimensions(), initConfig(), isConfigured(), loadConfigFromPaths() (+15 more)
+Nodes (6): AISessionManager, ConnectionManager, createRepoWithWorktree(), run(), ShardManager, UserPromptManager
 
-### Community 4 - "Community 4"
-Cohesion: 0.11
-Nodes (50): addMemory(), bulkDelete(), changePage(), checkMigrationStatus(), clearSearch(), closeModal(), deleteMemoryWithLink(), deletePromptWithLink() (+42 more)
+### Community 5 - "Core Plugin Services"
+Cohesion: 0.06
+Nodes (20): formatMemoriesForCompaction(), formatSearchResults(), OpenCodeMemPlugin(), detectLanguage(), getLanguageName(), applyDecay(), archiveMemory(), classifyMemory() (+12 more)
 
-### Community 5 - "Community 5"
+### Community 6 - "Auto Capture"
+Cohesion: 0.12
+Nodes (26): buildMarkdownContext(), extractAIContent(), generateSummary(), getLatestProjectMemory(), performAutoCapture(), createOAuthFetch(), createOpencodeAIProvider(), findAuthJsonPath() (+18 more)
+
+### Community 7 - "Context & User Profile"
+Cohesion: 0.09
+Nodes (10): formatContextForPrompt(), getUserProfileContext(), safeArray(), safeObject(), buildMemoryProviderConfig(), analyzeUserProfile(), buildUserAnalysisContext(), generateChangeSummary() (+2 more)
+
+### Community 8 - "HTML UI Components"
+Cohesion: 0.09
+Nodes (38): OpenCode Memory Explorer Web UI, Add Memory Form, Add New Memory Section, Bulk Actions Panel, Changelog List Container, Profile Version History Modal, Conflicts List Container, Memory Conflicts Section (+30 more)
+
+### Community 9 - "Plugin Index Operations"
+Cohesion: 0.1
+Nodes (27): Add Memory Form, app.js Application Script, Bulk Operations, Profile Changelog, Cleanup Operation, Deduplication Operation, DOMPurify Sanitizer, Edit Memory Modal (+19 more)
+
+### Community 10 - "Backend Factory"
 Cohesion: 0.13
 Nodes (4): createVectorBackend(), FallbackAwareBackend, toBlob(), VectorSearch
 
-### Community 6 - "Community 6"
-Cohesion: 0.14
-Nodes (13): AIProviderFactory, generateSummary(), detectLanguage(), getLanguageName(), createOAuthFetch(), createOpencodeAIProvider(), findAuthJsonPath(), generateStructuredOutput() (+5 more)
-
-### Community 7 - "Community 7"
+### Community 11 - "USearch Vector Backend"
 Cohesion: 0.25
 Nodes (1): USearchBackend
 
-### Community 8 - "Community 8"
+### Community 12 - "Memory Scoring"
+Cohesion: 0.29
+Nodes (15): calculateAllScores(), calculateConfidence(), calculateFrequency(), calculateImportance(), calculateInterference(), calculateNovelty(), calculateRecency(), calculateUtility() (+7 more)
+
+### Community 13 - "Transcript Storage"
 Cohesion: 0.22
-Nodes (1): ShardManager
+Nodes (5): cleanupOldTranscripts(), performTranscriptCapture(), approximateTokenCount(), getTranscriptDbPath(), TranscriptManager
 
-### Community 9 - "Community 9"
-Cohesion: 0.27
-Nodes (12): getGitCommonDir(), getGitEmail(), getGitName(), getGitRepoUrl(), getGitTopLevel(), getProjectIdentity(), getProjectName(), getProjectRoot() (+4 more)
+### Community 14 - "Conflict Resolution"
+Cohesion: 0.26
+Nodes (12): safeJSONParse(), safeToISOString(), checkContradictionHeuristic(), checkContradictionWithLLM(), detectConflicts(), extractScopeFromContainerTag(), findExistingConflict(), findSimilarMemories() (+4 more)
 
-### Community 10 - "Community 10"
-Cohesion: 0.18
-Nodes (2): startWebServer(), WebServer
-
-### Community 11 - "Community 11"
-Cohesion: 0.21
-Nodes (6): getDatabase(), cleanupOldTranscripts(), performTranscriptCapture(), approximateTokenCount(), getTranscriptDbPath(), TranscriptManager
-
-### Community 12 - "Community 12"
-Cohesion: 0.39
-Nodes (10): calculateAllScores(), calculateConfidence(), calculateFrequency(), calculateImportance(), calculateInterference(), calculateNovelty(), calculateRecency(), calculateUtility() (+2 more)
-
-### Community 13 - "Community 13"
+### Community 15 - "Exact Scan Backend"
 Cohesion: 0.2
 Nodes (1): ExactScanBackend
 
-### Community 14 - "Community 14"
+### Community 16 - "Documentation & Graphify"
 Cohesion: 0.36
 Nodes (10): community structure, god nodes, GRAPH_REPORT.md, graphify, graphify explain CLI command, graphify-out/ directory, graphify path CLI command, graphify query CLI command (+2 more)
 
-### Community 15 - "Community 15"
+### Community 17 - "Plugin Loader Tests"
 Cohesion: 0.67
-Nodes (2): isFullyPrivate(), stripPrivateContent()
+Nodes (2): loadDistPlugin(), readPackageJson()
 
-### Community 21 - "Community 21"
-Cohesion: 1.0
-Nodes (1): opencode-mem0
+### Community 18 - "Tool Scope Tests"
+Cohesion: 0.67
+Nodes (1): runScenario()
 
 ## Knowledge Gaps
-- **2 isolated node(s):** `opencode-mem0`, `graphify update . CLI command`
+- **20 isolated node(s):** `opencode-mem0`, `Memory Search`, `Tag Filtering`, `Bulk Operations`, `Memory List Pagination` (+15 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Community 7`** (19 nodes): `USearchBackend`, `.addItems()`, `.constructor()`, `.createEmptyIndex()`, `.decodeVector()`, `.delete()`, `.deleteShardIndexes()`, `.ensureKey()`, `.getBackendName()`, `.getIndexKey()`, `.getOrCreateIndex()`, `.insert()`, `.insertBatch()`, `.insertManyForTest()`, `.loadUSearch()`, `.rebuildFromShard()`, `.search()`, `.searchForTest()`, `.upsertItem()`
+- **Thin community `USearch Vector Backend`** (19 nodes): `USearchBackend`, `.addItems()`, `.constructor()`, `.createEmptyIndex()`, `.decodeVector()`, `.delete()`, `.deleteShardIndexes()`, `.ensureKey()`, `.getBackendName()`, `.getIndexKey()`, `.getOrCreateIndex()`, `.insert()`, `.insertBatch()`, `.insertManyForTest()`, `.loadUSearch()`, `.rebuildFromShard()`, `.search()`, `.searchForTest()`, `.upsertItem()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 8`** (16 nodes): `ShardManager`, `.constructor()`, `.createShard()`, `.ensureShardTables()`, `.getActiveShard()`, `.getAllShards()`, `.getShardByPath()`, `.getShardPath()`, `.getWriteShard()`, `.incrementVectorCount()`, `.initMetadataDb()`, `.initShardDb()`, `.isShardValid()`, `.markShardReadOnly()`, `.migrateScoringColumns()`, `.resolveStoredPath()`
+- **Thin community `Exact Scan Backend`** (11 nodes): `ExactScanBackend`, `.cosineSimilarity()`, `.decodeVector()`, `.delete()`, `.deleteShardIndexes()`, `.getBackendName()`, `.insert()`, `.insertBatch()`, `.rankVectors()`, `.rebuildFromShard()`, `.search()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 10`** (15 nodes): `startWebServer()`, `WebServer`, `.attemptTakeover()`, `.checkServerAvailable()`, `.constructor()`, `.getUrl()`, `.isRunning()`, `.isServerOwner()`, `.jsonResponse()`, `.serveStaticFile()`, `.setOnTakeoverCallback()`, `.start()`, `.startHealthCheckLoop()`, `.stop()`, `.stopHealthCheckLoop()`
+- **Thin community `Plugin Loader Tests`** (4 nodes): `plugin-loader-contract.test.ts`, `loadDistPlugin()`, `readPackageJson()`, `plugin-loader-contract.test.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 13`** (11 nodes): `ExactScanBackend`, `.cosineSimilarity()`, `.decodeVector()`, `.delete()`, `.deleteShardIndexes()`, `.getBackendName()`, `.insert()`, `.insertBatch()`, `.rankVectors()`, `.rebuildFromShard()`, `.search()`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 15`** (4 nodes): `isFullyPrivate()`, `stripPrivateContent()`, `privacy.ts`, `privacy.test.ts`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 21`** (1 nodes): `opencode-mem0`
+- **Thin community `Tool Scope Tests`** (3 nodes): `tool-scope.test.ts`, `tool-scope.test.ts`, `runScenario()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `log()` connect `Community 0` to `Community 1`, `Community 2`, `Community 3`, `Community 5`, `Community 6`, `Community 8`, `Community 10`, `Community 11`, `Community 12`?**
-  _High betweenness centrality (0.250) - this node is a cross-community bridge._
-- **Why does `showToast()` connect `Community 4` to `Community 2`?**
-  _High betweenness centrality (0.104) - this node is a cross-community bridge._
-- **Why does `run()` connect `Community 2` to `Community 0`, `Community 5`, `Community 8`, `Community 11`, `Community 12`?**
-  _High betweenness centrality (0.099) - this node is a cross-community bridge._
-- **Are the 76 inferred relationships involving `log()` (e.g. with `OpenCodeMemPlugin()` and `ensureConfigExists()`) actually correct?**
-  _`log()` has 76 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 51 inferred relationships involving `run()` (e.g. with `recalculateAllScores()` and `handleRunTagMigrationBatch()`) actually correct?**
-  _`run()` has 51 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 34 inferred relationships involving `getConnection()` (e.g. with `recalculateAllScores()` and `.detectAndRemoveDuplicates()`) actually correct?**
-  _`getConnection()` has 34 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `log()` connect `API Handlers` to `AI Provider Tests`, `Backend & Cleanup Services`, `AI Session Management`, `Core Plugin Services`, `Auto Capture`, `Context & User Profile`, `Backend Factory`?**
+  _High betweenness centrality (0.145) - this node is a cross-community bridge._
+- **Why does `showToast()` connect `Web UI Application` to `Auto Capture`, `Context & User Profile`?**
+  _High betweenness centrality (0.058) - this node is a cross-community bridge._
+- **Why does `handleRunCleanup()` connect `API Handlers` to `Web UI Application`?**
+  _High betweenness centrality (0.052) - this node is a cross-community bridge._
+- **Are the 54 inferred relationships involving `log()` (e.g. with `OpenCodeMemPlugin()` and `ensureConfigExists()`) actually correct?**
+  _`log()` has 54 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 42 inferred relationships involving `run()` (e.g. with `handleRunTagMigrationBatch()` and `.initDatabase()`) actually correct?**
+  _`run()` has 42 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 28 inferred relationships involving `getConnection()` (e.g. with `.detectAndRemoveDuplicates()` and `.detectDimensionMismatch()`) actually correct?**
+  _`getConnection()` has 28 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 27 inferred relationships involving `t()` (e.g. with `populateTagDropdowns()` and `renderMemories()`) actually correct?**
   _`t()` has 27 INFERRED edges - model-reasoned connections that need verification._

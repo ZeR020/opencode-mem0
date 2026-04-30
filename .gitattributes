@@ -1,0 +1,7 @@
+graphify-out/** linguist-generated=true
+graphify-out/obsidian/** linguist-generated=true
+graphify-out/wiki/** linguist-generated=true
+graphify-out/cache/** linguist-generated=true
+graphify-out/*.json linguist-generated=true
+graphify-out/*.html linguist-generated=true
+graphify-out/*.md linguist-generated=true
