@@ -1,15 +1,18 @@
-# Graph Report - opencode-mem0  (2026-04-30)
+# Graph Report - opencode-mem0 (2026-04-30)
 
 ## Corpus Check
-- 81 files · ~59,302 words
+
+- 81 files · ~59,067 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
+
 - 593 nodes · 1634 edges · 18 communities detected
 - Extraction: 62% EXTRACTED · 38% INFERRED · 0% AMBIGUOUS · INFERRED: 615 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
+
 - [[_COMMUNITY_Community 0|Community 0]]
 - [[_COMMUNITY_Community 1|Community 1]]
 - [[_COMMUNITY_Community 2|Community 2]]
@@ -30,6 +33,7 @@
 - [[_COMMUNITY_Community 22|Community 22]]
 
 ## God Nodes (most connected - your core abstractions)
+
 1. `log()` - 93 edges
 2. `run()` - 61 edges
 3. `getConnection()` - 40 edges
@@ -42,18 +46,20 @@
 10. `loadMemories()` - 21 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `addV2Columns()` --calls--> `log()`  [INFERRED]
+
+- `addV2Columns()` --calls--> `log()` [INFERRED]
   scripts/migrate-v1-to-v2.ts → src/services/logger.ts
-- `backfillScores()` --calls--> `log()`  [INFERRED]
+- `backfillScores()` --calls--> `log()` [INFERRED]
   scripts/migrate-v1-to-v2.ts → src/services/logger.ts
-- `createConflictsTable()` --calls--> `log()`  [INFERRED]
+- `createConflictsTable()` --calls--> `log()` [INFERRED]
   scripts/migrate-v1-to-v2.ts → src/services/logger.ts
-- `createTranscriptsDb()` --calls--> `log()`  [INFERRED]
+- `createTranscriptsDb()` --calls--> `log()` [INFERRED]
   scripts/migrate-v1-to-v2.ts → src/services/logger.ts
-- `addV2Indexes()` --calls--> `log()`  [INFERRED]
+- `addV2Indexes()` --calls--> `log()` [INFERRED]
   scripts/migrate-v1-to-v2.ts → src/services/logger.ts
 
 ## Hyperedges (group relationships)
+
 - **Memory Management Workflow** — index_cleanup, index_deduplication, index_bulk_operations, index_add_memory, index_edit_memory [INFERRED 0.85]
 - **Model Dimension Migration Strategy** — index_fresh_start, index_reembed [INFERRED 0.90]
 - **External Library Dependencies** — index_lucide_icons, index_marked_js, index_dompurify, index_jsonrepair [INFERRED 0.90]
@@ -63,78 +69,97 @@
 ## Communities
 
 ### Community 0 - "Community 0"
+
 Cohesion: 0.08
 Nodes (64): extractScopeFromTag(), getProjectPathFromTag(), handleAddMemory(), handleBulkDelete(), handleBulkDeletePrompts(), handleConflictStats(), handleDeleteMemory(), handleDeletePrompt() (+56 more)
 
 ### Community 1 - "Community 1"
+
 Cohesion: 0.05
 Nodes (31): CleanupService, buildConfig(), ensureConfigExists(), expandPath(), getEmbeddingDimensions(), initConfig(), isConfigured(), loadConfigFromPaths() (+23 more)
 
 ### Community 2 - "Community 2"
+
 Cohesion: 0.05
 Nodes (19): AISessionManager, buildMarkdownContext(), extractAIContent(), performAutoCapture(), ConnectionManager, closeAll(), closeAll(), addV2Columns() (+11 more)
 
 ### Community 3 - "Community 3"
+
 Cohesion: 0.06
 Nodes (12): FakeSessionManager, AnthropicMessagesProvider, FakeSessionManager, applySafeExtraParams(), GoogleGeminiProvider, hasNonEmptyChoices(), isErrorResponseBody(), OpenAIChatCompletionProvider (+4 more)
 
 ### Community 4 - "Community 4"
+
 Cohesion: 0.1
 Nodes (55): addMemory(), bulkDelete(), changePage(), checkMigrationStatus(), clearSearch(), closeMergeModal(), closeModal(), deleteMemoryWithLink() (+47 more)
 
 ### Community 5 - "Community 5"
+
 Cohesion: 0.09
 Nodes (6): createVectorBackend(), FallbackAwareBackend, calculateDiversityPenalty(), ContextTracker, toBlob(), VectorSearch
 
 ### Community 6 - "Community 6"
+
 Cohesion: 0.12
 Nodes (5): safeArray(), buildUserAnalysisContext(), generateChangeSummary(), performUserProfileLearning(), UserProfileManager
 
 ### Community 7 - "Community 7"
+
 Cohesion: 0.15
 Nodes (14): AIProviderFactory, generateSummary(), detectLanguage(), getLanguageName(), checkContradictionWithLLM(), createOAuthFetch(), createOpencodeAIProvider(), findAuthJsonPath() (+6 more)
 
 ### Community 8 - "Community 8"
+
 Cohesion: 0.25
 Nodes (1): USearchBackend
 
 ### Community 9 - "Community 9"
+
 Cohesion: 0.21
 Nodes (6): getDatabase(), cleanupOldTranscripts(), performTranscriptCapture(), approximateTokenCount(), getTranscriptDbPath(), TranscriptManager
 
 ### Community 10 - "Community 10"
+
 Cohesion: 0.27
 Nodes (12): getGitCommonDir(), getGitEmail(), getGitName(), getGitRepoUrl(), getGitTopLevel(), getProjectIdentity(), getProjectName(), getProjectRoot() (+4 more)
 
 ### Community 11 - "Community 11"
+
 Cohesion: 0.41
 Nodes (11): main(), calculateAllScores(), calculateConfidence(), calculateFrequency(), calculateImportance(), calculateInterference(), calculateNovelty(), calculateRecency() (+3 more)
 
 ### Community 12 - "Community 12"
+
 Cohesion: 0.2
 Nodes (1): WebServer
 
 ### Community 13 - "Community 13"
+
 Cohesion: 0.2
 Nodes (1): ExactScanBackend
 
 ### Community 14 - "Community 14"
+
 Cohesion: 0.36
 Nodes (10): community structure, god nodes, GRAPH_REPORT.md, graphify, graphify explain CLI command, graphify-out/ directory, graphify path CLI command, graphify query CLI command (+2 more)
 
 ### Community 15 - "Community 15"
+
 Cohesion: 0.33
 Nodes (1): FakeSessionManager
 
 ### Community 16 - "Community 16"
+
 Cohesion: 0.67
 Nodes (2): isFullyPrivate(), stripPrivateContent()
 
 ### Community 22 - "Community 22"
+
 Cohesion: 1.0
 Nodes (1): opencode-mem0
 
 ## Knowledge Gaps
+
 - **2 isolated node(s):** `opencode-mem0`, `graphify update . CLI command`
   These have ≤1 connection - possible missing edges or undocumented components.
 - **Thin community `Community 8`** (19 nodes): `USearchBackend`, `.addItems()`, `.constructor()`, `.createEmptyIndex()`, `.decodeVector()`, `.delete()`, `.deleteShardIndexes()`, `.ensureKey()`, `.getBackendName()`, `.getIndexKey()`, `.getOrCreateIndex()`, `.insert()`, `.insertBatch()`, `.insertManyForTest()`, `.loadUSearch()`, `.rebuildFromShard()`, `.search()`, `.searchForTest()`, `.upsertItem()`
@@ -151,6 +176,7 @@ Nodes (1): opencode-mem0
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
+
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `log()` connect `Community 0` to `Community 1`, `Community 2`, `Community 3`, `Community 5`, `Community 7`, `Community 9`, `Community 11`, `Community 12`?**

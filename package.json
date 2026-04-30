@@ -43,24 +43,32 @@
   "publishConfig": {
     "access": "public"
   },
+  "engines": {
+    "node": ">=20.0.0",
+    "bun": ">=1.0.0"
+  },
+  "bugs": {
+    "url": "https://github.com/ZeR020/opencode-mem0/issues"
+  },
+  "homepage": "https://github.com/ZeR020/opencode-mem0#readme",
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.58",
-    "@ai-sdk/openai": "^3.0.41",
-    "@huggingface/transformers": "^4.0.1",
-    "@opencode-ai/plugin": "^1.3.0",
-    "@opencode-ai/sdk": "^1.3.0",
-    "ai": "^6.0.116",
+    "@ai-sdk/anthropic": "^3.0.72",
+    "@ai-sdk/openai": "^3.0.54",
+    "@huggingface/transformers": "^4.2.0",
+    "@opencode-ai/plugin": "^1.14.30",
+    "@opencode-ai/sdk": "^1.14.30",
+    "ai": "^6.0.170",
     "franc-min": "^6.2.0",
     "iso-639-3": "^3.0.1",
-    "usearch": "^2.21.4",
-    "zod": "^4.3.6"
+    "usearch": "^2.25.1",
+    "zod": "^4.4.1"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.8",
+    "@types/bun": "^1.3.13",
     "husky": "^9.1.7",
-    "lint-staged": "^16.2.7",
-    "prettier": "^3.4.2",
-    "typescript": "^5.7.3"
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.3",
+    "typescript": "^5.9.3"
   },
   "opencode": {
     "type": "plugin",
@@ -71,8 +79,16 @@
   },
   "files": [
     "dist",
-    "package.json"
+    "package.json",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
+  "overrides": {
+    "protobufjs": "^7.5.6",
+    "yaml": "^2.8.3",
+    "uuid": "^14.0.0"
+  },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,css,html,json,md}": [
       "prettier --write"

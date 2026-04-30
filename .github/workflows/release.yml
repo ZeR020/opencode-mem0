@@ -21,6 +21,8 @@ jobs:
 
       - run: bun run typecheck
 
+      - run: bun test
+
       - run: bun run build
 
       - name: Setup Node.js for npm publish
