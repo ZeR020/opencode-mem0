@@ -57,3 +57,9 @@ tmp/
 
 # graphify knowledge graph (development artifacts, auto-generated)
 graphify-out/
+src/graphify-out/
+
+# opencode plugin development artifacts
+.opencode/command/gsd-graphify.md
+.opencode/get-shit-done/bin/lib/graphify.cjs
+.opencode/plugins/graphify.js
