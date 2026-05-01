@@ -25,7 +25,7 @@ async function makeManager() {
 
 describe("UserProfileManager – explicit preference writes", () => {
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "opencode-mem-test-"));
+    tmpDir = mkdtempSync(join(tmpdir(), "opencode-mem0-test-"));
   });
 
   afterEach(() => {

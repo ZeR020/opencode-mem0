@@ -50,8 +50,8 @@ class FakeSessionManager {
 describe("AI provider config", () => {
   const originalFetch = globalThis.fetch;
   const originalLogFileEnv = process.env.OPENCODE_MEM_LOG_FILE;
-  const logDir = mkdtempSync(join(tmpdir(), "opencode-mem-logs-"));
-  const logFile = join(logDir, "opencode-mem.log");
+  const logDir = mkdtempSync(join(tmpdir(), "opencode-mem0-logs-"));
+  const logFile = join(logDir, "opencode-mem0.log");
 
   process.env.OPENCODE_MEM_LOG_FILE = logFile;
 

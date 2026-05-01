@@ -16,7 +16,7 @@ describe("project-scoped config resolution", () => {
   it("uses global config when no project config exists", () => {
     existsSpy = spyOn(fs, "existsSync").mockImplementation((p) => {
       const path = String(p);
-      return path.includes(".config/opencode/opencode-mem");
+      return path.includes(".config/opencode/opencode-mem0");
     });
     readSpy = spyOn(fs, "readFileSync").mockReturnValue(
       JSON.stringify({ opencodeModel: "global-model" })
@@ -29,7 +29,7 @@ describe("project-scoped config resolution", () => {
     existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
     readSpy = spyOn(fs, "readFileSync").mockImplementation((p) => {
       const path = String(p);
-      if (path.includes(".opencode/opencode-mem")) {
+      if (path.includes(".opencode/opencode-mem0")) {
         return JSON.stringify({
           opencodeProvider: "openai",
           opencodeModel: "project-model",
@@ -49,7 +49,7 @@ describe("project-scoped config resolution", () => {
     existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
     readSpy = spyOn(fs, "readFileSync").mockImplementation((p) => {
       const path = String(p);
-      if (path.includes(".opencode/opencode-mem")) {
+      if (path.includes(".opencode/opencode-mem0")) {
         return JSON.stringify({ opencodeProvider: "anthropic" }) as any;
       }
       return JSON.stringify({ opencodeModel: "claude-haiku", autoCaptureEnabled: false }) as any;

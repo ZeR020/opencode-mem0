@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const home = mkdtempSync(join(tmpdir(), "opencode-mem-test-"));
+const home = mkdtempSync(join(tmpdir(), "opencode-mem0-test-"));
 const originalHome = process.env.HOME;
 const originalUserProfile = process.env.USERPROFILE;
 process.env.HOME = home;
@@ -18,8 +18,8 @@ afterAll(() => {
 
 describe("config", () => {
   describe("CONFIG defaults", () => {
-    it("should have a storagePath containing .opencode-mem", () => {
-      expect(CONFIG.storagePath).toContain(".opencode-mem");
+    it("should have a storagePath containing .opencode-mem0", () => {
+      expect(CONFIG.storagePath).toContain(".opencode-mem0");
     });
 
     it("should default to Xenova/nomic-embed-text-v1 embedding model", () => {

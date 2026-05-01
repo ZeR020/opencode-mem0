@@ -259,7 +259,7 @@ function makeDb(path: string) {
 // Set up config mock with all new feature flags enabled
 mock.module("../src/config.js", () => ({
   CONFIG: {
-    storagePath: "/tmp/opencode-mem-test",
+    storagePath: "/tmp/opencode-mem0-test",
     transcriptStorage: { enabled: true, maxAgeDays: 30 },
     memoryScoring: {
       enabled: true,

@@ -3,7 +3,7 @@ import { log } from "./logger.js";
 import { join } from "node:path";
 
 const TIMEOUT_MS = 30000;
-const GLOBAL_EMBEDDING_KEY = Symbol.for("opencode-mem.embedding.instance");
+const GLOBAL_EMBEDDING_KEY = Symbol.for("opencode-mem0.embedding.instance");
 const MAX_CACHE_SIZE = 100;
 
 let _transformers: {

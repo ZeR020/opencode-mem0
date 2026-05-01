@@ -38,7 +38,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   if (!isConfigured()) {
   }
 
-  const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("opencode-mem.plugin.warmedup");
+  const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("opencode-mem0.plugin.warmedup");
 
   if (!(globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] && isConfigured()) {
     try {

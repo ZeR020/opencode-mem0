@@ -33,7 +33,7 @@ type ScenarioInput = {
 };
 
 function runScenario(input: ScenarioInput) {
-  const dir = mkdtempSync(join(tmpdir(), "opencode-mem-tool-scope-"));
+  const dir = mkdtempSync(join(tmpdir(), "opencode-mem0-tool-scope-"));
   tempDirs.push(dir);
 
   const scriptPath = join(dir, "scenario.mjs");
@@ -71,7 +71,7 @@ mock.module(${JSON.stringify(clientUrl)}, () => ({
 mock.module(${JSON.stringify(configUrl)}, () => ({
   CONFIG: {
     autoCaptureLanguage: "auto",
-    storagePath: "/tmp/opencode-mem-test",
+    storagePath: "/tmp/opencode-mem0-test",
     memory: { defaultScope },
   },
   initConfig: () => {},
