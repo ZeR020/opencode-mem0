@@ -3,6 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/opencode-mem0.svg)](https://www.npmjs.com/package/opencode-mem0)
 [![npm downloads](https://img.shields.io/npm/dm/opencode-mem0.svg)](https://www.npmjs.com/package/opencode-mem0)
 [![license](https://img.shields.io/npm/l/opencode-mem0.svg)](https://github.com/ZeR020/opencode-mem0/blob/main/LICENSE)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ZeR020/opencode-mem0)
 
 > **An advanced cognitive fork/enhancement of [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem).** Built on their excellent foundation of local vector memory for coding agents, then upgraded with a full cognitive architecture.
 
