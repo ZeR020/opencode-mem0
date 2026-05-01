@@ -2,12 +2,30 @@
 
 [![npm version](https://img.shields.io/npm/v/opencode-mem0.svg)](https://www.npmjs.com/package/opencode-mem0)
 [![npm downloads](https://img.shields.io/npm/dm/opencode-mem0.svg)](https://www.npmjs.com/package/opencode-mem0)
+[![GitHub stars](https://img.shields.io/github/stars/ZeR020/opencode-mem0)](https://github.com/ZeR020/opencode-mem0/stargazers)
+[![Bun](https://img.shields.io/badge/Bun-%23000000.svg?logo=bun&logoColor=white)](https://bun.sh/)
 [![license](https://img.shields.io/npm/l/opencode-mem0.svg)](https://github.com/ZeR020/opencode-mem0/blob/main/LICENSE)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ZeR020/opencode-mem0)
 
-> **An advanced cognitive fork/enhancement of [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem).** Built on their excellent foundation of local vector memory for coding agents, then upgraded with a full cognitive architecture.
+> **A cognitive fork of [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem)** — upgraded with intelligent scoring, dual-store lifecycle, conflict resolution, and transcript capture.
 
-**A persistent memory system for AI coding agents** that enables long-term context retention across sessions using local vector database technology — now with intelligent scoring, dual-store lifecycle, conflict resolution, and transcript capture.
+**Persistent memory for AI coding agents.** Long-term context retention across sessions using local vector databases — no cloud, no data leaks, no limits.
+
+> 🔒 **Privacy-first.** All data stays local. No telemetry, no cloud sync, no data exfiltration. Your memories never leave your machine.
+
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Screenshots](#screenshots)
+- [What's New in v2.14](#whats-new-in-v214)
+- [Architecture](#architecture)
+- [Configuration](#configuration)
+- [Examples](#examples)
+- [Migrating from opencode-mem v1](#migrating-from-opencode-mem-v1)
+- [Web UI API](#web-ui-api)
+- [Testing](#testing)
+- [Development](#development)
+- [License](#license)
 
 ---
 
@@ -49,11 +67,16 @@ open http://localhost:4747
 
 [![User Profile Viewer](https://github.com/ZeR020/opencode-mem0/raw/main/.github/screenshot-user-profile.png)](https://github.com/ZeR020/opencode-mem0)
 
-<!-- TODO: Add screenshot of Conflict Resolution UI for v2.14.0 -->
-
 ---
 
-## What's New in v2.14.0
+## What's New in v2.14
+
+### v2.14.4 — Security & Polish
+
+- Clean git history with correct author attribution
+- Automatic data migration from `~/.opencode-mem` → `~/.opencode-mem0` on first launch
+- Hardened `.gitignore` against accidental commits of development artifacts
+- Workflow action pinned to specific version for supply-chain safety
 
 ### Transcript Storage Layer
 
@@ -133,7 +156,7 @@ src/
 
 ## Configuration
 
-Edit `~/.config/opencode/opencode-mem0.jsonc`:
+Edit `~/.config/opencode/opencode-mem0.jsonc`. All fields are optional — sensible defaults are provided out of the box:
 
 ```json
 {
@@ -178,7 +201,9 @@ Edit `~/.config/opencode/opencode-mem0.jsonc`:
 
 ### Auto-Capture AI Provider
 
-Recommended: use opencode's built-in providers (no separate API key):
+Auto-capture uses an LLM to extract memories from conversation. Two options:
+
+**Option 1 — OpenCode built-in providers** (uses your existing OpenCode auth, no extra API key):
 
 ```json
 {
@@ -187,9 +212,35 @@ Recommended: use opencode's built-in providers (no separate API key):
 }
 ```
 
+**Option 2 — Any OpenAI-compatible endpoint** (Ollama, vLLM, Groq, local models, etc.):
+
+```json
+{
+  "memoryApiUrl": "http://localhost:11434/v1",
+  "memoryModel": "llama3.1",
+  "memoryApiKey": "sk-optional"
+}
+```
+
+The `openai-chat` provider sends standard OpenAI chat completion requests to your custom `memoryApiUrl`, so any endpoint supporting `/chat/completions` works.
+
 ---
 
 ## Examples
+
+```typescript
+// Store a memory with project scope
+await memoryClient.addMemory("Use bun instead of npm for this project", {
+  scope: "project",
+  type: "preference",
+});
+
+// Search with hybrid ranking
+const results = await memoryClient.searchMemories("package manager preference");
+
+// List recent memories
+const memories = await memoryClient.listMemories("my-project", 10);
+```
 
 See [`examples/basic-usage.ts`](examples/basic-usage.ts) and [`examples/custom-scoring.ts`](examples/custom-scoring.ts) for full walkthroughs.
 
