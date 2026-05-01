@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.14.4] - 2026-05-02
+
+### Security
+
+- Clean git history — removed all inherited upstream commits and contributors. Single clean initial commit authored under correct ZeR020 identity.
+- Harden `.gitignore` against accidental commits of AI-generated report files (`*.report.md`, `claude report.md`).
+- Pin `opencode.yml` workflow action from `@latest` to `@v1` to reduce supply chain risk.
+- Purge local git reflogs and unreachable objects containing old metadata.
+
+### Infrastructure
+
+- Add comprehensive `SECURITY.md` audit report documenting threat model, mitigations, and verification steps.
+- Branch protection rules verified and restored after history rewrite operations.
+
 ## [2.14.3] - 2026-05-01
 
 ### Security
