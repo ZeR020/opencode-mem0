@@ -78,3 +78,7 @@ AGENTS.md
 *-concerns*
 *-AUDIT*
 *-audit*
+
+# AI-generated reports and temporary analysis files
+*.report.md
+claude report.md
