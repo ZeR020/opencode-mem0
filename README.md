@@ -133,11 +133,11 @@ src/
 
 ## Configuration
 
-Edit `~/.config/opencode/opencode-mem.jsonc`:
+Edit `~/.config/opencode/opencode-mem0.jsonc`:
 
 ```json
 {
-  "storagePath": "~/.opencode-mem/data",
+  "storagePath": "~/.opencode-mem0/data",
   "webServerEnabled": true,
   "webServerPort": 4747,
   "autoCaptureEnabled": true,

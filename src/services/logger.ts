@@ -11,7 +11,9 @@ import { homedir } from "os";
 import { join } from "path";
 
 function getLogFilePath(): string {
-  return process.env.OPENCODE_MEM_LOG_FILE || join(homedir(), ".opencode-mem", "opencode-mem.log");
+  return (
+    process.env.OPENCODE_MEM_LOG_FILE || join(homedir(), ".opencode-mem0", "opencode-mem0.log")
+  );
 }
 
 function getLogDirPath(): string {
@@ -22,7 +24,7 @@ function getLogDirPath(): string {
 
 const MAX_LOG_SIZE = 5 * 1024 * 1024;
 
-const GLOBAL_LOGGER_KEY = Symbol.for("opencode-mem.logger.initialized");
+const GLOBAL_LOGGER_KEY = Symbol.for("opencode-mem0.logger.initialized");
 
 function rotateLog() {
   const logFile = getLogFilePath();

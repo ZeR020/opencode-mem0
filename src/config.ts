@@ -1,18 +1,32 @@
-import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, mkdirSync, writeFileSync, cpSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { stripJsoncComments } from "./services/jsonc.js";
 import { resolveSecretValue } from "./services/secret-resolver.js";
 
 const CONFIG_DIR = join(homedir(), ".config", "opencode");
-const DATA_DIR = join(homedir(), ".opencode-mem");
+const DATA_DIR = join(homedir(), ".opencode-mem0");
 const CONFIG_FILES = [
-  join(CONFIG_DIR, "opencode-mem.jsonc"),
-  join(CONFIG_DIR, "opencode-mem.json"),
+  join(CONFIG_DIR, "opencode-mem0.jsonc"),
+  join(CONFIG_DIR, "opencode-mem0.json"),
 ];
 
 if (!existsSync(CONFIG_DIR)) {
   mkdirSync(CONFIG_DIR, { recursive: true });
+}
+
+// Migrate data from old opencode-mem directory if present
+const OLD_DATA_DIR = join(homedir(), ".opencode-mem");
+if (existsSync(OLD_DATA_DIR) && !existsSync(DATA_DIR)) {
+  try {
+    cpSync(OLD_DATA_DIR, DATA_DIR, { recursive: true });
+    console.log(`
+✓ Migrated data from ${OLD_DATA_DIR} to ${DATA_DIR}`);
+    console.log("  Your existing memories and settings have been preserved.\n");
+  } catch {
+    // If migration fails, just create the new directory
+    mkdirSync(DATA_DIR, { recursive: true });
+  }
 }
 
 if (!existsSync(DATA_DIR)) {
@@ -236,7 +250,7 @@ const CONFIG_TEMPLATE = `{
   // ============================================
   
   // Storage location for vector database
-  "storagePath": "~/.opencode-mem/data",
+  "storagePath": "~/.opencode-mem0/data",
 
   "userEmailOverride": "",
   "userNameOverride": "",
@@ -533,13 +547,13 @@ const CONFIG_TEMPLATE = `{
 `;
 
 function ensureConfigExists(): void {
-  const configPath = join(CONFIG_DIR, "opencode-mem.jsonc");
+  const configPath = join(CONFIG_DIR, "opencode-mem0.jsonc");
 
   if (!existsSync(configPath)) {
     try {
       writeFileSync(configPath, CONFIG_TEMPLATE, "utf-8");
       console.log(`\n✓ Created config template: ${configPath}`);
-      console.log("  Edit this file to customize opencode-mem settings.\n");
+      console.log("  Edit this file to customize opencode-mem0 settings.\n");
     } catch {}
   }
 }
@@ -712,8 +726,8 @@ export let CONFIG = buildConfig(_globalFileConfig);
 
 export function initConfig(directory: string): void {
   const projectPaths = [
-    join(directory, ".opencode", "opencode-mem.jsonc"),
-    join(directory, ".opencode", "opencode-mem.json"),
+    join(directory, ".opencode", "opencode-mem0.jsonc"),
+    join(directory, ".opencode", "opencode-mem0.json"),
   ];
   const globalConfig = loadConfigFromPaths(CONFIG_FILES);
   const projectConfig = loadConfigFromPaths(projectPaths);

@@ -12,7 +12,7 @@ function run(command: string, cwd: string): void {
 }
 
 function createRepoWithWorktree(): { repoDir: string; worktreeDir: string } {
-  const repoDir = mkdtempSync(join(tmpdir(), "opencode-mem-scope-"));
+  const repoDir = mkdtempSync(join(tmpdir(), "opencode-mem0-scope-"));
   createdDirs.push(repoDir);
 
   run("git init", repoDir);
@@ -53,8 +53,8 @@ describe("project scope identity", () => {
   });
 
   it("uses different project tags for unrelated non-git directories", () => {
-    const left = mkdtempSync(join(tmpdir(), "opencode-mem-left-"));
-    const right = mkdtempSync(join(tmpdir(), "opencode-mem-right-"));
+    const left = mkdtempSync(join(tmpdir(), "opencode-mem0-left-"));
+    const right = mkdtempSync(join(tmpdir(), "opencode-mem0-right-"));
     createdDirs.push(left, right);
 
     const leftTag = getProjectTagInfo(left);

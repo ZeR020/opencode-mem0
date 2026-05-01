@@ -33,14 +33,14 @@ describe("Windows Path Handling", () => {
 
   describe("path.join for cache directory", () => {
     it("should join paths correctly on Windows", () => {
-      const storagePath = "C:\\Users\\user\\.opencode-mem";
+      const storagePath = "C:\\Users\\user\\.opencode-mem0";
       const cacheDir = join(storagePath, ".cache");
       expect(cacheDir).toContain(".cache");
       expect(cacheDir).not.toContain("//");
     });
 
     it("should join paths correctly on Unix", () => {
-      const storagePath = "/home/user/.opencode-mem";
+      const storagePath = "/home/user/.opencode-mem0";
       const cacheDir = join(storagePath, ".cache");
       expect(cacheDir).toContain(".cache");
       expect(cacheDir).not.toContain("//");
@@ -53,19 +53,19 @@ describe("Windows Path Handling", () => {
       if (process.platform !== "win32") {
         return expect(true).toBe(true);
       }
-      const dbPath = "C:\\Users\\user\\.opencode-mem\\shards\\project.db";
+      const dbPath = "C:\\Users\\user\\.opencode-mem0\\shards\\project.db";
       const dir = dirname(dbPath);
-      expect(dir).toBe("C:\\Users\\user\\.opencode-mem\\shards");
+      expect(dir).toBe("C:\\Users\\user\\.opencode-mem0\\shards");
     });
 
     it("should extract directory correctly from Unix path", () => {
-      const dbPath = "/home/user/.opencode-mem/shards/project.db";
+      const dbPath = "/home/user/.opencode-mem0/shards/project.db";
       const dir = dirname(dbPath);
-      expect(dir).toBe("/home/user/.opencode-mem/shards");
+      expect(dir).toBe("/home/user/.opencode-mem0/shards");
     });
 
     it("should handle paths with mixed separators", () => {
-      const dbPath = "C:\\Users\\user/.opencode-mem\\shards/project.db";
+      const dbPath = "C:\\Users\\user/.opencode-mem0\\shards/project.db";
       const dir = dirname(dbPath);
       expect(dir).toContain("shards");
     });

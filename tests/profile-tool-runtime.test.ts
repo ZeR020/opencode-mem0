@@ -4,14 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connectionManager } from "../src/services/sqlite/connection-manager.js";
 
-const WARMUP_KEY = Symbol.for("opencode-mem.plugin.warmedup");
+const WARMUP_KEY = Symbol.for("opencode-mem0.plugin.warmedup");
 
 let tmpDir: string;
 
 function writeProjectConfig(config: Record<string, unknown>) {
   const opencodeDir = join(tmpDir, ".opencode");
   mkdirSync(opencodeDir, { recursive: true });
-  writeFileSync(join(opencodeDir, "opencode-mem.json"), JSON.stringify(config), "utf-8");
+  writeFileSync(join(opencodeDir, "opencode-mem0.json"), JSON.stringify(config), "utf-8");
 }
 
 async function createPlugin() {
@@ -45,7 +45,7 @@ async function createPlugin() {
 
 describe("memory tool profile runtime behavior", () => {
   beforeAll(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "opencode-mem-runtime-"));
+    tmpDir = mkdtempSync(join(tmpdir(), "opencode-mem0-runtime-"));
   });
 
   beforeEach(() => {

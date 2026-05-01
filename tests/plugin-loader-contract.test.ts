@@ -1,5 +1,5 @@
 /**
- * Regression guard — verifies opencode-mem satisfies the OpenCode 1.3.x plugin-loader contract.
+ * Regression guard — verifies opencode-mem0 satisfies the OpenCode 1.3.x plugin-loader contract.
  * Modern contract: type PluginModule = { id?: string; server: Plugin; tui?: never }
  *
  * All assertions here must PASS. This file guards the fixed contract from regressions.
