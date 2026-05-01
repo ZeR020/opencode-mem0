@@ -130,7 +130,7 @@ export async function handleListTags(): Promise<ApiResponse<{ project: TagInfo[]
     return { success: true, data: { project: projectTags } };
   } catch (error) {
     log("handleListTags: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -271,7 +271,7 @@ export async function handleListMemories(
     return { success: true, data: { items, total, page, pageSize, totalPages } };
   } catch (error) {
     log("handleListMemories: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -333,7 +333,7 @@ export async function handleAddMemory(data: {
     return { success: true, data: { id } };
   } catch (error) {
     log("handleAddMemory: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -364,7 +364,7 @@ export async function handleDeleteMemory(
     return { success: false, error: "Memory not found" };
   } catch (error) {
     log("handleDeleteMemory: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -382,7 +382,7 @@ export async function handleBulkDelete(
     return { success: true, data: { deleted } };
   } catch (error) {
     log("handleBulkDelete: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -442,7 +442,7 @@ export async function handleUpdateMemory(
     return { success: true };
   } catch (error) {
     log("handleUpdateMemory: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -641,7 +641,7 @@ export async function handleSearch(
     return { success: true, data: { items: paginatedResults, total, page, pageSize, totalPages } };
   } catch (error) {
     log("handleSearch: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -677,7 +677,7 @@ export async function handleStats(): Promise<
     };
   } catch (error) {
     log("handleStats: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -696,7 +696,7 @@ export async function handlePinMemory(id: string): Promise<ApiResponse<void>> {
     return { success: false, error: "Memory not found" };
   } catch (error) {
     log("handlePinMemory: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -715,7 +715,7 @@ export async function handleUnpinMemory(id: string): Promise<ApiResponse<void>> 
     return { success: false, error: "Memory not found" };
   } catch (error) {
     log("handleUnpinMemory: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -728,7 +728,7 @@ export async function handleRunCleanup(): Promise<
     return { success: true, data: result };
   } catch (error) {
     log("handleRunCleanup: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -741,7 +741,7 @@ export async function handleRunDeduplication(): Promise<
     return { success: true, data: result };
   } catch (error) {
     log("handleRunDeduplication: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -759,7 +759,7 @@ export async function handleDetectMigration(): Promise<
     return { success: true, data: result };
   } catch (error) {
     log("handleDetectMigration: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -779,7 +779,7 @@ export async function handleRunMigration(strategy: "fresh-start" | "re-embed"): 
     return { success: result.success, data: result };
   } catch (error) {
     log("handleRunMigration: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -800,7 +800,7 @@ export async function handleDeletePrompt(
     return { success: true, data: { deletedMemory } };
   } catch (error) {
     log("handleDeletePrompt: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -818,7 +818,7 @@ export async function handleBulkDeletePrompts(
     return { success: true, data: { deleted } };
   } catch (error) {
     log("handleBulkDeletePrompts: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -860,7 +860,7 @@ export async function handleGetUserProfile(userId?: string): Promise<ApiResponse
     };
   } catch (error) {
     log("handleGetUserProfile: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -883,7 +883,7 @@ export async function handleGetProfileChangelog(
     return { success: true, data: formattedChangelogs };
   } catch (error) {
     log("handleGetProfileChangelog: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -905,7 +905,7 @@ export async function handleGetProfileSnapshot(changelogId: string): Promise<Api
     };
   } catch (error) {
     log("handleGetProfileSnapshot: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -929,7 +929,7 @@ export async function handleRefreshProfile(userId?: string): Promise<ApiResponse
     };
   } catch (error) {
     log("handleRefreshProfile: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -948,7 +948,7 @@ export async function handleDetectTagMigration(): Promise<
     }
     return { success: true, data: { needsMigration: untaggedCount > 0, count: untaggedCount } };
   } catch (error) {
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -1083,7 +1083,7 @@ export async function handleRunTagMigrationBatch(
       data: { processed: migrationProgress.processed, total: migrationProgress.total, hasMore },
     };
   } catch (error) {
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -1107,7 +1107,7 @@ export async function handleListConflicts(
     return { success: true, data: formatted };
   } catch (error) {
     log("handleListConflicts: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -1123,7 +1123,10 @@ export async function handleResolveConflict(
 
     const validStrategies = ["keep_newer", "keep_both", "merge", "manual"];
     if (!validStrategies.includes(strategy)) {
-      return { success: false, error: `Invalid strategy. Must be one of: ${validStrategies.join(", ")}` };
+      return {
+        success: false,
+        error: `Invalid strategy. Must be one of: ${validStrategies.join(", ")}`,
+      };
     }
 
     const result = await resolveConflict(
@@ -1139,7 +1142,7 @@ export async function handleResolveConflict(
     return { success: true, data: { mergedMemoryId: result.mergedMemoryId } };
   } catch (error) {
     log("handleResolveConflict: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }
 
@@ -1150,15 +1153,20 @@ export async function handleConflictStats(): Promise<
     const unresolved = getAllUnresolvedConflicts(1000);
     // Count resolved across all shards
     let resolved = 0;
-    const shards = [...shardManager.getAllShards("user", ""), ...shardManager.getAllShards("project", "")];
+    const shards = [
+      ...shardManager.getAllShards("user", ""),
+      ...shardManager.getAllShards("project", ""),
+    ];
     for (const shard of shards) {
       const db = connectionManager.getConnection(shard.dbPath);
-      const row = db.prepare("SELECT COUNT(*) as count FROM memory_conflicts WHERE resolved = 1").get() as any;
+      const row = db
+        .prepare("SELECT COUNT(*) as count FROM memory_conflicts WHERE resolved = 1")
+        .get() as any;
       resolved += row?.count || 0;
     }
     return { success: true, data: { unresolved: unresolved.length, resolved } };
   } catch (error) {
     log("handleConflictStats: error", { error: String(error) });
-    return { success: false, error: String(error) };
+    return { success: false, error: "Internal error" };
   }
 }

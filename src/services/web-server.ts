@@ -416,10 +416,15 @@ export class WebServer {
 
       return new Response("Not Found", { status: 404 });
     } catch (error) {
+      log("Web server request error", {
+        path: url.pathname,
+        method,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return this.jsonResponse(
         {
           success: false,
-          error: String(error),
+          error: "Internal server error",
         },
         500
       );
@@ -459,9 +464,6 @@ export class WebServer {
       status,
       headers: {
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
       },
     });
   }
