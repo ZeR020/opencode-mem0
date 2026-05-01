@@ -1,0 +1,80 @@
+# dependencies (bun install)
+node_modules
+
+# output
+out
+dist
+*.tgz
+
+# code coverage
+coverage
+*.lcov
+
+# logs
+logs
+_.log
+report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# caches
+.eslintcache
+.cache
+*.tsbuildinfo
+
+# IntelliJ based IDEs
+.idea
+
+# Finder (MacOS) folder config
+.DS_Store
+
+# local design and implementation plans
+docs/plans/
+.sisyphus
+
+# test artifacts & temporary databases
+*.test.db
+*.tmp.db
+/test-databases/
+/test-data/
+temp/
+tmp/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# migration backups
+*.migrate-backup
+
+# coverage reports (already covered by coverage/, but belt-and-suspenders)
+*.lcov
+
+# graphify knowledge graph (development artifacts, auto-generated)
+graphify-out/
+src/graphify-out/
+
+# opencode plugin development artifacts
+.opencode/command/gsd-graphify.md
+.opencode/get-shit-done/bin/lib/graphify.cjs
+.opencode/plugins/graphify.js
+
+# personal agent configuration and tooling (not for public repos)
+.opencode/
+AGENTS.md
+
+# internal security audits, planning documents, and support tickets
+# These contain personal info, vulnerability assessments, and internal workflows
+# that must NEVER be pushed to public repositories
+.planning/
+*-SUPPORT_TICKET*
+*-support-ticket*
+*-CONCERNS*
+*-concerns*
+*-AUDIT*
+*-audit*
