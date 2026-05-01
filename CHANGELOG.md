@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.14.3] - 2026-05-01
+
+### Security
+
+- Remove wildcard CORS (`Access-Control-Allow-Origin: *`) from web server JSON responses. Server binds to `127.0.0.1` by default; wildcard was unnecessary exposure.
+- Sanitize API error responses — replace raw `String(error)` with generic `"Internal error"` / `"Internal server error"` across all API handlers. Actual errors still logged server-side for debugging.
+
+### Dependencies
+
+- Update `@ai-sdk/anthropic` 3.0.72 → 3.0.73
+- Update `@ai-sdk/openai` 3.0.54 → 3.0.55
+- Update `@opencode-ai/plugin` 1.14.30 → 1.14.31
+- Update `@opencode-ai/sdk` 1.14.30 → 1.14.31
+- Update `ai` 6.0.170 → 6.0.172
+
 ## [2.14.2] - 2026-04-30
 
 ### Fixed
