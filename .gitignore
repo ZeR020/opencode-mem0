@@ -67,3 +67,14 @@ src/graphify-out/
 # personal agent configuration and tooling (not for public repos)
 .opencode/
 AGENTS.md
+
+# internal security audits, planning documents, and support tickets
+# These contain personal info, vulnerability assessments, and internal workflows
+# that must NEVER be pushed to public repositories
+.planning/
+*-SUPPORT_TICKET*
+*-support-ticket*
+*-CONCERNS*
+*-concerns*
+*-AUDIT*
+*-audit*
