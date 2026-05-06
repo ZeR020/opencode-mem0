@@ -4,7 +4,7 @@ import { getTags } from "./tags.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 
-let isCaptureRunning = false;
+const captureLocks = new Set<string>();
 
 /**
  * Capture and store a session transcript from the OpenCode client.
@@ -20,8 +20,8 @@ export async function performTranscriptCapture(
   sessionID: string,
   directory: string
 ): Promise<void> {
-  if (isCaptureRunning) return;
-  isCaptureRunning = true;
+  if (captureLocks.has(sessionID)) return;
+  captureLocks.add(sessionID);
 
   try {
     if (!ctx.client) {
@@ -75,7 +75,7 @@ export async function performTranscriptCapture(
   } catch (error) {
     log("performTranscriptCapture: error", { sessionID, error: String(error) });
   } finally {
-    isCaptureRunning = false;
+    captureLocks.delete(sessionID);
   }
 }
 

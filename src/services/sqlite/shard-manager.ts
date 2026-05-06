@@ -141,15 +141,15 @@ export class ShardManager {
       )
     `);
 
-    db.run(`
-      INSERT OR REPLACE INTO shard_metadata (key, value) 
-      VALUES ('embedding_dimensions', '${CONFIG.embeddingDimensions}')
-    `);
+    db.run("INSERT OR REPLACE INTO shard_metadata (key, value) VALUES (?, ?)", [
+      "embedding_dimensions",
+      String(CONFIG.embeddingDimensions),
+    ]);
 
-    db.run(`
-      INSERT OR REPLACE INTO shard_metadata (key, value) 
-      VALUES ('embedding_model', '${CONFIG.embeddingModel}')
-    `);
+    db.run("INSERT OR REPLACE INTO shard_metadata (key, value) VALUES (?, ?)", [
+      "embedding_model",
+      CONFIG.embeddingModel,
+    ]);
 
     db.run(`
       CREATE TABLE IF NOT EXISTS memories (
@@ -182,6 +182,7 @@ export class ShardManager {
         last_accessed INTEGER,
         store_type TEXT DEFAULT 'stm',
         decay_rate REAL DEFAULT 0.05,
+        last_decay_at INTEGER,
         is_deprecated INTEGER DEFAULT 0
       )
     `);
@@ -240,6 +241,7 @@ export class ShardManager {
       { name: "last_accessed", type: "INTEGER" },
       { name: "store_type", type: "TEXT DEFAULT 'stm'" },
       { name: "decay_rate", type: "REAL DEFAULT 0.05" },
+      { name: "last_decay_at", type: "INTEGER" },
       { name: "is_deprecated", type: "INTEGER DEFAULT 0" },
     ];
 

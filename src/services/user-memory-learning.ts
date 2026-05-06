@@ -30,7 +30,8 @@ export async function performUserProfileLearning(
     }
 
     const tags = getTags(directory);
-    const userId = tags.user.userEmail || "unknown";
+    const userId =
+      tags.user.userEmail || `anonymous-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     const existingProfile = userProfileManager.getActiveProfile(userId);
 

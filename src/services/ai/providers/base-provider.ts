@@ -32,7 +32,12 @@ export function applySafeExtraParams(
   extraParams: Record<string, unknown>
 ): void {
   for (const [key, value] of Object.entries(extraParams)) {
-    if (!PROTECTED_KEYS.has(key)) {
+    if (
+      !PROTECTED_KEYS.has(key) &&
+      key !== "__proto__" &&
+      key !== "constructor" &&
+      key !== "prototype"
+    ) {
       requestBody[key] = value;
     }
   }

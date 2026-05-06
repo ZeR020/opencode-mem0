@@ -28,7 +28,7 @@ function migrateFile(filePath) {
   }
 
   // Replace mock() with vi.fn() (but not mock.module or already converted vi.mock)
-  content = content.replace(/\bmock\(/g, "vi.fn(");
+  content = content.replace(/(?<!\bvi\.)\bmock\(/g, "vi.fn(");
 
   // Replace mock.module( with vi.mock(
   content = content.replace(/\bmock\.module\(/g, "vi.mock(");

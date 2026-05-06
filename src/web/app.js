@@ -33,11 +33,15 @@ async function fetchAPI(endpoint, options = {}) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
-    const response = await fetch(API_BASE + endpoint, {
-      ...options,
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+    let response;
+    try {
+      response = await fetch(API_BASE + endpoint, {
+        ...options,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     const data = await response.json();
     return data;
   } catch (error) {

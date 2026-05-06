@@ -74,10 +74,8 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
       messages.push(anthropicMsg);
     }
 
-    const userSequence = this.aiSessionManager.getLastSequence(session.id) + 1;
-    this.aiSessionManager.addMessage({
+    const userSequence = this.aiSessionManager.addMessageAtomic({
       aiSessionId: session.id,
-      sequence: userSequence,
       role: "user",
       content: userPrompt,
     });
@@ -141,10 +139,8 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
 
         const data = (await response.json()) as AnthropicResponse;
 
-        const assistantSequence = this.aiSessionManager.getLastSequence(session.id) + 1;
-        this.aiSessionManager.addMessage({
+        const assistantSequence = this.aiSessionManager.addMessageAtomic({
           aiSessionId: session.id,
-          sequence: assistantSequence,
           role: "assistant",
           content: JSON.stringify(data.content),
           contentBlocks: data.content,
@@ -190,13 +186,11 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
         }
 
         if (data.stop_reason === "end_turn") {
-          const retrySequence = this.aiSessionManager.getLastSequence(session.id) + 1;
           const retryPrompt =
             "Please use the save_memories tool to extract and save the memories from the conversation as instructed.";
 
-          this.aiSessionManager.addMessage({
+          const retrySequence = this.aiSessionManager.addMessageAtomic({
             aiSessionId: session.id,
-            sequence: retrySequence,
             role: "user",
             content: retryPrompt,
           });
@@ -210,7 +204,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
         if (error instanceof Error && error.name === "AbortError") {
           return {
             success: false,
-            error: `API request timeout (${this.config.iterationTimeout}ms)`,
+            error: `API request timeout (${iterationTimeout}ms)`,
             iterations,
           };
         }

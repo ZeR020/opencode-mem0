@@ -142,30 +142,49 @@ export class UserProfileManager {
       workflows: safeArray(profileData.workflows),
     };
 
-    const getVersionStmt = this.db.prepare(`SELECT version FROM user_profiles WHERE id = ?`);
-    const versionRow = getVersionStmt.get(profileId) as any;
-    const newVersion = (versionRow?.version || 0) + 1;
+    let inTxn = false;
+    try {
+      this.db.run("BEGIN TRANSACTION");
+      inTxn = true;
 
-    const updateStmt = this.db.prepare(`
-      UPDATE user_profiles 
-      SET profile_data = ?, 
-          version = ?, 
-          last_analyzed_at = ?, 
-          total_prompts_analyzed = total_prompts_analyzed + ?
-      WHERE id = ?
-    `);
+      const getVersionStmt = this.db.prepare(`SELECT version FROM user_profiles WHERE id = ?`);
+      const versionRow = getVersionStmt.get(profileId) as any;
+      const newVersion = (versionRow?.version || 0) + 1;
 
-    updateStmt.run(
-      JSON.stringify(cleanedData),
-      newVersion,
-      now,
-      additionalPromptsAnalyzed,
-      profileId
-    );
+      const updateStmt = this.db.prepare(`
+        UPDATE user_profiles
+        SET profile_data = ?,
+            version = ?,
+            last_analyzed_at = ?,
+            total_prompts_analyzed = total_prompts_analyzed + ?
+        WHERE id = ? AND version = ?
+      `);
 
-    this.addChangelog(profileId, newVersion, "update", changeSummary, cleanedData);
+      const result = updateStmt.run(
+        JSON.stringify(cleanedData),
+        newVersion,
+        now,
+        additionalPromptsAnalyzed,
+        profileId,
+        versionRow?.version || 0
+      );
+      if (result.changes === 0) {
+        throw new Error(`Concurrent update detected for profile ${profileId}`);
+      }
 
-    this.cleanupOldChangelogs(profileId);
+      this.db.run("COMMIT");
+      inTxn = false;
+
+      this.addChangelog(profileId, newVersion, "update", changeSummary, cleanedData);
+      this.cleanupOldChangelogs(profileId);
+    } catch (error) {
+      if (inTxn) {
+        try {
+          this.db.run("ROLLBACK");
+        } catch {}
+      }
+      throw error;
+    }
   }
 
   private addChangelog(

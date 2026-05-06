@@ -34,7 +34,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   initConfig(directory);
   const tags = getTags(directory);
   let webServer: WebServer | null = null;
-  let idleTimeout: NodeJS.Timeout | null = null;
+  const sessionIdleTimers = new Map<string, NodeJS.Timeout>();
 
   const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("opencode-mem0.plugin.warmedup");
 
@@ -524,9 +524,10 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         const sessionID = event.properties?.sessionID;
         if (!sessionID) return;
 
-        if (idleTimeout) clearTimeout(idleTimeout);
+        const existing = sessionIdleTimers.get(sessionID);
+        if (existing) clearTimeout(existing);
 
-        idleTimeout = setTimeout(async () => {
+        const timer = setTimeout(async () => {
           try {
             await performAutoCapture(ctx, sessionID, directory);
 
@@ -541,9 +542,10 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
           } catch (error) {
             log("Idle processing error", { error: String(error) });
           } finally {
-            idleTimeout = null;
+            sessionIdleTimers.delete(sessionID);
           }
         }, 10000);
+        sessionIdleTimers.set(sessionID, timer);
       }
 
       if (event.type === "session.compacted") {
