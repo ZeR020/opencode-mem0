@@ -107,6 +107,13 @@ export class UserPromptManager {
     return result.changes > 0;
   }
 
+  resetPromptClaim(promptId: string): void {
+    const stmt = this.db.prepare(
+      `UPDATE user_prompts SET captured = 0 WHERE id = ? AND captured = 2`
+    );
+    stmt.run(promptId);
+  }
+
   countUncapturedPrompts(): number {
     const stmt = this.db.prepare(`SELECT COUNT(*) as count FROM user_prompts WHERE captured = 0`);
     const row = stmt.get() as any;
