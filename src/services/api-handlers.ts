@@ -537,7 +537,7 @@ export async function handleSearch(
           log("Shard search error", { shardId: shard.id, error: String(error) });
         }
       }
-      promptResults = userPromptManager.searchPrompts(query, undefined, pageSize * 2);
+      promptResults = userPromptManager.searchPrompts(query, undefined, safePageSize * 2);
     }
 
     const formattedPrompts: FormattedPrompt[] = promptResults.map((p) => ({
