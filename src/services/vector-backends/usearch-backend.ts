@@ -239,3 +239,4 @@ export class USearchBackend implements VectorBackend {
     }
   }
 }
+// AUDIT_MARKER

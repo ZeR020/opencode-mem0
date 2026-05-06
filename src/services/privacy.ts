@@ -6,3 +6,4 @@ export function isFullyPrivate(content: string): boolean {
   const stripped = stripPrivateContent(content).trim();
   return stripped === "[REDACTED]" || stripped === "";
 }
+// AUDIT_MARKER

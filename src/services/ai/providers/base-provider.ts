@@ -56,3 +56,4 @@ export abstract class BaseAIProvider {
 
   abstract supportsSession(): boolean;
 }
+// AUDIT_MARKER

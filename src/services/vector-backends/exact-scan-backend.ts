@@ -118,3 +118,4 @@ export class ExactScanBackend implements VectorBackend {
     return dot / (Math.sqrt(magA) * Math.sqrt(magB));
   }
 }
+// AUDIT_MARKER

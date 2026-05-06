@@ -395,3 +395,4 @@ export class UserProfileManager {
 }
 
 export const userProfileManager = new UserProfileManager();
+// AUDIT_MARKER
