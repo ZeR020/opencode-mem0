@@ -1,10 +1,13 @@
 import { cpSync, existsSync, mkdirSync, readdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve, dirname } from "node:path";
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 
 function main() {
   // Run TypeScript compiler
-  const tscPath = resolve("./node_modules/.bin/tsc");
+  // Resolve the actual TypeScript JS entrypoint, not the platform-specific shim
+  const require = createRequire(import.meta.url);
+  const tscPath = require.resolve("typescript/bin/tsc");
   if (!existsSync(tscPath)) {
     console.error("Error: tsc not found. Run npm install or bun install first.");
     process.exit(1);

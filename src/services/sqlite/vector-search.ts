@@ -1,4 +1,4 @@
-import { getDatabase, type Database } from "./sqlite-bootstrap.js";
+import { type Database } from "./sqlite-bootstrap.js";
 import { connectionManager } from "./connection-manager.js";
 import { log } from "../logger.js";
 import { CONFIG } from "../../config.js";

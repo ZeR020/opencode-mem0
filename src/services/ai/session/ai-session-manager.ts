@@ -1,7 +1,6 @@
-import { getDatabase, type Database } from "../../sqlite/sqlite-bootstrap.js";
+import { type Database } from "../../sqlite/sqlite-bootstrap.js";
 import { join, dirname } from "node:path";
 import { existsSync, mkdirSync } from "node:fs";
-import { log } from "../../logger.js";
 import { connectionManager } from "../../sqlite/connection-manager.js";
 import { CONFIG } from "../../../config.js";
 import {
@@ -23,6 +22,10 @@ export class AISessionManager {
 
   constructor() {
     this.dbPath = join(CONFIG.storagePath, AI_SESSIONS_DB_NAME);
+    const dir = dirname(this.dbPath);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
     this.db = connectionManager.getConnection(this.dbPath);
     this.sessionRetentionMs = CONFIG.aiSessionRetentionDays * 24 * 60 * 60 * 1000;
     this.initDatabase();

@@ -1,4 +1,4 @@
-import { getDatabase, type Database } from "./sqlite-bootstrap.js";
+import { type Database } from "./sqlite-bootstrap.js";
 import { existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { log } from "../logger.js";

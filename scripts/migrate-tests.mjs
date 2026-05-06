@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-function migrateFile(filePath: string): void {
+function migrateFile(filePath) {
   let content = readFileSync(filePath, "utf-8");
 
   // Replace bun:test import with vitest
@@ -36,17 +36,19 @@ function migrateFile(filePath: string): void {
   // Replace spyOn( with vi.spyOn(
   content = content.replace(/\bspyOn\(/g, "vi.spyOn(");
 
-  // Replace Bun.spawnSync with spawnSync from node:child_process
+  // Flag Bun.spawnSync usage for manual migration
   if (content.includes("Bun.spawnSync")) {
-    content = content.replace(/Bun\.spawnSync\s*\(\s*\{/g, "spawnSync(");
-    // Also need to add import - will handle manually for specific files
+    const matches = content.match(/Bun\.spawnSync\s*\(/g);
+    if (matches) {
+      content = `// MANUAL_MIGRATION_REQUIRED: Bun.spawnSync usage detected (${matches.length} occurrence(s)).\n// Convert to spawnSync(command, args, options) from "node:child_process" and add appropriate import.\n${content}`;
+    }
   }
 
   writeFileSync(filePath, content);
   console.log(`Migrated: ${filePath}`);
 }
 
-function migrateDirectory(dir: string): void {
+function migrateDirectory(dir) {
   for (const entry of readdirSync(dir)) {
     const path = join(dir, entry);
     const stat = statSync(path);

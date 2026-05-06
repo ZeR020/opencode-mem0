@@ -300,17 +300,23 @@ Access the UI at `http://localhost:4747`.
 ## Testing
 
 ```bash
-# Run all tests
+# Run all tests (Bun)
 bun test
 
-# Run specific feature tests
+# Run all tests (Node.js)
+npm test
+
+# Run specific feature tests (Bun)
 bun test tests/memory-engine.test.ts
+
+# Run specific feature tests (Node.js)
+npx vitest run tests/memory-engine.test.ts
 
 # Type check
 bun run typecheck
 
-# Build
-bun run build
+# Build (cross-platform)
+npm run build
 ```
 
 29 integration tests cover transcript storage, conflict resolution, hybrid search, diversity ranking, and STM/LTM decay.

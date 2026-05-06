@@ -12,12 +12,28 @@ interface ServeOptions {
   fetch: (req: Request) => Promise<Response> | Response;
 }
 
+function normalizeHeaders(rawHeaders: IncomingMessage["headers"]): Headers {
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(rawHeaders)) {
+    if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      for (const v of value) {
+        headers.append(key, v);
+      }
+    } else {
+      headers.set(key, value);
+    }
+  }
+  return headers;
+}
+
 async function createNodeServer(options: ServeOptions): Promise<PlatformServer> {
   const requestIPs = new WeakMap<Request, string>();
 
   const nodeServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     try {
-      const url = `http://${req.headers.host}${req.url}`;
+      const host = req.headers.host || `${options.hostname}:${options.port}`;
+      const url = `http://${host}${req.url}`;
 
       const chunks: Buffer[] = [];
       for await (const chunk of req) {
@@ -27,7 +43,7 @@ async function createNodeServer(options: ServeOptions): Promise<PlatformServer> 
 
       const request = new Request(url, {
         method: req.method,
-        headers: new Headers(req.headers as Record<string, string>),
+        headers: normalizeHeaders(req.headers),
         body: body && body.length > 0 ? body : undefined,
       });
 
@@ -43,8 +59,9 @@ async function createNodeServer(options: ServeOptions): Promise<PlatformServer> 
       const responseBody = await response.arrayBuffer();
       res.end(Buffer.from(responseBody));
     } catch (error) {
+      console.error("Platform server error:", error);
       res.statusCode = 500;
-      res.end(String(error));
+      res.end("Internal server error");
     }
   });
 
