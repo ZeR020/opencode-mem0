@@ -146,9 +146,10 @@ export async function handleListMemories(
     if (tag) {
       const { scope: tagScope, hash } = extractScopeFromTag(tag);
       const shards = shardManager.getAllShards(tagScope, hash);
+      const limit = page * pageSize; // Fetch enough to cover the requested page across shards
       for (const shard of shards) {
         const db = connectionManager.getConnection(shard.dbPath);
-        const memories = vectorSearch.listMemories(db, tag, 10000);
+        const memories = vectorSearch.listMemories(db, tag, limit);
         allMemories.push(...memories);
       }
     } else {
