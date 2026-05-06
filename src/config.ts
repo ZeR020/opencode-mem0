@@ -53,7 +53,7 @@ interface OpenCodeMemConfig {
   autoCaptureMaxIterations?: number;
   autoCaptureIterationTimeout?: number;
   autoCaptureLanguage?: string;
-  memoryProvider?: "openai-chat" | "openai-responses" | "anthropic";
+  memoryProvider?: "openai-chat" | "openai-responses" | "anthropic" | "google-gemini";
   memoryModel?: string;
   memoryApiUrl?: string;
   memoryApiKey?: string;
@@ -141,7 +141,7 @@ const DEFAULTS: Required<
   memoryModel?: string;
   memoryApiUrl?: string;
   memoryApiKey?: string;
-  memoryProvider?: "openai-chat" | "openai-responses" | "anthropic";
+  memoryProvider?: "openai-chat" | "openai-responses" | "anthropic" | "google-gemini";
   memoryTemperature?: number | false;
   memoryExtraParams?: Record<string, unknown>;
   opencodeProvider?: string;
@@ -634,7 +634,8 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
     memoryProvider: (fileConfig.memoryProvider ?? "openai-chat") as
       | "openai-chat"
       | "openai-responses"
-      | "anthropic",
+      | "anthropic"
+      | "google-gemini",
     memoryModel: fileConfig.memoryModel,
     memoryApiUrl: fileConfig.memoryApiUrl,
     memoryApiKey: resolveSecretValue(fileConfig.memoryApiKey),
@@ -742,5 +743,7 @@ export function initConfig(directory: string): void {
 }
 
 export function isConfigured(): boolean {
+  // Gracefully degrade: do not block plugin startup, but return true so it loads.
+  // The system should check specific sub-configurations when features are invoked.
   return true;
 }

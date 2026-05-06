@@ -7,6 +7,20 @@ import { aiSessionManager } from "./session/ai-session-manager.js";
 import type { AIProviderType } from "./session/session-types.js";
 
 export class AIProviderFactory {
+  private static cleanupTimer: NodeJS.Timeout | null = null;
+
+  static startCleanupSchedule(intervalMs: number = 1000 * 60 * 60) {
+    if (this.cleanupTimer) clearInterval(this.cleanupTimer);
+    this.cleanupTimer = setInterval(() => {
+      this.cleanupExpiredSessions();
+    }, intervalMs);
+  }
+
+  static stopCleanupSchedule() {
+    if (this.cleanupTimer) clearInterval(this.cleanupTimer);
+    this.cleanupTimer = null;
+  }
+
   static createProvider(providerType: AIProviderType, config: ProviderConfig): BaseAIProvider {
     switch (providerType) {
       case "openai-chat":

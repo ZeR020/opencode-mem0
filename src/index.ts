@@ -21,6 +21,7 @@ import {
   stopLifecycleJob,
   runLifecycleMaintenance,
 } from "./services/memory-lifecycle.js";
+import { AIProviderFactory } from "./services/ai/ai-provider-factory.js";
 
 import { isConfigured, CONFIG, initConfig } from "./config.js";
 import { log } from "./services/logger.js";
@@ -156,10 +157,14 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
     log("Initial lifecycle maintenance failed", { error: String(error) });
   });
 
+  // Start cleanup schedule for expired sessions
+  AIProviderFactory.startCleanupSchedule(3600 * 1000);
+
   const shutdownHandler = async () => {
     try {
       stopScoringRecalculation();
       stopLifecycleJob();
+      AIProviderFactory.stopCleanupSchedule();
       if (webServer) {
         await webServer.stop();
       }
@@ -600,11 +605,16 @@ function formatSearchResults(query: string, results: any, limit?: number): strin
     success: true,
     query,
     count: memoryResults.length,
-    results: memoryResults.slice(0, limit || 10).map((r: any) => ({
-      id: r.id,
-      content: r.memory || r.chunk,
-      similarity: Math.round(r.similarity * 100),
-    })),
+    results: memoryResults.slice(0, limit || 10).map((r: any) => {
+      let sim = Math.round(r.similarity * 100);
+      if (sim > 100) sim = 100;
+      if (sim < 0) sim = 0;
+      return {
+        id: r.id,
+        content: r.memory || r.chunk,
+        similarity: sim,
+      };
+    }),
   });
 }
 
