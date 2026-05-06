@@ -71,6 +71,14 @@ open http://localhost:4747
 
 ## What's New in v2.14
 
+### v2.14.5 — Security & Reliability
+
+- Optional API key authentication for web UI when binding to non-localhost addresses
+- Safer shutdown handling — no longer kills the host process on SIGINT/SIGTERM
+- OAuth credentials written with restricted `0600` permissions
+- Archived memories fully purge vectors from the search index
+- `google-gemini` provider support officially added to the type system
+
 ### v2.14.4 — Security & Polish
 
 - Verified author attribution across all commits
@@ -163,6 +171,8 @@ Edit `~/.config/opencode/opencode-mem0.jsonc`. All fields are optional — sensi
   "storagePath": "~/.opencode-mem0/data",
   "webServerEnabled": true,
   "webServerPort": 4747,
+  "webServerHost": "127.0.0.1",
+  "webServerApiKey": "change-me",
   "autoCaptureEnabled": true,
 
   "transcriptStorage": {

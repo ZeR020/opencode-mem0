@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.14.5] - 2026-05-06
+
+### Security
+
+- Hardened web server with optional API key authentication for non-localhost bindings
+- Fixed SIGINT/SIGTERM handlers to avoid killing the host process on shutdown
+- Added `0600` permissions to OAuth credential files after write
+- Removed backslash escape vulnerability in LLM prompt construction (`memory-conflicts.ts`)
+- Archived memories now correctly remove vectors from the backend search index
+
+### Fixed
+
+- Gracefully degrade when configuration is incomplete instead of blocking plugin load
+- Added missing `google-gemini` to `memoryProvider` type union
+- Clamped similarity percentages to 0-100 range in search results
+- Started periodic cleanup of expired AI provider sessions
+- Standardized timer types to `NodeJS.Timeout` across the codebase
+- Bounded `execSync` calls with `timeout` to prevent indefinite blocking
+- Improved stream chunk processing to handle fragmented regex replacements safely
+
+### Infrastructure
+
+- Restricted CI workflow `GITHUB_TOKEN` permissions to `contents: read`
+- Removed `node` from `engines` field (Bun-only runtime)
+
 ## [2.14.4] - 2026-05-02
 
 ### Security
