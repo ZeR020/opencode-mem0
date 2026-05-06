@@ -237,4 +237,3 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
     return null;
   }
 }
-// AUDIT_MARKER

@@ -239,4 +239,3 @@ export async function runOneTimeScoringRecalculation(): Promise<{
 }> {
   return recalculateAllScores(true);
 }
-// AUDIT_MARKER

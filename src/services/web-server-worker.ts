@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve, type PlatformServer } from "./platform-server.js";
+import { stripPrivateContent } from "./privacy.js";
 import {
   handleListTags,
   handleListMemories,
@@ -35,6 +36,8 @@ interface WorkerMessage {
   type: "start" | "stop" | "status";
   port?: number;
   host?: string;
+  apiKey?: string;
+  enabled?: boolean;
 }
 
 interface WorkerResponse {
@@ -45,6 +48,42 @@ interface WorkerResponse {
 }
 
 let server: PlatformServer | null = null;
+let workerConfig: { host?: string; apiKey?: string; enabled?: boolean } = {};
+
+const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+
+function isLocalhost(host: string): boolean {
+  return LOCAL_HOSTS.has(host);
+}
+
+function redactPII(value: unknown): unknown {
+  if (typeof value === "string") {
+    // Strip <private> tags
+    let redacted = stripPrivateContent(value);
+    // Redact email addresses
+    redacted = redacted.replace(
+      /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
+      "[REDACTED_EMAIL]"
+    );
+    return redacted;
+  }
+  if (Array.isArray(value)) {
+    return value.map(redactPII);
+  }
+  if (value && typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      // Redact known sensitive keys entirely
+      if (/token|secret|password|api[-_]?key|authorization|refresh|access/i.test(k)) {
+        result[k] = "[REDACTED]";
+      } else {
+        result[k] = redactPII(v);
+      }
+    }
+    return result;
+  }
+  return value;
+}
 
 async function handleRequest(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -52,6 +91,18 @@ async function handleRequest(req: Request): Promise<Response> {
   const method = req.method;
 
   try {
+    // Auth: enforce API key for non-localhost access
+    const requiresAuth =
+      workerConfig.apiKey &&
+      workerConfig.enabled &&
+      workerConfig.host &&
+      !isLocalhost(workerConfig.host);
+    if (requiresAuth) {
+      const apiKey = req.headers.get("x-opencode-mem-key");
+      if (apiKey !== workerConfig.apiKey) {
+        return jsonResponse({ success: false, error: "Unauthorized" }, 401);
+      }
+    }
     if (path === "/" || path === "/index.html") {
       return serveStaticFile("index.html", "text/html");
     }
@@ -291,7 +342,8 @@ function serveStaticFile(filename: string, contentType: string): Response {
 }
 
 function jsonResponse(data: any, status: number = 200): Response {
-  return new Response(JSON.stringify(data), {
+  const redacted = redactPII(data);
+  return new Response(JSON.stringify(redacted), {
     status,
     headers: {
       "Content-Type": "application/json",
@@ -314,6 +366,12 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
           } as WorkerResponse);
           return;
         }
+
+        workerConfig = {
+          host: message.host,
+          apiKey: message.apiKey,
+          enabled: message.enabled,
+        };
 
         server = await serve({
           port: message.port!,
@@ -367,4 +425,3 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
     } as WorkerResponse);
   }
 };
-// AUDIT_MARKER

@@ -619,4 +619,3 @@ export function recordAccess(currentAccessCount: number): {
     lastAccessed: Date.now(),
   };
 }
-// AUDIT_MARKER

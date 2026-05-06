@@ -306,4 +306,3 @@ Use the update_user_profile tool to save the ${existingProfile ? "updated" : "ne
 
   return rawData as UserProfileData;
 }
-// AUDIT_MARKER

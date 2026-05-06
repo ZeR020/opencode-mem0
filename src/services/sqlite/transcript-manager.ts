@@ -275,4 +275,3 @@ export class TranscriptManager {
 }
 
 export const transcriptManager = new TranscriptManager();
-// AUDIT_MARKER

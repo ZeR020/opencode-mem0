@@ -271,4 +271,3 @@ export class GoogleGeminiProvider extends BaseAIProvider {
     return { success: false, error: `Max iterations (${maxIterations}) reached`, iterations };
   }
 }
-// AUDIT_MARKER

@@ -39,4 +39,3 @@ function main() {
 }
 
 main();
-// AUDIT_MARKER

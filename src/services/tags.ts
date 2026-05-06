@@ -178,4 +178,3 @@ export function getTags(directory: string): {
     project: getProjectTagInfo(directory),
   };
 }
-// AUDIT_MARKER

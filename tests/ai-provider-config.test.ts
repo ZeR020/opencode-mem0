@@ -239,4 +239,3 @@ describe("AI provider config", () => {
     expect(capturedBody?.temperature).toBeUndefined();
   });
 });
-// AUDIT_MARKER

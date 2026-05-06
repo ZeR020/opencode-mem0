@@ -634,4 +634,3 @@ function formatMemoriesForCompaction(memories: any[]): string {
 
   return output;
 }
-// AUDIT_MARKER

@@ -405,4 +405,3 @@ export class ShardManager {
 }
 
 export const shardManager = new ShardManager();
-// AUDIT_MARKER

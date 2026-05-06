@@ -211,4 +211,3 @@ describe("UserProfileManager – explicit preference writes", () => {
     expect(last.changeType).toBe("update");
   });
 });
-// AUDIT_MARKER

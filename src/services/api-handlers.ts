@@ -509,30 +509,17 @@ export async function handleSearch(
       const projectPath = getProjectPathFromTag(tag);
       promptResults = userPromptManager.searchPrompts(query, projectPath, pageSize * 2);
     } else {
+      const userShards = shardManager.getAllShards("user", "");
       const projectShards = shardManager.getAllShards("project", "");
-      const uniqueTags = new Set<string>();
-      for (const shard of projectShards) {
-        const db = connectionManager.getConnection(shard.dbPath);
-        const tags = vectorSearch.getDistinctTags(db);
-        for (const t of tags) {
-          if (t.container_tag) uniqueTags.add(t.container_tag);
-        }
-      }
-      for (const containerTag of uniqueTags) {
-        const { scope, hash } = extractScopeFromTag(containerTag);
-        const shards = shardManager.getAllShards(scope, hash);
-        for (const shard of shards) {
-          try {
-            const results = await vectorSearch.searchInShard(
-              shard,
-              queryVector,
-              containerTag,
-              pageSize
-            );
-            memoryResults.push(...results);
-          } catch (error) {
-            log("Shard search error", { shardId: shard.id, error: String(error) });
-          }
+      const searchedPaths = new Set<string>();
+      for (const shard of [...userShards, ...projectShards]) {
+        if (searchedPaths.has(shard.dbPath)) continue;
+        searchedPaths.add(shard.dbPath);
+        try {
+          const results = await vectorSearch.searchInShard(shard, queryVector, "", pageSize);
+          memoryResults.push(...results);
+        } catch (error) {
+          log("Shard search error", { shardId: shard.id, error: String(error) });
         }
       }
       promptResults = userPromptManager.searchPrompts(query, undefined, pageSize * 2);
@@ -1179,4 +1166,3 @@ export async function handleConflictStats(): Promise<
     return { success: false, error: "Internal error" };
   }
 }
-// AUDIT_MARKER

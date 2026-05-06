@@ -675,4 +675,3 @@ export class VectorSearch {
 }
 
 export const vectorSearch = new VectorSearch();
-// AUDIT_MARKER

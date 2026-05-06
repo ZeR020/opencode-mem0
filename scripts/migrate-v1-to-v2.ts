@@ -405,4 +405,3 @@ migrate(storagePath)
     console.error("Migration failed:", error);
     process.exit(1);
   });
-// AUDIT_MARKER
