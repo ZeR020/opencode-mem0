@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -26,10 +29,10 @@ jobs:
 
       - run: npm run typecheck
 
+      - run: npm run build
+
       - name: Run tests
         run: npm test
-
-      - run: npm run build
 
       - name: Check release state
         id: release_state
