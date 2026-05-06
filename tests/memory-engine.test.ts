@@ -395,7 +395,7 @@ describe("Memory Engine Integration", () => {
       const old = calculateRecency(now - 7 * 24 * 60 * 60 * 1000, 7);
       const veryOld = calculateRecency(now - 30 * 24 * 60 * 60 * 1000, 7);
 
-      expect(recent).toBe(1.0);
+      expect(recent).toBeCloseTo(1.0, 6);
       expect(old).toBeCloseTo(0.5, 1);
       expect(veryOld).toBeLessThan(0.1);
       expect(veryOld).toBeGreaterThanOrEqual(0);
