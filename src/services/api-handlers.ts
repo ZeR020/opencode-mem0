@@ -142,7 +142,7 @@ export async function handleListMemories(
   includePrompts: boolean = true
 ): Promise<ApiResponse<PaginatedResponse<Memory | any>>> {
   try {
-    const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    const safePage = Number.isFinite(page) && page > 0 ? Math.min(Math.floor(page), 10000) : 1;
     const safePageSize =
       Number.isFinite(pageSize) && pageSize > 0 && pageSize <= 100 ? Math.floor(pageSize) : 20;
     await embeddingService.warmup();
@@ -497,7 +497,7 @@ export async function handleSearch(
 ): Promise<ApiResponse<PaginatedResponse<SearchResultItem>>> {
   try {
     if (!query) return { success: false, error: "query is required" };
-    const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    const safePage = Number.isFinite(page) && page > 0 ? Math.min(Math.floor(page), 10000) : 1;
     const safePageSize =
       Number.isFinite(pageSize) && pageSize > 0 && pageSize <= 100 ? Math.floor(pageSize) : 20;
     await embeddingService.warmup();

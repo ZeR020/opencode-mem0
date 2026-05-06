@@ -126,7 +126,7 @@ async function handleRequest(req: Request): Promise<Response> {
       const tag = url.searchParams.get("tag") || undefined;
       const rawPage = parseInt(url.searchParams.get("page") || "1");
       const rawPageSize = parseInt(url.searchParams.get("pageSize") || "20");
-      const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+      const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
       const pageSize =
         Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
       const includePrompts = url.searchParams.get("includePrompts") !== "false";
@@ -173,7 +173,7 @@ async function handleRequest(req: Request): Promise<Response> {
       const tag = url.searchParams.get("tag") || undefined;
       const rawPage = parseInt(url.searchParams.get("page") || "1");
       const rawPageSize = parseInt(url.searchParams.get("pageSize") || "20");
-      const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+      const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
       const pageSize =
         Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
 
