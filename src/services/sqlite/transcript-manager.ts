@@ -71,11 +71,11 @@ export class TranscriptManager {
     `);
 
     // FTS5 virtual table for full-text search on messages
+    // Use implicit integer rowid (transcripts.id is TEXT, so content_rowid='id' would mismatch)
     db.run(`
       CREATE VIRTUAL TABLE IF NOT EXISTS transcripts_fts USING fts5(
         messages,
-        content='transcripts',
-        content_rowid='id'
+        content='transcripts'
       )
     `);
 
@@ -84,7 +84,7 @@ export class TranscriptManager {
       CREATE TRIGGER IF NOT EXISTS transcripts_fts_insert 
       AFTER INSERT ON transcripts BEGIN
         INSERT INTO transcripts_fts(rowid, messages) 
-        VALUES (new.id, new.messages);
+        VALUES (new.rowid, new.messages);
       END
     `);
 
@@ -92,7 +92,7 @@ export class TranscriptManager {
       CREATE TRIGGER IF NOT EXISTS transcripts_fts_delete 
       AFTER DELETE ON transcripts BEGIN
         INSERT INTO transcripts_fts(transcripts_fts, rowid, messages) 
-        VALUES ('delete', old.id, old.messages);
+        VALUES ('delete', old.rowid, old.messages);
       END
     `);
 
@@ -100,9 +100,9 @@ export class TranscriptManager {
       CREATE TRIGGER IF NOT EXISTS transcripts_fts_update 
       AFTER UPDATE ON transcripts BEGIN
         INSERT INTO transcripts_fts(transcripts_fts, rowid, messages) 
-        VALUES ('delete', old.id, old.messages);
+        VALUES ('delete', old.rowid, old.messages);
         INSERT INTO transcripts_fts(rowid, messages) 
-        VALUES (new.id, new.messages);
+        VALUES (new.rowid, new.messages);
       END
     `);
   }
@@ -200,7 +200,7 @@ export class TranscriptManager {
       const stmt = db.prepare(`
         SELECT t.id, t.session_id, t.project_path, t.messages, t.created_at, t.token_count
         FROM transcripts t
-        JOIN transcripts_fts fts ON fts.rowid = t.id
+        JOIN transcripts_fts fts ON fts.rowid = t.rowid
         WHERE transcripts_fts MATCH ?
         ORDER BY rank
       `);
