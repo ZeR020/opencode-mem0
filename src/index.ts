@@ -88,7 +88,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
                   duration: 3000,
                 },
               })
-              .catch(() => {});
+              .catch((err) => log("Toast display failed", { error: String(err) }));
           }
         });
 
@@ -103,7 +103,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
                   duration: 5000,
                 },
               })
-              .catch(() => {});
+              .catch((err) => log("Toast display failed", { error: String(err) }));
           }
         } else {
           if (ctx.client?.tui) {
@@ -116,7 +116,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
                   duration: 3000,
                 },
               })
-              .catch(() => {});
+              .catch((err) => log("Toast display failed", { error: String(err) }));
           }
         }
       })
@@ -133,7 +133,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
                 duration: 5000,
               },
             })
-            .catch(() => {});
+            .catch((err) => log("Toast display failed", { error: String(err) }));
         }
       });
   }
@@ -278,7 +278,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
                 duration: 5000,
               },
             })
-            .catch(() => {});
+            .catch((err) => log("Toast display failed", { error: String(err) }));
         }
       }
     },
@@ -587,7 +587,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
                   duration: 3000,
                 },
               })
-              .catch(() => {});
+              .catch((err) => log("Toast display failed", { error: String(err) }));
           }
 
           log("Compaction memory injected", {
