@@ -222,5 +222,37 @@ export class AISessionManager {
   }
 }
 
-export const aiSessionManager = new AISessionManager();
+let _aiSessionManager: AISessionManager | null = null;
+
+export function getAISessionManager(): AISessionManager {
+  if (!_aiSessionManager) {
+    _aiSessionManager = new AISessionManager();
+  }
+  return _aiSessionManager;
+}
+
+// Backward-compatible named export (lazy — no side effects at import time)
+export const aiSessionManager = {
+  get cleanupExpiredSessions() {
+    return getAISessionManager().cleanupExpiredSessions.bind(getAISessionManager());
+  },
+  get createSession() {
+    return getAISessionManager().createSession.bind(getAISessionManager());
+  },
+  get getSession() {
+    return getAISessionManager().getSession.bind(getAISessionManager());
+  },
+  get getMessages() {
+    return getAISessionManager().getMessages.bind(getAISessionManager());
+  },
+  get addMessage() {
+    return getAISessionManager().addMessage.bind(getAISessionManager());
+  },
+  get updateSession() {
+    return getAISessionManager().updateSession.bind(getAISessionManager());
+  },
+  get getLastSequence() {
+    return getAISessionManager().getLastSequence.bind(getAISessionManager());
+  },
+} as unknown as AISessionManager;
 // AUDIT_MARKER
