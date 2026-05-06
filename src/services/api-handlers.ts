@@ -142,12 +142,15 @@ export async function handleListMemories(
   includePrompts: boolean = true
 ): Promise<ApiResponse<PaginatedResponse<Memory | any>>> {
   try {
+    const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    const safePageSize =
+      Number.isFinite(pageSize) && pageSize > 0 && pageSize <= 100 ? Math.floor(pageSize) : 20;
     await embeddingService.warmup();
     let allMemories: any[] = [];
     if (tag) {
       const { scope: tagScope, hash } = extractScopeFromTag(tag);
       const shards = shardManager.getAllShards(tagScope, hash);
-      const limit = page * pageSize; // Fetch enough to cover the requested page across shards
+      const limit = safePage * safePageSize; // Fetch enough to cover the requested page across shards
       for (const shard of shards) {
         const db = connectionManager.getConnection(shard.dbPath);
         const memories = vectorSearch.listMemories(db, tag, limit);
@@ -233,9 +236,9 @@ export async function handleListMemories(
     timeline = sortedTimeline;
 
     const total = timeline.length;
-    const totalPages = Math.ceil(total / pageSize);
-    const offset = (page - 1) * pageSize;
-    const paginatedResults = timeline.slice(offset, offset + pageSize);
+    const totalPages = Math.ceil(total / safePageSize);
+    const offset = (safePage - 1) * safePageSize;
+    const paginatedResults = timeline.slice(offset, offset + safePageSize);
 
     const items = paginatedResults.map((item: any) => {
       if (item.type === "memory") {
@@ -491,6 +494,9 @@ export async function handleSearch(
 ): Promise<ApiResponse<PaginatedResponse<SearchResultItem>>> {
   try {
     if (!query) return { success: false, error: "query is required" };
+    const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    const safePageSize =
+      Number.isFinite(pageSize) && pageSize > 0 && pageSize <= 100 ? Math.floor(pageSize) : 20;
     await embeddingService.warmup();
     const queryVector = await embeddingService.embedWithTimeout(query);
     let memoryResults: any[] = [];
@@ -500,14 +506,19 @@ export async function handleSearch(
       const shards = shardManager.getAllShards(scope, hash);
       for (const shard of shards) {
         try {
-          const results = await vectorSearch.searchInShard(shard, queryVector, tag, pageSize * 2);
+          const results = await vectorSearch.searchInShard(
+            shard,
+            queryVector,
+            tag,
+            safePageSize * 2
+          );
           memoryResults.push(...results);
         } catch (error) {
           log("Shard search error", { shardId: shard.id, error: String(error) });
         }
       }
       const projectPath = getProjectPathFromTag(tag);
-      promptResults = userPromptManager.searchPrompts(query, projectPath, pageSize * 2);
+      promptResults = userPromptManager.searchPrompts(query, projectPath, safePageSize * 2);
     } else {
       const userShards = shardManager.getAllShards("user", "");
       const projectShards = shardManager.getAllShards("project", "");
@@ -516,7 +527,7 @@ export async function handleSearch(
         if (searchedPaths.has(shard.dbPath)) continue;
         searchedPaths.add(shard.dbPath);
         try {
-          const perShardLimit = Math.min(page * pageSize, 500);
+          const perShardLimit = Math.min(safePage * safePageSize, 500);
           const results = await vectorSearch.searchInShard(shard, queryVector, "", perShardLimit);
           memoryResults.push(...results);
         } catch (error) {
@@ -563,9 +574,12 @@ export async function handleSearch(
     );
 
     const total = combinedResults.length;
-    const totalPages = Math.ceil(total / pageSize);
-    const offset = (page - 1) * pageSize;
-    const paginatedResults: SearchResultItem[] = combinedResults.slice(offset, offset + pageSize);
+    const totalPages = Math.ceil(total / safePageSize);
+    const offset = (safePage - 1) * safePageSize;
+    const paginatedResults: SearchResultItem[] = combinedResults.slice(
+      offset,
+      offset + safePageSize
+    );
 
     const missingPromptIds = new Set<string>();
     const missingMemoryIds = new Set<string>();
