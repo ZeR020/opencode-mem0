@@ -1,12 +1,11 @@
-import { getDatabase } from "./sqlite-bootstrap.js";
+import { type Database } from "./sqlite-bootstrap.js";
 import { existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { log } from "../logger.js";
 import { CONFIG } from "../../config.js";
 import { connectionManager } from "./connection-manager.js";
 
-const Database = getDatabase();
-type DatabaseType = typeof Database.prototype;
+type DatabaseType = Database;
 
 export interface TranscriptRecord {
   id: string;

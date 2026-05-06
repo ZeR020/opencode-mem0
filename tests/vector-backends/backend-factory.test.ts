@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { createVectorBackend } from "../../src/services/vector-backends/backend-factory.js";
 import type { VectorBackend } from "../../src/services/vector-backends/types.js";
 

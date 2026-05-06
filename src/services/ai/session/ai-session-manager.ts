@@ -1,17 +1,17 @@
-import { getDatabase } from "../../sqlite/sqlite-bootstrap.js";
-import { join } from "node:path";
-import type {
-  AISession,
-  SessionCreateParams,
-  SessionUpdateParams,
-  AIProviderType,
-  AIMessage,
-} from "./session-types.js";
+import { type Database } from "../../sqlite/sqlite-bootstrap.js";
+import { join, dirname } from "node:path";
+import { existsSync, mkdirSync } from "node:fs";
 import { connectionManager } from "../../sqlite/connection-manager.js";
 import { CONFIG } from "../../../config.js";
+import {
+  type AIProviderType,
+  type AISession,
+  type AIMessage,
+  type SessionCreateParams,
+  type SessionUpdateParams,
+} from "./session-types.js";
 
-const Database = getDatabase();
-type DatabaseType = typeof Database.prototype;
+type DatabaseType = Database;
 
 const AI_SESSIONS_DB_NAME = "ai-sessions.db";
 
@@ -22,6 +22,10 @@ export class AISessionManager {
 
   constructor() {
     this.dbPath = join(CONFIG.storagePath, AI_SESSIONS_DB_NAME);
+    const dir = dirname(this.dbPath);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
     this.db = connectionManager.getConnection(this.dbPath);
     this.sessionRetentionMs = CONFIG.aiSessionRetentionDays * 24 * 60 * 60 * 1000;
     this.initDatabase();

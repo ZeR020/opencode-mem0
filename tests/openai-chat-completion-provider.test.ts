@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vitest";
 import { OpenAIChatCompletionProvider } from "../src/services/ai/providers/openai-chat-completion.js";
 import type { AIMessage } from "../src/services/ai/session/session-types.js";
 import type { ChatCompletionTool } from "../src/services/ai/tools/tool-schema.js";

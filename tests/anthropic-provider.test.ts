@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vitest";
 import { AnthropicMessagesProvider } from "../src/services/ai/providers/anthropic-messages.js";
 import type { ChatCompletionTool } from "../src/services/ai/tools/tool-schema.js";
 

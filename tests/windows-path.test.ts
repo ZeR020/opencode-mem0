@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect } from "vitest";
 import { getProjectName } from "../src/services/tags.js";
 import { dirname } from "node:path";
 import { join } from "node:path";

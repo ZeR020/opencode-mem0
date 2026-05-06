@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect } from "vitest";
 import { detectLanguage, getLanguageName } from "../src/services/language-detector.js";
 
 describe("detectLanguage", () => {

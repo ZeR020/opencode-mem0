@@ -1,12 +1,22 @@
-import { getDatabase } from "../sqlite/sqlite-bootstrap.js";
+import { type Database } from "../sqlite/sqlite-bootstrap.js";
 import { join } from "node:path";
 import { connectionManager } from "../sqlite/connection-manager.js";
 import { CONFIG } from "../../config.js";
-import type { UserProfile, UserProfileChangelog, UserProfileData } from "./types.js";
-import { safeArray, safeObject } from "./profile-utils.js";
+import {
+  type UserProfile,
+  type UserProfileData,
+  type UserProfileChangelog,
+  type UserProfilePreference,
+  type UserProfilePattern,
+  type UserProfileWorkflow,
+} from "./types.js";
 
-const Database = getDatabase();
-type DatabaseType = typeof Database.prototype;
+type DatabaseType = Database;
+
+function safeArray<T>(val: T[] | undefined | null): T[] {
+  if (!val) return [];
+  return Array.isArray(val) ? val : [];
+}
 
 const USER_PROFILES_DB_NAME = "user-profiles.db";
 
