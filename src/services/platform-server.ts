@@ -35,9 +35,18 @@ async function createNodeServer(options: ServeOptions): Promise<PlatformServer> 
       const host = req.headers.host || `${options.hostname}:${options.port}`;
       const url = `http://${host}${req.url}`;
 
+      const MAX_BODY_BYTES = 1_048_576; // 1 MiB
       const chunks: Buffer[] = [];
+      let totalBytes = 0;
       for await (const chunk of req) {
-        chunks.push(chunk);
+        const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        totalBytes += buf.length;
+        if (totalBytes > MAX_BODY_BYTES) {
+          res.statusCode = 413;
+          res.end("Payload too large");
+          return;
+        }
+        chunks.push(buf);
       }
       const body = chunks.length > 0 ? Buffer.concat(chunks) : undefined;
 

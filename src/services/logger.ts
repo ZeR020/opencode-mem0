@@ -53,12 +53,25 @@ function ensureLoggerInitialized() {
   (globalThis as any)[GLOBAL_LOGGER_KEY] = true;
 }
 
+function safeStringify(data: unknown): string {
+  try {
+    return JSON.stringify(data, (key, value) => {
+      if (/token|secret|password|api[-_]?key|authorization/i.test(key)) {
+        return "[REDACTED]";
+      }
+      return value;
+    });
+  } catch {
+    return '"[Unserializable data]"';
+  }
+}
+
 export function log(message: string, data?: unknown) {
   ensureLoggerInitialized();
   const logFile = getLogFilePath();
   const timestamp = new Date().toISOString();
   const line = data
-    ? `[${timestamp}] ${message}: ${JSON.stringify(data)}\n`
+    ? `[${timestamp}] ${message}: ${safeStringify(data)}\n`
     : `[${timestamp}] ${message}\n`;
   appendFileSync(logFile, line);
 }

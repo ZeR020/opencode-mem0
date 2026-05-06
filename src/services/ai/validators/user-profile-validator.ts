@@ -27,15 +27,15 @@ export class UserProfileValidator {
     if (errors.length > 0) {
       return { valid: false, errors };
     }
-    if (data.preferences) {
+    if (Object.prototype.hasOwnProperty.call(data, "preferences")) {
       const prefErrors = this.validatePreferences(data.preferences);
       errors.push(...prefErrors);
     }
-    if (data.patterns) {
+    if (Object.prototype.hasOwnProperty.call(data, "patterns")) {
       const patternErrors = this.validatePatterns(data.patterns);
       errors.push(...patternErrors);
     }
-    if (data.workflows) {
+    if (Object.prototype.hasOwnProperty.call(data, "workflows")) {
       const workflowErrors = this.validateWorkflows(data.workflows);
       errors.push(...workflowErrors);
     }

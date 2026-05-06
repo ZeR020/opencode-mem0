@@ -1,7 +1,8 @@
-import { getDatabase } from "./src/services/sqlite/sqlite-bootstrap.js";
+import { getDatabase } from "../src/services/sqlite/sqlite-bootstrap.ts";
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
-import { log } from "./src/services/logger.js";
+import { homedir } from "node:os";
+import { log } from "../src/services/logger.ts";
 
 const Database = getDatabase();
 type DatabaseType = typeof Database.prototype;
@@ -189,9 +190,34 @@ function createTranscriptsDb(storagePath: string): boolean {
     db.run(`
       CREATE VIRTUAL TABLE IF NOT EXISTS transcripts_fts USING fts5(
         messages,
-        content='transcripts',
-        content_rowid='id'
+        content='transcripts'
       )
+    `);
+
+    db.run(`
+      CREATE TRIGGER IF NOT EXISTS transcripts_fts_insert 
+      AFTER INSERT ON transcripts BEGIN
+        INSERT INTO transcripts_fts(rowid, messages) 
+        VALUES (new.rowid, new.messages);
+      END
+    `);
+
+    db.run(`
+      CREATE TRIGGER IF NOT EXISTS transcripts_fts_delete 
+      AFTER DELETE ON transcripts BEGIN
+        INSERT INTO transcripts_fts(transcripts_fts, rowid, messages) 
+        VALUES ('delete', old.rowid, old.messages);
+      END
+    `);
+
+    db.run(`
+      CREATE TRIGGER IF NOT EXISTS transcripts_fts_update 
+      AFTER UPDATE ON transcripts BEGIN
+        INSERT INTO transcripts_fts(transcripts_fts, rowid, messages) 
+        VALUES ('delete', old.rowid, old.messages);
+        INSERT INTO transcripts_fts(rowid, messages) 
+        VALUES (new.rowid, new.messages);
+      END
     `);
 
     db.run(`
@@ -304,13 +330,15 @@ async function migrate(storagePath: string): Promise<MigrationResult> {
   log(`Discovered ${dbs.length} databases`);
 
   for (const dbPath of dbs) {
+    let db: DatabaseType | null = null;
     try {
-      const db = new Database(dbPath);
+      db = new Database(dbPath);
       const hasMemories = db
         .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='memories'")
         .get() as any;
 
       if (!hasMemories) {
+        db.run("PRAGMA wal_checkpoint(TRUNCATE)");
         db.close();
         continue;
       }
@@ -336,11 +364,14 @@ async function migrate(storagePath: string): Promise<MigrationResult> {
       addV2Indexes(db);
 
       db.run("PRAGMA wal_checkpoint(TRUNCATE)");
-      db.close();
     } catch (error) {
       const msg = String(error);
       result.errors.push(`${dbPath}: ${msg}`);
       log("Migration: database error", { dbPath, error: msg });
+    } finally {
+      try {
+        db?.close();
+      } catch {}
     }
   }
 
@@ -351,7 +382,7 @@ async function migrate(storagePath: string): Promise<MigrationResult> {
 }
 
 // CLI entry point
-const storagePath = process.argv[2] || join(process.env.HOME || ".", ".opencode-mem", "data");
+const storagePath = process.argv[2] || join(homedir(), ".opencode-mem", "data");
 
 migrate(storagePath)
   .then((result) => {

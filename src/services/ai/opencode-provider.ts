@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { generateText, Output } from "ai";
+import { log } from "../logger.js";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { ZodType } from "zod";
@@ -48,7 +49,9 @@ export function readOpencodeAuth(statePath: string, providerName: string): Auth 
   if (authPath) {
     try {
       raw = readFileSync(authPath, "utf-8");
-    } catch {}
+    } catch (error) {
+      log("Failed to read opencode auth file", { authPath, error: String(error) });
+    }
   }
   if (!raw || !authPath) {
     throw new Error(
@@ -118,8 +121,12 @@ export function createOAuthFetch(
           writeFileSync(authPath, JSON.stringify(allAuth));
           try {
             chmodSync(authPath, 0o600);
-          } catch {}
-        } catch {}
+          } catch (error) {
+            log("Failed to set auth file permissions", { authPath, error: String(error) });
+          }
+        } catch (error) {
+          log("Failed to persist refreshed OAuth token", { authPath, error: String(error) });
+        }
       }
     }
 
@@ -182,7 +189,9 @@ export function createOAuthFetch(
           });
         }
         body = JSON.stringify(parsed);
-      } catch {}
+      } catch (error) {
+        log("Failed to mutate request body for tool name prefixing", { error: String(error) });
+      }
     }
 
     // Modify URL: add ?beta=true to /v1/messages
@@ -199,7 +208,9 @@ export function createOAuthFetch(
         requestInput =
           input instanceof Request ? new Request(requestUrl.toString(), input) : requestUrl;
       }
-    } catch {}
+    } catch (error) {
+      log("Failed to mutate request URL for beta parameter", { error: String(error) });
+    }
 
     const response = await fetch(requestInput, { ...requestInit, body, headers: requestHeaders });
 

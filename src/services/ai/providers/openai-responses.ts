@@ -146,7 +146,7 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
         if (error instanceof Error && error.name === "AbortError") {
           return {
             success: false,
-            error: `API request timeout (${this.config.iterationTimeout}ms)`,
+            error: `API request timeout (${iterationTimeout}ms)`,
             iterations,
           };
         }
