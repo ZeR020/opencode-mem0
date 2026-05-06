@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.15.1] - 2026-05-07
+
+### Security & Reliability
+
+- **Comprehensive Codebase Audit** — Addressed 17+ CodeRabbit audit fixes for security and stability (PR #9).
+- **Concurrency Deadlock Fix** — Reset prompt claim on early exit to prevent permanent deadlocks.
+- **Data Loss Prevention** — Delete shards only after successful re-embedding.
+- **Pagination Hardening** — Cap pagination at 500 records and fetch precisely per shard.
+- **Auth Hardening** — Removed 'enabled' flag from auth gate and restricted static asset auth to API paths only.
+- **Redaction Regex** — Narrowed redaction matching to exact keys preventing aggressive over-redaction.
+
+### Fixed
+
+- **FTS5 Triggers** — Use implicit rowid for FTS5 triggers instead of TEXT id.
+- **AISessionManager** — Converted to lazy singleton and mocked before configuration to prevent test import crashes.
+
 ## [2.15.0] - 2026-05-06
 
 ### Added

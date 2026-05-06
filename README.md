@@ -1,58 +1,80 @@
-# opencode-mem0
+<h1 align="center"><ins><strong>opencode-mem0</strong></ins></h1>
 
-[![npm version](https://img.shields.io/npm/v/opencode-mem0.svg)](https://www.npmjs.com/package/opencode-mem0)
-[![npm downloads](https://img.shields.io/npm/dm/opencode-mem0.svg)](https://www.npmjs.com/package/opencode-mem0)
-[![GitHub stars](https://img.shields.io/github/stars/ZeR020/opencode-mem0)](https://github.com/ZeR020/opencode-mem0/stargazers)
-[![Bun](https://img.shields.io/badge/Bun-%23000000.svg?logo=bun&logoColor=white)](https://bun.sh/)
-[![Node.js](https://img.shields.io/badge/Node.js-20+-green?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![license](https://img.shields.io/npm/l/opencode-mem0.svg)](https://github.com/ZeR020/opencode-mem0/blob/main/LICENSE)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ZeR020/opencode-mem0)
+<p align="center">
+  <strong>Private long-term memory for OpenCode agents.</strong>
+</p>
 
-> **A cognitive fork of [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem)** — upgraded with intelligent scoring, dual-store lifecycle, conflict resolution, and transcript capture.
+<p align="center">
+  Give your coding agent durable context across sessions: preferences, project decisions, transcripts, profiles, and architecture notes, all stored locally on your machine.
+</p>
 
-**Persistent memory for AI coding agents.** Long-term context retention across sessions using local vector databases — no cloud, no data leaks, no limits.
+<p align="center">
+  <strong>Local SQLite</strong> · <strong>Vector + FTS5 search</strong> · <strong>Transcript recall</strong> · <strong>Web UI</strong>
+</p>
 
-> 🔒 **Privacy-first.** All data stays local. No telemetry, no cloud sync, no data exfiltration. Your memories never leave your machine.
+<p align="center">
+  <a href="https://www.npmjs.com/package/opencode-mem0"><img alt="npm version" src="https://img.shields.io/npm/v/opencode-mem0.svg"></a>
+  <a href="https://www.npmjs.com/package/opencode-mem0"><img alt="npm downloads" src="https://img.shields.io/npm/dm/opencode-mem0.svg"></a>
+  <a href="https://github.com/ZeR020/opencode-mem0/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/ZeR020/opencode-mem0.svg?style=flat"></a>
+  <a href="https://bun.sh/"><img alt="Bun" src="https://img.shields.io/badge/Bun-000000?logo=bun&logoColor=white"></a>
+  <a href="https://nodejs.org/"><img alt="Node.js 20+" src="https://img.shields.io/badge/Node.js-20+-green?logo=node.js&logoColor=white"></a>
+  <a href="https://github.com/ZeR020/opencode-mem0/blob/main/LICENSE"><img alt="license" src="https://img.shields.io/npm/l/opencode-mem0.svg"></a>
+  <a href="https://deepwiki.com/ZeR020/opencode-mem0"><img alt="Ask DeepWiki" src="https://deepwiki.com/badge.svg"></a>
+</p>
 
-## Table of Contents
+<p align="center">
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#why-opencode-mem0">Why opencode-mem0</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#configuration">Configuration</a> ·
+  <a href="#development">Development</a>
+</p>
 
-- [Quick Start](#quick-start)
-- [Screenshots](#screenshots)
-- [What's New in v2.14](#whats-new-in-v214)
-- [Architecture](#architecture)
-- [Configuration](#configuration)
-- [Examples](#examples)
-- [Migrating from opencode-mem v1](#migrating-from-opencode-mem-v1)
-- [Web UI API](#web-ui-api)
-- [Testing](#testing)
-- [Development](#development)
-- [License](#license)
+---
+
+## Why opencode-mem0
+
+Most agents forget everything when the session ends. `opencode-mem0` gives OpenCode a local memory layer that can recall what matters without sending your project context to another hosted memory service.
+
+| What you get                      | Why it matters                                                    |
+| --------------------------------- | ----------------------------------------------------------------- |
+| **Persistent project memory**     | Your agent remembers conventions, commands, decisions, and fixes. |
+| **Privacy-first local storage**   | Memories stay in `~/.opencode-mem0`; no telemetry or cloud sync.  |
+| **Hybrid semantic + text search** | Vector search, FTS5, scoring, recency, and context-aware ranking. |
+| **Transcript-aware recall**       | Past conversations become searchable instead of disappearing.     |
+| **Built-in web UI**               | Browse, search, delete, and resolve conflicts from localhost.     |
+| **Bun + Node.js support**         | Works on Linux, macOS, and Windows with Node.js 20+ fallback.     |
 
 ---
 
 ## Quick Start
 
-```bash
-# Install
-npm install opencode-mem0
+### 1. Install
 
-# Or use with OpenCode — add to ~/.config/opencode/opencode.json:
+```bash
+npm install opencode-mem0
+```
+
+### 2. Enable the Plugin
+
+Add it to `~/.config/opencode/opencode.json`:
+
+```json
 {
   "plugin": ["opencode-mem0"]
 }
 ```
 
+### 3. Start Remembering
+
 ```bash
-# Store a memory
+# Store a durable preference
 memory add "User prefers TypeScript strict mode and avoids implicit any"
 
-# Search memories
+# Search remembered context
 memory search "typescript strict mode"
 
-# List recent memories
-memory list
-
-# Access the web UI
+# Open the local management UI
 open http://localhost:4747
 ```
 
@@ -60,119 +82,79 @@ open http://localhost:4747
 
 ## Screenshots
 
-**Project Memory Timeline:**
-
-[![Project Memory Timeline](https://github.com/ZeR020/opencode-mem0/raw/main/.github/screenshot-project-memory.png)](https://github.com/ZeR020/opencode-mem0)
-
-**User Profile Viewer:**
-
-[![User Profile Viewer](https://github.com/ZeR020/opencode-mem0/raw/main/.github/screenshot-user-profile.png)](https://github.com/ZeR020/opencode-mem0)
+| Project Memory Timeline                                                                                                                                       | User Profile Viewer                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [![Project Memory Timeline](https://github.com/ZeR020/opencode-mem0/raw/main/.github/screenshot-project-memory.png)](https://github.com/ZeR020/opencode-mem0) | [![User Profile Viewer](https://github.com/ZeR020/opencode-mem0/raw/main/.github/screenshot-user-profile.png)](https://github.com/ZeR020/opencode-mem0) |
 
 ---
 
-## What's New in v2.15
+## What It Does
 
-### v2.15.0 — Cross-Platform Support (Windows, Linux, macOS)
+### Intelligent Memory Ranking
 
-- **Full Windows support** — No longer requires WSL2. Native Windows runtime via Node.js 20+ with `better-sqlite3` and native `http` module
-- **Runtime abstraction layers** — SQLite (`bun:sqlite` ↔ `better-sqlite3`) and HTTP server (`Bun.serve` ↔ Node.js `http.createServer`) auto-detect your runtime
-- **Test suite portability** — All 173 tests run on both Bun and Node.js via Vitest
-- **Cross-platform build** — `npm run build` works on Windows, Linux, and macOS without shell dependencies
+Every memory gets a transparent strength score that balances recency, frequency, importance, utility, novelty, confidence, and interference. Strong memories surface first; stale or low-value memories naturally decay.
 
-### v2.14.5 — Security & Reliability
+### Short-Term and Long-Term Memory
 
-- Optional API key authentication for web UI when binding to non-localhost addresses
-- Safer shutdown handling — no longer kills the host process on SIGINT/SIGTERM
-- OAuth credentials written with restricted `0600` permissions
-- Archived memories fully purge vectors from the search index
-- `google-gemini` provider support officially added to the type system
+`opencode-mem0` separates conversational short-term memory from long-term rules and preferences. Useful short-term memories can be promoted automatically, while obsolete context is archived.
 
-### v2.14.4 — Security & Polish
+### Conflict Detection
 
-- Verified author attribution across all commits
-- Seamless data migration to `~/.opencode-mem0` on first launch
-- Comprehensive `.gitignore` for development artifacts
-- Supply-chain hardened CI with pinned workflow versions
+When new memories contradict old ones, conflicts are detected with an LLM-assisted check and a heuristic fallback. You can keep the newer memory, keep both, merge them, or resolve manually.
 
-### Transcript Storage Layer
+### Context-Aware Retrieval
 
-Every conversation is captured, stripped of synthetic noise, and stored in a dedicated FTS5-indexed database. Searchable, retrievable, and auto-purged by age.
+Search combines vectors, tags, full-text search, score weighting, project context, recency, and diversity filtering so results are relevant instead of merely similar.
 
-### 7-Factor Memory Scoring
+---
 
-Every memory is scored on seven dimensions:
+## Current Release
 
-| Factor           | What It Measures                       | Weight |
-| ---------------- | -------------------------------------- | ------ |
-| **Recency**      | How old is the memory?                 | 20%    |
-| **Frequency**    | How often is it accessed?              | 15%    |
-| **Importance**   | Code, technical keywords, file paths?  | 25%    |
-| **Utility**      | Accessed recently in relevant context? | 20%    |
-| **Novelty**      | How unique vs existing memories?       | 10%    |
-| **Confidence**   | Manual, auto-captured, or imported?    | 10%    |
-| **Interference** | Contradicts other memories?            | −10%   |
+`v2.15.1` focuses on stability and trust:
 
-Rolls up into a single **Strength** score (0-1) that drives ranking, promotion, and archival.
+| Area                   | Improvement                                                              |
+| ---------------------- | ------------------------------------------------------------------------ |
+| Cross-platform runtime | Native Bun support plus Node.js 20+ fallback for Windows, Linux, macOS.  |
+| Storage safety         | Shards are deleted only after successful re-embedding.                   |
+| Concurrency            | Prompt claims reset on early exits to prevent permanent deadlocks.       |
+| Web UI hardening       | Safer pagination boundaries and stricter API authentication behavior.    |
+| Test coverage          | 173 tests across memory lifecycle, transcript storage, search, and APIs. |
 
-### STM / LTM Dual-Store Lifecycle
-
-- **Short-Term Memory (STM)** — Ephemeral, conversational. Decays fast (5%/day). Archived below strength 0.2 after 30 days.
-- **Long-Term Memory (LTM)** — Preferences, architecture, constraints. Slow decay (1%/day) or **zero decay** for critical rules.
-
-**Auto-promotion**: STM memories exceeding strength 0.7 with 3+ accesses get promoted to LTM. No manual tagging needed.
-
-Decay follows the **Ebbinghaus curve**: `strength *= e^(-decay_rate * age_in_days)`.
-
-### Intelligent Conflict Resolution
-
-When a new memory contradicts an existing one, opencode-mem0 detects it — first with an **LLM-powered structured check**, then with a **heuristic fallback** using negation patterns and action-verb analysis.
-
-Four resolution strategies: `keep_newer`, `keep_both`, `merge`, `manual`. All conflicts tracked in `memory_conflicts` with resolution history.
-
-### Hybrid Search & Context-Aware Retrieval
-
-Not just "nearest neighbor." A multi-stage pipeline:
-
-1. **Vector + Tag Similarity** — Content vectors 60%, tag vectors 40%
-2. **FTS5 Boost** — Text matches get ranking bonus
-3. **Multi-Factor Ranking** — `strength * 0.4 + recency * 0.3 + similarity * 0.3`
-4. **Context Boost** — Current project or recent files get up to 50% boost
-5. **Diversity Filtering** — Jaccard similarity penalty prevents redundant results (threshold 0.9)
-
-Every result includes transparent score breakdown: `vectorSimilarity`, `recencyWeight`, `strengthWeight`, `diversityPenalty`, `contextBoost`, `finalScore`.
+For full historical release notes, see [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
 ## Architecture
 
+```text
+OpenCode hooks
+    -> transcript capture
+    -> memory extraction
+    -> scoring + lifecycle jobs
+    -> SQLite shards + vector index + FTS5
+    -> hybrid retrieval
+    -> local web UI / REST API
 ```
-src/
-├── index.ts                    # Plugin entry point, lifecycle hooks, background jobs
-├── config.ts                   # Configuration loading and validation
-├── services/
-│   ├── client.ts               # LocalMemoryClient (add/search/list/delete)
-│   ├── memory-scoring.ts       # 7-factor scoring algorithms
-│   ├── memory-scoring-service.ts  # Background score recalculation job
-│   ├── memory-lifecycle.ts     # STM/LTM classification, decay, promotion, archival
-│   ├── memory-conflicts.ts     # LLM + heuristic contradiction detection & resolution
-│   ├── retrieval-context.ts    # ContextTracker, context boost, diversity penalty
-│   ├── transcript-capture.ts   # Session transcript lifecycle hook
-│   ├── sqlite/
-│   │   ├── vector-search.ts       # Hybrid FTS5 + vector search with multi-factor ranking
-│   │   ├── transcript-manager.ts  # Transcript DB with FTS5, triggers, cleanup
-│   │   ├── shard-manager.ts       # Database sharding and v2 schema migration
-│   │   └── ...
-│   └── web/                    # Built-in management UI
-│       ├── index.html
-│       ├── app.js
-│       └── styles.css
-```
+
+Core modules live in `src/services/`:
+
+| Module                    | Responsibility                          |
+| ------------------------- | --------------------------------------- |
+| `client.ts`               | Add, search, list, and delete memories. |
+| `memory-scoring.ts`       | 7-factor memory scoring.                |
+| `memory-lifecycle.ts`     | STM/LTM decay, promotion, and archival. |
+| `memory-conflicts.ts`     | Contradiction detection and resolution. |
+| `retrieval-context.ts`    | Context boost and diversity filtering.  |
+| `transcript-capture.ts`   | Session transcript capture and cleanup. |
+| `sqlite/vector-search.ts` | Hybrid vector + FTS5 retrieval.         |
+| `sqlite/shard-manager.ts` | Project sharding and schema migration.  |
+| `platform-server.ts`      | Bun/Node HTTP server abstraction.       |
 
 ---
 
 ## Configuration
 
-Edit `~/.config/opencode/opencode-mem0.jsonc`. All fields are optional — sensible defaults are provided out of the box:
+The plugin works with defaults. Customize it in `~/.config/opencode/opencode-mem0.jsonc` when you need a different storage path, web UI settings, retention policy, scoring behavior, or AI provider.
 
 ```json
 {
@@ -214,14 +196,14 @@ Edit `~/.config/opencode/opencode-mem0.jsonc`. All fields are optional — sensi
 
 ### Memory Scope
 
-- `scope: "project"` — query only current project (default)
-- `scope: "all-projects"` — query across all project shards
+| Scope          | Behavior                           |
+| -------------- | ---------------------------------- |
+| `project`      | Search only the current project.   |
+| `all-projects` | Search across every project shard. |
 
-### Auto-Capture AI Provider
+### Auto-Capture Providers
 
-Auto-capture uses an LLM to extract memories from conversation. Two options:
-
-**Option 1 — OpenCode built-in providers** (uses your existing OpenCode auth, no extra API key):
+Use your existing OpenCode auth:
 
 ```json
 {
@@ -230,7 +212,7 @@ Auto-capture uses an LLM to extract memories from conversation. Two options:
 }
 ```
 
-**Option 2 — Any OpenAI-compatible endpoint** (Ollama, vLLM, Groq, local models, etc.):
+Or any OpenAI-compatible endpoint such as Ollama, vLLM, Groq, or a local model:
 
 ```json
 {
@@ -240,140 +222,81 @@ Auto-capture uses an LLM to extract memories from conversation. Two options:
 }
 ```
 
-The `openai-chat` provider sends standard OpenAI chat completion requests to your custom `memoryApiUrl`, so any endpoint supporting `/chat/completions` works.
-
 ---
 
 ## Examples
 
 ```typescript
-// Store a memory with project scope
 await memoryClient.addMemory("Use bun instead of npm for this project", {
   scope: "project",
   type: "preference",
 });
 
-// Search with hybrid ranking
 const results = await memoryClient.searchMemories("package manager preference");
-
-// List recent memories
 const memories = await memoryClient.listMemories("my-project", 10);
 ```
 
-See [`examples/basic-usage.ts`](examples/basic-usage.ts) and [`examples/custom-scoring.ts`](examples/custom-scoring.ts) for full walkthroughs.
+More examples: [`examples/basic-usage.ts`](examples/basic-usage.ts) and [`examples/custom-scoring.ts`](examples/custom-scoring.ts).
 
 ---
 
-## Migrating from opencode-mem v1
+## Migration
 
-If you have an existing opencode-mem database:
+Migrating from `opencode-mem` v1 is idempotent and safe to run more than once:
 
 ```bash
 bun run scripts/migrate-v1-to-v2.ts ~/.opencode-mem/data
 ```
 
-This will:
-
-- Detect v1 schema and add all v2 columns safely
-- Backfill recency scores for existing memories
-- Create `memory_conflicts` and `transcripts` databases
-- Add performance indexes
-- Heuristically promote old, high-quality memories to LTM
-
-The migration is **idempotent** — safe to run multiple times.
+The migration upgrades schema columns, backfills scores, creates transcript/conflict tables, adds indexes, and promotes high-quality existing memories to long-term memory.
 
 ---
 
-## Web UI API
+## Web UI and API
 
-The built-in web server exposes a REST API:
+Open the UI at `http://localhost:4747`.
 
-| Endpoint                        | Method | Description               |
-| ------------------------------- | ------ | ------------------------- |
-| `/api/memories`                 | GET    | List all memories         |
-| `/api/memories/search?q=...`    | GET    | Search memories           |
-| `/api/memories`                 | POST   | Add a new memory          |
-| `/api/memories/:id`             | DELETE | Delete a memory           |
-| `/api/conflicts`                | GET    | List unresolved conflicts |
-| `/api/conflicts/:id`            | POST   | Resolve a conflict        |
-| `/api/conflicts/stats`          | GET    | Conflict statistics       |
-| `/api/transcripts`              | GET    | List transcripts          |
-| `/api/transcripts/search?q=...` | GET    | Search transcripts        |
-
-Access the UI at `http://localhost:4747`.
-
----
-
-## Testing
-
-```bash
-# Run all tests (Bun)
-bun test
-
-# Run all tests (Node.js)
-npm test
-
-# Run specific feature tests (Bun)
-bun test tests/memory-engine.test.ts
-
-# Run specific feature tests (Node.js)
-npx vitest run tests/memory-engine.test.ts
-
-# Type check
-bun run typecheck
-
-# Build (cross-platform)
-npm run build
-```
-
-29 integration tests cover transcript storage, conflict resolution, hybrid search, diversity ranking, and STM/LTM decay.
+| Endpoint                        | Method | Description                |
+| ------------------------------- | ------ | -------------------------- |
+| `/api/memories`                 | GET    | List all memories.         |
+| `/api/memories/search?q=...`    | GET    | Search memories.           |
+| `/api/memories`                 | POST   | Add a memory.              |
+| `/api/memories/:id`             | DELETE | Delete a memory.           |
+| `/api/conflicts`                | GET    | List unresolved conflicts. |
+| `/api/conflicts/:id`            | POST   | Resolve a conflict.        |
+| `/api/transcripts`              | GET    | List transcripts.          |
+| `/api/transcripts/search?q=...` | GET    | Search transcripts.        |
 
 ---
 
 ## Development
 
-### Platform Requirements
+### Requirements
 
-**Linux / macOS / Windows**: Full cross-platform support.
+| Runtime     | Status                                                |
+| ----------- | ----------------------------------------------------- |
+| Bun 1.x     | Recommended runtime and fastest path.                 |
+| Node.js 20+ | Full fallback via `better-sqlite3` and native `http`. |
 
-- **Primary runtime**: [Bun](https://bun.sh/) 1.x (recommended, fastest)
-- **Fallback runtime**: Node.js 20+ (via `better-sqlite3` + native `http` module)
-
-The plugin auto-detects your runtime and uses Bun APIs when available, falling back to Node.js equivalents on Windows or when Bun is not installed. All 173 tests pass on both runtimes.
-
-### Prerequisites
-
-- [Bun](https://bun.sh/) 1.x **or** Node.js 20+
-- TypeScript 5.7+
-
-### Build
+### Commands
 
 ```bash
-bun run build
-```
-
-Output goes to `dist/`. Web UI assets are copied to `dist/web/`.
-
-```bash
-npm run build         # Node.js alternative
-npm test              # Node.js test runner (vitest)
-```
-
-### Format
-
-```bash
-bun run format        # auto-fix
-bun run format:check  # verify
+bun install          # install dependencies
+bun run build        # build with Bun
+npm run build        # cross-platform Node.js build
+bun test             # Bun test runner
+npm test             # Vitest / Node.js test runner
+bun run typecheck    # TypeScript validation
 ```
 
 ---
 
 ## License
 
-MIT License - see [LICENSE](LICENSE)
+MIT License. See [`LICENSE`](LICENSE).
 
-- **Repository**: [https://github.com/ZeR020/opencode-mem0](https://github.com/ZeR020/opencode-mem0)
-- **Issues**: [https://github.com/ZeR020/opencode-mem0/issues](https://github.com/ZeR020/opencode-mem0/issues)
-- **Original Project**: [https://github.com/tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem)
+Repository: [github.com/ZeR020/opencode-mem0](https://github.com/ZeR020/opencode-mem0)
 
-Inspired by [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem) and [opencode-supermemory](https://github.com/supermemoryai/opencode-supermemory).
+Original project: [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem)
+
+Inspired by [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem).
