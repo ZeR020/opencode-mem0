@@ -189,6 +189,37 @@ export class WebServer {
 
   // --- HTTP request handling (inlined from web-server-worker.ts) ---
 
+  private redactPII(obj: any): any {
+    if (!obj || typeof obj !== "object") return obj;
+    if (Array.isArray(obj)) return obj.map((item) => this.redactPII(item));
+
+    const newObj: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (
+        [
+          "userEmail",
+          "displayName",
+          "userName",
+          "projectPath",
+          "projectName",
+          "gitRepoUrl",
+          "userId",
+        ].includes(key)
+      ) {
+        if (value !== undefined && value !== null && value !== "") {
+          newObj[key] = "[REDACTED]";
+        } else {
+          newObj[key] = value;
+        }
+      } else if (typeof value === "object") {
+        newObj[key] = this.redactPII(value);
+      } else {
+        newObj[key] = value;
+      }
+    }
+    return newObj;
+  }
+
   private async handleRequest(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const path = url.pathname;
@@ -198,6 +229,11 @@ export class WebServer {
       // Optional API key auth: enforce only when binding to non-loopback
       const localHosts = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
       const requiresAuth = !localHosts.has(this.config.host) && !!this.config.enabled;
+
+      const remoteIp = this.server?.requestIP(req)?.address;
+      const isLocal =
+        localHosts.has(this.config.host) || (remoteIp ? localHosts.has(remoteIp) : false);
+
       if (this.config.apiKey && requiresAuth) {
         const apiKey = req.headers.get("x-opencode-mem-key");
         if (apiKey !== this.config.apiKey) {
@@ -227,7 +263,7 @@ export class WebServer {
 
       if (path === "/api/tags" && method === "GET") {
         const result = await handleListTags();
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/memories" && method === "GET") {
@@ -236,13 +272,13 @@ export class WebServer {
         const pageSize = parseInt(url.searchParams.get("pageSize") || "20");
         const includePrompts = url.searchParams.get("includePrompts") !== "false";
         const result = await handleListMemories(tag, page, pageSize, includePrompts);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/memories" && method === "POST") {
         const body = (await req.json()) as any;
         const result = await handleAddMemory(body);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path.startsWith("/api/memories/") && method === "DELETE") {
@@ -253,7 +289,7 @@ export class WebServer {
         }
         const cascade = url.searchParams.get("cascade") === "true";
         const result = await handleDeleteMemory(id, cascade);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path.startsWith("/api/memories/") && method === "PUT") {
@@ -263,14 +299,14 @@ export class WebServer {
         }
         const body = (await req.json()) as any;
         const result = await handleUpdateMemory(id, body);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/memories/bulk-delete" && method === "POST") {
         const body = (await req.json()) as any;
         const cascade = body.cascade !== false;
         const result = await handleBulkDelete(body.ids || [], cascade);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/search" && method === "GET") {
@@ -284,24 +320,24 @@ export class WebServer {
         }
 
         const result = await handleSearch(query, tag, page, pageSize);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/stats" && method === "GET") {
         const result = await handleStats();
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/conflicts" && method === "GET") {
         const resolved = url.searchParams.get("resolved") === "true";
         const limit = parseInt(url.searchParams.get("limit") || "100");
         const result = await handleListConflicts(resolved, limit);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/conflicts/stats" && method === "GET") {
         const result = await handleConflictStats();
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path.startsWith("/api/conflicts/") && method === "POST") {
@@ -312,7 +348,7 @@ export class WebServer {
         }
         const body = (await req.json().catch(() => ({}))) as any;
         const result = await handleResolveConflict(conflictId, body.strategy, body.mergedContent);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path.match(/^\/api\/memories\/[^/]+\/pin$/) && method === "POST") {
@@ -321,7 +357,7 @@ export class WebServer {
           return this.jsonResponse({ success: false, error: "Invalid ID" });
         }
         const result = await handlePinMemory(id);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path.match(/^\/api\/memories\/[^/]+\/unpin$/) && method === "POST") {
@@ -330,39 +366,39 @@ export class WebServer {
           return this.jsonResponse({ success: false, error: "Invalid ID" });
         }
         const result = await handleUnpinMemory(id);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/cleanup" && method === "POST") {
         const result = await handleRunCleanup();
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/deduplicate" && method === "POST") {
         const result = await handleRunDeduplication();
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/migration/detect" && method === "GET") {
         const result = await handleDetectMigration();
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/migration/tags/detect" && method === "GET") {
         const result = await handleDetectTagMigration();
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/migration/tags/run-batch" && method === "POST") {
         const body = (await req.json()) as any;
         const batchSize = body?.batchSize || 5;
         const result = await handleRunTagMigrationBatch(batchSize);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/migration/tags/progress" && method === "GET") {
         const result = await handleGetTagMigrationProgress();
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/migration/run" && method === "POST") {
@@ -372,7 +408,7 @@ export class WebServer {
           return this.jsonResponse({ success: false, error: "Invalid strategy" });
         }
         const result = await handleRunMigration(strategy);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path.startsWith("/api/prompts/") && method === "DELETE") {
@@ -383,20 +419,20 @@ export class WebServer {
         }
         const cascade = url.searchParams.get("cascade") === "true";
         const result = await handleDeletePrompt(id, cascade);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/prompts/bulk-delete" && method === "POST") {
         const body = (await req.json()) as any;
         const cascade = body.cascade !== false;
         const result = await handleBulkDeletePrompts(body.ids || [], cascade);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/user-profile" && method === "GET") {
         const userId = url.searchParams.get("userId") || undefined;
         const result = await handleGetUserProfile(userId);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/user-profile/changelog" && method === "GET") {
@@ -406,7 +442,7 @@ export class WebServer {
           return this.jsonResponse({ success: false, error: "profileId parameter required" });
         }
         const result = await handleGetProfileChangelog(profileId, limit);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/user-profile/snapshot" && method === "GET") {
@@ -415,14 +451,14 @@ export class WebServer {
           return this.jsonResponse({ success: false, error: "changelogId parameter required" });
         }
         const result = await handleGetProfileSnapshot(changelogId);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/user-profile/refresh" && method === "POST") {
         const body = (await req.json().catch(() => ({}))) as any;
         const userId = body.userId || undefined;
         const result = await handleRefreshProfile(userId);
-        return this.jsonResponse(result);
+        return this.jsonResponse(result, 200, !isLocal);
       }
 
       return new Response("Not Found", { status: 404 });
@@ -470,8 +506,9 @@ export class WebServer {
     }
   }
 
-  private jsonResponse(data: any, status: number = 200): Response {
-    return new Response(JSON.stringify(data), {
+  private jsonResponse(data: any, status: number = 200, redact: boolean = false): Response {
+    const finalData = redact ? this.redactPII(data) : data;
+    return new Response(JSON.stringify(finalData), {
       status,
       headers: {
         "Content-Type": "application/json",
