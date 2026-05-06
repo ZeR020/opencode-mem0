@@ -616,3 +616,5 @@ function formatMemoriesForCompaction(memories: any[]): string {
 
   return output;
 }
+
+// CodeRabbit audit trigger - trivial change
