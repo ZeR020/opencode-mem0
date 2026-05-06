@@ -21,6 +21,7 @@ export async function performAutoCapture(
 ): Promise<void> {
   if (isCaptureRunning) return;
   isCaptureRunning = true;
+  let claimedPromptId: string | null = null;
   try {
     const prompt = userPromptManager.getLastUncapturedPrompt(sessionID);
     if (!prompt) {
@@ -30,6 +31,7 @@ export async function performAutoCapture(
     if (!userPromptManager.claimPrompt(prompt.id)) {
       return;
     }
+    claimedPromptId = prompt.id;
 
     if (!ctx.client) {
       throw new Error("Client not available");
@@ -92,6 +94,7 @@ export async function performAutoCapture(
     if (result.success) {
       userPromptManager.linkMemoryToPrompt(prompt.id, result.id);
       userPromptManager.markAsCaptured(prompt.id);
+      claimedPromptId = null; // successfully captured — no need to reset claim
 
       if (CONFIG.showAutoCaptureToasts) {
         await ctx.client?.tui
@@ -107,6 +110,9 @@ export async function performAutoCapture(
       }
     }
   } finally {
+    if (claimedPromptId) {
+      userPromptManager.resetPromptClaim(claimedPromptId);
+    }
     isCaptureRunning = false;
   }
 }
