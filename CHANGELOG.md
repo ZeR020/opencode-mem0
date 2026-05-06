@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.15.0] - 2026-05-06
+
+### Added
+
+#### Cross-Platform Support (Windows, Linux, macOS)
+
+- **Runtime abstraction for SQLite** — Auto-detects `bun:sqlite` (Bun) or falls back to `better-sqlite3` (Node.js) with compatible `Database`/`Statement` interface
+- **Runtime abstraction for HTTP server** — Uses `Bun.serve()` on Bun, Node.js `http.createServer()` on other runtimes via `platform-server.ts`
+- **Cross-platform build script** — `scripts/build.mjs` replaces Unix shell commands with Node.js `fs` APIs (`fs.cpSync`, `mkdirSync`, `spawnSync`)
+- **Test suite migration** — All 21 test files migrated from `bun:test` to `vitest` with ESM mocking patterns (`vi.resetModules()`, `vi.doMock()`)
+- **Node.js 20+ support officially added** — Full compatibility with Node.js runtime via `better-sqlite3` and native `http` module
+- **Windows path handling** — Dedicated `tests/windows-path.test.ts` validates cross-platform path normalization
+
+### Changed
+
+- **README updated** — Platform requirements section now lists Linux/macOS/Windows with Bun as primary and Node.js 20+ as fallback
+- **package.json engines field** — Now allows both `bun >=1.0.0` and `node >=20.0.0`
+- **CI workflow** — Tests run with both `bun test` and `npm test` (vitest) for dual-runtime verification
+- **Development commands** — Added `npm run build`, `npm test`, and `test:bun` scripts for cross-platform development
+
+### Fixed
+
+- **Security: Error exposure** — `platform-server.ts` no longer leaks internal error details to HTTP clients (generic "Internal server error" response)
+- **Security: Multi-value headers** — Node.js `IncomingHttpHeaders` with array values (e.g., `Set-Cookie`) now correctly handled via `Headers.append()`
+- **Security: Missing Host header** — HTTP/1.0 clients without `Host` header now fallback to `options.hostname:options.port`
+- **Build script portability** — `scripts/build.mjs` now uses `require.resolve('typescript/bin/tsc')` instead of platform-specific `./node_modules/.bin/tsc` shim
+- **Test isolation** — `vi.resetModules()` removed from tests; mutable mock state pattern ensures Bun test runner compatibility
+- **Directory safety** — `ai-session-manager.ts` now creates parent directory before opening `ai-sessions.db`
+
+### Infrastructure
+
+- **package-lock.json** added for Node.js ecosystem compatibility
+- **vitest.config.ts** added for Vitest test runner configuration
+- **Migration helper** — `scripts/migrate-tests.mjs` assists converting `bun:test` to `vitest` imports
+
 ## [2.14.5] - 2026-05-06
 
 ### Security

@@ -70,7 +70,14 @@ open http://localhost:4747
 
 ---
 
-## What's New in v2.14
+## What's New in v2.15
+
+### v2.15.0 — Cross-Platform Support (Windows, Linux, macOS)
+
+- **Full Windows support** — No longer requires WSL2. Native Windows runtime via Node.js 20+ with `better-sqlite3` and native `http` module
+- **Runtime abstraction layers** — SQLite (`bun:sqlite` ↔ `better-sqlite3`) and HTTP server (`Bun.serve` ↔ Node.js `http.createServer`) auto-detect your runtime
+- **Test suite portability** — All 173 tests run on both Bun and Node.js via Vitest
+- **Cross-platform build** — `npm run build` works on Windows, Linux, and macOS without shell dependencies
 
 ### v2.14.5 — Security & Reliability
 
