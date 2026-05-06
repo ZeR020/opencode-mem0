@@ -36,9 +36,6 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   let webServer: WebServer | null = null;
   let idleTimeout: NodeJS.Timeout | null = null;
 
-  if (!isConfigured()) {
-  }
-
   const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("opencode-mem0.plugin.warmedup");
 
   if (!(globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] && isConfigured()) {
@@ -196,7 +193,11 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         const userMessage = textParts.map((p) => p.text).join("\n");
         if (!userMessage.trim()) return;
 
-        userPromptManager.savePrompt(input.sessionID, output.message.id, directory, userMessage);
+        try {
+          userPromptManager.savePrompt(input.sessionID, output.message.id, directory, userMessage);
+        } catch (error) {
+          log("Failed to save user prompt", { error: String(error) });
+        }
 
         const messagesResponse = await ctx.client.session.messages({
           path: { id: input.sessionID },
