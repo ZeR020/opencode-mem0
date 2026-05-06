@@ -1,3 +1,4 @@
+import { vectorSearch } from "./sqlite/vector-search.js";
 import { shardManager } from "./sqlite/shard-manager.js";
 import { connectionManager } from "./sqlite/connection-manager.js";
 import { log } from "./logger.js";
@@ -197,7 +198,7 @@ export function applyDecay(): {
 
           // Archive check: if strength < threshold AND older than archiveAfterDays
           if (clampedStrength < archiveThreshold && ageMs > archiveAfterMs) {
-            archiveMemory(db, memory.id, shard.id);
+            archiveMemory(db, memory.id, shard);
             totalArchived++;
           }
         }
@@ -236,7 +237,7 @@ export function applyDecay(): {
 /**
  * Archive a memory by moving it to an archive table and deleting from memories.
  */
-function archiveMemory(db: any, memoryId: string, shardId: number): void {
+function archiveMemory(db: any, memoryId: string, shard: any): void {
   try {
     // Create archive table if not exists
     db.run(`
@@ -271,7 +272,12 @@ function archiveMemory(db: any, memoryId: string, shardId: number): void {
     // Delete from memories
     db.run(`DELETE FROM memories WHERE id = ?`, memoryId);
 
-    log("Memory archived", { memoryId, shardId });
+    // Ensure the vector is removed from the backend index
+    vectorSearch.deleteVector(db, memoryId, shard).catch((err) => {
+      log("archiveMemory vector delete error", { memoryId, error: String(err) });
+    });
+
+    log("Memory archived", { memoryId, shardId: shard.id });
   } catch (error) {
     log("archiveMemory error", { memoryId, error: String(error) });
   }
