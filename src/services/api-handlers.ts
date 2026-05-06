@@ -273,7 +273,10 @@ export async function handleListMemories(
       }
     });
 
-    return { success: true, data: { items, total, page, pageSize, totalPages } };
+    return {
+      success: true,
+      data: { items, total, page: safePage, pageSize: safePageSize, totalPages },
+    };
   } catch (error) {
     log("handleListMemories: error", { error: String(error) });
     return { success: false, error: "Internal error" };
@@ -642,7 +645,10 @@ export async function handleSearch(
       }
     }
 
-    return { success: true, data: { items: paginatedResults, total, page, pageSize, totalPages } };
+    return {
+      success: true,
+      data: { items: paginatedResults, total, page: safePage, pageSize: safePageSize, totalPages },
+    };
   } catch (error) {
     log("handleSearch: error", { error: String(error) });
     return { success: false, error: "Internal error" };
