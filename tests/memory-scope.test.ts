@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const dbByPath = new Map<string, any>();
 
-mock.module("../src/services/sqlite/connection-manager.js", () => ({
+vi.mock("../src/services/sqlite/connection-manager.js", () => ({
   connectionManager: {
     getConnection(path: string) {
       if (!dbByPath.has(path)) {
@@ -14,7 +14,7 @@ mock.module("../src/services/sqlite/connection-manager.js", () => ({
   },
 }));
 
-mock.module("../src/services/embedding.js", () => ({
+vi.mock("../src/services/embedding.js", () => ({
   embeddingService: {
     isWarmedUp: true,
     warmup: async () => {},
@@ -22,7 +22,7 @@ mock.module("../src/services/embedding.js", () => ({
   },
 }));
 
-mock.module("../src/services/sqlite/shard-manager.js", () => ({
+vi.mock("../src/services/sqlite/shard-manager.js", () => ({
   shardManager: {
     getAllShards(scope: string, hash: string) {
       return scope === "project" && hash === ""
@@ -36,7 +36,7 @@ mock.module("../src/services/sqlite/shard-manager.js", () => ({
   },
 }));
 
-mock.module("../src/services/sqlite/vector-search.js", () => ({
+vi.mock("../src/services/sqlite/vector-search.js", () => ({
   vectorSearch: {
     searchAcrossShards: async (shards: any[]) =>
       shards.map((s) => ({ id: s.id, memory: s.id, similarity: 1 })),

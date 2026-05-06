@@ -4,6 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/opencode-mem0.svg)](https://www.npmjs.com/package/opencode-mem0)
 [![GitHub stars](https://img.shields.io/github/stars/ZeR020/opencode-mem0)](https://github.com/ZeR020/opencode-mem0/stargazers)
 [![Bun](https://img.shields.io/badge/Bun-%23000000.svg?logo=bun&logoColor=white)](https://bun.sh/)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-green?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![license](https://img.shields.io/npm/l/opencode-mem0.svg)](https://github.com/ZeR020/opencode-mem0/blob/main/LICENSE)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ZeR020/opencode-mem0)
 
@@ -320,13 +321,16 @@ bun run build
 
 ### Platform Requirements
 
-**Linux / macOS**: Native support. Requires [Bun](https://bun.sh/) runtime.
+**Linux / macOS / Windows**: Full cross-platform support.
 
-**Windows**: Not natively supported. Bun does not currently run on Windows. Use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) with a Linux distribution, then install Bun inside WSL.
+- **Primary runtime**: [Bun](https://bun.sh/) 1.x (recommended, fastest)
+- **Fallback runtime**: Node.js 20+ (via `better-sqlite3` + native `http` module)
+
+The plugin auto-detects your runtime and uses Bun APIs when available, falling back to Node.js equivalents on Windows or when Bun is not installed. All 173 tests pass on both runtimes.
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/) 1.x
+- [Bun](https://bun.sh/) 1.x **or** Node.js 20+
 - TypeScript 5.7+
 
 ### Build
@@ -336,6 +340,11 @@ bun run build
 ```
 
 Output goes to `dist/`. Web UI assets are copied to `dist/web/`.
+
+```bash
+npm run build         # Node.js alternative
+npm test              # Node.js test runner (vitest)
+```
 
 ### Format
 

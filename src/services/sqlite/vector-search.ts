@@ -1,4 +1,4 @@
-import { getDatabase } from "./sqlite-bootstrap.js";
+import { getDatabase, type Database } from "./sqlite-bootstrap.js";
 import { connectionManager } from "./connection-manager.js";
 import { log } from "../logger.js";
 import { CONFIG } from "../../config.js";
@@ -12,8 +12,7 @@ import {
   type RetrievalContext,
 } from "../retrieval-context.js";
 
-const Database = getDatabase();
-type DatabaseType = typeof Database.prototype;
+type DatabaseType = Database;
 
 function toBlob(vector?: Float32Array): Uint8Array | null {
   return vector ? new Uint8Array(vector.buffer) : null;

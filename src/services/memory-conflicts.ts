@@ -1,13 +1,13 @@
-import { getDatabase } from "./sqlite/sqlite-bootstrap.js";
+import { getDatabase, type Database } from "./sqlite/sqlite-bootstrap.js";
 import { connectionManager } from "./sqlite/connection-manager.js";
 import { shardManager } from "./sqlite/shard-manager.js";
 import { vectorSearch } from "./sqlite/vector-search.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 import type { MemoryConflict } from "./sqlite/types.js";
+import { calculateInterference } from "./memory-scoring.js";
 
-const Database = getDatabase();
-type DatabaseType = typeof Database.prototype;
+type DatabaseType = Database;
 
 let isConflictCheckRunning = false;
 

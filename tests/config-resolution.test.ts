@@ -1,33 +1,48 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import * as fs from "node:fs";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initConfig, CONFIG } from "../src/config.js";
 
-describe("project-scoped config resolution", () => {
-  let readSpy: ReturnType<typeof spyOn>;
-  let existsSpy: ReturnType<typeof spyOn>;
+(globalThis as any).__mockFs = {
+  existsSync: () => false,
+  readFileSync: () => "{}",
+};
 
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    existsSync: (...args: unknown[]) => {
+      const m = (globalThis as any).__mockFs;
+      return m ? m.existsSync(...args) : false;
+    },
+    readFileSync: (...args: unknown[]) => {
+      const m = (globalThis as any).__mockFs;
+      return m ? m.readFileSync(...args) : "{}";
+    },
+  };
+});
+
+describe("project-scoped config resolution", () => {
   afterEach(() => {
-    readSpy?.mockRestore();
-    existsSpy?.mockRestore();
+    (globalThis as any).__mockFs.existsSync = () => false;
+    (globalThis as any).__mockFs.readFileSync = () => "{}";
     // Reset to global-only config
     initConfig("/nonexistent-project");
   });
 
   it("uses global config when no project config exists", () => {
-    existsSpy = spyOn(fs, "existsSync").mockImplementation((p) => {
+    (globalThis as any).__mockFs.existsSync = (p: unknown) => {
       const path = String(p);
       return path.includes(".config/opencode/opencode-mem0");
-    });
-    readSpy = spyOn(fs, "readFileSync").mockReturnValue(
-      JSON.stringify({ opencodeModel: "global-model" })
-    );
+    };
+    (globalThis as any).__mockFs.readFileSync = () =>
+      JSON.stringify({ opencodeModel: "global-model" });
     initConfig("/some/project");
     expect(CONFIG.opencodeModel).toBe("global-model");
   });
 
   it("project config overrides global config", () => {
-    existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
-    readSpy = spyOn(fs, "readFileSync").mockImplementation((p) => {
+    (globalThis as any).__mockFs.existsSync = () => true;
+    (globalThis as any).__mockFs.readFileSync = (p: unknown) => {
       const path = String(p);
       if (path.includes(".opencode/opencode-mem0")) {
         return JSON.stringify({
@@ -39,21 +54,21 @@ describe("project-scoped config resolution", () => {
         opencodeProvider: "anthropic",
         opencodeModel: "global-model",
       }) as any;
-    });
+    };
     initConfig("/my/project");
     expect(CONFIG.opencodeProvider).toBe("openai");
     expect(CONFIG.opencodeModel).toBe("project-model");
   });
 
   it("shallow merge: project adds fields, global fields preserved when not overridden", () => {
-    existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
-    readSpy = spyOn(fs, "readFileSync").mockImplementation((p) => {
+    (globalThis as any).__mockFs.existsSync = () => true;
+    (globalThis as any).__mockFs.readFileSync = (p: unknown) => {
       const path = String(p);
       if (path.includes(".opencode/opencode-mem0")) {
         return JSON.stringify({ opencodeProvider: "anthropic" }) as any;
       }
       return JSON.stringify({ opencodeModel: "claude-haiku", autoCaptureEnabled: false }) as any;
-    });
+    };
     initConfig("/my/project");
     expect(CONFIG.opencodeProvider).toBe("anthropic");
     expect(CONFIG.opencodeModel).toBe("claude-haiku");
@@ -61,7 +76,7 @@ describe("project-scoped config resolution", () => {
   });
 
   it("falls back to defaults when neither global nor project config exists", () => {
-    existsSpy = spyOn(fs, "existsSync").mockReturnValue(false);
+    (globalThis as any).__mockFs.existsSync = () => false;
     initConfig("/no/config/project");
     expect(CONFIG.autoCaptureEnabled).toBe(true); // default value
     expect(CONFIG.opencodeProvider).toBeUndefined();

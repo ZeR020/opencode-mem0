@@ -3,7 +3,7 @@
  * Exercises the write path added to src/index.ts `profile` mode
  * by testing the underlying manager directly (no live plugin context needed).
  */
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

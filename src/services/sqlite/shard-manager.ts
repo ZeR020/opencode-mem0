@@ -1,4 +1,4 @@
-import { getDatabase } from "./sqlite-bootstrap.js";
+import { getDatabase, type Database } from "./sqlite-bootstrap.js";
 import { join, basename } from "node:path";
 import { existsSync } from "node:fs";
 import { CONFIG } from "../../config.js";
@@ -7,8 +7,7 @@ import { log } from "../logger.js";
 import { vectorSearch } from "./vector-search.js";
 import type { ShardInfo } from "./types.js";
 
-const Database = getDatabase();
-type DatabaseType = typeof Database.prototype;
+type DatabaseType = Database;
 
 const METADATA_DB_NAME = "metadata.db";
 

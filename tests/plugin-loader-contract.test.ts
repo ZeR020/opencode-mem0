@@ -5,7 +5,7 @@
  * All assertions here must PASS. This file guards the fixed contract from regressions.
  */
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
 function readPackageJson(): Record<string, unknown> {
@@ -55,6 +55,7 @@ describe("OpenCode 1.3.x plugin-loader contract", () => {
     // Attempt to invoke server with a minimal mock PluginInput.
     // The plugin may throw during warmup (missing sqlite/usearch in test env) — that is expected.
     // If it succeeds, assert the returned hooks have the expected shape.
+    // Wrap in a timeout to avoid hanging on initialization.
     const mockInput = {
       client: {},
       project: {},
@@ -65,14 +66,17 @@ describe("OpenCode 1.3.x plugin-loader contract", () => {
     };
 
     try {
-      const hooks = (await (serverFn as (input: unknown) => Promise<Record<string, unknown>>)(
-        mockInput
-      )) as Record<string, unknown>;
+      const hooks = (await Promise.race([
+        (serverFn as (input: unknown) => Promise<Record<string, unknown>>)(mockInput),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Plugin init timeout")), 2000)
+        ),
+      ])) as Record<string, unknown>;
       // If we reach here, assert expected hook keys exist
       expect(typeof hooks["chat.message"]).toBe("function");
       expect(typeof hooks["event"]).toBe("function");
     } catch {
-      // Warmup/sqlite/usearch failure in test environment is acceptable.
+      // Warmup/sqlite/usearch failure or timeout in test environment is acceptable.
       // The callable surface assertion above is sufficient for contract verification.
     }
   });

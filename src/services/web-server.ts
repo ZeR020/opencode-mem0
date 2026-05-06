@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
+import { serve, type PlatformServer } from "./platform-server.js";
 import {
   handleListTags,
   handleListMemories,
@@ -42,7 +43,7 @@ interface WebServerConfig {
 }
 
 export class WebServer {
-  private server: ReturnType<typeof Bun.serve> | null = null;
+  private server: PlatformServer | null = null;
   private config: WebServerConfig;
   private isOwner: boolean = false;
   private startPromise: Promise<void> | null = null;
@@ -72,7 +73,7 @@ export class WebServer {
     }
 
     try {
-      this.server = Bun.serve({
+      this.server = await serve({
         port: this.config.port,
         hostname: this.config.host,
         fetch: this.handleRequest.bind(this),

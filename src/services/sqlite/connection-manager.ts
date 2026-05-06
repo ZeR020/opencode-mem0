@@ -1,4 +1,4 @@
-import { getDatabase } from "./sqlite-bootstrap.js";
+import { getDatabase, type Database } from "./sqlite-bootstrap.js";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { log } from "../logger.js";
@@ -7,9 +7,9 @@ import { CONFIG } from "../../config.js";
 const Database = getDatabase();
 
 export class ConnectionManager {
-  private connections: Map<string, typeof Database.prototype> = new Map();
+  private connections: Map<string, Database> = new Map();
 
-  private initDatabase(db: typeof Database.prototype): void {
+  private initDatabase(db: Database): void {
     db.run("PRAGMA busy_timeout = 5000");
     db.run("PRAGMA journal_mode = WAL");
     db.run("PRAGMA synchronous = NORMAL");
@@ -20,7 +20,7 @@ export class ConnectionManager {
     this.migrateSchema(db);
   }
 
-  private migrateSchema(db: typeof Database.prototype): void {
+  private migrateSchema(db: Database): void {
     try {
       const columns = db.prepare("PRAGMA table_info(memories)").all() as any[];
       const hasTags = columns.some((c) => c.name === "tags");
@@ -33,7 +33,7 @@ export class ConnectionManager {
     }
   }
 
-  getConnection(dbPath: string): typeof Database.prototype {
+  getConnection(dbPath: string): Database {
     if (this.connections.has(dbPath)) {
       return this.connections.get(dbPath)!;
     }

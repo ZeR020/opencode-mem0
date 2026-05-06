@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { serve, type PlatformServer } from "./platform-server.js";
 import {
   handleListTags,
   handleListMemories,
@@ -43,7 +44,7 @@ interface WorkerResponse {
   running?: boolean;
 }
 
-let server: any = null;
+let server: PlatformServer | null = null;
 
 async function handleRequest(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -314,7 +315,7 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
           return;
         }
 
-        server = Bun.serve({
+        server = await serve({
           port: message.port!,
           hostname: message.host!,
           fetch: handleRequest,

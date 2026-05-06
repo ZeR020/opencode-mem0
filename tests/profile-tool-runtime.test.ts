@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,19 +14,33 @@ function writeProjectConfig(config: Record<string, unknown>) {
   writeFileSync(join(opencodeDir, "opencode-mem0.json"), JSON.stringify(config), "utf-8");
 }
 
-async function createPlugin() {
-  const { memoryClient } = await import("../src/services/client.js");
-  mock.module("../src/services/client.js", async () => ({
+vi.mock("../src/services/client.js", async () => {
+  const actual = await vi.importActual<typeof import("../src/services/client.js")>(
+    "../src/services/client.js"
+  );
+  return {
     memoryClient: {
-      ...memoryClient,
+      ...actual.memoryClient,
       isReady: async () => true,
       warmup: async () => {},
     },
-  }));
+  };
+});
 
+async function createPlugin(tagsMock?: { userEmail?: string; userName?: string }) {
   globalThis[WARMUP_KEY as keyof typeof globalThis] = true as any;
 
-  const { OpenCodeMemPlugin } = await import(`../src/index.js?runtime=${Date.now()}`);
+  if (tagsMock) {
+    vi.doMock("../src/services/tags.js", () => ({
+      getTags: () => ({
+        project: { tag: "project-tag" },
+        user: { userEmail: tagsMock.userEmail, userName: tagsMock.userName },
+      }),
+      getProjectName: (dir: string) => dir.split(/[\\/]/).pop() || dir,
+    }));
+  }
+
+  const { OpenCodeMemPlugin } = await import("../src/index.js");
   return OpenCodeMemPlugin({
     directory: tmpDir,
     worktree: tmpDir,
@@ -49,9 +63,10 @@ describe("memory tool profile runtime behavior", () => {
   });
 
   beforeEach(() => {
+    vi.resetModules();
     const opencodeDir = join(tmpDir, ".opencode");
     if (existsSync(opencodeDir)) rmSync(opencodeDir, { recursive: true, force: true });
-    mock.restore();
+    vi.restoreAllMocks();
     delete globalThis[WARMUP_KEY as keyof typeof globalThis];
 
     const userProfilesDbPath = join(tmpDir, "data", "user-profiles.db");
@@ -65,7 +80,7 @@ describe("memory tool profile runtime behavior", () => {
   });
 
   afterEach(() => {
-    mock.restore();
+    vi.restoreAllMocks();
     delete globalThis[WARMUP_KEY as keyof typeof globalThis];
   });
 
@@ -83,7 +98,7 @@ describe("memory tool profile runtime behavior", () => {
       autoCaptureEnabled: false,
     });
 
-    const plugin = await createPlugin();
+    const plugin = await createPlugin({ userEmail: "test@example.com", userName: "Test User" });
     const result = JSON.parse(
       await plugin.tool.memory.execute({ mode: "profile", query: "jira" }, { sessionID: "s1" })
     );
@@ -101,7 +116,7 @@ describe("memory tool profile runtime behavior", () => {
       autoCaptureEnabled: false,
     });
 
-    const plugin = await createPlugin();
+    const plugin = await createPlugin({ userEmail: "test@example.com", userName: "Test User" });
 
     const writeResult = JSON.parse(
       await plugin.tool.memory.execute(
@@ -131,7 +146,7 @@ describe("memory tool profile runtime behavior", () => {
       autoCaptureEnabled: false,
     });
 
-    const plugin = await createPlugin();
+    const plugin = await createPlugin({ userEmail: "test@example.com", userName: "Test User" });
     const result = JSON.parse(
       await plugin.tool.memory.execute({ mode: "profile", content: "   " }, { sessionID: "s3" })
     );
@@ -149,7 +164,7 @@ describe("memory tool profile runtime behavior", () => {
       autoCaptureEnabled: false,
     });
 
-    const plugin = await createPlugin();
+    const plugin = await createPlugin({ userEmail: "test@example.com", userName: "Test User" });
     const result = JSON.parse(
       await plugin.tool.memory.execute(
         {
@@ -171,12 +186,7 @@ describe("memory tool profile runtime behavior", () => {
       autoCaptureEnabled: false,
     });
 
-    mock.module("../src/services/tags.js", () => ({
-      getTags: () => ({ project: { tag: "project-tag" }, user: { userEmail: undefined } }),
-      getProjectName: (dir: string) => dir.split(/[\\/]/).pop() || dir,
-    }));
-
-    const plugin = await createPlugin();
+    const plugin = await createPlugin({ userEmail: undefined, userName: undefined });
     const result = JSON.parse(
       await plugin.tool.memory.execute(
         { mode: "profile", content: "Default Jira board is DOPS" },

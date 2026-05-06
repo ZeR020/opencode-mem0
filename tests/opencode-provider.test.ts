@@ -1,5 +1,4 @@
-import { afterEach, describe, expect, it, spyOn } from "bun:test";
-import * as fs from "node:fs";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   readOpencodeAuth,
   createOpencodeAIProvider,
@@ -10,73 +9,83 @@ import {
   isProviderConnected,
 } from "../src/services/ai/opencode-provider.js";
 
-describe("readOpencodeAuth", () => {
-  let readSpy: ReturnType<typeof spyOn>;
-  let existsSpy: ReturnType<typeof spyOn>;
+(globalThis as any).__mockFs = {
+  existsSync: () => false,
+  readFileSync: () => "{}",
+};
 
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    existsSync: (...args: unknown[]) => {
+      const m = (globalThis as any).__mockFs;
+      return m ? m.existsSync(...args) : false;
+    },
+    readFileSync: (...args: unknown[]) => {
+      const m = (globalThis as any).__mockFs;
+      return m ? m.readFileSync(...args) : "{}";
+    },
+  };
+});
+
+describe("readOpencodeAuth", () => {
   afterEach(() => {
-    if (readSpy) readSpy.mockRestore();
-    if (existsSpy) existsSpy.mockRestore();
+    (globalThis as any).__mockFs.existsSync = () => false;
+    (globalThis as any).__mockFs.readFileSync = () => "{}";
   });
 
   it("returns OAuth auth when provider has oauth type", () => {
-    existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
-    readSpy = spyOn(fs, "readFileSync").mockReturnValue(
+    (globalThis as any).__mockFs.existsSync = () => true;
+    (globalThis as any).__mockFs.readFileSync = () =>
       JSON.stringify({
         anthropic: { type: "oauth", refresh: "r", access: "a", expires: 9999 },
-      })
-    );
+      });
     const result = readOpencodeAuth("/state", "anthropic");
     expect(result).toEqual({ type: "oauth", refresh: "r", access: "a", expires: 9999 });
   });
 
   it("returns API auth when provider has api type", () => {
-    existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
-    readSpy = spyOn(fs, "readFileSync").mockReturnValue(
-      JSON.stringify({ openai: { type: "api", key: "sk-test" } })
-    );
+    (globalThis as any).__mockFs.existsSync = () => true;
+    (globalThis as any).__mockFs.readFileSync = () =>
+      JSON.stringify({ openai: { type: "api", key: "sk-test" } });
     const result = readOpencodeAuth("/state", "openai");
     expect(result).toEqual({ type: "api", key: "sk-test" });
   });
 
   it("throws when auth.json file is missing", () => {
-    existsSpy = spyOn(fs, "existsSync").mockReturnValue(false);
+    (globalThis as any).__mockFs.existsSync = () => false;
     expect(() => readOpencodeAuth("/state", "anthropic")).toThrow(/not found/);
   });
 
   it("throws when provider not in auth.json", () => {
-    existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
-    readSpy = spyOn(fs, "readFileSync").mockReturnValue(
+    (globalThis as any).__mockFs.existsSync = () => true;
+    (globalThis as any).__mockFs.readFileSync = () =>
       JSON.stringify({
         anthropic: { type: "oauth", refresh: "r", access: "a", expires: 9999 },
-      })
-    );
+      });
     expect(() => readOpencodeAuth("/state", "openai")).toThrow(/not found in opencode auth\.json/);
   });
 
   it("throws when auth.json contains invalid JSON", () => {
-    existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
-    readSpy = spyOn(fs, "readFileSync").mockReturnValue("not-json");
+    (globalThis as any).__mockFs.existsSync = () => true;
+    (globalThis as any).__mockFs.readFileSync = () => "not-json";
     expect(() => readOpencodeAuth("/state", "anthropic")).toThrow(/invalid JSON/);
   });
 });
 
 describe("createOpencodeAIProvider", () => {
-  let readSpy: ReturnType<typeof spyOn>;
-  let existsSpy: ReturnType<typeof spyOn>;
-
   afterEach(() => {
-    if (readSpy) readSpy.mockRestore();
-    if (existsSpy) existsSpy.mockRestore();
+    (globalThis as any).__mockFs.existsSync = () => false;
+    (globalThis as any).__mockFs.readFileSync = () => "{}";
   });
 
   it("creates Anthropic provider with authToken for OAuth", () => {
-    existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
-    readSpy = spyOn(fs, "readFileSync").mockReturnValue(
+    (globalThis as any).__mockFs.existsSync = () => true;
+    (globalThis as any).__mockFs.readFileSync = () =>
       JSON.stringify({
         anthropic: { type: "oauth", refresh: "r", access: "tok", expires: 9999999999999 },
-      })
-    );
+      });
     const provider = createOpencodeAIProvider(
       "anthropic",
       {
@@ -124,12 +133,11 @@ describe("createOpencodeAIProvider", () => {
   });
 
   it("creates Anthropic provider with OAuth using createOAuthFetch", () => {
-    existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
-    readSpy = spyOn(fs, "readFileSync").mockReturnValue(
+    (globalThis as any).__mockFs.existsSync = () => true;
+    (globalThis as any).__mockFs.readFileSync = () =>
       JSON.stringify({
         anthropic: { type: "oauth", refresh: "r", access: "tok", expires: 9999999999999 },
-      })
-    );
+      });
     const provider = createOpencodeAIProvider(
       "anthropic",
       {

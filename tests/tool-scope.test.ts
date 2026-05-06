@@ -1,169 +1,159 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-const tempDirs: string[] = [];
+const searchCalls: unknown[][] = [];
+let lastListScope: string | undefined;
 
-afterEach(() => {
-  for (const dir of tempDirs.splice(0)) {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-const indexUrl = new URL("../src/index.js", import.meta.url).href;
-const clientUrl = new URL("../src/services/client.js", import.meta.url).href;
-const configUrl = new URL("../src/config.js", import.meta.url).href;
-const tagsUrl = new URL("../src/services/tags.js", import.meta.url).href;
-const contextUrl = new URL("../src/services/context.js", import.meta.url).href;
-const privacyUrl = new URL("../src/services/privacy.js", import.meta.url).href;
-const autoCaptureUrl = new URL("../src/services/auto-capture.js", import.meta.url).href;
-const learningUrl = new URL("../src/services/user-memory-learning.js", import.meta.url).href;
-const promptManagerUrl = new URL(
-  "../src/services/user-prompt/user-prompt-manager.js",
-  import.meta.url
-).href;
-const webServerUrl = new URL("../src/services/web-server.js", import.meta.url).href;
-const loggerUrl = new URL("../src/services/logger.js", import.meta.url).href;
-const languageUrl = new URL("../src/services/language-detector.js", import.meta.url).href;
-
-type ScenarioInput = {
-  defaultScope?: "project" | "all-projects";
-  args: Record<string, unknown>;
-};
-
-function runScenario(input: ScenarioInput) {
-  const dir = mkdtempSync(join(tmpdir(), "opencode-mem0-tool-scope-"));
-  tempDirs.push(dir);
-
-  const scriptPath = join(dir, "scenario.mjs");
-  const script = `
-import { mock } from "bun:test";
-
-const searchCalls = [];
-let lastListScope;
-const defaultScope = ${JSON.stringify(input.defaultScope)};
-
-mock.module(${JSON.stringify(clientUrl)}, () => ({
-  memoryClient: {
-    warmup: async () => {},
-    isReady: async () => true,
-    searchMemories: async (...args) => {
-      searchCalls.push(args);
-      return { success: true, results: [], total: 0, timing: 0 };
-    },
-    listMemories: async (_tag, _limit, scope = "project") => {
-      lastListScope = scope;
-      return {
-        success: true,
-        memories: [],
-        pagination: { currentPage: 1, totalItems: 0, totalPages: 0 },
-        scope,
-      };
-    },
-    addMemory: async () => ({ success: true, id: "m1" }),
-    deleteMemory: async () => ({ success: true }),
-    searchMemoriesBySessionID: async () => ({ success: true, results: [], total: 0, timing: 0 }),
-    close() {},
-  },
-}));
-
-mock.module(${JSON.stringify(configUrl)}, () => ({
-  CONFIG: {
-    autoCaptureLanguage: "auto",
-    storagePath: "/tmp/opencode-mem0-test",
-    memory: { defaultScope },
-  },
-  initConfig: () => {},
-  isConfigured: () => true,
-}));
-
-mock.module(${JSON.stringify(tagsUrl)}, () => ({
+vi.mock("../src/services/logger.js", () => ({ log: () => {} }));
+vi.mock("../src/services/tags.js", () => ({
   getTags: () => ({ project: { tag: "project-tag" }, user: { userEmail: "u@example.com" } }),
 }));
-
-mock.module(${JSON.stringify(contextUrl)}, () => ({ formatContextForPrompt: () => "" }));
-mock.module(${JSON.stringify(privacyUrl)}, () => ({
-  stripPrivateContent: (value) => value,
+vi.mock("../src/services/context.js", () => ({ formatContextForPrompt: () => "" }));
+vi.mock("../src/services/privacy.js", () => ({
+  stripPrivateContent: (value: unknown) => value,
   isFullyPrivate: () => false,
 }));
-mock.module(${JSON.stringify(autoCaptureUrl)}, () => ({ performAutoCapture: async () => {} }));
-mock.module(${JSON.stringify(learningUrl)}, () => ({ performUserProfileLearning: async () => {} }));
-mock.module(${JSON.stringify(promptManagerUrl)}, () => ({ userPromptManager: { savePrompt() {} } }));
-mock.module(${JSON.stringify(webServerUrl)}, () => ({
+vi.mock("../src/services/auto-capture.js", () => ({ performAutoCapture: async () => {} }));
+vi.mock("../src/services/user-memory-learning.js", () => ({
+  performUserProfileLearning: async () => {},
+}));
+vi.mock("../src/services/user-prompt/user-prompt-manager.js", () => ({
+  userPromptManager: { savePrompt() {} },
+}));
+vi.mock("../src/services/web-server.js", () => ({
   startWebServer: async () => null,
   WebServer: class {},
 }));
-mock.module(${JSON.stringify(loggerUrl)}, () => ({ log: () => {} }));
-mock.module(${JSON.stringify(languageUrl)}, () => ({ getLanguageName: () => "English" }));
+vi.mock("../src/services/language-detector.js", () => ({ getLanguageName: () => "English" }));
 
-const { OpenCodeMemPlugin } = await import(${JSON.stringify(indexUrl)});
-const plugin = await OpenCodeMemPlugin({ directory: "/workspace", client: {} });
-const memoryTool = plugin.tool?.memory;
+// Helper to create plugin with specific config
+async function createPlugin(defaultScope?: "project" | "all-projects") {
+  vi.resetModules();
 
-if (!memoryTool) {
-  throw new Error("memory tool not available");
-}
-
-await memoryTool.execute(${JSON.stringify(input.args)}, { sessionID: "s1" });
-
-console.log(
-  JSON.stringify({
-    searchScope: searchCalls[0]?.[2],
-    listScope: lastListScope,
-  })
-);
-`;
-
-  writeFileSync(scriptPath, script);
-
-  const result = Bun.spawnSync({
-    cmd: [process.execPath, scriptPath],
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-
-  const stdout = Buffer.from(result.stdout).toString("utf8").trim();
-  const stderr = Buffer.from(result.stderr).toString("utf8").trim();
-
-  return {
-    exitCode: result.exitCode,
-    stdout,
-    stderr,
-    parsed: stdout ? JSON.parse(stdout) : null,
+  // Create a mock config module
+  const mockConfig = {
+    autoCaptureLanguage: "auto",
+    storagePath: "/tmp/opencode-mem0-test",
+    memory: { defaultScope },
+    webServerEnabled: false,
+    autoCaptureEnabled: false,
+    vectorBackend: "exact-scan",
+    similarityThreshold: 0.6,
+    maxMemories: 10,
+    maxProfileItems: 5,
+    injectProfile: false,
+    containerTagPrefix: "opencode",
+    embeddingModel: "Xenova/nomic-embed-text-v1",
+    embeddingDimensions: 768,
+    showAutoCaptureToasts: false,
+    showUserProfileToasts: false,
+    showErrorToasts: false,
+    userProfileAnalysisInterval: 10,
+    userProfileMaxPreferences: 20,
+    userProfileMaxPatterns: 15,
+    userProfileMaxWorkflows: 10,
+    userProfileConfidenceDecayDays: 30,
+    userProfileChangelogRetentionCount: 5,
+    aiSessionRetentionDays: 7,
+    webServerPort: 4747,
+    webServerHost: "127.0.0.1",
+    maxVectorsPerShard: 50000,
+    autoCleanupEnabled: true,
+    autoCleanupRetentionDays: 30,
+    deduplicationEnabled: true,
+    deduplicationSimilarityThreshold: 0.9,
+    transcriptStorage: { enabled: false, maxAgeDays: 30 },
+    memoryScoring: {
+      enabled: false,
+      recalculationIntervalMinutes: 60,
+      recencyHalfLifeDays: 7,
+      utilityHalfLifeDays: 3,
+    },
+    memoryLifecycle: {
+      stmDecayDays: 7,
+      ltmDecayDays: 90,
+      promotionThreshold: 0.7,
+      archiveThreshold: 0.2,
+      archiveAfterDays: 30,
+      checkIntervalMinutes: 60,
+    },
+    compaction: { enabled: true, memoryLimit: 10 },
+    chatMessage: {
+      enabled: false,
+      maxMemories: 3,
+      excludeCurrentSession: true,
+      injectOn: "first" as const,
+      maxAgeDays: undefined,
+    },
+    retrieval: { maxResults: 20, diversityThreshold: 0.9, contextBoost: 1.5 },
+    initConfig: () => {},
+    isConfigured: () => true,
+    CONFIG: {} as any,
   };
+
+  // Fill in CONFIG reference
+  mockConfig.CONFIG = mockConfig;
+
+  vi.doMock("../src/config.js", () => mockConfig);
+  vi.doMock("../src/services/client.js", () => ({
+    memoryClient: {
+      warmup: async () => {},
+      isReady: async () => true,
+      searchMemories: async (...args: unknown[]) => {
+        searchCalls.push(args);
+        return { success: true, results: [], total: 0, timing: 0 };
+      },
+      listMemories: async (_tag: unknown, _limit: unknown, scope = "project") => {
+        lastListScope = scope;
+        return {
+          success: true,
+          memories: [],
+          pagination: { currentPage: 1, totalItems: 0, totalPages: 0 },
+          scope,
+        };
+      },
+      addMemory: async () => ({ success: true, id: "m1" }),
+      deleteMemory: async () => ({ success: true }),
+      searchMemoriesBySessionID: async () => ({ success: true, results: [], total: 0, timing: 0 }),
+      close() {},
+    },
+  }));
+
+  const { OpenCodeMemPlugin } = await import("../src/index.js");
+  return OpenCodeMemPlugin({ directory: "/workspace", client: {} });
 }
 
 describe("tool memory scope", () => {
-  it("falls back to config default scope", () => {
-    const result = runScenario({
-      defaultScope: "all-projects",
-      args: { mode: "search", query: "hello" },
-    });
-
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
-    expect(result.parsed?.searchScope).toBe("all-projects");
+  afterEach(() => {
+    searchCalls.length = 0;
+    lastListScope = undefined;
+    vi.clearAllMocks();
+    vi.resetModules();
   });
 
-  it("lets explicit args scope override config", () => {
-    const result = runScenario({
-      defaultScope: "all-projects",
-      args: { mode: "list", scope: "project" },
-    });
+  it("falls back to config default scope", async () => {
+    const plugin = await createPlugin("all-projects");
+    const memoryTool = plugin.tool?.memory;
+    if (!memoryTool) throw new Error("memory tool not available");
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
-    expect(result.parsed?.listScope).toBe("project");
+    await memoryTool.execute({ mode: "search", query: "hello" }, { sessionID: "s1" });
+    expect(searchCalls[0]?.[2]).toBe("all-projects");
   });
 
-  it("falls back to project when config scope is unset", () => {
-    const result = runScenario({
-      args: { mode: "list" },
-    });
+  it("lets explicit args scope override config", async () => {
+    const plugin = await createPlugin("all-projects");
+    const memoryTool = plugin.tool?.memory;
+    if (!memoryTool) throw new Error("memory tool not available");
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
-    expect(result.parsed?.listScope).toBe("project");
+    await memoryTool.execute({ mode: "list", scope: "project" }, { sessionID: "s1" });
+    expect(lastListScope).toBe("project");
+  });
+
+  it("falls back to project when config scope is unset", async () => {
+    const plugin = await createPlugin(undefined);
+    const memoryTool = plugin.tool?.memory;
+    if (!memoryTool) throw new Error("memory tool not available");
+
+    await memoryTool.execute({ mode: "list" }, { sessionID: "s1" });
+    expect(lastListScope).toBe("project");
   });
 });

@@ -1,4 +1,4 @@
-import { afterAll, describe, it, expect } from "bun:test";
+import { afterAll, describe, it, expect } from "vitest";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

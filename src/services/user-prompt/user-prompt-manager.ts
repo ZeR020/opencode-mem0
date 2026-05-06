@@ -1,10 +1,11 @@
-import { getDatabase } from "../sqlite/sqlite-bootstrap.js";
-import { join } from "node:path";
+import { getDatabase, type Database } from "../sqlite/sqlite-bootstrap.js";
+import { join, dirname } from "node:path";
+import { existsSync, mkdirSync } from "node:fs";
 import { connectionManager } from "../sqlite/connection-manager.js";
+import { log } from "../logger.js";
 import { CONFIG } from "../../config.js";
 
-const Database = getDatabase();
-type DatabaseType = typeof Database.prototype;
+type DatabaseType = Database;
 
 const USER_PROMPTS_DB_NAME = "user-prompts.db";
 
