@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { stripJsoncComments } from "./services/jsonc.js";
 import { resolveSecretValue } from "./services/secret-resolver.js";
+import { log } from "./services/logger.js";
 
 const CONFIG_DIR = join(homedir(), ".config", "opencode");
 const DATA_DIR = join(homedir(), ".opencode-mem0");
@@ -20,9 +21,9 @@ const OLD_DATA_DIR = join(homedir(), ".opencode-mem");
 if (existsSync(OLD_DATA_DIR) && !existsSync(DATA_DIR)) {
   try {
     cpSync(OLD_DATA_DIR, DATA_DIR, { recursive: true });
-    console.log(`
+    log(`
 ✓ Migrated data from ${OLD_DATA_DIR} to ${DATA_DIR}`);
-    console.log("  Your existing memories and settings have been preserved.\n");
+    log("  Your existing memories and settings have been preserved.\n");
   } catch {
     // If migration fails, just create the new directory
     mkdirSync(DATA_DIR, { recursive: true });
@@ -557,8 +558,8 @@ function ensureConfigExists(): void {
   if (!existsSync(configPath)) {
     try {
       writeFileSync(configPath, CONFIG_TEMPLATE, "utf-8");
-      console.log(`\n✓ Created config template: ${configPath}`);
-      console.log("  Edit this file to customize opencode-mem0 settings.\n");
+      log(`\n✓ Created config template: ${configPath}`);
+      log("  Edit this file to customize opencode-mem0 settings.\n");
     } catch {}
   }
 }
