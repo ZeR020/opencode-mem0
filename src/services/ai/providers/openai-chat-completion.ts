@@ -43,7 +43,7 @@ type RequestBody = {
   [key: string]: unknown;
 };
 
-type AssistantSessionMessage = Omit<AIMessage, "id" | "createdAt">;
+type AssistantSessionMessage = Omit<AIMessage, "id" | "sequence" | "createdAt">;
 
 function isErrorResponseBody(data: unknown): data is { status: string; msg: string } {
   return (
@@ -92,10 +92,8 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     toolCallId: string,
     content: string
   ): void {
-    const sequence = this.aiSessionManager.getLastSequence(sessionId) + 1;
-    this.aiSessionManager.addMessage({
+    const sequence = this.aiSessionManager.addMessageAtomic({
       aiSessionId: sessionId,
-      sequence,
       role: "tool",
       content,
       toolCallId,
@@ -185,10 +183,8 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     }
 
     if (messages.length === 0) {
-      const sequence = this.aiSessionManager.getLastSequence(session.id) + 1;
-      this.aiSessionManager.addMessage({
+      const sequence = this.aiSessionManager.addMessageAtomic({
         aiSessionId: session.id,
-        sequence,
         role: "system",
         content: systemPrompt,
       });
@@ -196,10 +192,8 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
       messages.push({ role: "system", content: systemPrompt });
     }
 
-    const userSequence = this.aiSessionManager.getLastSequence(session.id) + 1;
-    this.aiSessionManager.addMessage({
+    const userSequence = this.aiSessionManager.addMessageAtomic({
       aiSessionId: session.id,
-      sequence: userSequence,
       role: "user",
       content: userPrompt,
     });
@@ -322,10 +316,8 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
           };
         }
 
-        const assistantSequence = this.aiSessionManager.getLastSequence(session.id) + 1;
         const assistantMsg: AssistantSessionMessage = {
           aiSessionId: session.id,
-          sequence: assistantSequence,
           role: "assistant",
           content: choice.message.content ?? "",
         };
@@ -334,7 +326,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
           assistantMsg.toolCalls = choice.message.tool_calls;
         }
 
-        this.aiSessionManager.addMessage(assistantMsg);
+        const assistantSequence = this.aiSessionManager.addMessageAtomic(assistantMsg);
         messages.push({
           role: "assistant",
           content: choice.message.content ?? null,
@@ -377,7 +369,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
                       : typeof validationError,
                   toolName: toolSchema.function.name,
                   iteration: iterations,
-                  rawArguments: toolCall.function.arguments.slice(0, 500),
+                  rawArgumentsSize: toolCall.function.arguments.length,
                 });
 
                 const errorMessage = `Validation failed: ${String(validationError)}`;
@@ -408,13 +400,11 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
           }
         }
 
-        const retrySequence = this.aiSessionManager.getLastSequence(session.id) + 1;
         const retryPrompt =
           "Please use the save_memories tool to extract and save the memories from the conversation as instructed.";
 
-        this.aiSessionManager.addMessage({
+        const retrySequence = this.aiSessionManager.addMessageAtomic({
           aiSessionId: session.id,
-          sequence: retrySequence,
           role: "user",
           content: retryPrompt,
         });

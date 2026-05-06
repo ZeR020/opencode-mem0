@@ -30,10 +30,8 @@ export class GoogleGeminiProvider extends BaseAIProvider {
     toolCallId: string,
     content: string
   ): void {
-    const sequence = this.aiSessionManager.getLastSequence(sessionId) + 1;
-    this.aiSessionManager.addMessage({
+    const sequence = this.aiSessionManager.addMessageAtomic({
       aiSessionId: sessionId,
-      sequence,
       role: "tool",
       content,
       toolCallId,
@@ -116,10 +114,8 @@ export class GoogleGeminiProvider extends BaseAIProvider {
     }
 
     if (contents.length === 0 || contents[contents.length - 1].role !== "user") {
-      const userSequence = this.aiSessionManager.getLastSequence(session.id) + 1;
-      this.aiSessionManager.addMessage({
+      const userSequence = this.aiSessionManager.addMessageAtomic({
         aiSessionId: session.id,
-        sequence: userSequence,
         role: "user",
         content: userPrompt,
       });
@@ -151,7 +147,7 @@ export class GoogleGeminiProvider extends BaseAIProvider {
 
       try {
         const baseUrl = this.config.apiUrl || "https://generativelanguage.googleapis.com/v1beta";
-        const url = `${baseUrl}/models/${this.config.model}:generateContent?key=${this.config.apiKey}`;
+        const url = `${baseUrl}/models/${this.config.model}:generateContent`;
 
         const requestBody: any = {
           contents,
@@ -170,7 +166,10 @@ export class GoogleGeminiProvider extends BaseAIProvider {
 
         const response = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(this.config.apiKey ? { "x-goog-api-key": this.config.apiKey } : {}),
+          },
           body: JSON.stringify(requestBody),
           signal: controller.signal,
         });
@@ -201,12 +200,9 @@ export class GoogleGeminiProvider extends BaseAIProvider {
         }
 
         const modelMsg = candidate.content;
-        const assistantSequence = this.aiSessionManager.getLastSequence(session.id) + 1;
-
         // Map Gemini response back to our internal message format
         const assistantMsg: any = {
           aiSessionId: session.id,
-          sequence: assistantSequence,
           role: "assistant",
           content: "",
           toolCalls: [],
@@ -226,7 +222,7 @@ export class GoogleGeminiProvider extends BaseAIProvider {
           }
         }
 
-        this.aiSessionManager.addMessage(assistantMsg);
+        const assistantSequence = this.aiSessionManager.addMessageAtomic(assistantMsg);
         contents.push(modelMsg);
 
         if (assistantMsg.toolCalls.length > 0) {
@@ -260,10 +256,8 @@ export class GoogleGeminiProvider extends BaseAIProvider {
 
         // Retry if no tool call was made
         const retryPrompt = "Please use the save_memories tool as instructed.";
-        const retrySequence = this.aiSessionManager.getLastSequence(session.id) + 1;
-        this.aiSessionManager.addMessage({
+        const retrySequence = this.aiSessionManager.addMessageAtomic({
           aiSessionId: session.id,
-          sequence: retrySequence,
           role: "user",
           content: retryPrompt,
         });

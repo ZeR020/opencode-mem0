@@ -288,7 +288,14 @@ function findSimilarMemories(
   let results: SimilarMemory[] = [];
 
   if (hasFTS) {
-    const query = words.map((w) => `"${w.replace(/"/g, '""')}"`).join(" OR ");
+    const query = words
+      .map((w) => {
+        // Strip FTS5 metacharacters and reserved words to prevent injection
+        const clean = w.replace(/[*^:\-+?()]/g, "").replace(/\b(NEAR|AND|OR|NOT)\b/gi, "");
+        return clean ? `"${clean.replace(/"/g, '""')}"` : "";
+      })
+      .filter(Boolean)
+      .join(" OR ");
     try {
       const rows = db
         .prepare(

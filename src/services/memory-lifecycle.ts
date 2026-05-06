@@ -155,13 +155,15 @@ export function applyDecay(): {
     const archiveAfterMs = archiveAfterDays * 24 * 60 * 60 * 1000;
 
     for (const shard of allShards) {
+      let db: any = null;
+      let inTxn = false;
       try {
-        const db = connectionManager.getConnection(shard.dbPath);
+        db = connectionManager.getConnection(shard.dbPath);
 
         // Get all STM memories and LTM memories with non-zero decay
         const memories = db
           .prepare(
-            `SELECT id, strength, decay_rate, created_at, store_type, access_count
+            `SELECT id, strength, decay_rate, created_at, last_decay_at, store_type, access_count
              FROM memories
              WHERE store_type = 'stm' OR (store_type = 'ltm' AND decay_rate > 0)`
           )
@@ -170,26 +172,28 @@ export function applyDecay(): {
         if (memories.length === 0) continue;
 
         const updateStmt = db.prepare(
-          `UPDATE memories SET strength = ?, recency_score = ? WHERE id = ?`
+          `UPDATE memories SET strength = ?, recency_score = ?, last_decay_at = ? WHERE id = ?`
         );
 
         db.run("BEGIN TRANSACTION");
+        inTxn = true;
 
         for (const memory of memories) {
           const createdAt = Number(memory.created_at);
-          const ageMs = now - createdAt;
-          const ageDays = ageMs / (24 * 60 * 60 * 1000);
+          const lastDecayAt = memory.last_decay_at ? Number(memory.last_decay_at) : createdAt;
+          const deltaMs = now - lastDecayAt;
+          const deltaDays = deltaMs / (24 * 60 * 60 * 1000);
           const currentStrength = Number(memory.strength || 0.5);
           const decayRate = Number(memory.decay_rate || 0.05);
 
           if (decayRate <= 0) continue; // LTM with zero decay rate — skip
 
-          // Ebbinghaus: strength *= e^(-decay_rate * age_in_days)
-          const newStrength = currentStrength * Math.exp(-decayRate * ageDays);
+          // Incremental Ebbinghaus decay since last maintenance
+          const newStrength = currentStrength * Math.exp(-decayRate * deltaDays);
           const clampedStrength = Math.max(0, Math.min(1, newStrength));
 
-          // Update strength and sync recency_score to match
-          updateStmt.run(clampedStrength, clampedStrength, memory.id);
+          // Update strength, sync recency_score, and record last_decay_at
+          updateStmt.run(clampedStrength, clampedStrength, now, memory.id);
           totalUpdated++;
 
           if (clampedStrength < currentStrength) {
@@ -197,6 +201,7 @@ export function applyDecay(): {
           }
 
           // Archive check: if strength < threshold AND older than archiveAfterDays
+          const ageMs = now - createdAt;
           if (clampedStrength < archiveThreshold && ageMs > archiveAfterMs) {
             archiveMemory(db, memory.id, shard);
             totalArchived++;
@@ -204,7 +209,13 @@ export function applyDecay(): {
         }
 
         db.run("COMMIT");
+        inTxn = false;
       } catch (error) {
+        if (inTxn) {
+          try {
+            db.run("ROLLBACK");
+          } catch {}
+        }
         log("applyDecay shard error", { shardId: shard.id, error: String(error) });
       }
     }

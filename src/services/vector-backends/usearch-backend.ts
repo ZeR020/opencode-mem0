@@ -170,13 +170,23 @@ export class USearchBackend implements VectorBackend {
     }
   }
 
+  private indexLocks = new Map<string, Promise<CachedIndex>>();
+
   private async getOrCreateIndex(indexKey: string): Promise<CachedIndex> {
     const existing = this.indexes.get(indexKey);
     if (existing) return existing;
 
-    const cache = await this.createEmptyIndex(indexKey);
-    this.indexes.set(indexKey, cache);
-    return cache;
+    const pending = this.indexLocks.get(indexKey);
+    if (pending) return pending;
+
+    const promise = this.createEmptyIndex(indexKey).then((cache) => {
+      this.indexes.set(indexKey, cache);
+      this.indexLocks.delete(indexKey);
+      return cache;
+    });
+
+    this.indexLocks.set(indexKey, promise);
+    return promise;
   }
 
   private async createEmptyIndex(indexKey: string): Promise<CachedIndex> {

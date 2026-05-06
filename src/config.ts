@@ -241,7 +241,10 @@ function loadConfigFromPaths(paths: string[]): OpenCodeMemConfig {
         const content = readFileSync(path, "utf-8");
         const json = stripJsoncComments(content);
         return JSON.parse(json) as OpenCodeMemConfig;
-      } catch {}
+      } catch (error) {
+        console.error(`Failed to load config from ${path}: ${error}`);
+        throw new Error(`Config error in ${path}: ${error}`);
+      }
     }
   }
   return {};
@@ -557,7 +560,7 @@ function ensureConfigExists(): void {
 
   if (!existsSync(configPath)) {
     try {
-      writeFileSync(configPath, CONFIG_TEMPLATE, "utf-8");
+      writeFileSync(configPath, CONFIG_TEMPLATE, { encoding: "utf-8", mode: 0o600 });
       log(`\n✓ Created config template: ${configPath}`);
       log("  Edit this file to customize opencode-mem0 settings.\n");
     } catch {}

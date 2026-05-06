@@ -190,6 +190,33 @@ export class AISessionManager {
     return row?.max_seq ?? -1;
   }
 
+  addMessageAtomic(message: Omit<AIMessage, "id" | "sequence" | "createdAt">): number {
+    const nextSeq = this.db
+      .prepare(
+        "SELECT COALESCE(MAX(sequence), -1) + 1 as next_seq FROM ai_messages WHERE ai_session_id = ?"
+      )
+      .get(message.aiSessionId) as { next_seq: number };
+
+    const seq = nextSeq.next_seq;
+    this.db.run(
+      `INSERT INTO ai_messages (
+        ai_session_id, sequence, role, content,
+        tool_calls, tool_call_id, content_blocks, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        message.aiSessionId,
+        seq,
+        message.role,
+        message.content,
+        message.toolCalls ? JSON.stringify(message.toolCalls) : null,
+        message.toolCallId || null,
+        message.contentBlocks ? JSON.stringify(message.contentBlocks) : null,
+        Date.now(),
+      ]
+    );
+    return seq;
+  }
+
   clearMessages(aiSessionId: string): void {
     this.db.run("DELETE FROM ai_messages WHERE ai_session_id = ?", [aiSessionId]);
   }

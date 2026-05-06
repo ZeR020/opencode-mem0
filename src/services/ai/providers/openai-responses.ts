@@ -117,10 +117,8 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
         conversationId = data.conversation || conversationId;
 
         if (iterations === 1) {
-          const userSeq = this.aiSessionManager.getLastSequence(session.id) + 1;
-          this.aiSessionManager.addMessage({
+          const userSeq = this.aiSessionManager.addMessageAtomic({
             aiSessionId: session.id,
-            sequence: userSeq,
             role: "user",
             content: userPrompt,
           });

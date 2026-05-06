@@ -18,7 +18,7 @@ export const safeArray = <T>(arr: any): T[] => {
   const walk = (item: any) => {
     if (Array.isArray(item)) {
       item.forEach(walk);
-    } else if (item) {
+    } else if (item !== undefined && item !== null) {
       flattened.push(item);
     }
   };

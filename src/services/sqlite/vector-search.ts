@@ -18,6 +18,16 @@ function toBlob(vector?: Float32Array): Uint8Array | null {
   return vector ? new Uint8Array(vector.buffer) : null;
 }
 
+function safeParseMetadata(raw: string | null | undefined): Record<string, unknown> | undefined {
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    log("Corrupt metadata for memory", { raw: raw.substring(0, 100) });
+    return undefined;
+  }
+}
+
 export class VectorSearch {
   private readonly backendPromise: Promise<VectorBackend>;
   private readonly fallbackBackend: VectorBackend;
@@ -274,7 +284,7 @@ export class VectorSearch {
           {
             projectPath: row.project_path,
             projectName: row.project_name,
-            metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+            metadata: safeParseMetadata(row.metadata),
           },
           context
         );
@@ -285,7 +295,7 @@ export class VectorSearch {
         memory: row.content,
         similarity: similarity * contextBoost,
         tags: memoryTagsStr ? memoryTagsStr.split(",") : [],
-        metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+        metadata: safeParseMetadata(row.metadata),
         containerTag: row.container_tag,
         displayName: row.display_name,
         userName: row.user_name,
@@ -569,7 +579,7 @@ export class VectorSearch {
     return rows.map((row: any) => ({
       ...row,
       tags: row.tags ? row.tags.split(",") : [],
-      metadata: row.metadata ? JSON.parse(row.metadata) : {},
+      metadata: safeParseMetadata(row.metadata) || {},
     }));
   }
 

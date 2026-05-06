@@ -22,9 +22,9 @@ function checkFilePermissions(filePath: string): void {
     const stats = statSync(filePath);
     const mode = stats.mode & 0o777;
 
-    if (mode > 0o600) {
+    if ((mode & 0o077) !== 0) {
       console.warn(
-        `Warning: Secret file ${filePath} has permissive permissions (${mode.toString(8)}). Recommend chmod 600.`
+        `Warning: Secret file ${filePath} has group/other permissions (${(mode & 0o077).toString(8)}). Recommend chmod 600.`
       );
     }
   } catch (error) {

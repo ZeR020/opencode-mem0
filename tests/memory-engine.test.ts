@@ -653,6 +653,7 @@ describe("Memory Engine Integration", () => {
         "mem_project_abc"
       );
       expect(Array.isArray(conflicts)).toBe(true);
+      expect(conflictSaved).toBe(true);
     });
 
     it("resolves conflict with keep_newer strategy", async () => {

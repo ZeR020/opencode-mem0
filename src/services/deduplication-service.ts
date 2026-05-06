@@ -86,7 +86,18 @@ export class DeduplicationService {
           const mem1 = uniqueMemories[i];
           if (!mem1.vector || processedIds.has(mem1.id)) continue;
 
-          const vector1 = new Float32Array(new Uint8Array(mem1.vector).buffer);
+          let vector1: Float32Array;
+          try {
+            const buf = new Uint8Array(mem1.vector);
+            if (buf.byteLength % 4 !== 0) throw new Error("Invalid vector alignment");
+            vector1 = new Float32Array(buf.buffer);
+          } catch {
+            log("Deduplication: skipping malformed vector", {
+              id: mem1.id,
+              containerTag: mem1.container_tag,
+            });
+            continue;
+          }
           const similarGroup: DuplicateGroup = {
             representative: {
               id: mem1.id,
@@ -102,7 +113,18 @@ export class DeduplicationService {
             if (!mem2.vector || processedIds.has(mem2.id)) continue;
             if (mem1.container_tag !== mem2.container_tag) continue;
 
-            const vector2 = new Float32Array(new Uint8Array(mem2.vector).buffer);
+            let vector2: Float32Array;
+            try {
+              const buf2 = new Uint8Array(mem2.vector);
+              if (buf2.byteLength % 4 !== 0) throw new Error("Invalid vector alignment");
+              vector2 = new Float32Array(buf2.buffer);
+            } catch {
+              log("Deduplication: skipping malformed vector", {
+                id: mem2.id,
+                containerTag: mem2.container_tag,
+              });
+              continue;
+            }
             const similarity = this.cosineSimilarity(vector1, vector2);
 
             if (similarity >= CONFIG.deduplicationSimilarityThreshold && similarity < 1.0) {

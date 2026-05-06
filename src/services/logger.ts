@@ -75,4 +75,3 @@ export function log(message: string, data?: unknown) {
     : `[${timestamp}] ${message}\n`;
   appendFileSync(logFile, line);
 }
-// AUDIT_MARKER

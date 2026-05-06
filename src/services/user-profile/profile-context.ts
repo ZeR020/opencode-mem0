@@ -8,7 +8,12 @@ export function getUserProfileContext(userId: string): string | null {
     return null;
   }
 
-  const profileData: UserProfileData = JSON.parse(profile.profileData);
+  let profileData: UserProfileData;
+  try {
+    profileData = JSON.parse(profile.profileData) as UserProfileData;
+  } catch {
+    return "User profile data is unavailable.";
+  }
   const parts: string[] = [];
 
   if (profileData.preferences.length > 0) {
