@@ -407,10 +407,6 @@ export async function handleUpdateMemory(
       }
     }
     if (!foundShard || !existingMemory) return { success: false, error: "Memory not found" };
-    const db = connectionManager.getConnection(foundShard.dbPath);
-    await vectorSearch.deleteVector(db, id, foundShard);
-    shardManager.decrementVectorCount(foundShard.id);
-
     const newContent = data.content || existingMemory.content;
     const tags = data.tags || (existingMemory.tags ? existingMemory.tags.split(",") : []);
 
@@ -419,6 +415,10 @@ export async function handleUpdateMemory(
     if (tags.length > 0) {
       tagsVector = await embeddingService.embedWithTimeout(tags.join(", "));
     }
+
+    const db = connectionManager.getConnection(foundShard.dbPath);
+    await vectorSearch.deleteVector(db, id, foundShard);
+    shardManager.decrementVectorCount(foundShard.id);
 
     const updatedRecord = {
       id,
