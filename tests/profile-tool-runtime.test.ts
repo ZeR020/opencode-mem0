@@ -8,36 +8,47 @@ const WARMUP_KEY = Symbol.for("opencode-mem0.plugin.warmedup");
 
 let tmpDir: string;
 
+var mockClient: any;
+var currentTags: any;
+
+vi.mock("../src/services/client.js", () => ({
+  memoryClient: mockClient,
+}));
+
+vi.mock("../src/services/tags.js", () => ({
+  getTags: () => currentTags,
+  getProjectName: (dir: string) => dir.split(/[\\/]/).pop() || dir,
+}));
+
+mockClient = {
+  warmup: async () => {},
+  isReady: async () => true,
+  searchMemories: async () => ({ success: true, results: [], total: 0, timing: 0 }),
+  listMemories: async () => ({ success: true, memories: [], pagination: {} }),
+  addMemory: async () => ({ success: true, id: "m1" }),
+  deleteMemory: async () => ({ success: true }),
+  searchMemoriesBySessionID: async () => ({ success: true, results: [], total: 0, timing: 0 }),
+  close() {},
+};
+
+currentTags = {
+  project: { tag: "project-tag" },
+  user: { userEmail: undefined as string | undefined, userName: undefined as string | undefined },
+};
+
 function writeProjectConfig(config: Record<string, unknown>) {
   const opencodeDir = join(tmpDir, ".opencode");
   mkdirSync(opencodeDir, { recursive: true });
   writeFileSync(join(opencodeDir, "opencode-mem0.json"), JSON.stringify(config), "utf-8");
 }
 
-vi.mock("../src/services/client.js", async () => {
-  const actual = await vi.importActual<typeof import("../src/services/client.js")>(
-    "../src/services/client.js"
-  );
-  return {
-    memoryClient: {
-      ...actual.memoryClient,
-      isReady: async () => true,
-      warmup: async () => {},
-    },
-  };
-});
-
 async function createPlugin(tagsMock?: { userEmail?: string; userName?: string }) {
   globalThis[WARMUP_KEY as keyof typeof globalThis] = true as any;
 
   if (tagsMock) {
-    vi.doMock("../src/services/tags.js", () => ({
-      getTags: () => ({
-        project: { tag: "project-tag" },
-        user: { userEmail: tagsMock.userEmail, userName: tagsMock.userName },
-      }),
-      getProjectName: (dir: string) => dir.split(/[\\/]/).pop() || dir,
-    }));
+    currentTags.user = { userEmail: tagsMock.userEmail, userName: tagsMock.userName };
+  } else {
+    currentTags.user = { userEmail: undefined, userName: undefined };
   }
 
   const { OpenCodeMemPlugin } = await import("../src/index.js");
@@ -63,7 +74,6 @@ describe("memory tool profile runtime behavior", () => {
   });
 
   beforeEach(() => {
-    vi.resetModules();
     const opencodeDir = join(tmpDir, ".opencode");
     if (existsSync(opencodeDir)) rmSync(opencodeDir, { recursive: true, force: true });
     vi.restoreAllMocks();
