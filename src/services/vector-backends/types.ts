@@ -44,3 +44,4 @@ export interface VectorBackendFactoryOptions {
   probeUSearch?: () => Promise<boolean>;
   createUSearchBackend?: () => VectorBackend;
 }
+// AUDIT_MARKER

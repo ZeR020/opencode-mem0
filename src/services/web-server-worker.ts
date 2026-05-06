@@ -367,3 +367,4 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
     } as WorkerResponse);
   }
 };
+// AUDIT_MARKER

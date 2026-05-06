@@ -47,3 +47,4 @@ export function getUserProfileContext(userId: string): string | null {
 
   return parts.join("\n");
 }
+// AUDIT_MARKER

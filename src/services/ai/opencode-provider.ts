@@ -286,3 +286,4 @@ export async function generateStructuredOutput<T>(options: {
   });
   return result.output as T;
 }
+// AUDIT_MARKER

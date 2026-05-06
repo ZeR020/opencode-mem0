@@ -444,3 +444,4 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     };
   }
 }
+// AUDIT_MARKER

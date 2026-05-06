@@ -118,3 +118,4 @@ export async function createVectorBackend(
     return exactScanBackend;
   }
 }
+// AUDIT_MARKER

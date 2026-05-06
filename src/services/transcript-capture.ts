@@ -92,3 +92,4 @@ export async function cleanupOldTranscripts(): Promise<number> {
 
   return transcriptManager.deleteOldTranscripts(cutoffTime);
 }
+// AUDIT_MARKER

@@ -48,3 +48,4 @@ export interface UserProfileChangelog {
   profileDataSnapshot: string;
   createdAt: number;
 }
+// AUDIT_MARKER

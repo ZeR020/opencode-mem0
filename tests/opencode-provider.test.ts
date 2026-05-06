@@ -177,3 +177,4 @@ describe("state management", () => {
     expect(isProviderConnected("gemini")).toBe(false);
   });
 });
+// AUDIT_MARKER

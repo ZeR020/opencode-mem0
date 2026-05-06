@@ -40,3 +40,4 @@ export function formatContextForPrompt(
 
   return parts.join("\n");
 }
+// AUDIT_MARKER

@@ -256,3 +256,4 @@ export class UserPromptManager {
 }
 
 export const userPromptManager = new UserPromptManager();
+// AUDIT_MARKER
