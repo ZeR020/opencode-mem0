@@ -516,7 +516,8 @@ export async function handleSearch(
         if (searchedPaths.has(shard.dbPath)) continue;
         searchedPaths.add(shard.dbPath);
         try {
-          const results = await vectorSearch.searchInShard(shard, queryVector, "", pageSize);
+          const perShardLimit = Math.min(page * pageSize, 500);
+          const results = await vectorSearch.searchInShard(shard, queryVector, "", perShardLimit);
           memoryResults.push(...results);
         } catch (error) {
           log("Shard search error", { shardId: shard.id, error: String(error) });

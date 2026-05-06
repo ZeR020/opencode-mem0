@@ -73,8 +73,8 @@ function redactPII(value: unknown): unknown {
   if (value && typeof value === "object") {
     const result: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value)) {
-      // Redact known sensitive keys entirely
-      if (/token|secret|password|api[-_]?key|authorization|refresh|access/i.test(k)) {
+      // Redact known sensitive keys entirely (exact match to avoid false positives like accessCount)
+      if (/^(apiKey|access_token|refresh_token|secret|password|token|authorization)$/i.test(k)) {
         result[k] = "[REDACTED]";
       } else {
         result[k] = redactPII(v);
@@ -91,12 +91,10 @@ async function handleRequest(req: Request): Promise<Response> {
   const method = req.method;
 
   try {
-    // Auth: enforce API key for non-localhost access
+    // Auth: enforce API key for non-localhost API access
+    const isApiPath = path.startsWith("/api/");
     const requiresAuth =
-      workerConfig.apiKey &&
-      workerConfig.enabled &&
-      workerConfig.host &&
-      !isLocalhost(workerConfig.host);
+      isApiPath && workerConfig.apiKey && workerConfig.host && !isLocalhost(workerConfig.host);
     if (requiresAuth) {
       const apiKey = req.headers.get("x-opencode-mem-key");
       if (apiKey !== workerConfig.apiKey) {
