@@ -83,3 +83,5 @@ export class ConnectionManager {
 }
 
 export const connectionManager = new ConnectionManager();
+
+// AUDIT_TRIGGER — Round 3 full repo audit

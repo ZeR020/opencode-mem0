@@ -41,3 +41,5 @@ export interface SessionUpdateParams {
   conversationId?: string;
   metadata?: Record<string, any>;
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

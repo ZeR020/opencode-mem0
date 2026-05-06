@@ -367,3 +367,5 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
     } as WorkerResponse);
   }
 };
+
+// AUDIT_TRIGGER — Round 3 full repo audit

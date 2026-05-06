@@ -223,3 +223,5 @@ export class AISessionManager {
 }
 
 export const aiSessionManager = new AISessionManager();
+
+// AUDIT_TRIGGER — Round 3 full repo audit

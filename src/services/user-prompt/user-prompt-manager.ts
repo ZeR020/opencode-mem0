@@ -256,3 +256,5 @@ export class UserPromptManager {
 }
 
 export const userPromptManager = new UserPromptManager();
+
+// AUDIT_TRIGGER — Round 3 full repo audit

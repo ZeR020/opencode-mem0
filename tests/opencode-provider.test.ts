@@ -177,3 +177,5 @@ describe("state management", () => {
     expect(isProviderConnected("gemini")).toBe(false);
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

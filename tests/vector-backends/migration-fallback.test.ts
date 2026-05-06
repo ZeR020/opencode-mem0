@@ -88,3 +88,5 @@ describe("migration with backend abstraction", () => {
     expect(results.map((r) => r.id)).toEqual(["a"]);
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

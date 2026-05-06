@@ -286,3 +286,5 @@ export async function generateStructuredOutput<T>(options: {
   });
   return result.output as T;
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

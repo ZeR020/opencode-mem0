@@ -101,3 +101,5 @@ describe("ExactScanBackend", () => {
     expect(result).toEqual([]);
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

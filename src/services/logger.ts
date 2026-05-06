@@ -62,3 +62,5 @@ export function log(message: string, data?: unknown) {
     : `[${timestamp}] ${message}\n`;
   appendFileSync(logFile, line);
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

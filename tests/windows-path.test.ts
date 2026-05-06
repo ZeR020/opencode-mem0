@@ -94,3 +94,5 @@ describe("Windows Path Handling", () => {
     });
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

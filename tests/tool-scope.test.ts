@@ -157,3 +157,5 @@ describe("tool memory scope", () => {
     expect(lastListScope).toBe("project");
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

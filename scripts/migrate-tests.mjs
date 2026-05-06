@@ -61,3 +61,5 @@ function migrateDirectory(dir) {
 }
 
 migrateDirectory("tests");
+
+// AUDIT_TRIGGER — Round 3 full repo audit

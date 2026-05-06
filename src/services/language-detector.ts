@@ -37,3 +37,5 @@ export function getLanguageName(code: string): string {
   }
   return lang?.name || "English";
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

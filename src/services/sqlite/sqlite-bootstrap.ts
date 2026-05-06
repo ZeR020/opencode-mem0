@@ -126,3 +126,5 @@ export function getDatabase(): new (path: string) => Database {
   }
   return DatabaseImpl;
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

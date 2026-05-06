@@ -265,3 +265,5 @@ window.t = t;
 window.getLanguage = getLanguage;
 window.setLanguage = setLanguage;
 window.applyLanguage = applyLanguage;
+
+// AUDIT_TRIGGER — Round 3 full repo audit

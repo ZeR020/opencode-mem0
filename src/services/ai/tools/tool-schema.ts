@@ -62,3 +62,5 @@ export class ToolSchemaConverter {
     };
   }
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

@@ -721,3 +721,5 @@ describe("Memory Engine Integration", () => {
     });
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

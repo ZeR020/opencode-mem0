@@ -444,3 +444,5 @@ export class LocalMemoryClient {
 }
 
 export const memoryClient = new LocalMemoryClient();
+
+// AUDIT_TRIGGER — Round 3 full repo audit

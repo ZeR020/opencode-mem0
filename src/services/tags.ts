@@ -182,3 +182,5 @@ export function getTags(directory: string): {
     project: getProjectTagInfo(directory),
   };
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

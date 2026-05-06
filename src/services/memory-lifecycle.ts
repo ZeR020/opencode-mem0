@@ -404,3 +404,5 @@ export async function runLifecycleMaintenance(): Promise<void> {
     log("Lifecycle maintenance error", { error: String(error) });
   }
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

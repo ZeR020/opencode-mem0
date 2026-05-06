@@ -148,3 +148,5 @@ describe("USearchBackend", () => {
     expect(result.map((x) => x.id)).toEqual(["alpha"]);
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

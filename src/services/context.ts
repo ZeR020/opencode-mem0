@@ -40,3 +40,5 @@ export function formatContextForPrompt(
 
   return parts.join("\n");
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

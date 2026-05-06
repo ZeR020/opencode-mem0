@@ -118,3 +118,5 @@ export class UserProfileValidator {
     return errors;
   }
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

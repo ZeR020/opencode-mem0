@@ -374,3 +374,5 @@ migrate(storagePath)
     console.error("Migration failed:", error);
     process.exit(1);
   });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

@@ -92,3 +92,5 @@ export async function cleanupOldTranscripts(): Promise<number> {
 
   return transcriptManager.deleteOldTranscripts(cutoffTime);
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

@@ -66,3 +66,5 @@ export function resolveSecretValue(value: string | undefined): string | undefine
 
   return value;
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

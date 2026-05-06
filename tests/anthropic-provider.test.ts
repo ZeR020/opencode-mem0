@@ -101,3 +101,5 @@ describe("AnthropicMessagesProvider", () => {
     expect(capturedBody?.max_tokens).toBe(2048);
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

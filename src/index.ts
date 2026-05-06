@@ -632,3 +632,5 @@ function formatMemoriesForCompaction(memories: any[]): string {
 
   return output;
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

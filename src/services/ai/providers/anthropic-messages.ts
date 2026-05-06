@@ -243,3 +243,5 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
     return null;
   }
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

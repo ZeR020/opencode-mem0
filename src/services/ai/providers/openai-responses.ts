@@ -235,3 +235,5 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
     return data;
   }
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

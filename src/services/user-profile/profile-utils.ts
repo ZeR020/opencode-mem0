@@ -38,3 +38,5 @@ export const safeObject = <T extends object>(obj: any, fallback: T): T => {
   }
   return result && typeof result === "object" && !Array.isArray(result) ? (result as T) : fallback;
 };
+
+// AUDIT_TRIGGER — Round 3 full repo audit

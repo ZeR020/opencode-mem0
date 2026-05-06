@@ -128,3 +128,5 @@ export class EmbeddingService {
 }
 
 export const embeddingService = EmbeddingService.getInstance();
+
+// AUDIT_TRIGGER — Round 3 full repo audit

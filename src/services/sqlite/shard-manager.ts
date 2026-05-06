@@ -403,3 +403,5 @@ export class ShardManager {
 }
 
 export const shardManager = new ShardManager();
+
+// AUDIT_TRIGGER — Round 3 full repo audit

@@ -18,3 +18,5 @@ export interface MemoryMetadata {
 }
 
 export type AIProviderType = "openai-chat" | "openai-responses" | "anthropic";
+
+// AUDIT_TRIGGER — Round 3 full repo audit

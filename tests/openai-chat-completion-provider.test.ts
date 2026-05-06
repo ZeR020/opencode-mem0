@@ -440,3 +440,5 @@ describe("OpenAIChatCompletionProvider", () => {
     expect(result.success).toBe(false);
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

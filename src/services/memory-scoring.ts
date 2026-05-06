@@ -619,3 +619,5 @@ export function recordAccess(currentAccessCount: number): {
     lastAccessed: Date.now(),
   };
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

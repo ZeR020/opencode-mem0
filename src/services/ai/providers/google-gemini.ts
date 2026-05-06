@@ -277,3 +277,5 @@ export class GoogleGeminiProvider extends BaseAIProvider {
     return { success: false, error: `Max iterations (${maxIterations}) reached`, iterations };
   }
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

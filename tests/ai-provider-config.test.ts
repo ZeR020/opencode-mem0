@@ -235,3 +235,5 @@ describe("AI provider config", () => {
     expect(capturedBody?.temperature).toBeUndefined();
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

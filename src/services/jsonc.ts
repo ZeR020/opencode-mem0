@@ -83,3 +83,5 @@ export function stripJsoncComments(content: string): string {
   // Remove trailing commas before } or ]
   return result.replace(/,\s*([}\]])/g, "$1");
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

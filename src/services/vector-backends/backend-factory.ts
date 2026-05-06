@@ -118,3 +118,5 @@ export async function createVectorBackend(
     return exactScanBackend;
   }
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

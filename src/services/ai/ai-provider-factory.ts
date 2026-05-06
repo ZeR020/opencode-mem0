@@ -48,3 +48,5 @@ export class AIProviderFactory {
     return aiSessionManager.cleanupExpiredSessions();
   }
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

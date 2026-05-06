@@ -75,3 +75,5 @@ describe("project scope identity", () => {
     expect(rootTag.projectPath).toBe(nestedTag.projectPath);
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

@@ -664,3 +664,5 @@ export class VectorSearch {
 }
 
 export const vectorSearch = new VectorSearch();
+
+// AUDIT_TRIGGER — Round 3 full repo audit

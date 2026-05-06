@@ -1171,3 +1171,5 @@ export async function handleConflictStats(): Promise<
     return { success: false, error: "Internal error" };
   }
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

@@ -81,3 +81,5 @@ export interface SearchResult {
   contextBoost?: number;
   finalScore?: number;
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

@@ -341,3 +341,5 @@ export class MigrationService {
 }
 
 export const migrationService = new MigrationService();
+
+// AUDIT_TRIGGER — Round 3 full repo audit

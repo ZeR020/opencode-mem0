@@ -82,3 +82,5 @@ describe("project-scoped config resolution", () => {
     expect(CONFIG.opencodeProvider).toBeUndefined();
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

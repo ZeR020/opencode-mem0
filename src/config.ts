@@ -748,3 +748,5 @@ export function isConfigured(): boolean {
   // The system should check specific sub-configurations when features are invoked.
   return true;
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

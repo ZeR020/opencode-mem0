@@ -126,3 +126,5 @@ describe("memory scope", () => {
     expect(res.results.map((r: any) => r.id)).toEqual(["shard-a", "shard-b"]);
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

@@ -81,3 +81,5 @@ describe("OpenCode 1.3.x plugin-loader contract", () => {
     }
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

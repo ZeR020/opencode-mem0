@@ -395,3 +395,5 @@ export class UserProfileManager {
 }
 
 export const userProfileManager = new UserProfileManager();
+
+// AUDIT_TRIGGER — Round 3 full repo audit

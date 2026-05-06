@@ -239,3 +239,5 @@ export class USearchBackend implements VectorBackend {
     }
   }
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

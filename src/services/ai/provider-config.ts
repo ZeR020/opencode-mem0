@@ -33,3 +33,5 @@ export function buildMemoryProviderConfig(
     iterationTimeout: overrides.iterationTimeout ?? config.autoCaptureIterationTimeout,
   };
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

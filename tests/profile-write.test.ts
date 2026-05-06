@@ -211,3 +211,5 @@ describe("UserProfileManager – explicit preference writes", () => {
     expect(last.changeType).toBe("update");
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

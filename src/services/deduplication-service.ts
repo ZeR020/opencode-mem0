@@ -160,3 +160,5 @@ export class DeduplicationService {
 }
 
 export const deduplicationService = new DeduplicationService();
+
+// AUDIT_TRIGGER — Round 3 full repo audit

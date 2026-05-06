@@ -444,3 +444,5 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     };
   }
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

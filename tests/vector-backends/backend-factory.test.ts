@@ -117,3 +117,5 @@ describe("vector backend factory", () => {
     expect(backend.getBackendName()).toBe("exact-scan");
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

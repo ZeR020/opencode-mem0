@@ -210,3 +210,5 @@ describe("memory tool profile runtime behavior", () => {
     );
   });
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

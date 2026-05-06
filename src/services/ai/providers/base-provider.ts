@@ -56,3 +56,5 @@ export abstract class BaseAIProvider {
 
   abstract supportsSession(): boolean;
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit

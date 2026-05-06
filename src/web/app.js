@@ -1388,3 +1388,5 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   lucide.createIcons();
 });
+
+// AUDIT_TRIGGER — Round 3 full repo audit

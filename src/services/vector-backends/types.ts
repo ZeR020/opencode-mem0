@@ -44,3 +44,5 @@ export interface VectorBackendFactoryOptions {
   probeUSearch?: () => Promise<boolean>;
   createUSearchBackend?: () => VectorBackend;
 }
+
+// AUDIT_TRIGGER — Round 3 full repo audit
