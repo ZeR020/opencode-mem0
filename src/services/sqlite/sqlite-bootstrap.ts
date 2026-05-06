@@ -126,4 +126,3 @@ export function getDatabase(): new (path: string) => Database {
   }
   return DatabaseImpl;
 }
-// AUDIT_MARKER

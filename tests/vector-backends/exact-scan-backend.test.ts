@@ -110,4 +110,3 @@ describe("ExactScanBackend", () => {
     expect(result).toEqual([]);
   });
 });
-// AUDIT_MARKER

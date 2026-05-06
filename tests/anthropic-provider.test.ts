@@ -105,4 +105,3 @@ describe("AnthropicMessagesProvider", () => {
     expect(capturedBody?.max_tokens).toBe(2048);
   });
 });
-// AUDIT_MARKER

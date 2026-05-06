@@ -444,4 +444,3 @@ describe("OpenAIChatCompletionProvider", () => {
     expect(result.success).toBe(false);
   });
 });
-// AUDIT_MARKER

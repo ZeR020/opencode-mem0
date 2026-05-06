@@ -188,7 +188,7 @@ function renderCombinedCard(pair) {
           <div class="meta">
             <input type="checkbox" class="memory-checkbox" data-id="${memory.id}" ${isSelected ? "checked" : ""} />
             <span class="badge badge-memory">${t("badge-memory")}</span>
-            ${memory.memoryType ? `<span class="badge badge-type">${memory.memoryType}</span>` : ""}
+            ${memory.memoryType ? `<span class="badge badge-type">${escapeHtml(memory.memoryType)}</span>` : ""}
             ${similarityHtml}
             ${isPinned ? `<span class="badge badge-pinned">${t("badge-pinned")}</span>` : ""}
             <span class="memory-display-name">${escapeHtml(memory.displayName || memory.id)}</span>
@@ -286,7 +286,7 @@ function renderMemoryCard(memory) {
       <div class="memory-header">
         <div class="meta">
           <input type="checkbox" class="memory-checkbox" data-id="${memory.id}" ${isSelected ? "checked" : ""} />
-          ${memory.memoryType ? `<span class="badge badge-type">${memory.memoryType}</span>` : ""}
+          ${memory.memoryType ? `<span class="badge badge-type">${escapeHtml(memory.memoryType)}</span>` : ""}
           ${isLinked ? `<span class="badge badge-linked"><i data-lucide="link" class="icon-sm"></i> ${t("badge-linked")}</span>` : ""}
           ${similarityHtml}
           ${isPinned ? `<span class="badge badge-pinned">${t("badge-pinned")}</span>` : ""}
@@ -903,7 +903,7 @@ function renderUserProfile() {
     container.innerHTML = `
       <div class="empty-state">
         <i data-lucide="user-x" class="icon-large"></i>
-        <p>${profile.message}</p>
+        <p>${escapeHtml(profile.message)}</p>
       </div>
     `;
     lucide.createIcons();
@@ -948,7 +948,7 @@ function renderUserProfile() {
   container.innerHTML = `
     <div class="profile-header">
       <div class="profile-info">
-        <h3>${profile.displayName || profile.userId}</h3>
+        <h3>${escapeHtml(profile.displayName || profile.userId)}</h3>
         <div class="profile-stats">
           <div class="stat-pill">
             <span class="label">${t("profile-version")}</span>
@@ -1392,4 +1392,3 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   lucide.createIcons();
 });
-// AUDIT_MARKER

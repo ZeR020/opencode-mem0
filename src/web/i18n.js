@@ -265,4 +265,3 @@ window.t = t;
 window.getLanguage = getLanguage;
 window.setLanguage = setLanguage;
 window.applyLanguage = applyLanguage;
-// AUDIT_MARKER

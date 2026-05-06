@@ -67,4 +67,3 @@ export function resolveSecretValue(value: string | undefined): string | undefine
 
   return value;
 }
-// AUDIT_MARKER

@@ -270,8 +270,11 @@ export class WebServer {
 
       if (path === "/api/memories" && method === "GET") {
         const tag = url.searchParams.get("tag") || undefined;
-        const page = parseInt(url.searchParams.get("page") || "1");
-        const pageSize = parseInt(url.searchParams.get("pageSize") || "20");
+        const rawPage = parseInt(url.searchParams.get("page") || "1");
+        const rawPageSize = parseInt(url.searchParams.get("pageSize") || "20");
+        const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
+        const pageSize =
+          Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
         const includePrompts = url.searchParams.get("includePrompts") !== "false";
         const result = await handleListMemories(tag, page, pageSize, includePrompts);
         return this.jsonResponse(result, 200, !isLocal);
@@ -314,8 +317,11 @@ export class WebServer {
       if (path === "/api/search" && method === "GET") {
         const query = url.searchParams.get("q");
         const tag = url.searchParams.get("tag") || undefined;
-        const page = parseInt(url.searchParams.get("page") || "1");
-        const pageSize = parseInt(url.searchParams.get("pageSize") || "20");
+        const rawPage = parseInt(url.searchParams.get("page") || "1");
+        const rawPageSize = parseInt(url.searchParams.get("pageSize") || "20");
+        const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
+        const pageSize =
+          Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
 
         if (!query) {
           return this.jsonResponse({ success: false, error: "query parameter required" });
@@ -524,4 +530,3 @@ export async function startWebServer(config: WebServerConfig): Promise<WebServer
   await server.start();
   return server;
 }
-// AUDIT_MARKER

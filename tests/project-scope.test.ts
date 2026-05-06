@@ -75,4 +75,3 @@ describe("project scope identity", () => {
     expect(rootTag.projectPath).toBe(nestedTag.projectPath);
   });
 });
-// AUDIT_MARKER

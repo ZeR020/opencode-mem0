@@ -142,12 +142,15 @@ export async function handleListMemories(
   includePrompts: boolean = true
 ): Promise<ApiResponse<PaginatedResponse<Memory | any>>> {
   try {
+    const safePage = Number.isFinite(page) && page > 0 ? Math.min(Math.floor(page), 10000) : 1;
+    const safePageSize =
+      Number.isFinite(pageSize) && pageSize > 0 && pageSize <= 100 ? Math.floor(pageSize) : 20;
     await embeddingService.warmup();
     let allMemories: any[] = [];
     if (tag) {
       const { scope: tagScope, hash } = extractScopeFromTag(tag);
       const shards = shardManager.getAllShards(tagScope, hash);
-      const limit = page * pageSize; // Fetch enough to cover the requested page across shards
+      const limit = safePage * safePageSize; // Fetch enough to cover the requested page across shards
       for (const shard of shards) {
         const db = connectionManager.getConnection(shard.dbPath);
         const memories = vectorSearch.listMemories(db, tag, limit);
@@ -233,9 +236,9 @@ export async function handleListMemories(
     timeline = sortedTimeline;
 
     const total = timeline.length;
-    const totalPages = Math.ceil(total / pageSize);
-    const offset = (page - 1) * pageSize;
-    const paginatedResults = timeline.slice(offset, offset + pageSize);
+    const totalPages = Math.ceil(total / safePageSize);
+    const offset = (safePage - 1) * safePageSize;
+    const paginatedResults = timeline.slice(offset, offset + safePageSize);
 
     const items = paginatedResults.map((item: any) => {
       if (item.type === "memory") {
@@ -270,7 +273,10 @@ export async function handleListMemories(
       }
     });
 
-    return { success: true, data: { items, total, page, pageSize, totalPages } };
+    return {
+      success: true,
+      data: { items, total, page: safePage, pageSize: safePageSize, totalPages },
+    };
   } catch (error) {
     log("handleListMemories: error", { error: String(error) });
     return { success: false, error: "Internal error" };
@@ -491,6 +497,9 @@ export async function handleSearch(
 ): Promise<ApiResponse<PaginatedResponse<SearchResultItem>>> {
   try {
     if (!query) return { success: false, error: "query is required" };
+    const safePage = Number.isFinite(page) && page > 0 ? Math.min(Math.floor(page), 10000) : 1;
+    const safePageSize =
+      Number.isFinite(pageSize) && pageSize > 0 && pageSize <= 100 ? Math.floor(pageSize) : 20;
     await embeddingService.warmup();
     const queryVector = await embeddingService.embedWithTimeout(query);
     let memoryResults: any[] = [];
@@ -500,42 +509,35 @@ export async function handleSearch(
       const shards = shardManager.getAllShards(scope, hash);
       for (const shard of shards) {
         try {
-          const results = await vectorSearch.searchInShard(shard, queryVector, tag, pageSize * 2);
+          const results = await vectorSearch.searchInShard(
+            shard,
+            queryVector,
+            tag,
+            safePageSize * 2
+          );
           memoryResults.push(...results);
         } catch (error) {
           log("Shard search error", { shardId: shard.id, error: String(error) });
         }
       }
       const projectPath = getProjectPathFromTag(tag);
-      promptResults = userPromptManager.searchPrompts(query, projectPath, pageSize * 2);
+      promptResults = userPromptManager.searchPrompts(query, projectPath, safePageSize * 2);
     } else {
+      const userShards = shardManager.getAllShards("user", "");
       const projectShards = shardManager.getAllShards("project", "");
-      const uniqueTags = new Set<string>();
-      for (const shard of projectShards) {
-        const db = connectionManager.getConnection(shard.dbPath);
-        const tags = vectorSearch.getDistinctTags(db);
-        for (const t of tags) {
-          if (t.container_tag) uniqueTags.add(t.container_tag);
+      const searchedPaths = new Set<string>();
+      for (const shard of [...userShards, ...projectShards]) {
+        if (searchedPaths.has(shard.dbPath)) continue;
+        searchedPaths.add(shard.dbPath);
+        try {
+          const perShardLimit = Math.min(safePage * safePageSize, 500);
+          const results = await vectorSearch.searchInShard(shard, queryVector, "", perShardLimit);
+          memoryResults.push(...results);
+        } catch (error) {
+          log("Shard search error", { shardId: shard.id, error: String(error) });
         }
       }
-      for (const containerTag of uniqueTags) {
-        const { scope, hash } = extractScopeFromTag(containerTag);
-        const shards = shardManager.getAllShards(scope, hash);
-        for (const shard of shards) {
-          try {
-            const results = await vectorSearch.searchInShard(
-              shard,
-              queryVector,
-              containerTag,
-              pageSize
-            );
-            memoryResults.push(...results);
-          } catch (error) {
-            log("Shard search error", { shardId: shard.id, error: String(error) });
-          }
-        }
-      }
-      promptResults = userPromptManager.searchPrompts(query, undefined, pageSize * 2);
+      promptResults = userPromptManager.searchPrompts(query, undefined, safePageSize * 2);
     }
 
     const formattedPrompts: FormattedPrompt[] = promptResults.map((p) => ({
@@ -575,9 +577,12 @@ export async function handleSearch(
     );
 
     const total = combinedResults.length;
-    const totalPages = Math.ceil(total / pageSize);
-    const offset = (page - 1) * pageSize;
-    const paginatedResults: SearchResultItem[] = combinedResults.slice(offset, offset + pageSize);
+    const totalPages = Math.ceil(total / safePageSize);
+    const offset = (safePage - 1) * safePageSize;
+    const paginatedResults: SearchResultItem[] = combinedResults.slice(
+      offset,
+      offset + safePageSize
+    );
 
     const missingPromptIds = new Set<string>();
     const missingMemoryIds = new Set<string>();
@@ -640,7 +645,10 @@ export async function handleSearch(
       }
     }
 
-    return { success: true, data: { items: paginatedResults, total, page, pageSize, totalPages } };
+    return {
+      success: true,
+      data: { items: paginatedResults, total, page: safePage, pageSize: safePageSize, totalPages },
+    };
   } catch (error) {
     log("handleSearch: error", { error: String(error) });
     return { success: false, error: "Internal error" };
@@ -1179,4 +1187,3 @@ export async function handleConflictStats(): Promise<
     return { success: false, error: "Internal error" };
   }
 }
-// AUDIT_MARKER

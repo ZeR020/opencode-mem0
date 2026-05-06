@@ -117,4 +117,3 @@ describe("vector backend factory", () => {
     expect(backend.getBackendName()).toBe("exact-scan");
   });
 });
-// AUDIT_MARKER

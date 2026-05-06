@@ -415,4 +415,3 @@ export async function runLifecycleMaintenance(): Promise<void> {
     log("Lifecycle maintenance error", { error: String(error) });
   }
 }
-// AUDIT_MARKER

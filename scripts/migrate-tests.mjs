@@ -61,4 +61,3 @@ function migrateDirectory(dir) {
 }
 
 migrateDirectory("tests");
-// AUDIT_MARKER

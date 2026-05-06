@@ -81,4 +81,3 @@ describe("OpenCode 1.3.x plugin-loader contract", () => {
     }
   });
 });
-// AUDIT_MARKER

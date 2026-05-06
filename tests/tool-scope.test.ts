@@ -170,4 +170,3 @@ describe("tool memory scope", () => {
     expect(lastListScope).toBe("project");
   });
 });
-// AUDIT_MARKER
