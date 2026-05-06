@@ -28,6 +28,19 @@ vi.mock("../src/services/web-server.js", () => ({
 }));
 vi.mock("../src/services/language-detector.js", () => ({ getLanguageName: () => "English" }));
 
+vi.mock("../src/services/ai/session/ai-session-manager.js", () => ({
+  getAISessionManager: vi.fn(() => ({
+    createSession: vi.fn(),
+    getSession: vi.fn(),
+    addMessage: vi.fn(),
+    getMessages: vi.fn(() => []),
+    getLastSequence: vi.fn(() => 0),
+    updateSession: vi.fn(),
+    cleanupExpiredSessions: vi.fn(() => 0),
+  })),
+  aiSessionManager: {},
+}));
+
 vi.mock("../src/config.js", () => ({
   CONFIG: mockConfig,
   isConfigured: () => true,
