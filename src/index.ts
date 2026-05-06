@@ -34,7 +34,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   initConfig(directory);
   const tags = getTags(directory);
   let webServer: WebServer | null = null;
-  let idleTimeout: Timer | null = null;
+  let idleTimeout: NodeJS.Timeout | null = null;
 
   if (!isConfigured()) {
   }

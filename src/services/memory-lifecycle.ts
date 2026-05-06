@@ -4,7 +4,7 @@ import { connectionManager } from "./sqlite/connection-manager.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 
-let lifecycleInterval: Timer | null = null;
+let lifecycleInterval: NodeJS.Timeout | null = null;
 let isRunning = false;
 
 // Memory type classification rules

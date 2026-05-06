@@ -13,7 +13,7 @@ import {
   computeStrength,
 } from "./memory-scoring.js";
 
-let scoringInterval: Timer | null = null;
+let scoringInterval: NodeJS.Timeout | null = null;
 let isRunning = false;
 
 function getDatabase() {
