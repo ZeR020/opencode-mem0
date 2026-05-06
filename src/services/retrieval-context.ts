@@ -156,6 +156,7 @@ export function calculateDiversityPenalty(
     }
   }
 
+  if (threshold >= 1) return 0;
   if (maxSimilarity > threshold) {
     // Apply penalty proportional to how much over threshold
     return (maxSimilarity - threshold) / (1 - threshold);

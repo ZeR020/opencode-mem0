@@ -21,10 +21,18 @@ async function ensureTransformersLoaded(): Promise<NonNullable<typeof _transform
   return _transformers!;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, ms: number, signal?: AbortSignal): Promise<T> {
   return Promise.race([
     promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms)),
+    new Promise<T>((_, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
+      if (signal) {
+        signal.addEventListener("abort", () => {
+          clearTimeout(timer);
+          reject(new Error("Aborted"));
+        });
+      }
+    }),
   ]);
 }
 
@@ -85,28 +93,36 @@ export class EmbeddingService {
 
     let result: Float32Array;
 
-    if (CONFIG.embeddingApiUrl && CONFIG.embeddingApiKey) {
-      const response = await fetch(`${CONFIG.embeddingApiUrl}/embeddings`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${CONFIG.embeddingApiKey}`,
-        },
-        body: JSON.stringify({
-          input: text,
-          model: CONFIG.embeddingModel,
-        }),
-      });
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), TIMEOUT_MS);
 
-      if (!response.ok) {
-        throw new Error(`API embedding failed: ${response.statusText}`);
+    try {
+      if (CONFIG.embeddingApiUrl && CONFIG.embeddingApiKey) {
+        const response = await fetch(`${CONFIG.embeddingApiUrl}/embeddings`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${CONFIG.embeddingApiKey}`,
+          },
+          body: JSON.stringify({
+            input: text,
+            model: CONFIG.embeddingModel,
+          }),
+          signal: abortController.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`API embedding failed: ${response.statusText}`);
+        }
+
+        const data: any = await response.json();
+        result = new Float32Array(data.data[0].embedding);
+      } else {
+        const output = await this.pipe(text, { pooling: "mean", normalize: true });
+        result = new Float32Array(output.data);
       }
-
-      const data: any = await response.json();
-      result = new Float32Array(data.data[0].embedding);
-    } else {
-      const output = await this.pipe(text, { pooling: "mean", normalize: true });
-      result = new Float32Array(output.data);
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     if (this.cache.size >= MAX_CACHE_SIZE) {
@@ -119,7 +135,7 @@ export class EmbeddingService {
   }
 
   async embedWithTimeout(text: string): Promise<Float32Array> {
-    return withTimeout(this.embed(text), TIMEOUT_MS);
+    return withTimeout(this.embed(text), TIMEOUT_MS, undefined);
   }
 
   clearCache(): void {

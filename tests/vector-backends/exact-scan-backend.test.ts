@@ -9,8 +9,15 @@ const Database = getDatabase();
 
 describe("ExactScanBackend", () => {
   const tempDirs: string[] = [];
+  const dbs: Array<{ close?: () => void }> = [];
 
   afterEach(() => {
+    while (dbs.length > 0) {
+      const db = dbs.pop();
+      try {
+        db?.close?.();
+      } catch {}
+    }
     while (tempDirs.length > 0) {
       const dir = tempDirs.pop();
       if (dir) rmSync(dir, { recursive: true, force: true });
@@ -41,6 +48,7 @@ describe("ExactScanBackend", () => {
     const tempDir = mkdtempSync(join(tmpdir(), "exact-scan-backend-"));
     tempDirs.push(tempDir);
     const db = new Database(join(tempDir, "test.db"));
+    dbs.push(db);
 
     db.run(`CREATE TABLE memories (id TEXT PRIMARY KEY, vector BLOB, tags_vector BLOB)`);
 
@@ -76,6 +84,7 @@ describe("ExactScanBackend", () => {
     const tempDir = mkdtempSync(join(tmpdir(), "exact-scan-backend-empty-"));
     tempDirs.push(tempDir);
     const db = new Database(join(tempDir, "test.db"));
+    dbs.push(db);
     db.run(`CREATE TABLE memories (id TEXT PRIMARY KEY, vector BLOB, tags_vector BLOB)`);
 
     const backend = new ExactScanBackend();

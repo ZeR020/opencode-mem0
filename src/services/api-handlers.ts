@@ -12,6 +12,7 @@ interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
   error?: string;
+  message?: string;
 }
 
 interface Memory {
@@ -1093,6 +1094,13 @@ export async function handleListConflicts(
   limit: number = 100
 ): Promise<ApiResponse<any[]>> {
   try {
+    if (resolved) {
+      return {
+        success: true,
+        data: [],
+        message: "Resolved conflicts are not yet supported — returning empty list",
+      };
+    }
     const conflicts = getAllUnresolvedConflicts(limit);
     const formatted = conflicts.map((c) => ({
       id: c.id,

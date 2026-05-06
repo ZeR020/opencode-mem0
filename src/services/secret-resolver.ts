@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { homedir, platform } from "node:os";
+import { fileURLToPath } from "node:url";
 
 function expandPath(path: string): string {
   if (path.startsWith("~/")) {
@@ -37,7 +38,7 @@ export function resolveSecretValue(value: string | undefined): string | undefine
   }
 
   if (value.startsWith("file://")) {
-    const filePath = expandPath(value.slice(7));
+    const filePath = expandPath(fileURLToPath(new URL(value)));
 
     if (!existsSync(filePath)) {
       throw new Error(`Secret file not found: ${filePath}`);

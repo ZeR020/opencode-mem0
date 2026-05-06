@@ -179,7 +179,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
                   : typeof validationError,
               toolName: toolSchema.function.name,
               iteration: iterations,
-              rawData: JSON.stringify(toolUse).slice(0, 500),
+              rawData: "[REDACTED]",
             });
             return {
               success: false,

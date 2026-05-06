@@ -154,6 +154,7 @@ export class WebServer {
 
   async stop(): Promise<void> {
     this.stopHealthCheckLoop();
+    this.startPromise = null;
 
     if (!this.isOwner || !this.server) {
       return;
@@ -447,7 +448,7 @@ export class WebServer {
       }
 
       if (path === "/api/user-profile/snapshot" && method === "GET") {
-        const changelogId = url.searchParams.get("chlogId");
+        const changelogId = url.searchParams.get("changelogId") ?? url.searchParams.get("chlogId");
         if (!changelogId) {
           return this.jsonResponse({ success: false, error: "changelogId parameter required" });
         }

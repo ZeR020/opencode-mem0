@@ -40,8 +40,10 @@ export async function recalculateAllScores(
     const allShards = [...userShards, ...projectShards];
 
     for (const shard of allShards) {
+      let db: any = null;
+      let inTxn = false;
       try {
-        const db = connectionManager.getConnection(shard.dbPath);
+        db = connectionManager.getConnection(shard.dbPath);
 
         // Get all memories in this shard
         const memories = db
@@ -74,6 +76,7 @@ export async function recalculateAllScores(
         `);
 
         db.run("BEGIN TRANSACTION");
+        inTxn = true;
 
         for (const memory of memories) {
           const content = memory.content || "";
@@ -154,8 +157,14 @@ export async function recalculateAllScores(
         }
 
         db.run("COMMIT");
+        inTxn = false;
         shardsProcessed++;
       } catch (error) {
+        if (inTxn) {
+          try {
+            db.run("ROLLBACK");
+          } catch {}
+        }
         log("Score recalculation failed for shard", {
           shardId: shard.id,
           error: String(error),

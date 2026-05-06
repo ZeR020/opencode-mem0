@@ -38,7 +38,6 @@ export class CleanupService {
     }
 
     this.isRunning = true;
-    this.lastCleanupTime = Date.now();
 
     try {
       const cutoffTime = Date.now() - CONFIG.autoCleanupRetentionDays * 24 * 60 * 60 * 1000;
@@ -85,6 +84,7 @@ export class CleanupService {
             }
 
             if (protectedMemoryIds.has(memory.id)) {
+              linkedMemoriesDeleted++;
               continue;
             }
 
@@ -105,7 +105,7 @@ export class CleanupService {
 
       const promptsDeleted = promptCleanupResult.deleted - linkedMemoryIds.size;
 
-      return {
+      const result = {
         deletedCount: totalDeleted,
         userCount: userDeleted,
         projectCount: projectDeleted,
@@ -113,6 +113,8 @@ export class CleanupService {
         linkedMemoriesDeleted,
         pinnedMemoriesSkipped: pinnedSkipped,
       };
+      this.lastCleanupTime = Date.now();
+      return result;
     } finally {
       this.isRunning = false;
     }

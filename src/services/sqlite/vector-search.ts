@@ -557,13 +557,14 @@ export class VectorSearch {
    * @returns Matching memory rows with parsed tags and metadata
    */
   getMemoriesBySessionID(db: DatabaseType, sessionID: string): any[] {
+    const escapedSessionID = sessionID.replace(/[\\%_]/g, "\\$&");
     const stmt = db.prepare(`
       SELECT * FROM memories
-      WHERE metadata LIKE ? AND is_deprecated = 0
+      WHERE metadata LIKE ? ESCAPE '\\' AND is_deprecated = 0
       ORDER BY created_at DESC
     `);
 
-    const rows = stmt.all(`%"sessionID":"${sessionID}"%`) as any[];
+    const rows = stmt.all(`%"sessionID":"${escapedSessionID}"%`) as any[];
 
     return rows.map((row: any) => ({
       ...row,
