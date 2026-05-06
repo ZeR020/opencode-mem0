@@ -73,6 +73,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
       port: CONFIG.webServerPort,
       host: CONFIG.webServerHost,
       enabled: CONFIG.webServerEnabled,
+      apiKey: CONFIG.webServerApiKey,
     })
       .then((server) => {
         webServer = server;
@@ -163,15 +164,19 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         await webServer.stop();
       }
       memoryClient.close();
-      process.exit(0);
+      // Do not call process.exit(); let the host decide.
     } catch (error) {
       log("Shutdown error", { error: String(error) });
-      process.exit(1);
     }
   };
 
-  process.on("SIGINT", shutdownHandler);
-  process.on("SIGTERM", shutdownHandler);
+  // Avoid double-binding in multi-load scenarios
+  const GLOBAL_SIG_KEY = Symbol.for("opencode-mem0.signals.bound");
+  if (!(globalThis as any)[GLOBAL_SIG_KEY]) {
+    process.on("SIGINT", shutdownHandler);
+    process.on("SIGTERM", shutdownHandler);
+    (globalThis as any)[GLOBAL_SIG_KEY] = true;
+  }
 
   return {
     "chat.message": async (input, output) => {

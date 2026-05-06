@@ -66,6 +66,7 @@ interface OpenCodeMemConfig {
   webServerEnabled?: boolean;
   webServerPort?: number;
   webServerHost?: string;
+  webServerApiKey?: string;
   maxVectorsPerShard?: number;
   autoCleanupEnabled?: boolean;
   autoCleanupRetentionDays?: number;
@@ -127,6 +128,7 @@ const DEFAULTS: Required<
     | "memoryProvider"
     | "memoryTemperature"
     | "memoryExtraParams"
+    | "webServerApiKey"
     | "opencodeProvider"
     | "opencodeModel"
     | "autoCaptureLanguage"
@@ -288,7 +290,10 @@ const CONFIG_TEMPLATE = `{
   
   // Host address for web UI (use 127.0.0.1 for local only, 0.0.0.0 for network access)
   "webServerHost": "127.0.0.1",
-  
+
+  // Optional API key for non-localhost web UI access. Send as x-opencode-mem-key.
+  // "webServerApiKey": "change-me",
+   
   // ============================================
   // Database Settings
   // ============================================
@@ -645,6 +650,7 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
     webServerEnabled: fileConfig.webServerEnabled ?? DEFAULTS.webServerEnabled,
     webServerPort: fileConfig.webServerPort ?? DEFAULTS.webServerPort,
     webServerHost: fileConfig.webServerHost ?? DEFAULTS.webServerHost,
+    webServerApiKey: fileConfig.webServerApiKey,
     maxVectorsPerShard: fileConfig.maxVectorsPerShard ?? DEFAULTS.maxVectorsPerShard,
     autoCleanupEnabled: fileConfig.autoCleanupEnabled ?? DEFAULTS.autoCleanupEnabled,
     autoCleanupRetentionDays:

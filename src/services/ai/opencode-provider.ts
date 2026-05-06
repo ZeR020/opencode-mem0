@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { generateText, Output } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -116,6 +116,9 @@ export function createOAuthFetch(
           const allAuth = JSON.parse(readFileSync(authPath, "utf-8")) as Record<string, Auth>;
           allAuth[providerName] = auth;
           writeFileSync(authPath, JSON.stringify(allAuth));
+          try {
+            chmodSync(authPath, 0o600);
+          } catch {}
         } catch {}
       }
     }

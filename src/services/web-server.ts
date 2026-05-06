@@ -38,6 +38,7 @@ interface WebServerConfig {
   port: number;
   host: string;
   enabled: boolean;
+  apiKey?: string;
 }
 
 export class WebServer {
@@ -194,6 +195,16 @@ export class WebServer {
     const method = req.method;
 
     try {
+      // Optional API key auth: enforce only when binding to non-loopback
+      const localHosts = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+      const requiresAuth = !localHosts.has(this.config.host) && !!this.config.enabled;
+      if (this.config.apiKey && requiresAuth) {
+        const apiKey = req.headers.get("x-opencode-mem-key");
+        if (apiKey !== this.config.apiKey) {
+          return this.jsonResponse({ success: false, error: "Unauthorized" }, 401);
+        }
+      }
+
       if (path === "/" || path === "/index.html") {
         return this.serveStaticFile("index.html", "text/html");
       }
