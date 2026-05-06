@@ -208,16 +208,27 @@ export function createOAuthFetch(
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       const encoder = new TextEncoder();
+      let buffer = "";
       const stream = new ReadableStream({
         async pull(controller) {
           const { done, value } = await reader.read();
           if (done) {
+            if (buffer) {
+              buffer = buffer.replace(/"name"\s*:\s*"mcp_([^"]+)"/g, '"name": "$1"');
+              controller.enqueue(encoder.encode(buffer));
+            }
             controller.close();
             return;
           }
-          let text = decoder.decode(value, { stream: true });
-          text = text.replace(/"name"\s*:\s*"mcp_([^"]+)"/g, '"name": "$1"');
-          controller.enqueue(encoder.encode(text));
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          if (lines.length > 0) {
+            let textToEmit = lines.join("\n") + "\n";
+            textToEmit = textToEmit.replace(/"name"\s*:\s*"mcp_([^"]+)"/g, '"name": "$1"');
+            controller.enqueue(encoder.encode(textToEmit));
+          }
         },
       });
       return new Response(stream, {

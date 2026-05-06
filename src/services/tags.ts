@@ -23,6 +23,7 @@ export function getGitEmail(): string | null {
     const email = execSync("git config user.email", {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
+      timeout: 1000,
     }).trim();
     return email || null;
   } catch {
@@ -35,6 +36,7 @@ export function getGitName(): string | null {
     const name = execSync("git config user.name", {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
+      timeout: 1000,
     }).trim();
     return name || null;
   } catch {
@@ -48,6 +50,7 @@ export function getGitRepoUrl(directory: string): string | null {
       encoding: "utf-8",
       cwd: directory,
       stdio: ["ignore", "pipe", "ignore"],
+      timeout: 1000,
     }).trim();
     return url || null;
   } catch {
@@ -61,6 +64,7 @@ export function getGitCommonDir(directory: string): string | null {
       encoding: "utf-8",
       cwd: directory,
       stdio: ["ignore", "pipe", "ignore"],
+      timeout: 1000,
     }).trim();
 
     if (!commonDir) {
@@ -87,6 +91,7 @@ export function getGitTopLevel(directory: string): string | null {
       encoding: "utf-8",
       cwd: directory,
       stdio: ["ignore", "pipe", "ignore"],
+      timeout: 1000,
     }).trim();
     return topLevel || null;
   } catch {
