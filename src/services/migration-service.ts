@@ -248,7 +248,7 @@ export class MigrationService {
           });
         }
 
-        await shardManager.deleteShard(shardInfo.shardId);
+        let shardHadFailures = false;
 
         for (const memory of tempMemories) {
           try {
@@ -295,12 +295,21 @@ export class MigrationService {
               currentShard: String(shardInfo.shardId),
             });
           } catch (error) {
+            shardHadFailures = true;
             log("Migration: error re-embedding memory", {
               memoryId: memory.id,
               error: String(error),
             });
             processedCount++;
           }
+        }
+
+        if (!shardHadFailures) {
+          await shardManager.deleteShard(shardInfo.shardId);
+        } else {
+          log("Migration: keeping original shard due to re-embedding failures", {
+            shardId: shardInfo.shardId,
+          });
         }
       } catch (error) {
         log("Migration: error processing shard", {
