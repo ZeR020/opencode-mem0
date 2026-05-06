@@ -15,19 +15,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
 
-      - run: bun install
+      - run: npm ci
 
       - name: Typecheck
-        run: bun run typecheck
+        run: npm run typecheck
 
       - name: Test
-        run: bun test
-        continue-on-error: true
+        run: npm test
 
       - name: Build
-        run: bun run build
+        run: npm run build
 
       - name: Audit
-        run: bun audit
+        run: npm audit --audit-level=moderate

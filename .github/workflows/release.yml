@@ -15,30 +15,63 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: oven-sh/setup-bun@v2
-
-      - run: bun install
-
-      - run: bun run typecheck
-
-      - name: Run tests
-        run: bun test
-        continue-on-error: true
-
-      - run: bun run build
-
       - name: Setup Node.js for npm publish
         uses: actions/setup-node@v4
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
+
+      - run: npm run build
+
+      - name: Check release state
+        id: release_state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          package_name="$(node -p "require('./package.json').name")"
+          package_version="$(node -p "require('./package.json').version")"
+
+          echo "package_name=${package_name}" >> "$GITHUB_OUTPUT"
+          echo "package_version=${package_version}" >> "$GITHUB_OUTPUT"
+
+          if npm view "${package_name}@${package_version}" version >/dev/null 2>&1; then
+            echo "npm_published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "npm_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "github_release_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "github_release_exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Publish to npm
+        if: steps.release_state.outputs.npm_published == 'false'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Skip npm publish
+        if: steps.release_state.outputs.npm_published == 'true'
+        run: |
+          echo "${{ steps.release_state.outputs.package_name }}@${{ steps.release_state.outputs.package_version }} is already published; skipping npm publish."
+
       - name: Create GitHub Release
+        if: steps.release_state.outputs.github_release_exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+
+      - name: Skip GitHub Release
+        if: steps.release_state.outputs.github_release_exists == 'true'
+        run: |
+          echo "GitHub release ${GITHUB_REF_NAME} already exists; skipping release creation."
