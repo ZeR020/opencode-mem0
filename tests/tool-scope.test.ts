@@ -27,8 +27,6 @@ vi.mock("../src/services/language-detector.js", () => ({ getLanguageName: () => 
 
 // Helper to create plugin with specific config
 async function createPlugin(defaultScope?: "project" | "all-projects") {
-  vi.resetModules();
-
   // Create a mock config module
   const mockConfig = {
     autoCaptureLanguage: "auto",

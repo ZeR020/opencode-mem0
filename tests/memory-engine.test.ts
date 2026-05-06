@@ -298,9 +298,13 @@ const { calculateContextBoost, calculateDiversityPenalty, contextTracker } =
 const { TranscriptManager } = await import("../src/services/sqlite/transcript-manager.js");
 const { detectConflicts, resolveConflict } = await import("../src/services/memory-conflicts.js");
 
-beforeEach(() => {
+beforeEach(async () => {
   dbByPath.clear();
   contextTracker.clear();
+  const { CONFIG } = await import("../src/config.js");
+  if (CONFIG?.transcriptStorage) {
+    CONFIG.transcriptStorage.enabled = true;
+  }
 });
 
 describe("Memory Engine Integration", () => {
