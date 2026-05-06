@@ -25,7 +25,9 @@ async function checkContradictionWithLLM(
   memory2: string,
   sessionID?: string
 ): Promise<boolean> {
-  const prompt = `Do these two statements contradict each other? A: '${memory1.replace(/'/g, "\\'")}' B: '${memory2.replace(/'/g, "\\'")}' Answer only YES or NO`;
+  const safe1 = memory1.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  const safe2 = memory2.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  const prompt = `Do these two statements contradict each other? A: '${safe1}' B: '${safe2}' Answer only YES or NO`;
 
   try {
     // Opencode provider path
