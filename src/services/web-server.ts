@@ -294,10 +294,11 @@ export class WebServer {
       }
 
       if (path.startsWith("/api/memories/") && method === "PUT") {
-        const id = path.split("/").pop();
-        if (!id) {
+        const putParts = path.split("/");
+        if (putParts.length !== 4 || !putParts[3]) {
           return this.jsonResponse({ success: false, error: "Invalid ID" });
         }
+        const id = putParts[3];
         const body = (await req.json()) as any;
         const result = await handleUpdateMemory(id, body);
         return this.jsonResponse(result, 200, !isLocal);
