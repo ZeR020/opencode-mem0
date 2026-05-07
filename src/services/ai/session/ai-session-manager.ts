@@ -114,12 +114,36 @@ export class AISessionManager {
     this.db.run(
       "CREATE INDEX IF NOT EXISTS idx_ai_messages_session ON ai_messages(ai_session_id, sequence)"
     );
-    this.db.run(
-      "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_messages_session_sequence_unique ON ai_messages(ai_session_id, sequence)"
-    );
+    this.ensureUniqueMessageSequences();
     this.db.run(
       "CREATE INDEX IF NOT EXISTS idx_ai_messages_role ON ai_messages(ai_session_id, role)"
     );
+  }
+
+  private ensureUniqueMessageSequences(): void {
+    this.db.run("BEGIN");
+    try {
+      this.db.run(`
+        DELETE FROM ai_messages
+        WHERE id IN (
+          SELECT newer.id
+          FROM ai_messages newer
+          JOIN ai_messages older
+            ON newer.ai_session_id = older.ai_session_id
+           AND newer.sequence = older.sequence
+           AND newer.id > older.id
+        )
+      `);
+      this.db.run(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_messages_session_sequence_unique ON ai_messages(ai_session_id, sequence)"
+      );
+      this.db.run("COMMIT");
+    } catch (error) {
+      try {
+        this.db.run("ROLLBACK");
+      } catch {}
+      throw error;
+    }
   }
 
   getSession(sessionId: string, provider: AIProviderType): AISession | null {
