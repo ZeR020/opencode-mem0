@@ -13,7 +13,7 @@
 ## Checklist
 <!-- Mark completed items with an [x] -->
 - [ ] I have run `bun run typecheck` and it passes
-- [ ] I have run `bun test` and all tests pass
+- [ ] I have run `npm test` or `bun run test` and all tests pass
 - [ ] I have run `bun run build` and it succeeds
 - [ ] My code follows the project's style guidelines
 - [ ] I have added JSDoc comments for new public functions

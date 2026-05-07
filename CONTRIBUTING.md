@@ -12,7 +12,7 @@ Thank you for your interest in contributing! This document outlines the process 
 ## Development Workflow
 
 - **TypeScript**: All code must pass `bun run typecheck`
-- **Tests**: Run `bun test` before submitting
+- **Tests**: Run `npm test` or `bun run test` before submitting
 - **Formatting**: Run `bun run format` or ensure lint-staged runs on commit
 - **Build**: Verify `bun run build` succeeds
 

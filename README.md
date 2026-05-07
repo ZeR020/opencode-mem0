@@ -284,8 +284,8 @@ Open the UI at `http://localhost:4747`.
 bun install          # install dependencies
 bun run build        # build with Bun
 npm run build        # cross-platform Node.js build
-bun test             # Bun test runner
-npm test             # Vitest / Node.js test runner
+bun run test         # Vitest test runner
+npm test             # Vitest test runner
 bun run typecheck    # TypeScript validation
 ```
 
