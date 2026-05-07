@@ -10,7 +10,7 @@ interface CleanupResult {
   userCount: number;
   projectCount: number;
   promptsDeleted: number;
-  linkedMemoriesDeleted: number;
+  linkedMemoriesProtected: number;
   pinnedMemoriesSkipped: number;
 }
 
@@ -61,7 +61,7 @@ export class CleanupService {
       let totalDeleted = 0;
       let userDeleted = 0;
       let projectDeleted = 0;
-      let linkedMemoriesDeleted = 0;
+      let linkedMemoriesProtected = 0;
       let pinnedSkipped = 0;
 
       for (const shard of allShards) {
@@ -84,7 +84,7 @@ export class CleanupService {
             }
 
             if (protectedMemoryIds.has(memory.id)) {
-              linkedMemoriesDeleted++;
+              linkedMemoriesProtected++;
               continue;
             }
 
@@ -110,7 +110,7 @@ export class CleanupService {
         userCount: userDeleted,
         projectCount: projectDeleted,
         promptsDeleted,
-        linkedMemoriesDeleted,
+        linkedMemoriesProtected,
         pinnedMemoriesSkipped: pinnedSkipped,
       };
       this.lastCleanupTime = Date.now();
