@@ -45,6 +45,9 @@ export function getGitName(): string | null {
 }
 
 export function getGitRepoUrl(directory: string): string | null {
+  if (!existsSync(directory)) {
+    return null;
+  }
   try {
     const url = execSync("git config --get remote.origin.url", {
       encoding: "utf-8",
@@ -59,6 +62,9 @@ export function getGitRepoUrl(directory: string): string | null {
 }
 
 export function getGitCommonDir(directory: string): string | null {
+  if (!existsSync(directory)) {
+    return null;
+  }
   try {
     const commonDir = execSync("git rev-parse --git-common-dir", {
       encoding: "utf-8",
@@ -86,6 +92,9 @@ export function getGitCommonDir(directory: string): string | null {
 }
 
 export function getGitTopLevel(directory: string): string | null {
+  if (!existsSync(directory)) {
+    return null;
+  }
   try {
     const topLevel = execSync("git rev-parse --show-toplevel", {
       encoding: "utf-8",
