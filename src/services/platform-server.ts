@@ -35,13 +35,14 @@ async function createNodeServer(options: ServeOptions): Promise<PlatformServer> 
       const host = req.headers.host || `${options.hostname}:${options.port}`;
       const url = `http://${host}${req.url}`;
 
-      const MAX_BODY_BYTES = 1_048_576; // 1 MiB
+      const MAX_BODY_BYTES = 262_144; // 256 KiB for JSON API payloads
       const chunks: Buffer[] = [];
       let totalBytes = 0;
       for await (const chunk of req) {
         const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
         totalBytes += buf.length;
         if (totalBytes > MAX_BODY_BYTES) {
+          req.destroy();
           res.statusCode = 413;
           res.end("Payload too large");
           return;
