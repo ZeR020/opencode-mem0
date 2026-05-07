@@ -732,6 +732,13 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
   };
 
   function deepFreeze<T>(obj: T): T {
+    // Skip freezing during tests so test helpers can mutate CONFIG
+    if (
+      typeof process !== "undefined" &&
+      (process.env?.VITEST || process.env?.NODE_ENV === "test")
+    ) {
+      return obj;
+    }
     if (obj === null || typeof obj !== "object") return obj;
     for (const key of Object.keys(obj)) {
       const value = (obj as any)[key];

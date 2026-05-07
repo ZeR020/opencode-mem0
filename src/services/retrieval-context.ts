@@ -8,6 +8,56 @@ export interface RetrievalContext {
   currentQuery?: string;
 }
 
+// Simple context tracker scoped by directory to prevent cross-project leakage
+class ContextTracker {
+  private contexts = new Map<string, { recentQueries: string[]; recentFiles: string[] }>();
+  private maxHistory = 10;
+
+  private getOrCreate(scope: string) {
+    if (!this.contexts.has(scope)) {
+      this.contexts.set(scope, { recentQueries: [], recentFiles: [] });
+    }
+    return this.contexts.get(scope)!;
+  }
+
+  addQuery(query: string, scope = "default") {
+    const ctx = this.getOrCreate(scope);
+    ctx.recentQueries.push(query);
+    if (ctx.recentQueries.length > this.maxHistory) {
+      ctx.recentQueries.shift();
+    }
+  }
+
+  addFiles(files: string[], scope = "default") {
+    const ctx = this.getOrCreate(scope);
+    ctx.recentFiles.push(...files);
+    if (ctx.recentFiles.length > this.maxHistory) {
+      ctx.recentFiles = ctx.recentFiles.slice(-this.maxHistory);
+    }
+  }
+
+  getContext(projectPath?: string, projectName?: string, scope = "default"): RetrievalContext {
+    const ctx = this.getOrCreate(scope);
+    return {
+      projectPath,
+      projectName,
+      recentFiles: [...ctx.recentFiles],
+      recentQueries: [...ctx.recentQueries],
+      currentQuery: ctx.recentQueries[ctx.recentQueries.length - 1],
+    };
+  }
+
+  clear(scope?: string) {
+    if (scope) {
+      this.contexts.delete(scope);
+    } else {
+      this.contexts.clear();
+    }
+  }
+}
+
+export const contextTracker = new ContextTracker();
+
 /**
  * Calculate a context-based score boost for a memory result.
  * Boosts scores when the memory's project path, project name, or metadata

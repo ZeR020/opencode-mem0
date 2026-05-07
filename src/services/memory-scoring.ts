@@ -205,7 +205,7 @@ const TECHNICAL_KEYWORDS_RE = new RegExp(
   "\\b(" +
     TECHNICAL_KEYWORDS.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") +
     ")\\b",
-  "i"
+  "gi"
 );
 const WORD_SPLIT_RE = /\s+/;
 
