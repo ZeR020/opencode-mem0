@@ -34,8 +34,8 @@ jobs:
           echo "Commits since last review: $COMMIT_COUNT"
           echo "count=$COMMIT_COUNT" >> $GITHUB_OUTPUT
           
-          # Trigger every 5 commits (adjust as needed)
-          if [ "$COMMIT_COUNT" -ge 5 ]; then
+          # Trigger every 10 commits (adjust as needed)
+          if [ "$COMMIT_COUNT" -ge 10 ]; then
             echo "should_review=true" >> $GITHUB_OUTPUT
           else
             echo "should_review=false" >> $GITHUB_OUTPUT
