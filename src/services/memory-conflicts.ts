@@ -216,7 +216,14 @@ export async function detectConflicts(
         const existingConflict = findExistingConflict(db, newMemoryId, candidate.id);
         if (existingConflict) continue;
 
-        // LLM-based contradiction check
+        // Heuristic pre-filter: skip expensive LLM call for obvious non-contradictions
+        const heuristicContradiction = checkContradictionHeuristic(
+          newMemoryContent,
+          candidate.content
+        );
+        if (!heuristicContradiction) continue;
+
+        // LLM-based contradiction check (expensive, only for heuristic positives)
         const isContradiction = await checkContradictionWithLLM(
           newMemoryContent,
           candidate.content,
