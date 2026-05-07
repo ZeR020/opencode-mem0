@@ -612,7 +612,7 @@ function getEmbeddingDimensions(model: string): number {
 }
 
 function buildConfig(fileConfig: OpenCodeMemConfig) {
-  return {
+  const result = {
     storagePath: expandPath(fileConfig.storagePath ?? DEFAULTS.storagePath),
     userEmailOverride: fileConfig.userEmailOverride,
     userNameOverride: fileConfig.userNameOverride,
@@ -730,6 +730,19 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
       contextBoost: fileConfig.retrieval?.contextBoost ?? DEFAULTS.retrieval.contextBoost,
     },
   };
+
+  function deepFreeze<T>(obj: T): T {
+    if (obj === null || typeof obj !== "object") return obj;
+    for (const key of Object.keys(obj)) {
+      const value = (obj as any)[key];
+      if (value !== null && typeof value === "object") {
+        deepFreeze(value);
+      }
+    }
+    return Object.freeze(obj);
+  }
+
+  return deepFreeze(result);
 }
 
 let _globalFileConfig = loadConfigFromPaths(CONFIG_FILES);
