@@ -8,6 +8,14 @@ import type { AIProviderType } from "./session/session-types.js";
 
 export class AIProviderFactory {
   private static cleanupTimer: NodeJS.Timeout | null = null;
+  private static sessionManager: ReturnType<typeof getAISessionManager> | null = null;
+
+  private static getSessionManager() {
+    if (!this.sessionManager) {
+      this.sessionManager = getAISessionManager();
+    }
+    return this.sessionManager;
+  }
 
   static startCleanupSchedule(intervalMs: number = 1000 * 60 * 60) {
     if (this.cleanupTimer) clearInterval(this.cleanupTimer);
@@ -22,18 +30,19 @@ export class AIProviderFactory {
   }
 
   static createProvider(providerType: AIProviderType, config: ProviderConfig): BaseAIProvider {
+    const sessionManager = this.getSessionManager();
     switch (providerType) {
       case "openai-chat":
-        return new OpenAIChatCompletionProvider(config, getAISessionManager());
+        return new OpenAIChatCompletionProvider(config, sessionManager);
 
       case "openai-responses":
-        return new OpenAIResponsesProvider(config, getAISessionManager());
+        return new OpenAIResponsesProvider(config, sessionManager);
 
       case "anthropic":
-        return new AnthropicMessagesProvider(config, getAISessionManager());
+        return new AnthropicMessagesProvider(config, sessionManager);
 
       case "google-gemini":
-        return new GoogleGeminiProvider(config, getAISessionManager());
+        return new GoogleGeminiProvider(config, sessionManager);
 
       default:
         throw new Error(`Unknown provider type: ${providerType}`);
