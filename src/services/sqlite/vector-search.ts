@@ -580,20 +580,34 @@ export class VectorSearch {
    * @returns Matching memory rows with parsed tags and metadata
    */
   getMemoriesBySessionID(db: DatabaseType, sessionID: string): any[] {
-    const escapedSessionID = sessionID.replace(/[\\%_]/g, "\\$&");
-    const stmt = db.prepare(`
-      SELECT * FROM memories
-      WHERE metadata LIKE ? ESCAPE '\\' AND is_deprecated = 0
-      ORDER BY created_at DESC
-    `);
-
-    const rows = stmt.all(`%"sessionID":"${escapedSessionID}"%`) as any[];
-
-    return rows.map((row: any) => ({
-      ...row,
-      tags: row.tags ? row.tags.split(",") : [],
-      metadata: safeParseMetadata(row.metadata) || {},
-    }));
+    // Prefer json_extract when available (SQLite 3.38+ / json1 extension)
+    try {
+      const stmt = db.prepare(`
+        SELECT * FROM memories
+        WHERE json_extract(metadata, '$.sessionID') = ? AND is_deprecated = 0
+        ORDER BY created_at DESC
+      `);
+      const rows = stmt.all(sessionID) as any[];
+      return rows.map((row: any) => ({
+        ...row,
+        tags: row.tags ? row.tags.split(",") : [],
+        metadata: safeParseMetadata(row.metadata) || {},
+      }));
+    } catch {
+      // Fallback: LIKE with sessionID value only, avoiding JSON structural assumptions
+      const likeEscaped = sessionID.replace(/[\\%_]/g, "\\$&");
+      const stmt = db.prepare(`
+        SELECT * FROM memories
+        WHERE metadata LIKE ? ESCAPE '\\' AND is_deprecated = 0
+        ORDER BY created_at DESC
+      `);
+      const rows = stmt.all(`%${likeEscaped}%`) as any[];
+      return rows.map((row: any) => ({
+        ...row,
+        tags: row.tags ? row.tags.split(",") : [],
+        metadata: safeParseMetadata(row.metadata) || {},
+      }));
+    }
   }
 
   /**
