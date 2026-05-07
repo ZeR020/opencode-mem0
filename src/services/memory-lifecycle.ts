@@ -318,7 +318,7 @@ function archiveMemory(db: any, memoryId: string, shard: any): void {
     `);
 
     // Copy to archive
-    db.run(
+    const insertResult = db.run(
       `
       INSERT INTO memories_archive
       SELECT id, content, tags, type, created_at, ?, strength, access_count,
@@ -328,6 +328,11 @@ function archiveMemory(db: any, memoryId: string, shard: any): void {
       Date.now(),
       memoryId
     );
+
+    if (insertResult.changes === 0) {
+      log("archiveMemory: memory already removed, skipping delete", { memoryId });
+      return;
+    }
 
     // Delete from memories
     db.run(`DELETE FROM memories WHERE id = ?`, memoryId);
