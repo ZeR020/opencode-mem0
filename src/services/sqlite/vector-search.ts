@@ -604,14 +604,14 @@ export class VectorSearch {
         metadata: safeParseMetadata(row.metadata) || {},
       }));
     } catch {
-      // Fallback: LIKE with sessionID value only, avoiding JSON structural assumptions
+      // Fallback: LIKE with structural JSON pattern to reduce false positives
       const likeEscaped = sessionID.replace(/[\\%_]/g, "\\$&");
       const stmt = db.prepare(`
         SELECT * FROM memories
         WHERE metadata LIKE ? ESCAPE '\\' AND is_deprecated = 0
         ORDER BY created_at DESC
       `);
-      const rows = stmt.all(`%${likeEscaped}%`) as any[];
+      const rows = stmt.all(`%"sessionID":"${likeEscaped}"%`) as any[];
       return rows.map((row: any) => ({
         ...row,
         tags: row.tags ? row.tags.split(",") : [],
