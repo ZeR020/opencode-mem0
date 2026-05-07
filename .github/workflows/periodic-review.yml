@@ -1,0 +1,217 @@
+name: Periodic Code Review
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  review-trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Full history for counting
+
+      - name: Check if review is needed
+        id: check
+        run: |
+          # Get the last review PR commit (tag or PR merge)
+          LAST_REVIEW=$(git log --grep="chore(review):" --format="%H" -1 2>/dev/null || echo "")
+          
+          if [ -z "$LAST_REVIEW" ]; then
+            # No previous review, count all commits
+            COMMIT_COUNT=$(git rev-list --count HEAD)
+          else
+            # Count commits since last review
+            COMMIT_COUNT=$(git rev-list --count ${LAST_REVIEW}..HEAD)
+          fi
+          
+          echo "Commits since last review: $COMMIT_COUNT"
+          echo "count=$COMMIT_COUNT" >> $GITHUB_OUTPUT
+          
+          # Trigger every 5 commits (adjust as needed)
+          if [ "$COMMIT_COUNT" -ge 5 ]; then
+            echo "should_review=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_review=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create review branch
+        if: steps.check.outputs.should_review == 'true'
+        run: |
+          BRANCH_NAME="review/main-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH_NAME"
+          # Empty commit to mark the review point
+          git commit --allow-empty -m "chore(review): periodic code review checkpoint"
+          git push origin "$BRANCH_NAME"
+          echo "branch=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Create Review PR
+        if: steps.check.outputs.should_review == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔍 Periodic Code Review: Main Branch Health Check',
+              head: process.env.branch,
+              base: 'main',
+              body: `## Automated Periodic Review
+              
+              This PR was automatically created to trigger a full codebase review after **${{ steps.check.outputs.count }}** new commits on `main`.
+              
+              ### Instructions for @coderabbitai
+              Please perform a **comprehensive full-repository review** of the current `main` branch state, not just this diff. Focus on:
+              
+              - **Bugs & correctness issues**
+              - **Security vulnerabilities**
+              - **Performance bottlenecks**
+              - **Code quality & maintainability**
+              - **Data integrity risks**
+              
+              Prioritize findings as P0 (critical), P1 (warning), P2 (info).
+              
+              ### Context
+              - Commits since last review: ${{ steps.check.outputs.count }}
+              - Triggered: ${new Date().toISOString()}
+              
+              ---
+              
+              *This PR will be auto-closed after the review completes. Do not merge.*`
+            });
+            
+            // Add label for easy filtering
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: ['auto-review', 'coderabbit', 'do-not-merge']
+            });
+            
+            console.log(`Created review PR #${pr.number}: ${pr.html_url}`);
+            
+            // Store PR number for later
+            core.exportVariable('REVIEW_PR_NUMBER', pr.number);
+
+      - name: Wait for CodeRabbit review
+        if: steps.check.outputs.should_review == 'true'
+        run: |
+          # Wait for CodeRabbit to complete (typically 5-10 minutes)
+          echo "Waiting 600 seconds for CodeRabbit to complete review..."
+          sleep 600
+        env:
+          REVIEW_PR_NUMBER: ${{ env.REVIEW_PR_NUMBER }}
+
+      - name: Fetch CodeRabbit findings and create tracking issue
+        if: steps.check.outputs.should_review == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = process.env.REVIEW_PR_NUMBER;
+            
+            // Fetch PR comments
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+            
+            // Filter CodeRabbit comments (they usually have specific markers)
+            const coderabbitComments = comments.filter(c => 
+              c.user.login.toLowerCase().includes('coderabbit') ||
+              c.body.includes('CodeRabbit') ||
+              c.body.includes('P0') ||
+              c.body.includes('P1') ||
+              c.body.includes('CR-') ||
+              c.body.includes('WR-')
+            );
+            
+            let p0Count = 0, p1Count = 0, p2Count = 0;
+            let findingsBody = '';
+            
+            for (const comment of coderabbitComments) {
+              const body = comment.body;
+              
+              // Count severities
+              const p0Matches = body.match(/P0|Critical|CR-/g);
+              const p1Matches = body.match(/P1|Warning|WR-/g);
+              const p2Matches = body.match(/P2|Info|IN-/g);
+              
+              if (p0Matches) p0Count += p0Matches.length;
+              if (p1Matches) p1Count += p1Matches.length;
+              if (p2Matches) p2Count += p2Matches.length;
+              
+              // Extract finding lines (lines starting with - or • that have severity markers)
+              const lines = body.split('\n');
+              for (const line of lines) {
+                if (line.match(/P0|P1|P2|Critical|Warning|Info/) && 
+                    (line.startsWith('-') || line.startsWith('•') || line.startsWith('*'))) {
+                  findingsBody += line + '\n';
+                }
+              }
+            }
+            
+            // If no structured findings found, create a generic summary
+            if (!findingsBody) {
+              findingsBody = '_CodeRabbit review comments detected. See PR for details._\n';
+              for (const comment of coderabbitComments.slice(0, 5)) {
+                findingsBody += `- ${comment.html_url}\n`;
+              }
+            }
+            
+            // Create tracking issue
+            const issueBody = `## 🔍 Periodic Code Review Findings
+
+**Review PR:** #${prNumber}  
+**Trigger:** ${{ steps.check.outputs.count }} commits since last review  
+**Date:** ${new Date().toISOString()}
+
+### Summary
+- **P0 Critical:** ${p0Count}
+- **P1 Warning:** ${p1Count}  
+- **P2 Info:** ${p2Count}
+
+### Findings
+${findingsBody}
+
+### Next Steps
+- [ ] Review P0 findings immediately
+- [ ] Address P1 findings in next sprint  
+- [ ] Consider P2 suggestions for future improvements
+
+---
+*This issue was auto-generated by the periodic review workflow. Do not close manually — close when all findings are addressed.*`;
+
+            const { data: issue } = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🔍 Periodic Review: ${p0Count} Critical, ${p1Count} Warning findings`,
+              body: issueBody,
+              labels: ['auto-review', 'coderabbit', 'technical-debt']
+            });
+            
+            console.log(`Created tracking issue #${issue.number}: ${issue.html_url}`);
+            
+            // Update PR with issue reference
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `📋 Tracking issue created: #${issue.number}\n\nAll findings from this review are being tracked there. This PR will be closed automatically.`
+            });
+
+      - name: Close review PR
+        if: steps.check.outputs.should_review == 'true'
+        run: |
+          gh pr close "$REVIEW_PR_NUMBER" --comment "Review complete. Findings tracked in the linked issue above. Closing auto-generated review PR."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REVIEW_PR_NUMBER: ${{ env.REVIEW_PR_NUMBER }}
