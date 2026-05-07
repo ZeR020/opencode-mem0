@@ -12,6 +12,32 @@ interface ToolCallInfo {
 
 const MAX_TOOL_INPUT_LENGTH = 100;
 
+const AUTO_CAPTURE_SYSTEM_PROMPT_TEMPLATE = (
+  langName: string
+) => `You are a technical memory recorder for a software development project.
+
+RULES:
+1. ONLY capture technical work (code, bugs, features, architecture, config)
+2. SKIP non-technical by returning type="skip"
+3. NO meta-commentary or behavior analysis
+4. Include specific file names, functions, technical details
+5. Generate 2-4 technical tags (e.g., "react", "auth", "bug-fix")
+6. You MUST write the summary in ${langName}.
+
+FORMAT:
+## Request
+[1-2 sentences: what was requested, in ${langName}]
+
+## Outcome
+[1-2 sentences: what was done, include files/functions, in ${langName}]
+
+SKIP if: greetings, casual chat, no code/decisions made
+CAPTURE if: code changed, bug fixed, feature added, decision made`;
+
+const AUTO_CAPTURE_ANALYSIS_PROMPT = (context: string) => `${context}
+
+Analyze this conversation. If it contains technical work (code, bugs, features, decisions), create a concise summary and relevant tags. If it's non-technical (greetings, casual chat, incomplete requests), return type="skip" with empty summary.`;
+
 let isCaptureRunning = false;
 
 export async function performAutoCapture(
@@ -260,30 +286,6 @@ async function generateSummary(
         : CONFIG.autoCaptureLanguage;
     const langName = getLanguageName(targetLang);
 
-    const systemPrompt = `You are a technical memory recorder for a software development project.
-
-RULES:
-1. ONLY capture technical work (code, bugs, features, architecture, config)
-2. SKIP non-technical by returning type="skip"
-3. NO meta-commentary or behavior analysis
-4. Include specific file names, functions, technical details
-5. Generate 2-4 technical tags (e.g., "react", "auth", "bug-fix")
-6. You MUST write the summary in ${langName}.
-
-FORMAT:
-## Request
-[1-2 sentences: what was requested, in ${langName}]
-
-## Outcome
-[1-2 sentences: what was done, include files/functions, in ${langName}]
-
-SKIP if: greetings, casual chat, no code/decisions made
-CAPTURE if: code changed, bug fixed, feature added, decision made`;
-
-    const aiPrompt = `${context}
-
-Analyze this conversation. If it contains technical work (code, bugs, features, decisions), create a concise summary and relevant tags. If it's non-technical (greetings, casual chat, incomplete requests), return type="skip" with empty summary.`;
-
     const { z } = await import("zod");
     const schema = z.object({
       summary: z.string(),
@@ -295,8 +297,8 @@ Analyze this conversation. If it contains technical work (code, bugs, features, 
       providerName: CONFIG.opencodeProvider,
       modelId: CONFIG.opencodeModel,
       statePath: getStatePath(),
-      systemPrompt,
-      userPrompt: aiPrompt,
+      systemPrompt: AUTO_CAPTURE_SYSTEM_PROMPT_TEMPLATE(langName),
+      userPrompt: AUTO_CAPTURE_ANALYSIS_PROMPT(context),
       schema,
       temperature:
         CONFIG.memoryTemperature === false ? undefined : (CONFIG.memoryTemperature ?? 0.3),
@@ -329,30 +331,6 @@ Analyze this conversation. If it contains technical work (code, bugs, features, 
 
   const langName = getLanguageName(targetLang);
 
-  const systemPrompt = `You are a technical memory recorder for a software development project.
-
-RULES:
-1. ONLY capture technical work (code, bugs, features, architecture, config)
-2. SKIP non-technical by returning type="skip"
-3. NO meta-commentary or behavior analysis
-4. Include specific file names, functions, technical details
-5. Generate 2-4 technical tags (e.g., "react", "auth", "bug-fix")
-6. You MUST write the summary in ${langName}.
-
-FORMAT:
-## Request
-[1-2 sentences: what was requested, in ${langName}]
-
-## Outcome
-[1-2 sentences: what was done, include files/functions, in ${langName}]
-
-SKIP if: greetings, casual chat, no code/decisions made
-CAPTURE if: code changed, bug fixed, feature added, decision made`;
-
-  const aiPrompt = `${context}
-
-Analyze this conversation. If it contains technical work (code, bugs, features, decisions), create a concise summary and relevant tags. If it's non-technical (greetings, casual chat, incomplete requests), return type="skip" with empty summary.`;
-
   const toolSchema = {
     type: "function" as const,
     function: {
@@ -381,7 +359,12 @@ Analyze this conversation. If it contains technical work (code, bugs, features, 
     },
   };
 
-  const result = await provider.executeToolCall(systemPrompt, aiPrompt, toolSchema, sessionID);
+  const result = await provider.executeToolCall(
+    AUTO_CAPTURE_SYSTEM_PROMPT_TEMPLATE(langName),
+    AUTO_CAPTURE_ANALYSIS_PROMPT(context),
+    toolSchema,
+    sessionID
+  );
 
   if (!result.success || !result.data) {
     throw new Error(result.error || "Failed to generate summary");

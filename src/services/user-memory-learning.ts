@@ -8,6 +8,16 @@ import type { UserPrompt } from "./user-prompt/user-prompt-manager.js";
 import { userProfileManager } from "./user-profile/user-profile-manager.js";
 import type { UserProfile, UserProfileData } from "./user-profile/types.js";
 
+const USER_PROFILE_SYSTEM_PROMPT = (
+  existingProfile: boolean
+) => `You are a user behavior analyst for a coding assistant.
+
+Your task is to analyze user prompts and ${existingProfile ? "update" : "create"} a comprehensive user profile.
+
+CRITICAL: Detect the language used by the user in their prompts. You MUST output all descriptions, categories, and text in the SAME language as the user's prompts.
+
+Use the update_user_profile tool to save the ${existingProfile ? "updated" : "new"} profile.`;
+
 let isLearningRunning = false;
 
 export async function performUserProfileLearning(
@@ -159,14 +169,6 @@ async function analyzeUserProfile(
       );
     }
 
-    const systemPrompt = `You are a user behavior analyst for a coding assistant.
-
-Your task is to analyze user prompts and ${existingProfile ? "update" : "create"} a comprehensive user profile.
-
-CRITICAL: Detect the language used by the user in their prompts. You MUST output all descriptions, categories, and text in the SAME language as the user's prompts.
-
-Use the update_user_profile tool to save the ${existingProfile ? "updated" : "new"} profile.`;
-
     const { z } = await import("zod");
     const schema = z.object({
       preferences: z.array(
@@ -195,7 +197,7 @@ Use the update_user_profile tool to save the ${existingProfile ? "updated" : "ne
       providerName: CONFIG.opencodeProvider,
       modelId: CONFIG.opencodeModel,
       statePath: getStatePath(),
-      systemPrompt,
+      systemPrompt: USER_PROFILE_SYSTEM_PROMPT(!!existingProfile),
       userPrompt: context,
       schema,
       temperature:
@@ -227,14 +229,6 @@ Use the update_user_profile tool to save the ${existingProfile ? "updated" : "ne
   const providerConfig = buildMemoryProviderConfig(CONFIG);
 
   const provider = AIProviderFactory.createProvider(CONFIG.memoryProvider, providerConfig);
-
-  const systemPrompt = `You are a user behavior analyst for a coding assistant.
-
-Your task is to analyze user prompts and ${existingProfile ? "update" : "create"} a comprehensive user profile.
-
-CRITICAL: Detect the language used by the user in their prompts. You MUST output all descriptions, categories, and text in the SAME language as the user's prompts.
-
-Use the update_user_profile tool to save the ${existingProfile ? "updated" : "new"} profile.`;
 
   const toolSchema = {
     type: "function" as const,
@@ -288,7 +282,7 @@ Use the update_user_profile tool to save the ${existingProfile ? "updated" : "ne
   };
 
   const result = await provider.executeToolCall(
-    systemPrompt,
+    USER_PROFILE_SYSTEM_PROMPT(!!existingProfile),
     context,
     toolSchema,
     `user-profile-${Date.now()}`
