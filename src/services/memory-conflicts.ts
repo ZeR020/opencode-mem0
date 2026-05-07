@@ -350,6 +350,7 @@ function findSimilarMemories(
     const likePatterns = words.slice(0, 5).map((w) => `%${w}%`);
     const placeholders = likePatterns.map(() => "content LIKE ?").join(" OR ");
 
+    const idClause = excludeMemoryId ? "AND id != ?" : "";
     const rows = db
       .prepare(
         `
@@ -357,11 +358,11 @@ function findSimilarMemories(
         FROM memories
         WHERE container_tag = ? AND is_deprecated = 0
         AND (${placeholders})
-        AND id != ?
+        ${idClause}
         LIMIT 20
       `
       )
-      .all(containerTag, ...likePatterns, excludeMemoryId || `mem_${Date.now()}`) as any[];
+      .all(containerTag, ...likePatterns, ...(excludeMemoryId ? [excludeMemoryId] : [])) as any[];
 
     results = rows.map((r) => {
       const rWords = r.content
