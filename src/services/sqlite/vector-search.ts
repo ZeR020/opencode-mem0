@@ -31,12 +31,27 @@ function safeParseMetadata(raw: string | null | undefined): Record<string, unkno
 export class VectorSearch {
   private readonly backendPromise: Promise<VectorBackend>;
   private readonly fallbackBackend: VectorBackend;
+  private readonly stmtCache = new WeakMap<DatabaseType, Map<string, any>>();
 
   constructor(backend?: VectorBackend, fallbackBackend: VectorBackend = new ExactScanBackend()) {
     this.backendPromise = backend
       ? Promise.resolve(backend)
       : createVectorBackend({ vectorBackend: CONFIG.vectorBackend });
     this.fallbackBackend = fallbackBackend;
+  }
+
+  private getStmt(db: DatabaseType, sql: string): any {
+    let dbCache = this.stmtCache.get(db);
+    if (!dbCache) {
+      dbCache = new Map();
+      this.stmtCache.set(db, dbCache);
+    }
+    let stmt = dbCache.get(sql);
+    if (!stmt) {
+      stmt = db.prepare(sql);
+      dbCache.set(sql, stmt);
+    }
+    return stmt;
   }
 
   private async getBackend(): Promise<VectorBackend> {
@@ -52,7 +67,9 @@ export class VectorSearch {
    * @param shard - Optional shard info for vector backend indexing
    */
   async insertVector(db: DatabaseType, record: MemoryRecord, shard?: ShardInfo): Promise<void> {
-    const insertMemory = db.prepare(`
+    const insertMemory = this.getStmt(
+      db,
+      `
       INSERT INTO memories (
         id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
         metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url,
@@ -60,7 +77,8 @@ export class VectorSearch {
         confidence_score, interference_penalty, strength, access_count, last_accessed,
         store_type, decay_rate
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    `
+    );
 
     insertMemory.run(
       record.id,
@@ -418,29 +436,36 @@ export class VectorSearch {
     const diversityThreshold = CONFIG.retrieval.diversityThreshold || 0.9;
     const finalResults: SearchResult[] = [];
     const maxResults = CONFIG.retrieval.maxResults || limit;
+    const wordSetCache = new Map<string, Set<string>>();
+
+    function getWordSet(text: string): Set<string> {
+      let set = wordSetCache.get(text);
+      if (!set) {
+        set = new Set(
+          (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length > 4)
+        );
+        wordSetCache.set(text, set);
+      }
+      return set;
+    }
 
     for (const candidate of allResults) {
       if (finalResults.length >= maxResults) break;
 
-      // Only filter by diversity, don't re-penalize scores
       let isDiverse = true;
+      const candidateWords = getWordSet(candidate.memory);
       for (const selected of finalResults) {
-        // Simple text-based diversity check as fallback
-        const candidateWords = new Set(
-          candidate.memory
-            .toLowerCase()
-            .split(/\s+/)
-            .filter((w) => w.length > 4)
-        );
-        const selectedWords = new Set(
-          selected.memory
-            .toLowerCase()
-            .split(/\s+/)
-            .filter((w) => w.length > 4)
-        );
-        const intersection = [...candidateWords].filter((w) => selectedWords.has(w));
-        const union = new Set([...candidateWords, ...selectedWords]);
-        const jaccard = union.size > 0 ? intersection.length / union.size : 0;
+        const selectedWords = getWordSet(selected.memory);
+        let intersectionSize = 0;
+        const smallerSet =
+          candidateWords.size <= selectedWords.size ? candidateWords : selectedWords;
+        const largerSet =
+          candidateWords.size <= selectedWords.size ? selectedWords : candidateWords;
+        for (const word of smallerSet) {
+          if (largerSet.has(word)) intersectionSize++;
+        }
+        const unionSize = candidateWords.size + selectedWords.size - intersectionSize;
+        const jaccard = unionSize > 0 ? intersectionSize / unionSize : 0;
 
         if (jaccard > diversityThreshold) {
           isDiverse = false;
@@ -464,7 +489,7 @@ export class VectorSearch {
    * @param shard - Optional shard info for backend index cleanup
    */
   async deleteVector(db: DatabaseType, memoryId: string, shard?: ShardInfo): Promise<void> {
-    db.prepare(`DELETE FROM memories WHERE id = ?`).run(memoryId);
+    this.getStmt(db, `DELETE FROM memories WHERE id = ?`).run(memoryId);
 
     if (shard) {
       const backend = await this.getBackend();
@@ -489,7 +514,7 @@ export class VectorSearch {
     shard?: ShardInfo,
     tagsVector?: Float32Array
   ): Promise<void> {
-    db.prepare(`UPDATE memories SET vector = ?, tags_vector = ? WHERE id = ?`).run(
+    this.getStmt(db, `UPDATE memories SET vector = ?, tags_vector = ? WHERE id = ?`).run(
       toBlob(vector),
       toBlob(tagsVector),
       memoryId
@@ -515,22 +540,11 @@ export class VectorSearch {
    * @returns Raw database rows
    */
   listMemories(db: DatabaseType, containerTag: string, limit: number): any[] {
-    const stmt = db.prepare(
+    const sql =
       containerTag === ""
-        ? `
-      SELECT * FROM memories
-      WHERE is_deprecated = 0
-      ORDER BY is_pinned DESC, strength DESC, recency_score DESC
-      LIMIT ?
-    `
-        : `
-      SELECT * FROM memories
-      WHERE container_tag = ? AND is_deprecated = 0
-      ORDER BY is_pinned DESC, strength DESC, recency_score DESC
-      LIMIT ?
-    `
-    );
-
+        ? `SELECT * FROM memories WHERE is_deprecated = 0 ORDER BY is_pinned DESC, strength DESC, recency_score DESC LIMIT ?`
+        : `SELECT * FROM memories WHERE container_tag = ? AND is_deprecated = 0 ORDER BY is_pinned DESC, strength DESC, recency_score DESC LIMIT ?`;
+    const stmt = this.getStmt(db, sql);
     return (containerTag === "" ? stmt.all(limit) : stmt.all(containerTag, limit)) as any[];
   }
 
@@ -541,10 +555,10 @@ export class VectorSearch {
    * @returns All memory rows ordered by creation time
    */
   getAllMemories(db: DatabaseType): any[] {
-    const stmt = db.prepare(
+    return this.getStmt(
+      db,
       `SELECT * FROM memories WHERE is_deprecated = 0 ORDER BY created_at DESC`
-    );
-    return stmt.all() as any[];
+    ).all() as any[];
   }
 
   /**
@@ -555,8 +569,7 @@ export class VectorSearch {
    * @returns The memory row, or null if not found
    */
   getMemoryById(db: DatabaseType, memoryId: string): any | null {
-    const stmt = db.prepare(`SELECT * FROM memories WHERE id = ?`);
-    return stmt.get(memoryId) as any;
+    return this.getStmt(db, `SELECT * FROM memories WHERE id = ?`).get(memoryId) as any;
   }
 
   /**
@@ -591,10 +604,10 @@ export class VectorSearch {
    * @returns Number of matching memories
    */
   countVectors(db: DatabaseType, containerTag: string): number {
-    const stmt = db.prepare(
+    const result = this.getStmt(
+      db,
       `SELECT COUNT(*) as count FROM memories WHERE container_tag = ? AND is_deprecated = 0`
-    );
-    const result = stmt.get(containerTag) as any;
+    ).get(containerTag) as any;
     return result.count;
   }
 

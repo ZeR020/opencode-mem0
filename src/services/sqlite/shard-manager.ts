@@ -14,11 +14,29 @@ const METADATA_DB_NAME = "metadata.db";
 export class ShardManager {
   private metadataDb: DatabaseType;
   private metadataPath: string;
+  private activeShardStmt: any;
+  private allShardsStmt: any;
+  private scopedShardsStmt: any;
+  private createShardStmt: any;
 
   constructor() {
     this.metadataPath = join(CONFIG.storagePath, METADATA_DB_NAME);
     this.metadataDb = connectionManager.getConnection(this.metadataPath);
     this.initMetadataDb();
+    this.activeShardStmt = this.metadataDb.prepare(`
+      SELECT * FROM shards WHERE scope = ? AND scope_hash = ? AND is_active = 1
+      ORDER BY shard_index DESC LIMIT 1
+    `);
+    this.allShardsStmt = this.metadataDb.prepare(`
+      SELECT * FROM shards WHERE scope = ? ORDER BY shard_index ASC
+    `);
+    this.scopedShardsStmt = this.metadataDb.prepare(`
+      SELECT * FROM shards WHERE scope = ? AND scope_hash = ? ORDER BY shard_index ASC
+    `);
+    this.createShardStmt = this.metadataDb.prepare(`
+      INSERT INTO shards (scope, scope_hash, shard_index, db_path, vector_count, is_active, created_at)
+      VALUES (?, ?, ?, ?, 0, 1, ?)
+    `);
   }
 
   private initMetadataDb(): void {
@@ -53,13 +71,7 @@ export class ShardManager {
   }
 
   getActiveShard(scope: "user" | "project", scopeHash: string): ShardInfo | null {
-    const stmt = this.metadataDb.prepare(`
-      SELECT * FROM shards 
-      WHERE scope = ? AND scope_hash = ? AND is_active = 1
-      ORDER BY shard_index DESC LIMIT 1
-    `);
-
-    const row = stmt.get(scope, scopeHash) as any;
+    const row = this.activeShardStmt.get(scope, scopeHash) as any;
     if (!row) return null;
 
     return {
@@ -75,24 +87,10 @@ export class ShardManager {
   }
 
   getAllShards(scope: "user" | "project", scopeHash: string): ShardInfo[] {
-    let stmt;
-    let rows;
-
-    if (scopeHash === "") {
-      stmt = this.metadataDb.prepare(`
-        SELECT * FROM shards 
-        WHERE scope = ?
-        ORDER BY shard_index ASC
-      `);
-      rows = stmt.all(scope) as any[];
-    } else {
-      stmt = this.metadataDb.prepare(`
-        SELECT * FROM shards 
-        WHERE scope = ? AND scope_hash = ?
-        ORDER BY shard_index ASC
-      `);
-      rows = stmt.all(scope, scopeHash) as any[];
-    }
+    const rows =
+      scopeHash === ""
+        ? (this.allShardsStmt.all(scope) as any[])
+        : (this.scopedShardsStmt.all(scope, scopeHash) as any[]);
 
     return rows.map((row: any) => ({
       id: row.id,
@@ -111,12 +109,7 @@ export class ShardManager {
     const storedPath = join(`${scope}s`, basename(fullPath)).replace(/\\/g, "/");
     const now = Date.now();
 
-    const stmt = this.metadataDb.prepare(`
-      INSERT INTO shards (scope, scope_hash, shard_index, db_path, vector_count, is_active, created_at)
-      VALUES (?, ?, ?, ?, 0, 1, ?)
-    `);
-
-    const result = stmt.run(scope, scopeHash, shardIndex, storedPath, now);
+    const result = this.createShardStmt.run(scope, scopeHash, shardIndex, storedPath, now);
 
     const db = connectionManager.getConnection(fullPath);
     this.initShardDb(db);
