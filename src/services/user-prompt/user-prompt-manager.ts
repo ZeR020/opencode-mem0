@@ -8,6 +8,10 @@ type DatabaseType = Database;
 
 const USER_PROMPTS_DB_NAME = "user-prompts.db";
 
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
 export interface UserPrompt {
   id: string;
   sessionId: string;
@@ -110,10 +114,10 @@ export class UserPromptManager {
         `SELECT * FROM user_prompts WHERE captured = 1 AND project_path = ? ORDER BY created_at DESC`
       ),
       searchPrompts: this.db.prepare(
-        `SELECT * FROM user_prompts WHERE content LIKE ? AND captured = 1 ORDER BY created_at DESC LIMIT ?`
+        `SELECT * FROM user_prompts WHERE content LIKE ? ESCAPE '\\' AND captured = 1 ORDER BY created_at DESC LIMIT ?`
       ),
       searchPromptsByProject: this.db.prepare(
-        `SELECT * FROM user_prompts WHERE content LIKE ? AND captured = 1 AND project_path = ? ORDER BY created_at DESC LIMIT ?`
+        `SELECT * FROM user_prompts WHERE content LIKE ? ESCAPE '\\' AND captured = 1 AND project_path = ? ORDER BY created_at DESC LIMIT ?`
       ),
       getByIds: this.db.prepare(`SELECT * FROM user_prompts WHERE id = ?`),
     };
@@ -262,7 +266,7 @@ export class UserPromptManager {
   }
 
   searchPrompts(query: string, projectPath?: string, limit: number = 20): UserPrompt[] {
-    const likePattern = `%${query}%`;
+    const likePattern = `%${escapeLikePattern(query)}%`;
     if (projectPath) {
       const rows = this.stmts.searchPromptsByProject.all(likePattern, projectPath, limit) as any[];
       return rows.map((row) => this.rowToPrompt(row));
