@@ -115,6 +115,9 @@ export class AISessionManager {
       "CREATE INDEX IF NOT EXISTS idx_ai_messages_session ON ai_messages(ai_session_id, sequence)"
     );
     this.db.run(
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_messages_session_sequence_unique ON ai_messages(ai_session_id, sequence)"
+    );
+    this.db.run(
       "CREATE INDEX IF NOT EXISTS idx_ai_messages_role ON ai_messages(ai_session_id, role)"
     );
   }
@@ -202,20 +205,30 @@ export class AISessionManager {
   }
 
   addMessageAtomic(message: Omit<AIMessage, "id" | "sequence" | "createdAt">): number {
-    const nextSeq = this.getNextSeqStmt.get(message.aiSessionId) as { next_seq: number };
+    this.db.run("BEGIN IMMEDIATE");
+    try {
+      const nextSeq = this.getNextSeqStmt.get(message.aiSessionId) as { next_seq: number };
+      const seq = nextSeq.next_seq;
 
-    const seq = nextSeq.next_seq;
-    this.addMessageStmt.run(
-      message.aiSessionId,
-      seq,
-      message.role,
-      message.content,
-      message.toolCalls ? JSON.stringify(message.toolCalls) : null,
-      message.toolCallId || null,
-      message.contentBlocks ? JSON.stringify(message.contentBlocks) : null,
-      Date.now()
-    );
-    return seq;
+      this.addMessageStmt.run(
+        message.aiSessionId,
+        seq,
+        message.role,
+        message.content,
+        message.toolCalls ? JSON.stringify(message.toolCalls) : null,
+        message.toolCallId || null,
+        message.contentBlocks ? JSON.stringify(message.contentBlocks) : null,
+        Date.now()
+      );
+
+      this.db.run("COMMIT");
+      return seq;
+    } catch (error) {
+      try {
+        this.db.run("ROLLBACK");
+      } catch {}
+      throw error;
+    }
   }
 
   clearMessages(aiSessionId: string): void {
