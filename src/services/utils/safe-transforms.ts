@@ -8,7 +8,7 @@ export function safeToISOString(timestamp: unknown): string {
     if (timestamp === null || timestamp === undefined) {
       return new Date().toISOString();
     }
-    const numValue = typeof timestamp === "bigint" ? Number(timestamp) : Number(timestamp);
+    const numValue = Number(timestamp);
 
     if (isNaN(numValue) || numValue < 0) {
       return new Date().toISOString();

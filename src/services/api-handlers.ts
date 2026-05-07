@@ -333,11 +333,9 @@ export async function handleDeleteMemory(
       const db = connectionManager.getConnection(shard.dbPath);
       const memory = vectorSearch.getMemoryById(db, id);
       if (memory) {
+        const metadata = safeJSONParse(memory.metadata) as Record<string, unknown> | undefined;
+        const linkedPromptId = metadata?.promptId as string | undefined;
         if (cascade) {
-          const metadata = safeJSONParse(memory.metadata);
-          const linkedPromptId = (metadata as Record<string, unknown>)?.promptId as
-            | string
-            | undefined;
           if (linkedPromptId) userPromptManager.deletePrompt(linkedPromptId);
         }
         await vectorSearch.deleteVector(db, id, shard);
@@ -345,8 +343,7 @@ export async function handleDeleteMemory(
         return {
           success: true,
           data: {
-            deletedPrompt:
-              cascade && !!(safeJSONParse(memory.metadata) as Record<string, unknown>)?.promptId,
+            deletedPrompt: cascade && !!linkedPromptId,
           },
         };
       }
@@ -602,6 +599,7 @@ export async function handleSearch(
         for (const mid of missingMemoryIds) {
           const m = vectorSearch.getMemoryById(db, mid);
           if (m && !paginatedResults.some((existing) => existing.id === m.id)) {
+            const parsedMetadata = safeJSONParse(m.metadata) as Record<string, unknown> | undefined;
             paginatedResults.push({
               type: "memory",
               id: m.id,
@@ -611,7 +609,7 @@ export async function handleSearch(
               createdAt: safeToISOString(m.created_at),
               updatedAt: m.updated_at ? safeToISOString(m.updated_at) : undefined,
               similarity: 0,
-              metadata: safeJSONParse(m.metadata) as Record<string, unknown>,
+              metadata: parsedMetadata,
               displayName: m.display_name,
               userName: m.user_name,
               userEmail: m.user_email,
@@ -619,9 +617,7 @@ export async function handleSearch(
               projectName: m.project_name,
               gitRepoUrl: m.git_repo_url,
               isPinned: m.is_pinned === 1,
-              linkedPromptId: (safeJSONParse(m.metadata) as Record<string, unknown>)?.promptId as
-                | string
-                | undefined,
+              linkedPromptId: parsedMetadata?.promptId as string | undefined,
               isContext: true,
             });
           }
@@ -970,7 +966,7 @@ class MigrationProgressTracker {
       currentBatch: this.currentBatch,
       totalBatches: this.totalBatches,
       isComplete: this.isComplete,
-      errors: this.errors,
+      errors: [...this.errors],
     };
   }
 }
