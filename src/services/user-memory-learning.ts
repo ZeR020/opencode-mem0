@@ -1,4 +1,5 @@
 import type { PluginInput } from "@opencode-ai/plugin";
+import { randomBytes } from "node:crypto";
 import { getTags } from "./tags.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
@@ -31,7 +32,7 @@ export async function performUserProfileLearning(
 
     const tags = getTags(directory);
     const userId =
-      tags.user.userEmail || `anonymous-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      tags.user.userEmail || `anonymous-${Date.now()}-${randomBytes(4).toString("hex")}`;
 
     const existingProfile = userProfileManager.getActiveProfile(userId);
 

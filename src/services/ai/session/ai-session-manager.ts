@@ -1,4 +1,5 @@
 import { type Database } from "../../sqlite/sqlite-bootstrap.js";
+import { randomBytes } from "node:crypto";
 import { join, dirname } from "node:path";
 import { existsSync, mkdirSync } from "node:fs";
 import { connectionManager } from "../../sqlite/connection-manager.js";
@@ -85,7 +86,7 @@ export class AISessionManager {
   }
 
   createSession(params: SessionCreateParams): AISession {
-    const id = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const id = `sess_${Date.now()}_${randomBytes(4).toString("hex")}`;
     const now = Date.now();
     const expiresAt = now + this.sessionRetentionMs;
 

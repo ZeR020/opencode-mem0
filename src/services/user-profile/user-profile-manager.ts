@@ -1,4 +1,5 @@
 import { type Database } from "../sqlite/sqlite-bootstrap.js";
+import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { connectionManager } from "../sqlite/connection-manager.js";
 import { CONFIG } from "../../config.js";
@@ -93,7 +94,7 @@ export class UserProfileManager {
     profileData: UserProfileData,
     promptsAnalyzed: number
   ): string {
-    const id = `profile_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const id = `profile_${Date.now()}_${randomBytes(4).toString("hex")}`;
     const now = Date.now();
 
     const cleanedData: UserProfileData = {
@@ -194,7 +195,7 @@ export class UserProfileManager {
     changeSummary: string,
     profileData: UserProfileData
   ): void {
-    const id = `changelog_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const id = `changelog_${Date.now()}_${randomBytes(4).toString("hex")}`;
     const now = Date.now();
 
     const stmt = this.db.prepare(`

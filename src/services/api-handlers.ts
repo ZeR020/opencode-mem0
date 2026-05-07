@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { embeddingService } from "./embedding.js";
 import { shardManager } from "./sqlite/shard-manager.js";
 import { vectorSearch } from "./sqlite/vector-search.js";
@@ -314,7 +315,7 @@ export async function handleAddMemory(data: {
 
     const shard = shardManager.getWriteShard(scope, hash);
 
-    const id = `mem_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    const id = `mem_${Date.now()}_${randomBytes(5).toString("hex")}`;
     const now = Date.now();
 
     const record = {
