@@ -8,6 +8,7 @@ import { CONFIG } from "../config.js";
 import type { MemoryType } from "../types/index.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
 import { getAllUnresolvedConflicts, resolveConflict } from "./memory-conflicts.js";
+import { safeToISOString, safeJSONParse } from "./utils/safe-transforms.js";
 
 interface ApiResponse<T = any> {
   success: boolean;
@@ -52,32 +53,6 @@ interface PaginatedResponse<T> {
   totalPages: number;
 }
 
-function safeToISOString(timestamp: any): string {
-  try {
-    if (timestamp === null || timestamp === undefined) {
-      return new Date().toISOString();
-    }
-    const numValue = typeof timestamp === "bigint" ? Number(timestamp) : Number(timestamp);
-    if (isNaN(numValue) || numValue < 0) {
-      return new Date().toISOString();
-    }
-    return new Date(numValue).toISOString();
-  } catch {
-    return new Date().toISOString();
-  }
-}
-
-function safeJSONParse(jsonString: any): any {
-  if (!jsonString || typeof jsonString !== "string") {
-    return undefined;
-  }
-  try {
-    return JSON.parse(jsonString);
-  } catch {
-    return undefined;
-  }
-}
-
 function extractScopeFromTag(tag: string): { scope: "project"; hash: string } {
   const parts = tag.split("_");
   if (parts.length >= 3) {
@@ -88,8 +63,9 @@ function extractScopeFromTag(tag: string): { scope: "project"; hash: string } {
 }
 
 function getProjectPathFromTag(tag: string): string | undefined {
-  const projectShards = shardManager.getAllShards("project", "");
-  for (const shard of projectShards) {
+  const { scope, hash } = extractScopeFromTag(tag);
+  const shards = shardManager.getAllShards(scope, hash);
+  for (const shard of shards) {
     const db = connectionManager.getConnection(shard.dbPath);
     const tags = vectorSearch.getDistinctTags(db);
     for (const t of tags) {
@@ -177,7 +153,7 @@ export async function handleListMemories(
         createdAt: Number(r.created_at),
         updatedAt: r.updated_at ? Number(r.updated_at) : undefined,
         metadata,
-        linkedPromptId: metadata?.promptId,
+        linkedPromptId: (metadata as Record<string, unknown>)?.promptId,
         displayName: r.display_name,
         userName: r.user_name,
         userEmail: r.user_email,
@@ -359,14 +335,19 @@ export async function handleDeleteMemory(
       if (memory) {
         if (cascade) {
           const metadata = safeJSONParse(memory.metadata);
-          const linkedPromptId = metadata?.promptId;
+          const linkedPromptId = (metadata as Record<string, unknown>)?.promptId as
+            | string
+            | undefined;
           if (linkedPromptId) userPromptManager.deletePrompt(linkedPromptId);
         }
         await vectorSearch.deleteVector(db, id, shard);
         shardManager.decrementVectorCount(shard.id);
         return {
           success: true,
-          data: { deletedPrompt: cascade && !!safeJSONParse(memory.metadata)?.promptId },
+          data: {
+            deletedPrompt:
+              cascade && !!(safeJSONParse(memory.metadata) as Record<string, unknown>)?.promptId,
+          },
         };
       }
     }
@@ -569,7 +550,7 @@ export async function handleSearch(
       projectName: r.projectName,
       gitRepoUrl: r.gitRepoUrl,
       isPinned: r.isPinned === 1,
-      linkedPromptId: r.metadata?.promptId,
+      linkedPromptId: (r.metadata as Record<string, unknown>)?.promptId as string | undefined,
     }));
 
     const combinedResults = [...formattedMemories, ...formattedPrompts].sort(
@@ -630,7 +611,7 @@ export async function handleSearch(
               createdAt: safeToISOString(m.created_at),
               updatedAt: m.updated_at ? safeToISOString(m.updated_at) : undefined,
               similarity: 0,
-              metadata: safeJSONParse(m.metadata),
+              metadata: safeJSONParse(m.metadata) as Record<string, unknown>,
               displayName: m.display_name,
               userName: m.user_name,
               userEmail: m.user_email,
@@ -638,7 +619,9 @@ export async function handleSearch(
               projectName: m.project_name,
               gitRepoUrl: m.git_repo_url,
               isPinned: m.is_pinned === 1,
-              linkedPromptId: safeJSONParse(m.metadata)?.promptId,
+              linkedPromptId: (safeJSONParse(m.metadata) as Record<string, unknown>)?.promptId as
+                | string
+                | undefined,
               isContext: true,
             });
           }
@@ -963,26 +946,41 @@ export async function handleDetectTagMigration(): Promise<
   }
 }
 
-interface MigrationProgress {
-  processed: number;
-  total: number;
-  currentBatch: number;
-  totalBatches: number;
-  isComplete: boolean;
-  errors: string[];
+class MigrationProgressTracker {
+  processed = 0;
+  total = 0;
+  currentBatch = 0;
+  totalBatches = 0;
+  isComplete = true;
+  errors: string[] = [];
+
+  reset(): void {
+    this.processed = 0;
+    this.total = 0;
+    this.currentBatch = 0;
+    this.totalBatches = 0;
+    this.isComplete = true;
+    this.errors = [];
+  }
+
+  toJSON() {
+    return {
+      processed: this.processed,
+      total: this.total,
+      currentBatch: this.currentBatch,
+      totalBatches: this.totalBatches,
+      isComplete: this.isComplete,
+      errors: this.errors,
+    };
+  }
 }
 
-let migrationProgress: MigrationProgress = {
-  processed: 0,
-  total: 0,
-  currentBatch: 0,
-  totalBatches: 0,
-  isComplete: true,
-  errors: [],
-};
+const migrationProgress = new MigrationProgressTracker();
 
-export async function handleGetTagMigrationProgress(): Promise<ApiResponse<MigrationProgress>> {
-  return { success: true, data: migrationProgress };
+export async function handleGetTagMigrationProgress(): Promise<
+  ApiResponse<ReturnType<MigrationProgressTracker["toJSON"]>>
+> {
+  return { success: true, data: migrationProgress.toJSON() };
 }
 
 export async function handleRunTagMigrationBatch(
