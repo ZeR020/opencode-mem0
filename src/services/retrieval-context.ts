@@ -8,44 +8,6 @@ export interface RetrievalContext {
   currentQuery?: string;
 }
 
-// Simple context tracker that stores recent queries and files
-class ContextTracker {
-  private recentQueries: string[] = [];
-  private recentFiles: string[] = [];
-  private maxHistory = 10;
-
-  addQuery(query: string) {
-    this.recentQueries.push(query);
-    if (this.recentQueries.length > this.maxHistory) {
-      this.recentQueries.shift();
-    }
-  }
-
-  addFiles(files: string[]) {
-    this.recentFiles.push(...files);
-    if (this.recentFiles.length > this.maxHistory) {
-      this.recentFiles = this.recentFiles.slice(-this.maxHistory);
-    }
-  }
-
-  getContext(projectPath?: string, projectName?: string): RetrievalContext {
-    return {
-      projectPath,
-      projectName,
-      recentFiles: [...this.recentFiles],
-      recentQueries: [...this.recentQueries],
-      currentQuery: this.recentQueries[this.recentQueries.length - 1],
-    };
-  }
-
-  clear() {
-    this.recentQueries = [];
-    this.recentFiles = [];
-  }
-}
-
-export const contextTracker = new ContextTracker();
-
 /**
  * Calculate a context-based score boost for a memory result.
  * Boosts scores when the memory's project path, project name, or metadata
