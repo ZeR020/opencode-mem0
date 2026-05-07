@@ -200,6 +200,15 @@ const TECHNICAL_KEYWORDS = [
   "storage",
 ];
 
+// Pre-compile a single regex for all technical keywords to avoid 200+ individual regex compiles per call
+const TECHNICAL_KEYWORDS_RE = new RegExp(
+  "\\b(" +
+    TECHNICAL_KEYWORDS.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") +
+    ")\\b",
+  "gi"
+);
+const WORD_SPLIT_RE = /\s+/;
+
 // Negation patterns for interference detection
 const NEGATION_PATTERNS = [
   /\b(not|no|never|none|nothing|nobody|nowhere|neither|nor)\b/gi,
@@ -214,6 +223,30 @@ const ACTION_PATTERNS = [
   /\b(added|created|implemented|built|developed|wrote|wrote|configured|enabled|fixed|resolved|solved)\b/gi,
   /\b(true|correct|valid|success|working|active|enabled|on)\b/gi,
 ];
+
+// Pre-computed type importance lookup
+const HIGH_IMPORTANCE_TYPES = new Set([
+  "bug-fix",
+  "feature",
+  "refactor",
+  "architecture",
+  "decision",
+]);
+const MEDIUM_IMPORTANCE_TYPES = new Set(["analysis", "configuration", "optimization", "security"]);
+const LOW_IMPORTANCE_TYPES = new Set(["greeting", "chat", "casual", "meta"]);
+
+function countWords(text: string): number {
+  const trimmed = text.trim();
+  if (!trimmed) return 0;
+  return trimmed.split(WORD_SPLIT_RE).length;
+}
+
+function hasTypeMatch(types: Set<string>, lowerType: string): boolean {
+  for (const type of types) {
+    if (lowerType.includes(type)) return true;
+  }
+  return false;
+}
 
 /**
  * Calculate recency score using exponential decay.
@@ -257,19 +290,12 @@ export function calculateImportance(content: string, type?: string): number {
   const codeBlockCount = (content.match(/```/g) || []).length / 2;
   score += Math.min(codeBlockCount * 0.15, 0.3);
 
-  // Technical keywords boost importance
-  let keywordMatches = 0;
-  for (const keyword of TECHNICAL_KEYWORDS) {
-    const regex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi");
-    const matches = lowerContent.match(regex);
-    if (matches) {
-      keywordMatches += matches.length;
-    }
-  }
+  // Technical keywords boost importance (single pre-compiled regex vs 200+ individual regex compiles)
+  const keywordMatches = lowerContent.match(TECHNICAL_KEYWORDS_RE)?.length ?? 0;
   score += Math.min(keywordMatches * 0.02, 0.2);
 
   // Length factor: moderate length preferred
-  const wordCount = content.split(/\s+/).filter(Boolean).length;
+  const wordCount = countWords(content);
   if (wordCount < 10) {
     score -= 0.1; // Too short
   } else if (wordCount > 500) {
@@ -278,17 +304,16 @@ export function calculateImportance(content: string, type?: string): number {
     score += 0.1; // Sweet spot
   }
 
-  // Type-based importance
-  const highImportanceTypes = ["bug-fix", "feature", "refactor", "architecture", "decision"];
-  const mediumImportanceTypes = ["analysis", "configuration", "optimization", "security"];
-  const lowImportanceTypes = ["greeting", "chat", "casual", "meta"];
-
-  if (type && highImportanceTypes.some((t) => type.toLowerCase().includes(t))) {
-    score += 0.15;
-  } else if (type && mediumImportanceTypes.some((t) => type.toLowerCase().includes(t))) {
-    score += 0.05;
-  } else if (type && lowImportanceTypes.some((t) => type.toLowerCase().includes(t))) {
-    score -= 0.1;
+  // Type-based importance (substring matching preserves custom type variants)
+  if (type) {
+    const lowerType = type.toLowerCase();
+    if (hasTypeMatch(HIGH_IMPORTANCE_TYPES, lowerType)) {
+      score += 0.15;
+    } else if (hasTypeMatch(MEDIUM_IMPORTANCE_TYPES, lowerType)) {
+      score += 0.05;
+    } else if (hasTypeMatch(LOW_IMPORTANCE_TYPES, lowerType)) {
+      score -= 0.1;
+    }
   }
 
   // File paths and specific identifiers indicate high importance
