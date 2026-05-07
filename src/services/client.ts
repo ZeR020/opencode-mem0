@@ -10,36 +10,9 @@ import type { MemoryRecord } from "./sqlite/types.js";
 import { calculateAllScores } from "./memory-scoring.js";
 import { classifyMemory } from "./memory-lifecycle.js";
 import { detectConflicts } from "./memory-conflicts.js";
+import { safeToISOString, safeJSONParse } from "./utils/safe-transforms.js";
 
 export type MemoryScope = "project" | "all-projects";
-
-function safeToISOString(timestamp: any): string {
-  try {
-    if (timestamp === null || timestamp === undefined) {
-      return new Date().toISOString();
-    }
-    const numValue = typeof timestamp === "bigint" ? Number(timestamp) : Number(timestamp);
-
-    if (isNaN(numValue) || numValue < 0) {
-      return new Date().toISOString();
-    }
-
-    return new Date(numValue).toISOString();
-  } catch {
-    return new Date().toISOString();
-  }
-}
-
-function safeJSONParse(jsonString: any): any {
-  if (!jsonString || typeof jsonString !== "string") {
-    return undefined;
-  }
-  try {
-    return JSON.parse(jsonString);
-  } catch {
-    return undefined;
-  }
-}
 
 function extractScopeFromContainerTag(containerTag: string): {
   scope: "user" | "project";
