@@ -220,7 +220,7 @@ const NEGATION_PATTERNS = [
 
 // Positive/action patterns
 const ACTION_PATTERNS = [
-  /\b(added|created|implemented|built|developed|wrote|wrote|configured|enabled|fixed|resolved|solved)\b/gi,
+  /\b(added|created|implemented|built|developed|wrote|configured|enabled|fixed|resolved|solved)\b/gi,
   /\b(true|correct|valid|success|working|active|enabled|on)\b/gi,
 ];
 
