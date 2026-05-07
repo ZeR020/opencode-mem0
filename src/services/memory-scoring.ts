@@ -615,12 +615,23 @@ export function calculateAllScores(options: {
   type?: string;
   halfLifeDays?: number;
   utilityHalfLifeDays?: number;
+  context?: {
+    projectPath?: string;
+    projectName?: string;
+    recentFiles?: string[];
+    recentQueries?: string[];
+  };
 }): ScoreComponents & { strength: number } {
   const scores: ScoreComponents = {
     recency: calculateRecency(options.createdAt, options.halfLifeDays),
     frequency: calculateFrequency(options.accessCount),
     importance: calculateImportance(options.content, options.type),
-    utility: calculateUtility(options.lastAccessed, options.utilityHalfLifeDays),
+    utility: calculateUtility(
+      options.lastAccessed,
+      options.utilityHalfLifeDays,
+      options.content,
+      options.context
+    ),
     novelty: calculateNovelty(options.content, options.existingContents),
     confidence: calculateConfidence(options.source, options.type),
     interference: calculateInterference(options.content, options.conflictingMemories),
