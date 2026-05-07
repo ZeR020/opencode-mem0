@@ -4,8 +4,44 @@ import { connectionManager } from "./sqlite/connection-manager.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 
-let lifecycleInterval: NodeJS.Timeout | null = null;
-let isRunning = false;
+class LifecycleManager {
+  private interval: NodeJS.Timeout | null = null;
+  private isRunning = false;
+
+  start(): void {
+    if (this.interval) return;
+    const intervalMs = (CONFIG.memoryLifecycle?.checkIntervalMinutes ?? 60) * 60 * 1000;
+    this.interval = setInterval(async () => {
+      if (this.isRunning) return;
+      this.isRunning = true;
+      try {
+        await applyDecay();
+        scanAndPromote();
+      } catch (error) {
+        log("Lifecycle job error", { error: String(error) });
+      } finally {
+        this.isRunning = false;
+      }
+    }, intervalMs);
+    log("Memory lifecycle job started", {
+      intervalMinutes: CONFIG.memoryLifecycle?.checkIntervalMinutes ?? 60,
+    });
+  }
+
+  stop(): void {
+    if (this.interval) {
+      clearInterval(this.interval as any);
+      this.interval = null;
+      log("Memory lifecycle job stopped");
+    }
+  }
+
+  isActive(): boolean {
+    return this.interval !== null;
+  }
+}
+
+const lifecycleManager = new LifecycleManager();
 
 // Memory type classification rules
 const LTM_TYPES = new Set([
@@ -370,38 +406,14 @@ export function scanAndPromote(): { scanned: number; promoted: number } {
  * Runs applyDecay and scanAndPromote at the configured interval.
  */
 export function startLifecycleJob(): void {
-  if (lifecycleInterval) return;
-
-  const intervalMs = (CONFIG.memoryLifecycle?.checkIntervalMinutes ?? 60) * 60 * 1000;
-
-  lifecycleInterval = setInterval(async () => {
-    if (isRunning) return;
-    isRunning = true;
-
-    try {
-      await applyDecay();
-      scanAndPromote();
-    } catch (error) {
-      log("Lifecycle job error", { error: String(error) });
-    } finally {
-      isRunning = false;
-    }
-  }, intervalMs);
-
-  log("Memory lifecycle job started", {
-    intervalMinutes: CONFIG.memoryLifecycle?.checkIntervalMinutes ?? 60,
-  });
+  lifecycleManager.start();
 }
 
 /**
  * Stop the background lifecycle job.
  */
 export function stopLifecycleJob(): void {
-  if (lifecycleInterval) {
-    clearInterval(lifecycleInterval as any);
-    lifecycleInterval = null;
-    log("Memory lifecycle job stopped");
-  }
+  lifecycleManager.stop();
 }
 
 /**

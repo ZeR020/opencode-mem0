@@ -9,7 +9,21 @@ import type { MemoryConflict } from "./sqlite/types.js";
 
 type DatabaseType = Database;
 
-let isConflictCheckRunning = false;
+class ConflictCheckLock {
+  private running = false;
+
+  acquire(): boolean {
+    if (this.running) return false;
+    this.running = true;
+    return true;
+  }
+
+  release(): void {
+    this.running = false;
+  }
+}
+
+const conflictCheckLock = new ConflictCheckLock();
 
 /**
  * Check if two memory statements contradict each other using an LLM.
@@ -112,30 +126,40 @@ async function checkContradictionWithLLM(
  * @param b - Second memory content
  * @returns true if a likely contradiction is detected
  */
+const NEGATION_PATTERNS = [
+  /not\s+/i,
+  /never\s+/i,
+  /no\s+/i,
+  /disable/i,
+  /remove/i,
+  /delete/i,
+  /false/i,
+  /deprecated/i,
+  /obsolete/i,
+];
+
+function getWords(text: string): string[] {
+  const words: string[] = [];
+  let current = "";
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    if (ch <= " ") {
+      if (current.length > 3) words.push(current.toLowerCase());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  if (current.length > 3) words.push(current.toLowerCase());
+  return words;
+}
+
 function checkContradictionHeuristic(a: string, b: string): boolean {
-  const negationPatterns = [
-    /not\s+/i,
-    /never\s+/i,
-    /no\s+/i,
-    /disable/i,
-    /remove/i,
-    /delete/i,
-    /false/i,
-    /deprecated/i,
-    /obsolete/i,
-  ];
+  const aWords = getWords(a);
+  const bWords = getWords(b);
 
-  const aWords = a
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length > 3);
-  const bWords = b
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length > 3);
-
-  const aHasNegation = negationPatterns.some((p) => p.test(a));
-  const bHasNegation = negationPatterns.some((p) => p.test(b));
+  const aHasNegation = NEGATION_PATTERNS.some((p) => p.test(a));
+  const bHasNegation = NEGATION_PATTERNS.some((p) => p.test(b));
 
   // If one has negation and other doesn't, check for key concept overlap
   if (aHasNegation !== bHasNegation) {
@@ -164,11 +188,10 @@ export async function detectConflicts(
   containerTag: string,
   sessionID?: string
 ): Promise<MemoryConflict[]> {
-  if (isConflictCheckRunning) {
+  if (!conflictCheckLock.acquire()) {
     log("detectConflicts: skipping, another check is running");
     return [];
   }
-  isConflictCheckRunning = true;
 
   try {
     const { scope, hash } = extractScopeFromContainerTag(containerTag);
@@ -228,7 +251,7 @@ export async function detectConflicts(
     log("detectConflicts: error", { error: String(error) });
     return [];
   } finally {
-    isConflictCheckRunning = false;
+    conflictCheckLock.release();
   }
 }
 
