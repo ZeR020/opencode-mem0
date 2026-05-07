@@ -333,12 +333,12 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
                   commands: [
                     {
                       command: "add",
-                      description: `Store new memory (MATCH USER LANGUAGE: ${langName})`,
+                      description: "Store new memory",
                       args: ["content", "type?", "tags?"],
                     },
                     {
                       command: "search",
-                      description: `Search memories via keywords (MATCH USER LANGUAGE: ${langName})`,
+                      description: "Search memories via keywords",
                       args: ["query"],
                     },
                     {
@@ -622,15 +622,17 @@ function formatSearchResults(query: string, results: any, limit?: number): strin
 }
 
 function formatMemoriesForCompaction(memories: any[]): string {
-  let output = `## Restored Session Memory\n\n`;
+  const sections: string[] = ["## Restored Session Memory\n"];
 
-  memories.forEach((m, i) => {
-    output += `### Memory ${i + 1}\n`;
-    output += `${m.memory}\n\n`;
+  for (let i = 0; i < memories.length; i++) {
+    const m = memories[i];
+    sections.push(`### Memory ${i + 1}`);
+    sections.push(m.memory);
     if (m.tags && m.tags.length > 0) {
-      output += `Tags: ${m.tags.join(", ")}\n\n`;
+      sections.push(`Tags: ${m.tags.join(", ")}`);
     }
-  });
+    sections.push("");
+  }
 
-  return output;
+  return sections.join("\n");
 }
