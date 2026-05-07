@@ -49,7 +49,14 @@ export class ExactScanBackend implements VectorBackend {
   async delete(_args: { id: string; shard: ShardInfo; kind: VectorKind }): Promise<void> {}
 
   async search(args: VectorBackendSearchParams): Promise<BackendSearchResult[]> {
-    const column = args.kind === "tags" ? "tags_vector" : "vector";
+    const COLUMN_MAP: Record<string, string> = {
+      content: "vector",
+      tags: "tags_vector",
+    };
+    const column = COLUMN_MAP[args.kind];
+    if (!column) {
+      throw new Error(`Invalid vector kind: ${args.kind}`);
+    }
     const rows = (
       args.db as {
         prepare: (sql: string) => { all: () => VectorRow[] };
