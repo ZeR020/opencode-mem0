@@ -225,14 +225,13 @@ export class WebServer {
     const method = req.method;
 
     try {
-      // Optional API key auth: enforce only when binding to non-loopback
-      const requiresAuth = !LOCAL_HOSTS.has(this.config.host) && !!this.config.enabled;
+      // Enforce API key auth whenever an apiKey is configured
+      const requiresAuth = !!this.config.apiKey;
 
       const remoteIp = this.server?.requestIP(req)?.address;
-      const isLocal =
-        LOCAL_HOSTS.has(this.config.host) || (remoteIp ? LOCAL_HOSTS.has(remoteIp) : false);
+      const isLocal = remoteIp ? LOCAL_HOSTS.has(remoteIp) : false;
 
-      if (this.config.apiKey && requiresAuth) {
+      if (requiresAuth) {
         const apiKey = req.headers.get("x-opencode-mem-key");
         if (apiKey !== this.config.apiKey) {
           return this.jsonResponse({ success: false, error: "Unauthorized" }, 401);
