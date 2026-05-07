@@ -21,9 +21,15 @@ function getTranscriptDbPath(): string {
   return join(CONFIG.storagePath, "transcripts.db");
 }
 
+const WORD_SPLIT_RE = /\s+/;
+
 function approximateTokenCount(text: string): number {
-  const words = text.trim().split(/\s+/).filter(Boolean).length;
-  return Math.ceil(words * 1.33);
+  let count = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch && ch <= " ") count++;
+  }
+  return Math.ceil((count + 1) * 1.33);
 }
 
 export class TranscriptManager {
