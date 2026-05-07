@@ -25,12 +25,13 @@ function withTimeout<T>(promise: Promise<T>, ms: number, signal?: AbortSignal): 
   return Promise.race([
     promise,
     new Promise<T>((_, reject) => {
-      const timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
       if (signal) {
         signal.addEventListener("abort", () => {
-          clearTimeout(timer);
           reject(new Error("Aborted"));
         });
+      } else {
+        const timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
+        // No need to clear timer on abort when we are the one controlling abort
       }
     }),
   ]);
@@ -75,7 +76,7 @@ export class EmbeddingService {
     }
   }
 
-  async embed(text: string): Promise<Float32Array> {
+  async embed(text: string, signal?: AbortSignal): Promise<Float32Array> {
     if (this.cachedModelName !== CONFIG.embeddingModel) {
       this.clearCache();
       this.cachedModelName = CONFIG.embeddingModel;
@@ -93,9 +94,6 @@ export class EmbeddingService {
 
     let result: Float32Array;
 
-    const abortController = new AbortController();
-    const timeoutId = setTimeout(() => abortController.abort(), TIMEOUT_MS);
-
     try {
       if (CONFIG.embeddingApiUrl && CONFIG.embeddingApiKey) {
         const response = await fetch(`${CONFIG.embeddingApiUrl}/embeddings`, {
@@ -108,7 +106,7 @@ export class EmbeddingService {
             input: text,
             model: CONFIG.embeddingModel,
           }),
-          signal: abortController.signal,
+          signal,
         });
 
         if (!response.ok) {
@@ -122,7 +120,7 @@ export class EmbeddingService {
         result = new Float32Array(output.data);
       }
     } finally {
-      clearTimeout(timeoutId);
+      // no internal timeout to clear
     }
 
     if (this.cache.size >= MAX_CACHE_SIZE) {
@@ -135,7 +133,22 @@ export class EmbeddingService {
   }
 
   async embedWithTimeout(text: string): Promise<Float32Array> {
-    return withTimeout(this.embed(text), TIMEOUT_MS, undefined);
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), TIMEOUT_MS);
+    try {
+      return await withTimeout(
+        this.embed(text, abortController.signal),
+        TIMEOUT_MS,
+        abortController.signal
+      );
+    } catch (error) {
+      if (error instanceof Error && error.message === "Aborted") {
+        throw new Error(`Timeout after ${TIMEOUT_MS}ms`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   clearCache(): void {
