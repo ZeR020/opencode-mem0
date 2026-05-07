@@ -5,40 +5,47 @@ import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 import { calculateRecency } from "./memory-scoring.js";
 
+let _lifecycleIsRunning = false;
+
 class LifecycleManager {
-  private interval: NodeJS.Timeout | null = null;
-  private isRunning = false;
+  private timeout: NodeJS.Timeout | null = null;
 
   start(): void {
-    if (this.interval) return;
-    const intervalMs = (CONFIG.memoryLifecycle?.checkIntervalMinutes ?? 60) * 60 * 1000;
-    this.interval = setInterval(async () => {
-      if (this.isRunning) return;
-      this.isRunning = true;
-      try {
-        await applyDecay();
-        scanAndPromote();
-      } catch (error) {
-        log("Lifecycle job error", { error: String(error) });
-      } finally {
-        this.isRunning = false;
-      }
-    }, intervalMs);
+    if (this.timeout) return;
     log("Memory lifecycle job started", {
       intervalMinutes: CONFIG.memoryLifecycle?.checkIntervalMinutes ?? 60,
     });
+    this.scheduleNext();
+  }
+
+  private scheduleNext(): void {
+    const intervalMs = (CONFIG.memoryLifecycle?.checkIntervalMinutes ?? 60) * 60 * 1000;
+    this.timeout = setTimeout(() => {
+      if (!_lifecycleIsRunning) {
+        _lifecycleIsRunning = true;
+        try {
+          applyDecay();
+          scanAndPromote();
+        } catch (error) {
+          log("Lifecycle job error", { error: String(error) });
+        } finally {
+          _lifecycleIsRunning = false;
+        }
+      }
+      this.scheduleNext();
+    }, intervalMs);
   }
 
   stop(): void {
-    if (this.interval) {
-      clearInterval(this.interval as any);
-      this.interval = null;
+    if (this.timeout) {
+      clearTimeout(this.timeout);
+      this.timeout = null;
       log("Memory lifecycle job stopped");
     }
   }
 
   isActive(): boolean {
-    return this.interval !== null;
+    return this.timeout !== null;
   }
 }
 
@@ -212,12 +219,16 @@ export function applyDecay(): {
           `UPDATE memories SET strength = ?, recency_score = ?, last_decay_at = ? WHERE id = ?`
         );
 
-        db.run("BEGIN TRANSACTION");
+        db.run("BEGIN IMMEDIATE");
         inTxn = true;
 
         for (const memory of memories) {
           const createdAt = Number(memory.created_at);
           const lastDecayAt = memory.last_decay_at ? Number(memory.last_decay_at) : createdAt;
+
+          // Skip rows already decayed by a concurrent writer in this time window
+          if (lastDecayAt >= now) continue;
+
           const deltaMs = now - lastDecayAt;
           const deltaDays = deltaMs / (24 * 60 * 60 * 1000);
           const currentStrength = Number(memory.strength || 0.5);
@@ -422,10 +433,17 @@ export function stopLifecycleJob(): void {
  * Run lifecycle maintenance immediately (useful for startup cleanup).
  */
 export async function runLifecycleMaintenance(): Promise<void> {
+  if (_lifecycleIsRunning) {
+    log("Lifecycle maintenance skipped: already running");
+    return;
+  }
+  _lifecycleIsRunning = true;
   try {
     applyDecay();
     scanAndPromote();
   } catch (error) {
     log("Lifecycle maintenance error", { error: String(error) });
+  } finally {
+    _lifecycleIsRunning = false;
   }
 }
