@@ -205,7 +205,7 @@ export async function detectConflicts(
       const db = connectionManager.getConnection(shard.dbPath);
 
       // Search for similar memories using text search first (cheaper than vector)
-      const similarMemories = findSimilarMemories(db, newMemoryContent, containerTag);
+      const similarMemories = findSimilarMemories(db, newMemoryContent, containerTag, newMemoryId);
 
       for (const candidate of similarMemories) {
         if (candidate.id === newMemoryId) continue;
@@ -294,7 +294,8 @@ interface SimilarMemory {
 function findSimilarMemories(
   db: DatabaseType,
   content: string,
-  containerTag: string
+  containerTag: string,
+  excludeMemoryId?: string
 ): SimilarMemory[] {
   const words = content
     .toLowerCase()
@@ -360,7 +361,7 @@ function findSimilarMemories(
         LIMIT 20
       `
       )
-      .all(containerTag, ...likePatterns, `mem_${Date.now()}`) as any[];
+      .all(containerTag, ...likePatterns, excludeMemoryId || `mem_${Date.now()}`) as any[];
 
     results = rows.map((r) => {
       const rWords = r.content
