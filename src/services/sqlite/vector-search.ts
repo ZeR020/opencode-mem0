@@ -442,10 +442,7 @@ export class VectorSearch {
       let set = wordSetCache.get(text);
       if (!set) {
         set = new Set(
-          text
-            .toLowerCase()
-            .split(/\s+/)
-            .filter((w) => w.length > 4)
+          (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length > 4)
         );
         wordSetCache.set(text, set);
       }
