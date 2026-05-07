@@ -207,6 +207,7 @@ const TECHNICAL_KEYWORDS_RE = new RegExp(
     ")\\b",
   "gi"
 );
+const WORD_SPLIT_RE = /\s+/;
 
 // Negation patterns for interference detection
 const NEGATION_PATTERNS = [
@@ -233,6 +234,19 @@ const HIGH_IMPORTANCE_TYPES = new Set([
 ]);
 const MEDIUM_IMPORTANCE_TYPES = new Set(["analysis", "configuration", "optimization", "security"]);
 const LOW_IMPORTANCE_TYPES = new Set(["greeting", "chat", "casual", "meta"]);
+
+function countWords(text: string): number {
+  const trimmed = text.trim();
+  if (!trimmed) return 0;
+  return trimmed.split(WORD_SPLIT_RE).length;
+}
+
+function hasTypeMatch(types: Set<string>, lowerType: string): boolean {
+  for (const type of types) {
+    if (lowerType.includes(type)) return true;
+  }
+  return false;
+}
 
 /**
  * Calculate recency score using exponential decay.
@@ -281,11 +295,7 @@ export function calculateImportance(content: string, type?: string): number {
   score += Math.min(keywordMatches * 0.02, 0.2);
 
   // Length factor: moderate length preferred
-  let wordCount = 0;
-  for (let i = 0; i < content.length; i++) {
-    if (content[i]! <= " ") wordCount++;
-  }
-  wordCount++; // account for last word
+  const wordCount = countWords(content);
   if (wordCount < 10) {
     score -= 0.1; // Too short
   } else if (wordCount > 500) {
@@ -294,14 +304,14 @@ export function calculateImportance(content: string, type?: string): number {
     score += 0.1; // Sweet spot
   }
 
-  // Type-based importance (pre-computed Sets for O(1) lookup)
+  // Type-based importance (substring matching preserves custom type variants)
   if (type) {
     const lowerType = type.toLowerCase();
-    if (HIGH_IMPORTANCE_TYPES.has(lowerType)) {
+    if (hasTypeMatch(HIGH_IMPORTANCE_TYPES, lowerType)) {
       score += 0.15;
-    } else if (MEDIUM_IMPORTANCE_TYPES.has(lowerType)) {
+    } else if (hasTypeMatch(MEDIUM_IMPORTANCE_TYPES, lowerType)) {
       score += 0.05;
-    } else if (LOW_IMPORTANCE_TYPES.has(lowerType)) {
+    } else if (hasTypeMatch(LOW_IMPORTANCE_TYPES, lowerType)) {
       score -= 0.1;
     }
   }
