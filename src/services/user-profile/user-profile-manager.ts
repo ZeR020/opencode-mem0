@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { connectionManager } from "../sqlite/connection-manager.js";
 import { CONFIG } from "../../config.js";
+import { safeJSONParse } from "../utils/safe-transforms.js";
 import {
   type UserProfile,
   type UserProfileData,
@@ -242,7 +243,9 @@ export class UserProfileManager {
     const profile = this.getProfileById(profileId);
     if (!profile) return;
 
-    const profileData: UserProfileData = JSON.parse(profile.profileData);
+    const parsedProfileData = safeJSONParse(profile.profileData);
+    if (!parsedProfileData) return;
+    const profileData = parsedProfileData as UserProfileData;
     const now = Date.now();
     const decayThreshold = CONFIG.userProfileConfidenceDecayDays * 24 * 60 * 60 * 1000;
 

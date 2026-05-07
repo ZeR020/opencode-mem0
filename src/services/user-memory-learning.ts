@@ -7,6 +7,7 @@ import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
 import type { UserPrompt } from "./user-prompt/user-prompt-manager.js";
 import { userProfileManager } from "./user-profile/user-profile-manager.js";
 import type { UserProfile, UserProfileData } from "./user-profile/types.js";
+import { safeJSONParse } from "./utils/safe-transforms.js";
 
 const USER_PROFILE_SYSTEM_PROMPT = (
   existingProfile: boolean
@@ -57,7 +58,7 @@ export async function performUserProfileLearning(
 
     if (existingProfile) {
       const changeSummary = generateChangeSummary(
-        JSON.parse(existingProfile.profileData),
+        safeJSONParse(existingProfile.profileData) as any,
         updatedProfileData
       );
       userProfileManager.updateProfile(
@@ -205,7 +206,7 @@ async function analyzeUserProfile(
     });
 
     if (existingProfile) {
-      const existingData: UserProfileData = JSON.parse(existingProfile.profileData);
+      const existingData = safeJSONParse(existingProfile.profileData) as any;
       return userProfileManager.mergeProfileData(
         existingData,
         result as unknown as Partial<UserProfileData>
@@ -295,7 +296,7 @@ async function analyzeUserProfile(
   const rawData = result.data;
 
   if (existingProfile) {
-    const existingData: UserProfileData = JSON.parse(existingProfile.profileData);
+    const existingData = safeJSONParse(existingProfile.profileData) as any;
     return userProfileManager.mergeProfileData(existingData, rawData);
   }
 

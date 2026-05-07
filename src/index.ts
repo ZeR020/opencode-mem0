@@ -11,6 +11,7 @@ import { performUserProfileLearning } from "./services/user-memory-learning.js";
 import { userPromptManager } from "./services/user-prompt/user-prompt-manager.js";
 import { performTranscriptCapture, cleanupOldTranscripts } from "./services/transcript-capture.js";
 import { startWebServer, WebServer } from "./services/web-server.js";
+import { safeJSONParse } from "./services/utils/safe-transforms.js";
 import {
   startScoringRecalculation,
   stopScoringRecalculation,
@@ -465,7 +466,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
                   const existingProfile = userProfileManager.getActiveProfile(userId);
 
                   if (existingProfile) {
-                    const existingData = JSON.parse(existingProfile.profileData);
+                    const existingData = safeJSONParse(existingProfile.profileData) as any;
                     const mergedData = userProfileManager.mergeProfileData(existingData, {
                       preferences: [newPreference],
                     });
@@ -498,7 +499,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
                 // --- READ: no content provided ---
                 const profile = userProfileManager.getActiveProfile(userId);
                 if (!profile) return JSON.stringify({ success: true, profile: null });
-                const pData = JSON.parse(profile.profileData);
+                const pData = safeJSONParse(profile.profileData) as any;
                 return JSON.stringify({
                   success: true,
                   profile: {

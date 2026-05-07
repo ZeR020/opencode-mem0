@@ -842,7 +842,7 @@ export async function handleGetUserProfile(userId?: string): Promise<ApiResponse
           message: "No profile found. Keep chatting to build your profile.",
         },
       };
-    const profileData = JSON.parse(profile.profileData);
+    const profileData = safeJSONParse(profile.profileData) as Record<string, unknown> | undefined;
     return {
       success: true,
       data: {
@@ -895,7 +895,9 @@ export async function handleGetProfileSnapshot(changelogId: string): Promise<Api
     const changelogs = userProfileManager.getProfileChangelogs("", 1000);
     const changelog = changelogs.find((c) => c.id === changelogId);
     if (!changelog) return { success: false, error: "Changelog not found" };
-    const profileData = JSON.parse(changelog.profileDataSnapshot);
+    const profileData = safeJSONParse(changelog.profileDataSnapshot) as
+      | Record<string, unknown>
+      | undefined;
     return {
       success: true,
       data: {
