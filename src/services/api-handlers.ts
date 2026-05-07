@@ -128,17 +128,18 @@ export async function handleListMemories(
     if (tag) {
       const { scope: tagScope, hash } = extractScopeFromTag(tag);
       const shards = shardManager.getAllShards(tagScope, hash);
-      const limit = safePage * safePageSize; // Fetch enough to cover the requested page across shards
+      const perShardLimit = Math.min(safePageSize * 2, 500); // Cap per-shard fetch to avoid over-allocation
       for (const shard of shards) {
         const db = connectionManager.getConnection(shard.dbPath);
-        const memories = vectorSearch.listMemories(db, tag, limit);
+        const memories = vectorSearch.listMemories(db, tag, perShardLimit);
         allMemories.push(...memories);
       }
     } else {
       const shards = shardManager.getAllShards("project", "");
+      const perShardLimit = Math.min(safePageSize * 2, 500);
       for (const shard of shards) {
         const db = connectionManager.getConnection(shard.dbPath);
-        const memories = vectorSearch.getAllMemories(db);
+        const memories = vectorSearch.listMemories(db, "", perShardLimit);
         allMemories.push(...memories.filter((m: any) => m.container_tag?.includes(`_project_`)));
       }
     }
