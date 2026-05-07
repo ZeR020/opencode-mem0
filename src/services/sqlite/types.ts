@@ -68,6 +68,9 @@ export interface SearchResult {
   projectName?: string;
   gitRepoUrl?: string;
   isPinned?: number;
+  type?: string;
+  createdAt?: number;
+  updatedAt?: number;
   // Scoring fields
   strength?: number;
   recencyScore?: number;
