@@ -649,11 +649,23 @@ export async function handleStats(): Promise<
     const typeCount: Record<string, number> = {};
     for (const shard of [...userShards, ...projectShards]) {
       const db = connectionManager.getConnection(shard.dbPath);
-      const memories = vectorSearch.getAllMemories(db);
-      for (const r of memories) {
-        if (r.container_tag?.includes("_user_")) userCount++;
-        else if (r.container_tag?.includes("_project_")) projectCount++;
-        if (r.type) typeCount[r.type] = (typeCount[r.type] || 0) + 1;
+      const scopeRow = db
+        .prepare(
+          `SELECT SUM(CASE WHEN container_tag LIKE '%_user_%' THEN 1 ELSE 0 END) as user_count, SUM(CASE WHEN container_tag LIKE '%_project_%' THEN 1 ELSE 0 END) as project_count FROM memories WHERE is_deprecated = 0`
+        )
+        .get() as any;
+      userCount += scopeRow?.user_count || 0;
+      projectCount += scopeRow?.project_count || 0;
+
+      const typeRows = db
+        .prepare(
+          `SELECT type, COUNT(*) as count FROM memories WHERE is_deprecated = 0 GROUP BY type`
+        )
+        .all() as any[];
+      for (const row of typeRows) {
+        if (row.type) {
+          typeCount[row.type] = (typeCount[row.type] || 0) + row.count;
+        }
       }
     }
     return {
