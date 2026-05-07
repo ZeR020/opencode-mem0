@@ -48,13 +48,7 @@ export class LocalMemoryClient {
     if (this.initPromise) return this.initPromise;
 
     this.initPromise = (async () => {
-      try {
-        this.isInitialized = true;
-      } catch (error) {
-        this.initPromise = null;
-        log("SQLite initialization failed", { error: String(error) });
-        throw error;
-      }
+      // SQLite initialization happens implicitly via first connection use
     })();
 
     return this.initPromise;
@@ -62,7 +56,14 @@ export class LocalMemoryClient {
 
   async warmup(progressCallback?: (progress: any) => void): Promise<void> {
     await this.initialize();
-    await embeddingService.warmup(progressCallback);
+    try {
+      await embeddingService.warmup(progressCallback);
+      this.isInitialized = true;
+    } catch (error) {
+      this.isInitialized = false;
+      this.initPromise = null;
+      throw error;
+    }
   }
 
   async isReady(): Promise<boolean> {
