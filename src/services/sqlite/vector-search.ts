@@ -80,38 +80,39 @@ export class VectorSearch {
     `
     );
 
-    insertMemory.run(
-      record.id,
-      record.content,
-      toBlob(record.vector),
-      toBlob(record.tagsVector),
-      record.containerTag,
-      record.tags || null,
-      record.type || null,
-      record.createdAt,
-      record.updatedAt,
-      record.metadata || null,
-      record.displayName || null,
-      record.userName || null,
-      record.userEmail || null,
-      record.projectPath || null,
-      record.projectName || null,
-      record.gitRepoUrl || null,
-      record.recencyScore ?? 0.5,
-      record.frequencyScore ?? 0.0,
-      record.importanceScore ?? 0.5,
-      record.utilityScore ?? 0.3,
-      record.noveltyScore ?? 0.5,
-      record.confidenceScore ?? 0.7,
-      record.interferencePenalty ?? 0.0,
-      record.strength ?? 0.5,
-      record.accessCount ?? 0,
-      record.lastAccessed || null,
-      record.storeType || "stm",
-      record.decayRate ?? 0.05
-    );
-
+    db.run("BEGIN IMMEDIATE");
     try {
+      insertMemory.run(
+        record.id,
+        record.content,
+        toBlob(record.vector),
+        toBlob(record.tagsVector),
+        record.containerTag,
+        record.tags || null,
+        record.type || null,
+        record.createdAt,
+        record.updatedAt,
+        record.metadata || null,
+        record.displayName || null,
+        record.userName || null,
+        record.userEmail || null,
+        record.projectPath || null,
+        record.projectName || null,
+        record.gitRepoUrl || null,
+        record.recencyScore ?? 0.5,
+        record.frequencyScore ?? 0.0,
+        record.importanceScore ?? 0.5,
+        record.utilityScore ?? 0.3,
+        record.noveltyScore ?? 0.5,
+        record.confidenceScore ?? 0.7,
+        record.interferencePenalty ?? 0.0,
+        record.strength ?? 0.5,
+        record.accessCount ?? 0,
+        record.lastAccessed || null,
+        record.storeType || "stm",
+        record.decayRate ?? 0.05
+      );
+
       if (shard) {
         const backend = await this.getBackend();
         await backend.insert({ id: record.id, vector: record.vector, shard, kind: "content" });
@@ -119,8 +120,12 @@ export class VectorSearch {
           await backend.insert({ id: record.id, vector: record.tagsVector, shard, kind: "tags" });
         }
       }
+
+      db.run("COMMIT");
     } catch (error) {
-      db.prepare(`DELETE FROM memories WHERE id = ?`).run(record.id);
+      try {
+        db.run("ROLLBACK");
+      } catch {}
       throw error;
     }
   }
@@ -524,20 +529,30 @@ export class VectorSearch {
     shard?: ShardInfo,
     tagsVector?: Float32Array
   ): Promise<void> {
-    this.getStmt(db, `UPDATE memories SET vector = ?, tags_vector = ? WHERE id = ?`).run(
-      toBlob(vector),
-      toBlob(tagsVector),
-      memoryId
-    );
+    db.run("BEGIN IMMEDIATE");
+    try {
+      this.getStmt(db, `UPDATE memories SET vector = ?, tags_vector = ? WHERE id = ?`).run(
+        toBlob(vector),
+        toBlob(tagsVector),
+        memoryId
+      );
 
-    if (shard) {
-      const backend = await this.getBackend();
-      await backend.insert({ id: memoryId, vector, shard, kind: "content" });
-      if (tagsVector) {
-        await backend.insert({ id: memoryId, vector: tagsVector, shard, kind: "tags" });
-      } else {
-        await backend.delete({ id: memoryId, shard, kind: "tags" });
+      if (shard) {
+        const backend = await this.getBackend();
+        await backend.insert({ id: memoryId, vector, shard, kind: "content" });
+        if (tagsVector) {
+          await backend.insert({ id: memoryId, vector: tagsVector, shard, kind: "tags" });
+        } else {
+          await backend.delete({ id: memoryId, shard, kind: "tags" });
+        }
       }
+
+      db.run("COMMIT");
+    } catch (error) {
+      try {
+        db.run("ROLLBACK");
+      } catch {}
+      throw error;
     }
   }
 
