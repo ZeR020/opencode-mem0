@@ -112,62 +112,78 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         const url = webServer.getUrl();
 
         webServer.setOnTakeoverCallback(async () => {
-          if (ctx.client?.tui) {
-            ctx.client.tui
-              .showToast({
-                body: {
-                  title: "Memory Explorer",
-                  message: "Took over web server ownership",
-                  variant: "success",
-                  duration: 3000,
-                },
-              })
-              .catch((err) => log("Toast display failed", { error: String(err) }));
+          try {
+            if (ctx.client?.tui) {
+              await ctx.client.tui
+                .showToast({
+                  body: {
+                    title: "Memory Explorer",
+                    message: "Took over web server ownership",
+                    variant: "success",
+                    duration: 3000,
+                  },
+                })
+                .catch((err) => log("Toast display failed", { error: String(err) }));
+            }
+          } catch (err) {
+            log("Toast display failed", { error: String(err) });
           }
         });
 
         if (webServer.isServerOwner()) {
-          if (ctx.client?.tui) {
-            ctx.client.tui
-              .showToast({
-                body: {
-                  title: "Memory Explorer",
-                  message: `Web UI started at ${url}`,
-                  variant: "success",
-                  duration: 5000,
-                },
-              })
-              .catch((err) => log("Toast display failed", { error: String(err) }));
+          try {
+            if (ctx.client?.tui) {
+              ctx.client.tui
+                .showToast({
+                  body: {
+                    title: "Memory Explorer",
+                    message: `Web UI started at ${url}`,
+                    variant: "success",
+                    duration: 5000,
+                  },
+                })
+                .catch((err) => log("Toast display failed", { error: String(err) }));
+            }
+          } catch (err) {
+            log("Toast display failed", { error: String(err) });
           }
         } else {
-          if (ctx.client?.tui) {
-            ctx.client.tui
-              .showToast({
-                body: {
-                  title: "Memory Explorer",
-                  message: `Web UI available at ${url}`,
-                  variant: "info",
-                  duration: 3000,
-                },
-              })
-              .catch((err) => log("Toast display failed", { error: String(err) }));
+          try {
+            if (ctx.client?.tui) {
+              ctx.client.tui
+                .showToast({
+                  body: {
+                    title: "Memory Explorer",
+                    message: `Web UI available at ${url}`,
+                    variant: "info",
+                    duration: 3000,
+                  },
+                })
+                .catch((err) => log("Toast display failed", { error: String(err) }));
+            }
+          } catch (err) {
+            log("Toast display failed", { error: String(err) });
           }
         }
       })
       .catch((error) => {
         log("Web server failed to start", { error: String(error) });
 
-        if (ctx.client?.tui) {
-          ctx.client.tui
-            .showToast({
-              body: {
-                title: "Memory Explorer Error",
-                message: `Failed to start: ${String(error)}`,
-                variant: "error",
-                duration: 5000,
-              },
-            })
-            .catch((err) => log("Toast display failed", { error: String(err) }));
+        try {
+          if (ctx.client?.tui) {
+            ctx.client.tui
+              .showToast({
+                body: {
+                  title: "Memory Explorer Error",
+                  message: `Failed to start: ${String(error)}`,
+                  variant: "error",
+                  duration: 5000,
+                },
+              })
+              .catch((err) => log("Toast display failed", { error: String(err) }));
+          }
+        } catch (err) {
+          log("Toast display failed", { error: String(err) });
         }
       });
   }
