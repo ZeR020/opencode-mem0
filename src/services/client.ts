@@ -83,6 +83,8 @@ export class LocalMemoryClient {
 
   close(): void {
     connectionManager.closeAll();
+    this.isInitialized = false;
+    this.initPromise = null;
   }
 
   async searchMemories(
