@@ -217,14 +217,21 @@ export class VectorSearch {
     let ftsResults: string[] = [];
     if (queryText && queryText.length > 0) {
       try {
-        const ftsStmt = db.prepare(`
-          SELECT id FROM memories_fts
-          WHERE memories_fts MATCH ?
-          ORDER BY rank
-          LIMIT ?
-        `);
-        const ftsRows = ftsStmt.all(queryText, limit * 2) as any[];
-        ftsResults = ftsRows.map((r: any) => r.id);
+        // Sanitize queryText for FTS5: strip metacharacters to prevent syntax errors
+        const safeFtsQuery = queryText
+          .replace(/[\*\^:\-+?()"]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (safeFtsQuery.length > 0) {
+          const ftsStmt = db.prepare(`
+            SELECT id FROM memories_fts
+            WHERE memories_fts MATCH ?
+            ORDER BY rank
+            LIMIT ?
+          `);
+          const ftsRows = ftsStmt.all(safeFtsQuery, limit * 2) as any[];
+          ftsResults = ftsRows.map((r: any) => r.id);
+        }
       } catch {
         // FTS5 not available, fallback to LIKE
         try {
