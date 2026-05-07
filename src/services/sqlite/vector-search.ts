@@ -557,6 +557,82 @@ export class VectorSearch {
   }
 
   /**
+   * Atomically replace a memory by deleting the old row and inserting the new one
+   * within a single transaction. Prevents data loss if the backend index update fails.
+   */
+  async replaceVector(
+    db: DatabaseType,
+    memoryId: string,
+    record: MemoryRecord,
+    shard?: ShardInfo
+  ): Promise<void> {
+    const insertMemory = this.getStmt(
+      db,
+      `
+      INSERT INTO memories (
+        id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
+        metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url,
+        recency_score, frequency_score, importance_score, utility_score, novelty_score,
+        confidence_score, interference_penalty, strength, access_count, last_accessed,
+        store_type, decay_rate
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+    );
+
+    db.run("BEGIN IMMEDIATE");
+    try {
+      this.getStmt(db, `DELETE FROM memories WHERE id = ?`).run(memoryId);
+      insertMemory.run(
+        record.id,
+        record.content,
+        toBlob(record.vector),
+        toBlob(record.tagsVector),
+        record.containerTag,
+        record.tags || null,
+        record.type || null,
+        record.createdAt,
+        record.updatedAt,
+        record.metadata || null,
+        record.displayName || null,
+        record.userName || null,
+        record.userEmail || null,
+        record.projectPath || null,
+        record.projectName || null,
+        record.gitRepoUrl || null,
+        record.recencyScore ?? 0.5,
+        record.frequencyScore ?? 0.0,
+        record.importanceScore ?? 0.5,
+        record.utilityScore ?? 0.3,
+        record.noveltyScore ?? 0.5,
+        record.confidenceScore ?? 0.7,
+        record.interferencePenalty ?? 0.0,
+        record.strength ?? 0.5,
+        record.accessCount ?? 0,
+        record.lastAccessed || null,
+        record.storeType || "stm",
+        record.decayRate ?? 0.05
+      );
+
+      if (shard) {
+        const backend = await this.getBackend();
+        await backend.delete({ id: memoryId, shard, kind: "content" });
+        await backend.delete({ id: memoryId, shard, kind: "tags" });
+        await backend.insert({ id: record.id, vector: record.vector, shard, kind: "content" });
+        if (record.tagsVector) {
+          await backend.insert({ id: record.id, vector: record.tagsVector, shard, kind: "tags" });
+        }
+      }
+
+      db.run("COMMIT");
+    } catch (error) {
+      try {
+        db.run("ROLLBACK");
+      } catch {}
+      throw error;
+    }
+  }
+
+  /**
    * List non-deprecated memories from a shard, ordered by pinned, strength, recency.
    *
    * @param db - SQLite database handle

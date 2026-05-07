@@ -403,10 +403,6 @@ export async function handleUpdateMemory(
       tagsVector = await embeddingService.embedWithTimeout(tags.join(", "));
     }
 
-    const db = connectionManager.getConnection(foundShard.dbPath);
-    await vectorSearch.deleteVector(db, id, foundShard);
-    shardManager.decrementVectorCount(foundShard.id);
-
     const updatedRecord = {
       id,
       content: newContent,
@@ -425,8 +421,9 @@ export async function handleUpdateMemory(
       projectName: existingMemory.project_name,
       gitRepoUrl: existingMemory.git_repo_url,
     };
-    await vectorSearch.insertVector(db, updatedRecord, foundShard);
-    shardManager.incrementVectorCount(foundShard.id);
+
+    const db = connectionManager.getConnection(foundShard.dbPath);
+    await vectorSearch.replaceVector(db, id, updatedRecord, foundShard);
     return { success: true };
   } catch (error) {
     log("handleUpdateMemory: error", { error: String(error) });
