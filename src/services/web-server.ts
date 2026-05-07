@@ -35,6 +35,17 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+const SENSITIVE_KEYS = new Set([
+  "userEmail",
+  "displayName",
+  "userName",
+  "projectPath",
+  "projectName",
+  "gitRepoUrl",
+  "userId",
+]);
+
 interface WebServerConfig {
   port: number;
   host: string;
@@ -197,22 +208,8 @@ export class WebServer {
 
     const newObj: any = {};
     for (const [key, value] of Object.entries(obj)) {
-      if (
-        [
-          "userEmail",
-          "displayName",
-          "userName",
-          "projectPath",
-          "projectName",
-          "gitRepoUrl",
-          "userId",
-        ].includes(key)
-      ) {
-        if (value !== undefined && value !== null && value !== "") {
-          newObj[key] = "[REDACTED]";
-        } else {
-          newObj[key] = value;
-        }
+      if (SENSITIVE_KEYS.has(key)) {
+        newObj[key] = value !== undefined && value !== null && value !== "" ? "[REDACTED]" : value;
       } else if (typeof value === "object") {
         newObj[key] = this.redactPII(value);
       } else {
@@ -229,12 +226,11 @@ export class WebServer {
 
     try {
       // Optional API key auth: enforce only when binding to non-loopback
-      const localHosts = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
-      const requiresAuth = !localHosts.has(this.config.host) && !!this.config.enabled;
+      const requiresAuth = !LOCAL_HOSTS.has(this.config.host) && !!this.config.enabled;
 
       const remoteIp = this.server?.requestIP(req)?.address;
       const isLocal =
-        localHosts.has(this.config.host) || (remoteIp ? localHosts.has(remoteIp) : false);
+        LOCAL_HOSTS.has(this.config.host) || (remoteIp ? LOCAL_HOSTS.has(remoteIp) : false);
 
       if (this.config.apiKey && requiresAuth) {
         const apiKey = req.headers.get("x-opencode-mem-key");

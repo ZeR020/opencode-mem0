@@ -20,6 +20,18 @@ export class AISessionManager {
   private db: DatabaseType;
   private readonly dbPath: string;
   private readonly sessionRetentionMs: number;
+  private getSessionStmt: any;
+  private getMessagesStmt: any;
+  private getLastSequenceStmt: any;
+  private cleanupExpiredStmt: any;
+  private deleteSessionStmt: any;
+  private getMessagesByRoleStmt: any;
+  private addMessageStmt: any;
+  private getNextSeqStmt: any;
+  private clearMessagesStmt: any;
+  private updateConversationIdStmt: any;
+  private updateMetadataStmt: any;
+  private updateBothStmt: any;
 
   constructor() {
     this.dbPath = join(CONFIG.storagePath, AI_SESSIONS_DB_NAME);
@@ -30,6 +42,40 @@ export class AISessionManager {
     this.db = connectionManager.getConnection(this.dbPath);
     this.sessionRetentionMs = CONFIG.aiSessionRetentionDays * 24 * 60 * 60 * 1000;
     this.initDatabase();
+    this.getSessionStmt = this.db.prepare(`
+      SELECT * FROM ai_sessions WHERE session_id = ? AND provider = ? AND expires_at > ?
+    `);
+    this.getMessagesStmt = this.db.prepare(
+      "SELECT * FROM ai_messages WHERE ai_session_id = ? ORDER BY sequence ASC"
+    );
+    this.getLastSequenceStmt = this.db.prepare(
+      "SELECT MAX(sequence) as max_seq FROM ai_messages WHERE ai_session_id = ?"
+    );
+    this.cleanupExpiredStmt = this.db.prepare("DELETE FROM ai_sessions WHERE expires_at < ?");
+    this.deleteSessionStmt = this.db.prepare(
+      "DELETE FROM ai_sessions WHERE session_id = ? AND provider = ?"
+    );
+    this.getMessagesByRoleStmt = this.db.prepare(
+      "SELECT * FROM ai_messages WHERE ai_session_id = ? AND role = ? ORDER BY sequence ASC"
+    );
+    this.addMessageStmt = this.db.prepare(`
+      INSERT INTO ai_messages (
+        ai_session_id, sequence, role, content, tool_calls, tool_call_id, content_blocks, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    this.getNextSeqStmt = this.db.prepare(
+      "SELECT COALESCE(MAX(sequence), -1) + 1 as next_seq FROM ai_messages WHERE ai_session_id = ?"
+    );
+    this.clearMessagesStmt = this.db.prepare("DELETE FROM ai_messages WHERE ai_session_id = ?");
+    this.updateConversationIdStmt = this.db.prepare(
+      "UPDATE ai_sessions SET conversation_id = ?, updated_at = ? WHERE session_id = ? AND provider = ?"
+    );
+    this.updateMetadataStmt = this.db.prepare(
+      "UPDATE ai_sessions SET metadata = ?, updated_at = ? WHERE session_id = ? AND provider = ?"
+    );
+    this.updateBothStmt = this.db.prepare(
+      "UPDATE ai_sessions SET conversation_id = ?, metadata = ?, updated_at = ? WHERE session_id = ? AND provider = ?"
+    );
   }
 
   private initDatabase(): void {
@@ -68,20 +114,41 @@ export class AISessionManager {
     this.db.run(
       "CREATE INDEX IF NOT EXISTS idx_ai_messages_session ON ai_messages(ai_session_id, sequence)"
     );
+    this.ensureUniqueMessageSequences();
     this.db.run(
       "CREATE INDEX IF NOT EXISTS idx_ai_messages_role ON ai_messages(ai_session_id, role)"
     );
   }
 
+  private ensureUniqueMessageSequences(): void {
+    this.db.run("BEGIN");
+    try {
+      this.db.run(`
+        DELETE FROM ai_messages
+        WHERE id IN (
+          SELECT newer.id
+          FROM ai_messages newer
+          JOIN ai_messages older
+            ON newer.ai_session_id = older.ai_session_id
+           AND newer.sequence = older.sequence
+           AND newer.id > older.id
+        )
+      `);
+      this.db.run(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_messages_session_sequence_unique ON ai_messages(ai_session_id, sequence)"
+      );
+      this.db.run("COMMIT");
+    } catch (error) {
+      try {
+        this.db.run("ROLLBACK");
+      } catch {}
+      throw error;
+    }
+  }
+
   getSession(sessionId: string, provider: AIProviderType): AISession | null {
-    const stmt = this.db.prepare(`
-      SELECT * FROM ai_sessions 
-      WHERE session_id = ? AND provider = ? AND expires_at > ?
-    `);
-    const row = stmt.get(sessionId, provider, Date.now()) as any;
-
+    const row = this.getSessionStmt.get(sessionId, provider, Date.now()) as any;
     if (!row) return null;
-
     return this.rowToSession(row);
   }
 
@@ -93,7 +160,7 @@ export class AISessionManager {
     this.db.run(
       `
       INSERT INTO ai_sessions (
-        id, provider, session_id, conversation_id, 
+        id, provider, session_id, conversation_id,
         metadata, created_at, updated_at, expires_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `,
@@ -113,98 +180,61 @@ export class AISessionManager {
   }
 
   updateSession(sessionId: string, provider: AIProviderType, updates: SessionUpdateParams): void {
-    const fields: string[] = [];
-    const values: any[] = [];
-
-    if (updates.conversationId !== undefined) {
-      fields.push("conversation_id = ?");
-      values.push(updates.conversationId);
+    const now = Date.now();
+    if (updates.conversationId !== undefined && updates.metadata !== undefined) {
+      this.updateBothStmt.run(
+        updates.conversationId,
+        JSON.stringify(updates.metadata),
+        now,
+        sessionId,
+        provider
+      );
+    } else if (updates.conversationId !== undefined) {
+      this.updateConversationIdStmt.run(updates.conversationId, now, sessionId, provider);
+    } else if (updates.metadata !== undefined) {
+      this.updateMetadataStmt.run(JSON.stringify(updates.metadata), now, sessionId, provider);
     }
-
-    if (updates.metadata !== undefined) {
-      fields.push("metadata = ?");
-      values.push(JSON.stringify(updates.metadata));
-    }
-
-    fields.push("updated_at = ?");
-    values.push(Date.now());
-
-    values.push(sessionId);
-    values.push(provider);
-
-    this.db.run(
-      `
-      UPDATE ai_sessions 
-      SET ${fields.join(", ")}
-      WHERE session_id = ? AND provider = ?
-    `,
-      values
-    );
   }
 
   cleanupExpiredSessions(): number {
-    const result = this.db.run(`DELETE FROM ai_sessions WHERE expires_at < ?`, [Date.now()]);
+    const result = this.cleanupExpiredStmt.run(Date.now());
     return result.changes;
   }
 
   deleteSession(sessionId: string, provider: AIProviderType): void {
-    this.db.run(`DELETE FROM ai_sessions WHERE session_id = ? AND provider = ?`, [
-      sessionId,
-      provider,
-    ]);
+    this.deleteSessionStmt.run(sessionId, provider);
   }
 
   addMessage(message: Omit<AIMessage, "id" | "createdAt">): void {
-    this.db.run(
-      `INSERT INTO ai_messages (
-        ai_session_id, sequence, role, content, 
-        tool_calls, tool_call_id, content_blocks, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        message.aiSessionId,
-        message.sequence,
-        message.role,
-        message.content,
-        message.toolCalls ? JSON.stringify(message.toolCalls) : null,
-        message.toolCallId || null,
-        message.contentBlocks ? JSON.stringify(message.contentBlocks) : null,
-        Date.now(),
-      ]
+    this.addMessageStmt.run(
+      message.aiSessionId,
+      message.sequence,
+      message.role,
+      message.content,
+      message.toolCalls ? JSON.stringify(message.toolCalls) : null,
+      message.toolCallId || null,
+      message.contentBlocks ? JSON.stringify(message.contentBlocks) : null,
+      Date.now()
     );
   }
 
   getMessages(aiSessionId: string): AIMessage[] {
-    const stmt = this.db.prepare(
-      "SELECT * FROM ai_messages WHERE ai_session_id = ? ORDER BY sequence ASC"
-    );
-    const rows = stmt.all(aiSessionId) as any[];
-
-    return rows.map(this.rowToMessage);
+    const rows = this.getMessagesStmt.all(aiSessionId) as any[];
+    return rows.map((row) => this.rowToMessage(row));
   }
 
   getLastSequence(aiSessionId: string): number {
-    const stmt = this.db.prepare(
-      "SELECT MAX(sequence) as max_seq FROM ai_messages WHERE ai_session_id = ?"
-    );
-    const row = stmt.get(aiSessionId) as any;
-
+    const row = this.getLastSequenceStmt.get(aiSessionId) as any;
     return row?.max_seq ?? -1;
   }
 
   addMessageAtomic(message: Omit<AIMessage, "id" | "sequence" | "createdAt">): number {
-    const nextSeq = this.db
-      .prepare(
-        "SELECT COALESCE(MAX(sequence), -1) + 1 as next_seq FROM ai_messages WHERE ai_session_id = ?"
-      )
-      .get(message.aiSessionId) as { next_seq: number };
+    this.db.run("BEGIN IMMEDIATE");
+    try {
+      const nextSeq = this.getNextSeqStmt.get(message.aiSessionId) as { next_seq: number };
+      const seq = nextSeq.next_seq;
 
-    const seq = nextSeq.next_seq;
-    this.db.run(
-      `INSERT INTO ai_messages (
-        ai_session_id, sequence, role, content,
-        tool_calls, tool_call_id, content_blocks, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
+      this.addMessageStmt.run(
         message.aiSessionId,
         seq,
         message.role,
@@ -212,14 +242,21 @@ export class AISessionManager {
         message.toolCalls ? JSON.stringify(message.toolCalls) : null,
         message.toolCallId || null,
         message.contentBlocks ? JSON.stringify(message.contentBlocks) : null,
-        Date.now(),
-      ]
-    );
-    return seq;
+        Date.now()
+      );
+
+      this.db.run("COMMIT");
+      return seq;
+    } catch (error) {
+      try {
+        this.db.run("ROLLBACK");
+      } catch {}
+      throw error;
+    }
   }
 
   clearMessages(aiSessionId: string): void {
-    this.db.run("DELETE FROM ai_messages WHERE ai_session_id = ?", [aiSessionId]);
+    this.clearMessagesStmt.run(aiSessionId);
   }
 
   private rowToSession(row: any): AISession {

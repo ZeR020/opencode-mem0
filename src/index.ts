@@ -29,6 +29,40 @@ import type { MemoryType } from "./types/index.js";
 import { getLanguageName } from "./services/language-detector.js";
 import type { MemoryScope } from "./services/client.js";
 
+const helpResponseCache = new Map<string, string>();
+
+function getHelpResponse(langName: string): string {
+  let cached = helpResponseCache.get(langName);
+  if (cached) return cached;
+
+  cached = JSON.stringify({
+    success: true,
+    message: "Memory System Usage Guide",
+    commands: [
+      {
+        command: "add",
+        description: `Store new memory (MATCH USER LANGUAGE: ${langName})`,
+        args: ["content", "type?", "tags?"],
+      },
+      {
+        command: "search",
+        description: `Search memories via keywords (MATCH USER LANGUAGE: ${langName})`,
+        args: ["query"],
+      },
+      {
+        command: "profile",
+        description: "View user profile or save an explicit preference (provide content to write)",
+        args: ["content?"],
+      },
+      { command: "list", description: "List recent memories", args: ["limit?"] },
+      { command: "forget", description: "Remove memory", args: ["memoryId"] },
+    ],
+    tagGuidance: "Use technical keywords for search. Tags rank highest.",
+  });
+  helpResponseCache.set(langName, cached);
+  return cached;
+}
+
 export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   const { directory } = ctx;
   initConfig(directory);
@@ -327,31 +361,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
           try {
             switch (mode) {
               case "help":
-                return JSON.stringify({
-                  success: true,
-                  message: "Memory System Usage Guide",
-                  commands: [
-                    {
-                      command: "add",
-                      description: `Store new memory (MATCH USER LANGUAGE: ${langName})`,
-                      args: ["content", "type?", "tags?"],
-                    },
-                    {
-                      command: "search",
-                      description: `Search memories via keywords (MATCH USER LANGUAGE: ${langName})`,
-                      args: ["query"],
-                    },
-                    {
-                      command: "profile",
-                      description:
-                        "View user profile or save an explicit preference (provide content to write)",
-                      args: ["content?"],
-                    },
-                    { command: "list", description: "List recent memories", args: ["limit?"] },
-                    { command: "forget", description: "Remove memory", args: ["memoryId"] },
-                  ],
-                  tagGuidance: "Use technical keywords for search. Tags rank highest.",
-                });
+                return getHelpResponse(langName);
 
               case "add":
                 if (!args.content)
@@ -622,15 +632,17 @@ function formatSearchResults(query: string, results: any, limit?: number): strin
 }
 
 function formatMemoriesForCompaction(memories: any[]): string {
-  let output = `## Restored Session Memory\n\n`;
+  const sections: string[] = ["## Restored Session Memory\n"];
 
-  memories.forEach((m, i) => {
-    output += `### Memory ${i + 1}\n`;
-    output += `${m.memory}\n\n`;
+  for (let i = 0; i < memories.length; i++) {
+    const m = memories[i];
+    sections.push(`### Memory ${i + 1}`);
+    sections.push(m.memory);
     if (m.tags && m.tags.length > 0) {
-      output += `Tags: ${m.tags.join(", ")}\n\n`;
+      sections.push(`Tags: ${m.tags.join(", ")}`);
     }
-  });
+    sections.push("");
+  }
 
-  return output;
+  return sections.join("\n");
 }
