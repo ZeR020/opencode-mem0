@@ -644,11 +644,12 @@ export async function handleStats(): Promise<
 > {
   try {
     await embeddingService.warmup();
+    const userShards = shardManager.getAllShards("user", "");
     const projectShards = shardManager.getAllShards("project", "");
     let userCount = 0,
       projectCount = 0;
     const typeCount: Record<string, number> = {};
-    for (const shard of projectShards) {
+    for (const shard of [...userShards, ...projectShards]) {
       const db = connectionManager.getConnection(shard.dbPath);
       const memories = vectorSearch.getAllMemories(db);
       for (const r of memories) {
