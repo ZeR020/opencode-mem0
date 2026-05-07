@@ -53,11 +53,12 @@ interface PaginatedResponse<T> {
   totalPages: number;
 }
 
-function extractScopeFromTag(tag: string): { scope: "project"; hash: string } {
+function extractScopeFromTag(tag: string): { scope: "user" | "project"; hash: string } {
   const parts = tag.split("_");
   if (parts.length >= 3) {
+    const scope = parts[1] as "user" | "project";
     const hash = parts.slice(2).join("_");
-    return { scope: "project", hash };
+    return { scope, hash };
   }
   return { scope: "project", hash: tag };
 }
