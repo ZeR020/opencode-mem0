@@ -11,6 +11,12 @@ export function safeToISOString(timestamp: unknown): string {
     const numValue = Number(timestamp);
 
     if (isNaN(numValue) || numValue < 0) {
+      if (typeof timestamp === "string") {
+        const parsedDate = new Date(timestamp);
+        if (!isNaN(parsedDate.getTime())) {
+          return parsedDate.toISOString();
+        }
+      }
       return new Date().toISOString();
     }
 
