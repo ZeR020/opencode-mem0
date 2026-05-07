@@ -63,6 +63,12 @@ function extractScopeFromTag(tag: string): { scope: "user" | "project"; hash: st
   return { scope: "project", hash: tag };
 }
 
+function getAllShards(): ReturnType<typeof shardManager.getAllShards> {
+  const userShards = shardManager.getAllShards("user", "");
+  const projectShards = shardManager.getAllShards("project", "");
+  return [...userShards, ...projectShards];
+}
+
 function getProjectPathFromTag(tag: string): string | undefined {
   const { scope, hash } = extractScopeFromTag(tag);
   const shards = shardManager.getAllShards(scope, hash);
@@ -330,8 +336,8 @@ export async function handleDeleteMemory(
 ): Promise<ApiResponse<{ deletedPrompt: boolean }>> {
   try {
     if (!id) return { success: false, error: "id is required" };
-    const projectShards = shardManager.getAllShards("project", "");
-    for (const shard of projectShards) {
+    const allShards = getAllShards();
+    for (const shard of allShards) {
       const db = connectionManager.getConnection(shard.dbPath);
       const memory = vectorSearch.getMemoryById(db, id);
       if (memory) {
@@ -382,10 +388,10 @@ export async function handleUpdateMemory(
   try {
     if (!id) return { success: false, error: "id is required" };
     await embeddingService.warmup();
-    const projectShards = shardManager.getAllShards("project", "");
+    const allShards = getAllShards();
     let foundShard = null,
       existingMemory = null;
-    for (const shard of projectShards) {
+    for (const shard of allShards) {
       const db = connectionManager.getConnection(shard.dbPath);
       const memory = vectorSearch.getMemoryById(db, id);
       if (memory) {
@@ -686,8 +692,8 @@ export async function handleStats(): Promise<
 export async function handlePinMemory(id: string): Promise<ApiResponse<void>> {
   try {
     if (!id) return { success: false, error: "id is required" };
-    const projectShards = shardManager.getAllShards("project", "");
-    for (const shard of projectShards) {
+    const allShards = getAllShards();
+    for (const shard of allShards) {
       const db = connectionManager.getConnection(shard.dbPath);
       const memory = vectorSearch.getMemoryById(db, id);
       if (memory) {
@@ -705,8 +711,8 @@ export async function handlePinMemory(id: string): Promise<ApiResponse<void>> {
 export async function handleUnpinMemory(id: string): Promise<ApiResponse<void>> {
   try {
     if (!id) return { success: false, error: "id is required" };
-    const projectShards = shardManager.getAllShards("project", "");
-    for (const shard of projectShards) {
+    const allShards = getAllShards();
+    for (const shard of allShards) {
       const db = connectionManager.getConnection(shard.dbPath);
       const memory = vectorSearch.getMemoryById(db, id);
       if (memory) {

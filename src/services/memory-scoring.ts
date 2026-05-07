@@ -210,18 +210,20 @@ const TECHNICAL_KEYWORDS_RE = new RegExp(
 const WORD_SPLIT_RE = /\s+/;
 
 // Negation patterns for interference detection
+// NOTE: Using /i (case-insensitive) without /g to avoid lastIndex state bugs
+// when .test() is called multiple times on the same regex instance
 const NEGATION_PATTERNS = [
-  /\b(not|no|never|none|nothing|nobody|nowhere|neither|nor)\b/gi,
-  /\b(don't|doesn't|didn't|won't|wouldn't|shouldn't|couldn't|can't|cannot)\b/gi,
-  /\b(removed|deleted|reverted|undone|cancelled|canceled|disabled|turned off)\b/gi,
-  /\b(un|dis|mis|non)[a-z]+\b/gi,
-  /\b(false|incorrect|wrong|invalid|failed|error)\b/gi,
+  /\b(not|no|never|none|nothing|nobody|nowhere|neither|nor)\b/i,
+  /\b(don't|doesn't|didn't|won't|wouldn't|shouldn't|couldn't|can't|cannot)\b/i,
+  /\b(removed|deleted|reverted|undone|cancelled|canceled|disabled|turned off)\b/i,
+  /\b(un|dis|mis|non)[a-z]+\b/i,
+  /\b(false|incorrect|wrong|invalid|failed|error)\b/i,
 ];
 
 // Positive/action patterns
 const ACTION_PATTERNS = [
-  /\b(added|created|implemented|built|developed|wrote|configured|enabled|fixed|resolved|solved)\b/gi,
-  /\b(true|correct|valid|success|working|active|enabled|on)\b/gi,
+  /\b(added|created|implemented|built|developed|wrote|configured|enabled|fixed|resolved|solved)\b/i,
+  /\b(true|correct|valid|success|working|active|enabled|on)\b/i,
 ];
 
 // Pre-computed type importance lookup
