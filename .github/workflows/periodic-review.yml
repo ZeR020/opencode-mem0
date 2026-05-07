@@ -34,11 +34,77 @@ jobs:
           echo "Commits since last review: $COMMIT_COUNT"
           echo "count=$COMMIT_COUNT" >> $GITHUB_OUTPUT
           
-          # Trigger every 10 commits (adjust as needed)
-          if [ "$COMMIT_COUNT" -ge 10 ]; then
+          # Determine review type
+          # Full scan every 20 commits, incremental every 10
+          if [ "$COMMIT_COUNT" -ge 20 ]; then
             echo "should_review=true" >> $GITHUB_OUTPUT
+            echo "review_type=full" >> $GITHUB_OUTPUT
+            echo "Review type: FULL (20+ commits)"
+          elif [ "$COMMIT_COUNT" -ge 10 ]; then
+            echo "should_review=true" >> $GITHUB_OUTPUT
+            echo "review_type=incremental" >> $GITHUB_OUTPUT
+            echo "Review type: INCREMENTAL (10+ commits)"
           else
             echo "should_review=false" >> $GITHUB_OUTPUT
+            echo "No review needed yet ($COMMIT_COUNT/10 commits)"
+          fi
+
+      - name: Gather files to review
+        if: steps.check.outputs.should_review == 'true'
+        id: files
+        run: |
+          LAST_REVIEW=$(git log --grep="chore(review):" --format="%H" -1 2>/dev/null || echo "")
+          
+          REVIEW_TYPE="${{ steps.check.outputs.review_type }}"
+          
+          # Critical files to always review (core logic)
+          CRITICAL_FILES=(
+            "src/services/memory-scoring.ts"
+            "src/services/memory-lifecycle.ts"
+            "src/services/memory-conflicts.ts"
+            "src/services/sqlite/vector-search.ts"
+            "src/services/client.ts"
+            "src/services/api-handlers.ts"
+            "src/services/embedding.ts"
+            "src/services/web-server.ts"
+            "src/index.ts"
+            "src/config.ts"
+          )
+          
+          if [ "$REVIEW_TYPE" = "full" ]; then
+            # Full scan: review entire src/ tree
+            echo "files=src/" >> $GITHUB_OUTPUT
+            echo "review_scope=Full repository scan (src/)" >> $GITHUB_OUTPUT
+          else
+            # Incremental: changed files + critical files
+            if [ -n "$LAST_REVIEW" ]; then
+              CHANGED_FILES=$(git diff --name-only ${LAST_REVIEW}..HEAD -- 'src/' 'tests/' | grep -E '\.(ts|tsx|js|mjs)$' || true)
+            else
+              CHANGED_FILES=$(git diff --name-only HEAD~10..HEAD -- 'src/' 'tests/' | grep -E '\.(ts|tsx|js|mjs)$' || true)
+            fi
+            
+            # Merge changed files with critical files
+            ALL_FILES=""
+            for file in $CHANGED_FILES; do
+              ALL_FILES="$ALL_FILES$file,"
+            done
+            
+            for file in "${CRITICAL_FILES[@]}"; do
+              if [ -f "$file" ]; then
+                # Only add if not already in changed files
+                if [[ ! "$ALL_FILES" =~ "$file," ]]; then
+                  ALL_FILES="$ALL_FILES$file,"
+                fi
+              fi
+            done
+            
+            # Remove trailing comma
+            ALL_FILES="${ALL_FILES%,}"
+            
+            echo "files=$ALL_FILES" >> $GITHUB_OUTPUT
+            echo "review_scope=Incremental: changed files + critical paths" >> $GITHUB_OUTPUT
+            echo "Changed files count: $(echo "$CHANGED_FILES" | wc -w)"
+            echo "Total files to review: $(echo "$ALL_FILES" | tr ',' '\n' | wc -l)"
           fi
 
       - name: Create review branch
@@ -57,30 +123,67 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const { data: pr } = await github.rest.pulls.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '🔍 Periodic Code Review: Main Branch Health Check',
-              head: process.env.branch,
-              base: 'main',
-              body: `## Automated Periodic Review
-              
-              This PR was automatically created to trigger a full codebase review after **${{ steps.check.outputs.count }}** new commits on `main`.
-              
-              ### Instructions for @coderabbitai
-              Please perform a **comprehensive full-repository review** of the current `main` branch state, not just this diff. Focus on:
+            const reviewType = '${{ steps.check.outputs.review_type }}';
+            const commitCount = '${{ steps.check.outputs.count }}';
+            const filesToReview = '${{ steps.files.outputs.files }}';
+            const reviewScope = '${{ steps.files.outputs.review_scope }}';
+            
+            const isFull = reviewType === 'full';
+            
+            const title = isFull 
+              ? '🔍 Full Codebase Review: Main Branch Health Check'
+              : '🔍 Incremental Code Review: Changed Files + Critical Paths';
+            
+            const instructions = isFull
+              ? `Please perform a **comprehensive full-repository review** of the current \`main\` branch state. Review ALL files in \`src/\` and \`tests/\`. Focus on:
               
               - **Bugs & correctness issues**
-              - **Security vulnerabilities**
+              - **Security vulnerabilities**  
               - **Performance bottlenecks**
               - **Code quality & maintainability**
               - **Data integrity risks**
               
-              Prioritize findings as P0 (critical), P1 (warning), P2 (info).
+              Prioritize findings as P0 (critical), P1 (warning), P2 (info).`
+              : `Please perform a **targeted review** focusing on:
+              
+              **1. Changed files since last review:**
+              Review all modified files for regressions, bugs, and quality issues.
+              
+              **2. Critical paths (always reviewed):**
+              - Memory scoring, lifecycle, and conflict detection
+              - Vector search and embedding pipeline
+              - API handlers and client initialization
+              - Web server and config
+              
+              **3. Cross-cutting concerns:**
+              - Check if changes in modified files affect critical paths
+              - Look for patterns that might indicate systemic issues
+              
+              Prioritize findings as P0 (critical), P1 (warning), P2 (info).`;
+            
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              head: process.env.branch,
+              base: 'main',
+              body: `## Automated ${isFull ? 'Full' : 'Incremental'} Review
+              
+              **Review type:** ${reviewScope}  
+              **Commits since last review:** ${commitCount}  
+              **Files to review:** ${filesToReview.split(',').length} files
+              
+              ### Instructions for @coderabbitai
+              ${instructions}
+              
+              ### Files
+              \`\`\`
+              ${filesToReview.replace(/,/g, '\n')}
+              \`\`\`
               
               ### Context
-              - Commits since last review: ${{ steps.check.outputs.count }}
               - Triggered: ${new Date().toISOString()}
+              - Review cycle: Full scan every 20 commits, incremental every 10
               
               ---
               
@@ -92,7 +195,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: pr.number,
-              labels: ['auto-review', 'coderabbit', 'do-not-merge']
+              labels: ['auto-review', 'coderabbit', 'do-not-merge', isFull ? 'full-scan' : 'incremental']
             });
             
             console.log(`Created review PR #${pr.number}: ${pr.html_url}`);
@@ -103,9 +206,14 @@ jobs:
       - name: Wait for CodeRabbit review
         if: steps.check.outputs.should_review == 'true'
         run: |
-          # Wait for CodeRabbit to complete (typically 5-10 minutes)
-          echo "Waiting 600 seconds for CodeRabbit to complete review..."
-          sleep 600
+          # Full scans take longer (10 min), incremental faster (5 min)
+          REVIEW_TYPE="${{ steps.check.outputs.review_type }}"
+          WAIT_TIME=300
+          if [ "$REVIEW_TYPE" = "full" ]; then
+            WAIT_TIME=600
+          fi
+          echo "Waiting ${WAIT_TIME} seconds for CodeRabbit to complete review..."
+          sleep $WAIT_TIME
         env:
           REVIEW_PR_NUMBER: ${{ env.REVIEW_PR_NUMBER }}
 
@@ -116,6 +224,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const prNumber = process.env.REVIEW_PR_NUMBER;
+            const reviewType = '${{ steps.check.outputs.review_type }}';
             
             // Fetch PR comments
             const { data: comments } = await github.rest.issues.listComments({
@@ -124,14 +233,16 @@ jobs:
               issue_number: prNumber
             });
             
-            // Filter CodeRabbit comments (they usually have specific markers)
+            // Filter CodeRabbit comments
             const coderabbitComments = comments.filter(c => 
               c.user.login.toLowerCase().includes('coderabbit') ||
               c.body.includes('CodeRabbit') ||
               c.body.includes('P0') ||
               c.body.includes('P1') ||
+              c.body.includes('P2') ||
               c.body.includes('CR-') ||
-              c.body.includes('WR-')
+              c.body.includes('WR-') ||
+              c.body.includes('IN-')
             );
             
             let p0Count = 0, p1Count = 0, p2Count = 0;
@@ -149,7 +260,7 @@ jobs:
               if (p1Matches) p1Count += p1Matches.length;
               if (p2Matches) p2Count += p2Matches.length;
               
-              // Extract finding lines (lines starting with - or • that have severity markers)
+              // Extract finding lines
               const lines = body.split('\n');
               for (const line of lines) {
                 if (line.match(/P0|P1|P2|Critical|Warning|Info/) && 
@@ -168,9 +279,10 @@ jobs:
             }
             
             // Create tracking issue
-            const issueBody = `## 🔍 Periodic Code Review Findings
+            const issueBody = `## 🔍 ${reviewType === 'full' ? 'Full' : 'Incremental'} Code Review Findings
 
 **Review PR:** #${prNumber}  
+**Review type:** ${reviewType === 'full' ? 'Full repository scan' : 'Incremental (changed + critical)'}  
 **Trigger:** ${{ steps.check.outputs.count }} commits since last review  
 **Date:** ${new Date().toISOString()}
 
@@ -193,9 +305,9 @@ ${findingsBody}
             const { data: issue } = await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `🔍 Periodic Review: ${p0Count} Critical, ${p1Count} Warning findings`,
+              title: `🔍 ${reviewType === 'full' ? 'Full' : 'Incremental'} Review: ${p0Count} Critical, ${p1Count} Warning findings`,
               body: issueBody,
-              labels: ['auto-review', 'coderabbit', 'technical-debt']
+              labels: ['auto-review', 'coderabbit', 'technical-debt', reviewType === 'full' ? 'full-scan' : 'incremental']
             });
             
             console.log(`Created tracking issue #${issue.number}: ${issue.html_url}`);
@@ -205,7 +317,7 @@ ${findingsBody}
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
-              body: `📋 Tracking issue created: #${issue.number}\n\nAll findings from this review are being tracked there. This PR will be closed automatically.`
+              body: `📋 Tracking issue created: #${issue.number}\n\nAll findings from this ${reviewType} review are being tracked there. This PR will be closed automatically.`
             });
 
       - name: Close review PR
