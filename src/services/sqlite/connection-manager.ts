@@ -44,8 +44,8 @@ export class ConnectionManager {
     }
 
     const db = new Database(dbPath);
-    this.initDatabase(db);
     this.connections.set(dbPath, db);
+    this.initDatabase(db);
 
     return db;
   }
