@@ -104,32 +104,47 @@ export class USearchBackend implements VectorBackend {
       return;
     }
 
-    const column = args.kind === "tags" ? "tags_vector" : "vector";
-    const rows = (
-      args.db as {
-        prepare: (sql: string) => {
-          all: () => Array<{
-            id: string;
-            vector?: Uint8Array | ArrayBuffer | null;
-            tags_vector?: Uint8Array | ArrayBuffer | null;
-          }>;
-        };
-      }
-    )
-      .prepare(`SELECT id, ${column} FROM memories WHERE ${column} IS NOT NULL`)
-      .all();
-
-    const cache = await this.createEmptyIndex(indexKey);
-    this.indexes.set(indexKey, cache);
-
-    for (const row of rows) {
-      const raw = args.kind === "tags" ? row.tags_vector : row.vector;
-      const vector = this.decodeVector(raw);
-      if (vector.length === 0) continue;
-      this.upsertItem(cache, { id: row.id, vector });
+    const pending = this.rebuildLocks.get(indexKey);
+    if (pending) {
+      await pending;
+      return;
     }
 
-    cache.initialized = true;
+    const promise = (async () => {
+      const column = args.kind === "tags" ? "tags_vector" : "vector";
+      const rows = (
+        args.db as {
+          prepare: (sql: string) => {
+            all: () => Array<{
+              id: string;
+              vector?: Uint8Array | ArrayBuffer | null;
+              tags_vector?: Uint8Array | ArrayBuffer | null;
+            }>;
+          };
+        }
+      )
+        .prepare(`SELECT id, ${column} FROM memories WHERE ${column} IS NOT NULL`)
+        .all();
+
+      const cache = await this.createEmptyIndex(indexKey);
+      this.indexes.set(indexKey, cache);
+
+      for (const row of rows) {
+        const raw = args.kind === "tags" ? row.tags_vector : row.vector;
+        const vector = this.decodeVector(raw);
+        if (vector.length === 0) continue;
+        this.upsertItem(cache, { id: row.id, vector });
+      }
+
+      cache.initialized = true;
+    })();
+
+    this.rebuildLocks.set(indexKey, promise);
+    try {
+      await promise;
+    } finally {
+      this.rebuildLocks.delete(indexKey);
+    }
   }
 
   async deleteShardIndexes(args: { shard: ShardInfo }): Promise<void> {
@@ -171,6 +186,7 @@ export class USearchBackend implements VectorBackend {
   }
 
   private indexLocks = new Map<string, Promise<CachedIndex>>();
+  private rebuildLocks = new Map<string, Promise<void>>();
 
   private async getOrCreateIndex(indexKey: string): Promise<CachedIndex> {
     const existing = this.indexes.get(indexKey);
