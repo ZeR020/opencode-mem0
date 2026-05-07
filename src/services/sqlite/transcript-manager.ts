@@ -24,12 +24,9 @@ function getTranscriptDbPath(): string {
 const WORD_SPLIT_RE = /\s+/;
 
 function approximateTokenCount(text: string): number {
-  let count = 0;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch && ch <= " ") count++;
-  }
-  return Math.ceil((count + 1) * 1.33);
+  const trimmed = text.trim();
+  if (!trimmed) return 0;
+  return Math.ceil(trimmed.split(WORD_SPLIT_RE).length * 1.33);
 }
 
 export class TranscriptManager {

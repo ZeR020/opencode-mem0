@@ -459,8 +459,15 @@ export class VectorSearch {
       const candidateWords = getWordSet(candidate.memory);
       for (const selected of finalResults) {
         const selectedWords = getWordSet(selected.memory);
-        const intersectionSize = [...candidateWords].filter((w) => selectedWords.has(w)).length;
-        const unionSize = new Set([...candidateWords, ...selectedWords]).size;
+        let intersectionSize = 0;
+        const smallerSet =
+          candidateWords.size <= selectedWords.size ? candidateWords : selectedWords;
+        const largerSet =
+          candidateWords.size <= selectedWords.size ? selectedWords : candidateWords;
+        for (const word of smallerSet) {
+          if (largerSet.has(word)) intersectionSize++;
+        }
+        const unionSize = candidateWords.size + selectedWords.size - intersectionSize;
         const jaccard = unionSize > 0 ? intersectionSize / unionSize : 0;
 
         if (jaccard > diversityThreshold) {
