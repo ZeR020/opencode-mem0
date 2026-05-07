@@ -3,6 +3,7 @@ import { shardManager } from "./sqlite/shard-manager.js";
 import { connectionManager } from "./sqlite/connection-manager.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
+import { calculateRecency } from "./memory-scoring.js";
 
 class LifecycleManager {
   private interval: NodeJS.Timeout | null = null;
@@ -227,9 +228,10 @@ export function applyDecay(): {
           // Incremental Ebbinghaus decay since last maintenance
           const newStrength = currentStrength * Math.exp(-decayRate * deltaDays);
           const clampedStrength = Math.max(0, Math.min(1, newStrength));
+          const recencyScore = calculateRecency(createdAt);
 
-          // Update strength, sync recency_score, and record last_decay_at
-          updateStmt.run(clampedStrength, clampedStrength, now, memory.id);
+          // Update strength, recency_score, and record last_decay_at
+          updateStmt.run(clampedStrength, recencyScore, now, memory.id);
           totalUpdated++;
 
           if (clampedStrength < currentStrength) {
