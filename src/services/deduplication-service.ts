@@ -90,7 +90,9 @@ export class DeduplicationService {
           try {
             const buf = new Uint8Array(mem1.vector);
             if (buf.byteLength % 4 !== 0) throw new Error("Invalid vector alignment");
-            vector1 = new Float32Array(buf.buffer);
+            vector1 = new Float32Array(
+              buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
+            );
           } catch {
             log("Deduplication: skipping malformed vector", {
               id: mem1.id,
@@ -117,7 +119,9 @@ export class DeduplicationService {
             try {
               const buf2 = new Uint8Array(mem2.vector);
               if (buf2.byteLength % 4 !== 0) throw new Error("Invalid vector alignment");
-              vector2 = new Float32Array(buf2.buffer);
+              vector2 = new Float32Array(
+                buf2.buffer.slice(buf2.byteOffset, buf2.byteOffset + buf2.byteLength)
+              );
             } catch {
               log("Deduplication: skipping malformed vector", {
                 id: mem2.id,
