@@ -204,12 +204,12 @@ export function applyDecay(): {
       try {
         db = connectionManager.getConnection(shard.dbPath);
 
-        // Get all STM memories and LTM memories with non-zero decay
+        // Get all STM memories and LTM memories with non-zero decay, excluding pinned
         const memories = db
           .prepare(
             `SELECT id, strength, decay_rate, created_at, last_decay_at, store_type, access_count
              FROM memories
-             WHERE store_type = 'stm' OR (store_type = 'ltm' AND decay_rate > 0)`
+             WHERE (store_type = 'stm' OR (store_type = 'ltm' AND decay_rate > 0)) AND is_pinned = 0`
           )
           .all() as any[];
 

@@ -485,7 +485,21 @@ export async function handleSearch(
     const safePageSize =
       Number.isFinite(pageSize) && pageSize > 0 && pageSize <= 100 ? Math.floor(pageSize) : 20;
     await embeddingService.warmup();
-    const queryVector = await embeddingService.embedWithTimeout(query);
+
+    let queryVector: Float32Array | null = null;
+    try {
+      queryVector = await embeddingService.embedWithTimeout(query);
+    } catch (error) {
+      if (!embeddingService.embeddingAvailable) {
+        log("Embedding unavailable — falling back to text-only search", {
+          query,
+          error: String(error),
+        });
+      } else {
+        throw error;
+      }
+    }
+
     let memoryResults: any[] = [];
     let promptResults: any[] = [];
     if (tag) {
@@ -497,7 +511,8 @@ export async function handleSearch(
             shard,
             queryVector,
             tag,
-            safePageSize * 2
+            safePageSize * 2,
+            query
           );
           memoryResults.push(...results);
         } catch (error) {
@@ -515,7 +530,13 @@ export async function handleSearch(
         searchedPaths.add(shard.dbPath);
         try {
           const perShardLimit = Math.min(safePage * safePageSize, 500);
-          const results = await vectorSearch.searchInShard(shard, queryVector, "", perShardLimit);
+          const results = await vectorSearch.searchInShard(
+            shard,
+            queryVector,
+            "",
+            perShardLimit,
+            query
+          );
           memoryResults.push(...results);
         } catch (error) {
           log("Shard search error", { shardId: shard.id, error: String(error) });

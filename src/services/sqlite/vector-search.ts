@@ -146,7 +146,7 @@ export class VectorSearch {
    */
   async searchInShard(
     shard: ShardInfo,
-    queryVector: Float32Array,
+    queryVector: Float32Array | null,
     containerTag: string,
     limit: number,
     queryText?: string,
@@ -154,50 +154,57 @@ export class VectorSearch {
   ): Promise<SearchResult[]> {
     const db = connectionManager.getConnection(shard.dbPath);
     const backend = await this.getBackend();
-    let contentResults;
-    let tagsResults;
+    let contentResults: { id: string; distance: number }[] = [];
+    let tagsResults: { id: string; distance: number }[] = [];
+    let embeddingDegraded = false;
 
-    try {
-      await backend.rebuildFromShard({ db, shard, kind: "content" });
-      await backend.rebuildFromShard({ db, shard, kind: "tags" });
+    if (queryVector) {
+      try {
+        await backend.rebuildFromShard({ db, shard, kind: "content" });
+        await backend.rebuildFromShard({ db, shard, kind: "tags" });
 
-      contentResults = await backend.search({
-        db,
-        shard,
-        kind: "content",
-        queryVector,
-        limit: limit * 4,
-      });
-      tagsResults = await backend.search({
-        db,
-        shard,
-        kind: "tags",
-        queryVector,
-        limit: limit * 4,
-      });
-    } catch (error) {
-      log("Vector search degraded to exact scan in shard", {
-        shardId: shard.id,
-        backend: backend.getBackendName(),
-        error: String(error),
-      });
+        contentResults = await backend.search({
+          db,
+          shard,
+          kind: "content",
+          queryVector,
+          limit: limit * 4,
+        });
+        tagsResults = await backend.search({
+          db,
+          shard,
+          kind: "tags",
+          queryVector,
+          limit: limit * 4,
+        });
+      } catch (error) {
+        log("Vector search degraded to exact scan in shard", {
+          shardId: shard.id,
+          backend: backend.getBackendName(),
+          error: String(error),
+        });
 
-      await this.fallbackBackend.rebuildFromShard({ db, shard, kind: "content" });
-      await this.fallbackBackend.rebuildFromShard({ db, shard, kind: "tags" });
-      contentResults = await this.fallbackBackend.search({
-        db,
-        shard,
-        kind: "content",
-        queryVector,
-        limit: limit * 4,
-      });
-      tagsResults = await this.fallbackBackend.search({
-        db,
-        shard,
-        kind: "tags",
-        queryVector,
-        limit: limit * 4,
-      });
+        await this.fallbackBackend.rebuildFromShard({ db, shard, kind: "content" });
+        await this.fallbackBackend.rebuildFromShard({ db, shard, kind: "tags" });
+        contentResults = await this.fallbackBackend.search({
+          db,
+          shard,
+          kind: "content",
+          queryVector,
+          limit: limit * 4,
+        });
+        tagsResults = await this.fallbackBackend.search({
+          db,
+          shard,
+          kind: "tags",
+          queryVector,
+          limit: limit * 4,
+        });
+      }
+    } else {
+      embeddingDegraded = true;
+      contentResults = [];
+      tagsResults = [];
     }
 
     const scoreMap = new Map<string, { contentSim: number; tagsSim: number }>();
@@ -215,8 +222,7 @@ export class VectorSearch {
       }
     }
 
-    const ids = Array.from(scoreMap.keys());
-    if (ids.length === 0) return [];
+    let ids = Array.from(scoreMap.keys());
 
     // Hybrid search: also get FTS5 results for query text
     let ftsResults: string[] = [];
@@ -253,6 +259,13 @@ export class VectorSearch {
       }
     }
 
+    // When embedding is unavailable, rely on FTS5 results for ids
+    if (embeddingDegraded && ftsResults.length > 0) {
+      ids = ftsResults;
+    }
+
+    if (ids.length === 0) return [];
+
     const placeholders = ids.map(() => "?").join(",");
     const rows = db
       .prepare(
@@ -276,7 +289,7 @@ export class VectorSearch {
       : [];
 
     const hydratedResults: SearchResult[] = rows.map((row: any) => {
-      const scores = scoreMap.get(row.id)!;
+      const scores = scoreMap.get(row.id) ?? { contentSim: 0, tagsSim: 0 };
       const memoryTagsStr = row.tags || "";
       const memoryTags = memoryTagsStr.split(",").map((t: string) => t.trim().toLowerCase());
 
@@ -413,12 +426,13 @@ export class VectorSearch {
    */
   async searchAcrossShards(
     shards: ShardInfo[],
-    queryVector: Float32Array,
+    queryVector: Float32Array | null,
     containerTag: string,
     limit: number,
     similarityThreshold: number,
     queryText?: string,
-    context?: RetrievalContext
+    context?: RetrievalContext,
+    embeddingDegraded: boolean = false
   ): Promise<SearchResult[]> {
     const shardPromises = shards.map(async (shard) => {
       try {
@@ -493,6 +507,11 @@ export class VectorSearch {
       }
     }
 
+    // Skip similarity threshold when embedding is degraded — scores are based only on
+    // strength/recency/FTS and will be much lower than normal vector-based scores.
+    if (embeddingDegraded) {
+      return finalResults;
+    }
     return finalResults.filter((r) => r.similarity >= similarityThreshold);
   }
 

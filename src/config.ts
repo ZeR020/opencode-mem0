@@ -118,6 +118,7 @@ interface OpenCodeMemConfig {
     contextBoost?: number;
   };
   logLevel?: "debug" | "info" | "warn" | "error";
+  warmupTimeoutMs?: number;
 }
 
 const OpenCodeMemConfigSchema = z.object({
@@ -219,6 +220,7 @@ const OpenCodeMemConfigSchema = z.object({
     })
     .optional(),
   logLevel: z.enum(["debug", "info", "warn", "error"]).optional(),
+  warmupTimeoutMs: z.number().positive().optional(),
 });
 
 const DEFAULTS: Required<
@@ -326,6 +328,7 @@ const DEFAULTS: Required<
     contextBoost: 1.5,
   },
   logLevel: "info",
+  warmupTimeoutMs: 30000,
 };
 
 function expandPath(path: string): string {
@@ -841,6 +844,7 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
       contextBoost: fileConfig.retrieval?.contextBoost ?? DEFAULTS.retrieval.contextBoost,
     },
     logLevel: fileConfig.logLevel ?? DEFAULTS.logLevel,
+    warmupTimeoutMs: fileConfig.warmupTimeoutMs ?? DEFAULTS.warmupTimeoutMs,
   };
 
   // Apply log level from config

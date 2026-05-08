@@ -23,6 +23,7 @@ import {
   runLifecycleMaintenance,
 } from "./services/memory-lifecycle.js";
 import { AIProviderFactory } from "./services/ai/ai-provider-factory.js";
+import { embeddingService } from "./services/embedding.js";
 
 import { isConfigured, CONFIG, initConfig } from "./config.js";
 import { log } from "./services/logger.js";
@@ -75,10 +76,22 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
 
   if (!(globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] && isConfigured()) {
     try {
-      await memoryClient.warmup();
+      const timeoutMs = CONFIG.warmupTimeoutMs ?? 30000;
+      await Promise.race([
+        memoryClient.warmup(),
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error(`Warmup timed out after ${timeoutMs}ms`)), timeoutMs)
+        ),
+      ]);
       (globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] = true;
     } catch (error) {
       log("Plugin warmup failed", { error: String(error) });
+      if (error instanceof Error && error.message.includes("timed out")) {
+        embeddingService.embeddingAvailable = false;
+        log(
+          "Embedding model warmup timed out — marking embeddings unavailable. Searches will use text-only fallback."
+        );
+      }
     }
   }
 
@@ -416,6 +429,19 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
                 );
                 if (!searchRes.success)
                   return JSON.stringify({ success: false, error: searchRes.error });
+                if (searchRes.degraded && ctx.client?.tui && CONFIG.showErrorToasts) {
+                  await ctx.client.tui
+                    .showToast({
+                      body: {
+                        title: "Memory Search Degraded",
+                        message:
+                          "Embedding model unavailable — using text-only search. Results may be less accurate.",
+                        variant: "warning",
+                        duration: 5000,
+                      },
+                    })
+                    .catch((err) => log("Toast display failed", { error: String(err) }));
+                }
                 return formatSearchResults(args.query, searchRes, args.limit);
 
               case "profile": {

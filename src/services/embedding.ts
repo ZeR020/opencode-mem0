@@ -41,6 +41,7 @@ export class EmbeddingService {
   private pipe: any = null;
   private initPromise: Promise<void> | null = null;
   public isWarmedUp: boolean = false;
+  public embeddingAvailable: boolean = true;
   private cache: Map<string, Float32Array> = new Map();
   private cachedModelName: string | null = null;
 
@@ -85,16 +86,16 @@ export class EmbeddingService {
     const cached = this.cache.get(text);
     if (cached) return cached;
 
-    if (!this.isWarmedUp && !this.initPromise) {
-      await this.warmup();
-    }
-    if (this.initPromise) {
-      await this.initPromise;
-    }
-
     let result: Float32Array;
 
     try {
+      if (!this.isWarmedUp && !this.initPromise) {
+        await this.warmup();
+      }
+      if (this.initPromise) {
+        await this.initPromise;
+      }
+
       if (CONFIG.embeddingApiUrl && CONFIG.embeddingApiKey) {
         const response = await fetch(`${CONFIG.embeddingApiUrl}/embeddings`, {
           method: "POST",
@@ -119,8 +120,10 @@ export class EmbeddingService {
         const output = await this.pipe(text, { pooling: "mean", normalize: true });
         result = new Float32Array(output.data);
       }
-    } finally {
-      // no internal timeout to clear
+    } catch (error) {
+      this.embeddingAvailable = false;
+      log("Embedding failed — falling back to text-only search", { error: String(error) });
+      throw error;
     }
 
     if (this.cache.size >= MAX_CACHE_SIZE) {

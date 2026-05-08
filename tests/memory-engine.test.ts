@@ -156,6 +156,17 @@ function makeDb(path: string) {
             }
             return rows;
           }
+          if (
+            sql.includes(
+              "SELECT id, strength, decay_rate, created_at, last_decay_at, store_type, access_count"
+            )
+          ) {
+            return rows.filter(
+              (r: any) =>
+                r.is_pinned !== 1 &&
+                (r.store_type === "stm" || (r.store_type === "ltm" && (r.decay_rate || 0) > 0))
+            );
+          }
           if (sql.includes("SELECT id, strength, access_count FROM memories WHERE id = ?")) {
             const id = args[0];
             const mem = rows.find((r) => r.id === id);
@@ -232,6 +243,11 @@ function makeDb(path: string) {
             if (mem) {
               if (sql.includes("is_deprecated = 1")) mem.is_deprecated = 1;
               if (sql.includes("store_type = 'ltm'")) mem.store_type = "ltm";
+              if (sql.includes("strength = ?")) {
+                mem.strength = args[0];
+                mem.recency_score = args[1];
+                mem.last_decay_at = args[2];
+              }
             }
           }
           if (sql.includes("UPDATE memory_conflicts")) {
@@ -292,7 +308,8 @@ const {
   calculateAllScores,
   recordAccess,
 } = await import("../src/services/memory-scoring.js");
-const { classifyMemory, promoteToLTM } = await import("../src/services/memory-lifecycle.js");
+const { classifyMemory, promoteToLTM, applyDecay } =
+  await import("../src/services/memory-lifecycle.js");
 const { calculateContextBoost, calculateDiversityPenalty, contextTracker } =
   await import("../src/services/retrieval-context.js");
 const { TranscriptManager } = await import("../src/services/sqlite/transcript-manager.js");
@@ -557,6 +574,54 @@ describe("Memory Engine Integration", () => {
       const notPromoted = promoteToLTM("already-ltm");
       expect(notPromoted.success).toBe(true);
       expect(notPromoted.promoted).toBe(false);
+    });
+
+    it("applyDecay skips pinned memories", async () => {
+      dbByPath.clear();
+      const db = makeDb("/tmp/shard-current.db");
+      dbByPath.set("/tmp/shard-current.db", db);
+
+      const { shardManager } = await import("../src/services/sqlite/shard-manager.js");
+      vi.spyOn(shardManager, "getAllShards").mockImplementation((scope: string) => {
+        return scope === "user" ? [makeShard("shard-current")] : [];
+      });
+
+      // Add a pinned and an unpinned memory
+      db.prepare = (sql: string) => ({
+        all: () => {
+          if (sql.includes("SELECT id, strength, decay_rate, created_at")) {
+            return [
+              {
+                id: "unpinned",
+                strength: 0.8,
+                decay_rate: 0.05,
+                created_at: Date.now() - 86400000 * 10, // 10 days old
+                last_decay_at: null,
+                store_type: "stm",
+                access_count: 0,
+                is_pinned: 0,
+              },
+              {
+                id: "pinned",
+                strength: 0.8,
+                decay_rate: 0.05,
+                created_at: Date.now() - 86400000 * 10,
+                last_decay_at: null,
+                store_type: "stm",
+                access_count: 0,
+                is_pinned: 1,
+              },
+            ].filter((r: any) => r.is_pinned !== 1);
+          }
+          return [];
+        },
+        get: () => null,
+        run: () => ({ changes: 1 }),
+      });
+
+      const result = applyDecay();
+      expect(result.updated).toBe(1); // only unpinned is updated
+      vi.restoreAllMocks();
     });
   });
 

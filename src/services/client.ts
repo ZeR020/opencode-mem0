@@ -97,12 +97,27 @@ export class LocalMemoryClient {
     try {
       await this.initialize();
 
-      const queryVector = await embeddingService.embedWithTimeout(query);
+      let queryVector: Float32Array | null = null;
+      let degraded = false;
+      try {
+        queryVector = await embeddingService.embedWithTimeout(query);
+      } catch (error) {
+        if (!embeddingService.embeddingAvailable) {
+          log("Embedding unavailable — falling back to text-only search", {
+            query,
+            error: String(error),
+          });
+          degraded = true;
+        } else {
+          throw error;
+        }
+      }
+
       const resolved = resolveScopeValue(scope, containerTag);
       const shards = shardManager.getAllShards(resolved.scope, resolved.hash);
 
       if (shards.length === 0) {
-        return { success: true as const, results: [], total: 0, timing: 0 };
+        return { success: true as const, results: [], total: 0, timing: 0, degraded };
       }
 
       // Build retrieval context
@@ -123,10 +138,11 @@ export class LocalMemoryClient {
         CONFIG.maxMemories,
         CONFIG.similarityThreshold,
         query,
-        retrievalContext
+        retrievalContext,
+        degraded
       );
 
-      return { success: true as const, results, total: results.length, timing: 0 };
+      return { success: true as const, results, total: results.length, timing: 0, degraded };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       log("searchMemories: error", { error: errorMessage });
