@@ -7,12 +7,68 @@ import { CONFIG } from "../../config.js";
 const Database = getDatabase();
 
 const MAX_CONNECTIONS = 20;
+const MAX_BATCH_SIZE = 50;
 
 export class ConnectionManager {
   private connections: Map<string, Database> = new Map();
   private accessOrder: string[] = [];
   private creating: Set<string> = new Set();
   private isClosing = false;
+  private batches: Map<string, Array<{ sql: string; params: any[] }>> = new Map();
+  private stmtCache = new WeakMap<Database, Map<string, any>>();
+
+  private getStmt(db: Database, sql: string): any {
+    let dbCache = this.stmtCache.get(db);
+    if (!dbCache) {
+      dbCache = new Map();
+      this.stmtCache.set(db, dbCache);
+    }
+    let stmt = dbCache.get(sql);
+    if (!stmt) {
+      stmt = db.prepare(sql);
+      dbCache.set(sql, stmt);
+    }
+    return stmt;
+  }
+
+  batchWrite(dbPath: string, sql: string, params: any[]): void {
+    let batch = this.batches.get(dbPath);
+    if (!batch) {
+      batch = [];
+      this.batches.set(dbPath, batch);
+    }
+    batch.push({ sql, params });
+    if (batch.length > MAX_BATCH_SIZE) {
+      this.flushBatch(dbPath);
+    }
+  }
+
+  flushBatch(dbPath: string): void {
+    const batch = this.batches.get(dbPath);
+    if (!batch || batch.length === 0) return;
+
+    const db = this.connections.get(dbPath);
+    if (!db) {
+      this.batches.delete(dbPath);
+      throw new Error(`No open connection for ${dbPath} — cannot flush batch`);
+    }
+
+    db.run("BEGIN IMMEDIATE");
+    try {
+      for (const item of batch) {
+        const stmt = this.getStmt(db, item.sql);
+        stmt.run(...item.params);
+      }
+      db.run("COMMIT");
+    } catch (error) {
+      try {
+        db.run("ROLLBACK");
+      } catch {}
+      throw error;
+    } finally {
+      this.batches.delete(dbPath);
+    }
+  }
 
   private initDatabase(db: Database): void {
     db.run("PRAGMA busy_timeout = 5000");
@@ -102,6 +158,7 @@ export class ConnectionManager {
   }
 
   closeConnection(dbPath: string): void {
+    this.flushBatch(dbPath);
     const db = this.connections.get(dbPath);
     if (db) {
       try {
@@ -118,6 +175,10 @@ export class ConnectionManager {
   closeAll(): void {
     this.isClosing = true;
     try {
+      // Flush all pending batches before closing connections
+      for (const [path, _batch] of this.batches) {
+        this.flushBatch(path);
+      }
       for (const [path, db] of this.connections) {
         try {
           db.run("PRAGMA wal_checkpoint(TRUNCATE)");
@@ -134,6 +195,10 @@ export class ConnectionManager {
   }
 
   checkpointAll(): void {
+    // Flush pending batches before checkpointing WAL
+    for (const [path, _batch] of this.batches) {
+      this.flushBatch(path);
+    }
     for (const [path, db] of this.connections) {
       try {
         db.run("PRAGMA wal_checkpoint(PASSIVE)");
