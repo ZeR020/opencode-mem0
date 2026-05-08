@@ -76,9 +76,10 @@ describe("token-budget", () => {
       ],
     };
 
-    // Budget enough for header + 2 memories
+    // Budget small enough for header + ~2 memories only
+    // Header (~2) + Project Knowledge: (~5) + each memory line (~12 tokens)
     const result = formatContextForPrompt(null, memories as any, {
-      tokenBudget: 80,
+      tokenBudget: 30,
       query: "test query",
     });
 
@@ -95,15 +96,17 @@ describe("token-budget", () => {
   });
 
   it("estimates tokens at ~4 characters per token", () => {
-    // 40 chars = ~10 tokens
-    const memories = makeMemories(["x".repeat(40)]);
-    // Budget 15: header (~5 tokens) + memory (~10 tokens) = 15, should fit
+    // 20 chars = ~5 tokens for content. With prefix `- [90%] ` = 12 chars, total line ~32 chars = 8 tokens.
+    // Header `[MEMORY]` = 8 chars = 2 tokens. Section `\nProject Knowledge:` = 19 chars = 5 tokens.
+    // Total = 2 + 5 + 8 = 15 tokens.
+    const memories = makeMemories(["x".repeat(20)]);
+    // Budget 15 should fit exactly
     const result1 = formatContextForPrompt(null, memories, { tokenBudget: 15 });
-    expect(result1).toContain("x".repeat(40));
+    expect(result1).toContain("x".repeat(20));
 
-    // Budget 14: header (~5) + memory (~10) = 15 > 14, should NOT fit
-    const result2 = formatContextForPrompt(null, memories, { tokenBudget: 14 });
-    // Only header should remain, but header alone without memories returns ""
+    // Budget 13: total 14 > 13, should NOT fit
+    const result2 = formatContextForPrompt(null, memories, { tokenBudget: 13 });
+    // Header alone without memories returns ""
     expect(result2).toBe("");
   });
 
@@ -129,7 +132,10 @@ describe("token-budget", () => {
   });
 
   it("uses default budget of 4000 when no tokenBudget provided", () => {
-    const longContent = "x".repeat(16000); // ~4000 tokens exactly
+    // Default budget = 4000 tokens. Content 15900 chars = ~3975 tokens.
+    // Plus prefix `- [90%] ` = 12 chars = 3 tokens. Plus header/section ~7 tokens.
+    // Total ~3985 < 4000, should fit under default budget.
+    const longContent = "x".repeat(15900);
     const memories = makeMemories([longContent]);
 
     const result = formatContextForPrompt(null, memories);
