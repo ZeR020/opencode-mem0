@@ -6,11 +6,12 @@ import { connectionManager } from "../src/services/sqlite/connection-manager.js"
 import { getDatabase } from "../src/services/sqlite/sqlite-bootstrap.js";
 import { runMigrations, getCurrentVersion } from "../src/services/sqlite/schema.js";
 
-const testDir = mkdtempSync(join(tmpdir(), "schema-version-test-"));
+let testDir: string;
 const DbClass = getDatabase();
 
 beforeEach(() => {
   connectionManager.closeAll();
+  testDir = mkdtempSync(join(tmpdir(), "schema-version-test-"));
 });
 
 afterEach(() => {
@@ -94,7 +95,7 @@ describe("schema versioning", () => {
     `);
 
     const badMigrations = {
-      1: ["ALTER TABLE nonexistent_table ADD COLUMN foo TEXT"],
+      1: ["INSERT INTO nonexistent_table (x) VALUES (1)"],
     };
 
     expect(() => runMigrations(db, 1, badMigrations)).toThrow();

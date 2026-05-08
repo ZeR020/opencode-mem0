@@ -3,6 +3,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { log } from "../logger.js";
 import { CONFIG } from "../../config.js";
+import { runMigrations } from "./schema.js";
 
 const Database = getDatabase();
 
@@ -78,6 +79,18 @@ export class ConnectionManager {
     db.run("PRAGMA temp_store = MEMORY");
     db.run("PRAGMA foreign_keys = ON");
 
+    // Schema version tracking
+    db.run(`
+      CREATE TABLE IF NOT EXISTS schema_version (
+        version INTEGER PRIMARY KEY,
+        applied_at INTEGER NOT NULL
+      )
+    `);
+
+    // Run versioned migrations
+    runMigrations(db);
+
+    // Legacy v0→v1 migration (tags column only)
     this.migrateSchema(db);
   }
 

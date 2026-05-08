@@ -6,6 +6,7 @@ import { connectionManager } from "./connection-manager.js";
 import { log } from "../logger.js";
 import { vectorSearch } from "./vector-search.js";
 import type { ShardInfo } from "./types.js";
+import { runMigrations } from "./schema.js";
 
 type DatabaseType = Database;
 
@@ -58,6 +59,9 @@ export class ShardManager {
       CREATE INDEX IF NOT EXISTS idx_active_shards 
       ON shards(scope, scope_hash, is_active)
     `);
+
+    // Ensure schema version tracking on metadata DB
+    runMigrations(this.metadataDb);
   }
 
   private getShardPath(scope: "user" | "project", scopeHash: string, shardIndex: number): string {
