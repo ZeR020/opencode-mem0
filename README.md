@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  Give your coding agent durable context across sessions: preferences, project decisions, transcripts, profiles, and architecture notes, all stored locally on your machine.
+  Give your coding agent durable context across sessions: preferences, project decisions, transcripts, profiles, and architecture notes, all stored locally on your machine. <!-- coderabbit audit -->
 </p>
 
 <p align="center">
