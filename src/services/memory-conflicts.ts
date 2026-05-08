@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { connectionManager } from "./sqlite/connection-manager.js";
 import { shardManager } from "./sqlite/shard-manager.js";
 import { vectorSearch } from "./sqlite/vector-search.js";
+import { embeddingService } from "./embedding.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 import type { MemoryConflict } from "./sqlite/types.js";
@@ -215,7 +216,14 @@ export async function detectConflicts(
         const existingConflict = findExistingConflict(db, newMemoryId, candidate.id);
         if (existingConflict) continue;
 
-        // LLM-based contradiction check
+        // Heuristic pre-filter: skip expensive LLM call for obvious non-contradictions
+        const heuristicContradiction = checkContradictionHeuristic(
+          newMemoryContent,
+          candidate.content
+        );
+        if (!heuristicContradiction) continue;
+
+        // LLM-based contradiction check (expensive, only for heuristic positives)
         const isContradiction = await checkContradictionWithLLM(
           newMemoryContent,
           candidate.content,
@@ -531,50 +539,46 @@ export async function resolveConflict(
             return { success: false, error: "Original memory not found" };
           }
 
+          // Re-embed merged content so vector matches content (P0-2 fix)
+          const mergedVector = await embeddingService.embed(mergedContent);
+
           const mergedId = `mem_${Date.now()}_${randomBytes(5).toString("hex")}`;
-          db.prepare(
-            `
-            INSERT INTO memories (
-              id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
-              metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url,
-              recency_score, frequency_score, importance_score, utility_score, novelty_score,
-              confidence_score, interference_penalty, strength, access_count, last_accessed,
-              store_type, decay_rate, is_deprecated
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `
-          ).run(
-            mergedId,
-            mergedContent,
-            mem1.vector,
-            mem1.tags_vector,
-            mem1.container_tag,
-            mem1.tags,
-            mem1.type,
-            now,
-            now,
-            JSON.stringify({
-              mergedFrom: [conflict.memoryId1, conflict.memoryId2],
-              originalType: mem1.type,
-            }),
-            mem1.display_name,
-            mem1.user_name,
-            mem1.user_email,
-            mem1.project_path,
-            mem1.project_name,
-            mem1.git_repo_url,
-            mem1.recency_score || 0.5,
-            mem1.frequency_score || 0,
-            mem1.importance_score || 0.5,
-            mem1.utility_score || 0.3,
-            mem1.novelty_score || 0.5,
-            mem1.confidence_score || 0.7,
-            mem1.interference_penalty || 0,
-            mem1.strength || 0.5,
-            mem1.access_count || 0,
-            mem1.last_accessed || null,
-            mem1.store_type || "ltm",
-            mem1.decay_rate || 0.05,
-            0
+          await vectorSearch.insertVector(
+            db,
+            {
+              id: mergedId,
+              content: mergedContent,
+              vector: mergedVector,
+              tagsVector: mem1.tags_vector,
+              containerTag: mem1.container_tag,
+              tags: mem1.tags,
+              type: mem1.type,
+              createdAt: now,
+              updatedAt: now,
+              metadata: JSON.stringify({
+                mergedFrom: [conflict.memoryId1, conflict.memoryId2],
+                originalType: mem1.type,
+              }),
+              displayName: mem1.display_name,
+              userName: mem1.user_name,
+              userEmail: mem1.user_email,
+              projectPath: mem1.project_path,
+              projectName: mem1.project_name,
+              gitRepoUrl: mem1.git_repo_url,
+              recencyScore: mem1.recency_score || 0.5,
+              frequencyScore: mem1.frequency_score || 0,
+              importanceScore: mem1.importance_score || 0.5,
+              utilityScore: mem1.utility_score || 0.3,
+              noveltyScore: mem1.novelty_score || 0.5,
+              confidenceScore: mem1.confidence_score || 0.7,
+              interferencePenalty: mem1.interference_penalty || 0,
+              strength: mem1.strength || 0.5,
+              accessCount: mem1.access_count || 0,
+              lastAccessed: mem1.last_accessed || null,
+              storeType: mem1.store_type || "ltm",
+              decayRate: mem1.decay_rate || 0.05,
+            },
+            shard
           );
 
           db.prepare("UPDATE memories SET is_deprecated = 1 WHERE id IN (?, ?)").run(

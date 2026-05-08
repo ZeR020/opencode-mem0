@@ -41,6 +41,32 @@ reviews:
     ignore_title_keywords: []
     drafts: true
     base_branches: ["main"]
+  finishing_touches:
+    custom:
+      - name: "full-repo-scan"
+        enabled: true
+        instructions: |
+          Perform a comprehensive full-repository security, bug, and performance audit.
+          This MUST scan ALL source files in the repository, not just changed files.
+          
+          Focus areas:
+          1. Critical bugs and race conditions (P0)
+          2. Security vulnerabilities (P0/P1)
+          3. Performance bottlenecks and inefficiencies (P1)
+          4. Data integrity and consistency issues (P0/P1)
+          5. Code quality and maintainability problems (P1/P2)
+          
+          Instructions:
+          - Scan every file in src/ and tests/ directories
+          - Provide exact file paths and line numbers for each finding
+          - Prioritize findings as: P0 (critical), P1 (warning), P2 (info)
+          - Focus on issues that could break functionality or cause data loss
+          - Distinguish real bugs from style preferences or nitpicks
+          - Look for patterns across multiple files (duplicated logic, inconsistent error handling)
+          - Check for missing error handling, unhandled promises, and resource leaks
+          - Verify transaction boundaries and atomicity guarantees
+          - Review SQL injection risks and input validation
+          - Examine caching strategies and cache invalidation correctness
   tools:
     shellcheck:
       enabled: false

@@ -200,7 +200,7 @@ export class WebServer {
     }
   }
 
-  // --- HTTP request handling (inlined from web-server-worker.ts) ---
+  // --- HTTP request handling ---
 
   private redactPII(obj: any): any {
     if (!obj || typeof obj !== "object") return obj;

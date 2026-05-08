@@ -1,1 +1,108 @@
+#!/bin/sh
+# Pre-commit hook with security checks
+# This prevents accidental commits of sensitive files
+
+set -e
+
+echo "🔍 Running pre-commit security checks..."
+
+# Check 1: Block commits of files matching dangerous patterns
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=A)
+BLOCKED_FOUND=0
+
+# Simple patterns that should NEVER be committed
+for file in $STAGED_FILES; do
+  case "$file" in
+    *.env*|*.pem|*.key|*.p12|*.pfx|*.jks|*.der|*.cer|*.crt|*.keystore|*.secret|*.credentials|*.token|*.password|*.auth|*.oauth|*.ssh|*.gpg|*.pgp|*.asc|*.enc|*.encrypted|*.backup|*.bak|*.old|*.orig|*.swp|*.swo|*.tmp|*.temp|*.log|*.cache|*.pid|*.sock|*.DS_Store|*.idea|*.vscode|*.history|*.sublime-*|*.lesshst|*.mysql_history|*.psql_history|*.sqlite_history|*.bash_history|*.zsh_history|*.node_repl_history|*.python_history|*.jupyter|*.ipynb_checkpoints|*.pytest_cache|*.mypy_cache|*.ruff_cache|*.tox|*.nox|*.venv|*.virtualenv|*.egg-info|*.eggs|*.whl|*.tar|*.tar.gz|*.tgz|*.zip|*.rar|*.7z|*.bz2|*.xz|*.deb|*.rpm|*.pkg|*.dmg|*.exe|*.msi|*.bin|*.dll|*.so|*.dylib|*.a|*.o|*.obj|*.pdb|*.map|*.report.md)
+      echo "❌ BLOCKED: $file"
+      echo "   This file type should never be committed."
+      BLOCKED_FOUND=1
+      ;;
+  esac
+done
+
+if [ $BLOCKED_FOUND -eq 1 ]; then
+  echo ""
+  echo "🚫 COMMIT BLOCKED"
+  echo "   Remove the blocked files from staging with:"
+  echo "   git rm --cached <file>"
+  echo "   Or add them to .gitignore if they should be ignored."
+  exit 1
+fi
+
+# Check 2: Block commits of directories that should be ignored
+for file in $STAGED_FILES; do
+  case "$file" in
+    .env/*|.secrets/*|.credentials/*|.tokens/*|.passwords/*|.keys/*|.ssh/*|.gnupg/*|.gpg/*|.opencode/*|.planning/*|.audit/*|.concerns/*|.tickets/*|.support/*|.security/*|.vulnerabilities/*|.backups/*|.logs/*|.temp/*|.tmp/*|.cache/*|.history/*|.sessions/*|.cookies/*|.local/*|.config/*|.metadata/*|.indexes/*)
+      echo "❌ BLOCKED DIRECTORY: $file"
+      echo "   This directory type should never be committed."
+      BLOCKED_FOUND=1
+      ;;
+  esac
+done
+
+if [ $BLOCKED_FOUND -eq 1 ]; then
+  echo ""
+  echo "🚫 COMMIT BLOCKED"
+  exit 1
+fi
+
+# Check 3: Check for secrets in staged text files
+echo "🔍 Checking for potential secrets..."
+SECRET_FOUND=0
+
+# Get list of staged files that are text
+STAGED_TEXT_FILES=$(git diff --cached --name-only --diff-filter=ACM | while read -r file; do
+  if [ -f "$file" ] && file "$file" | grep -q text 2>/dev/null; then
+    echo "$file"
+  fi
+done || true)
+
+# Check for common secret patterns
+for file in $STAGED_TEXT_FILES; do
+  if git diff --cached -- "$file" 2>/dev/null | grep -qiE 'sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}|github_pat_[a-zA-Z0-9]{20,}|hf_[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|glpat-[a-zA-Z0-9\-]{20,}|dapi[a-f0-9]{32}|pypi-[a-zA-Z0-9]{20,}|npm_[a-zA-Z0-9]{20,}|dckr_pat_[a-zA-Z0-9\-]{20,}|ya29\.[0-9A-Za-z\-_]+'; then
+    echo "⚠️  WARNING: Potential secret/API key pattern in $file"
+    SECRET_FOUND=1
+  fi
+done
+
+if [ $SECRET_FOUND -eq 1 ]; then
+  echo ""
+  echo "⚠️  POTENTIAL SECRETS DETECTED"
+  echo "   Review the files above carefully."
+  echo "   If these are test/mock values, you can proceed."
+  echo "   If these are real secrets, remove them before committing."
+  echo ""
+  echo "   To bypass this check (if you're sure):"
+  echo "   git commit --no-verify"
+  echo ""
+  # Ask for confirmation in interactive mode
+  if [ -t 1 ] && [ -t 0 ]; then
+    printf "Continue with commit? [y/N] "
+    read -r response
+    case "$response" in
+      [Yy]*)
+        echo "Proceeding with commit..."
+        ;;
+      *)
+        echo "Commit aborted."
+        exit 1
+        ;;
+    esac
+  fi
+fi
+
+# Check 4: Ensure .gitignore is up to date
+if [ -f ".gitignore" ]; then
+  IGNORED_TRACKED=$(git ls-files -i --exclude-standard 2>/dev/null || true)
+  if [ -n "$IGNORED_TRACKED" ]; then
+    echo "⚠️  WARNING: Some tracked files match .gitignore patterns:"
+    echo "$IGNORED_TRACKED" | head -5
+    echo "   Consider running: git rm --cached <file>"
+  fi
+fi
+
+echo "✅ Security checks passed"
+
+# Run the original pre-commit checks
 bun run typecheck && bunx lint-staged
