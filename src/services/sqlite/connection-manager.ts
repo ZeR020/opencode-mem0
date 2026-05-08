@@ -6,8 +6,11 @@ import { CONFIG } from "../../config.js";
 
 const Database = getDatabase();
 
+const MAX_CONNECTIONS = 20;
+
 export class ConnectionManager {
   private connections: Map<string, Database> = new Map();
+  private accessOrder: string[] = [];
 
   private initDatabase(db: Database): void {
     db.run("PRAGMA busy_timeout = 5000");
@@ -35,7 +38,19 @@ export class ConnectionManager {
 
   getConnection(dbPath: string): Database {
     if (this.connections.has(dbPath)) {
+      // Move to end of access order (MRU)
+      this.accessOrder = this.accessOrder.filter((p) => p !== dbPath);
+      this.accessOrder.push(dbPath);
       return this.connections.get(dbPath)!;
+    }
+
+    // Evict oldest connection if at capacity
+    if (this.connections.size >= MAX_CONNECTIONS) {
+      const oldestPath = this.accessOrder.shift();
+      if (oldestPath) {
+        this.closeConnection(oldestPath);
+        log("ConnectionManager: evicted oldest connection", { path: oldestPath });
+      }
     }
 
     const dir = dirname(dbPath);
@@ -45,6 +60,7 @@ export class ConnectionManager {
 
     const db = new Database(dbPath);
     this.connections.set(dbPath, db);
+    this.accessOrder.push(dbPath);
     this.initDatabase(db);
 
     return db;
@@ -53,10 +69,15 @@ export class ConnectionManager {
   closeConnection(dbPath: string): void {
     const db = this.connections.get(dbPath);
     if (db) {
-      db.run("PRAGMA wal_checkpoint(TRUNCATE)");
-      db.close();
+      try {
+        db.run("PRAGMA wal_checkpoint(TRUNCATE)");
+        db.close();
+      } catch (error) {
+        log("Error closing database", { path: dbPath, error: String(error) });
+      }
       this.connections.delete(dbPath);
     }
+    this.accessOrder = this.accessOrder.filter((p) => p !== dbPath);
   }
 
   closeAll(): void {
@@ -69,6 +90,7 @@ export class ConnectionManager {
       }
     }
     this.connections.clear();
+    this.accessOrder = [];
   }
 
   checkpointAll(): void {

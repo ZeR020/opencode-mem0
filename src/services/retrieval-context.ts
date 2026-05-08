@@ -8,14 +8,29 @@ export interface RetrievalContext {
   currentQuery?: string;
 }
 
+const MAX_SCOPES = 100;
+
 // Simple context tracker scoped by directory to prevent cross-project leakage
 class ContextTracker {
   private contexts = new Map<string, { recentQueries: string[]; recentFiles: string[] }>();
+  private scopeAccessOrder: string[] = [];
   private maxHistory = 10;
 
   private getOrCreate(scope: string) {
     if (!this.contexts.has(scope)) {
+      // Evict oldest scope if at capacity
+      if (this.contexts.size >= MAX_SCOPES) {
+        const oldestScope = this.scopeAccessOrder.shift();
+        if (oldestScope) {
+          this.contexts.delete(oldestScope);
+        }
+      }
       this.contexts.set(scope, { recentQueries: [], recentFiles: [] });
+      this.scopeAccessOrder.push(scope);
+    } else {
+      // Move to end (MRU)
+      this.scopeAccessOrder = this.scopeAccessOrder.filter((s) => s !== scope);
+      this.scopeAccessOrder.push(scope);
     }
     return this.contexts.get(scope)!;
   }
@@ -50,8 +65,10 @@ class ContextTracker {
   clear(scope?: string) {
     if (scope) {
       this.contexts.delete(scope);
+      this.scopeAccessOrder = this.scopeAccessOrder.filter((s) => s !== scope);
     } else {
       this.contexts.clear();
+      this.scopeAccessOrder = [];
     }
   }
 }

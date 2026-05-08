@@ -20,11 +20,11 @@ class LifecycleManager {
 
   private scheduleNext(): void {
     const intervalMs = (CONFIG.memoryLifecycle?.checkIntervalMinutes ?? 60) * 60 * 1000;
-    this.timeout = setTimeout(() => {
+    this.timeout = setTimeout(async () => {
       if (!_lifecycleIsRunning) {
         _lifecycleIsRunning = true;
         try {
-          applyDecay();
+          await applyDecay();
           scanAndPromote();
         } catch (error) {
           log("Lifecycle job error", { error: String(error) });
@@ -177,12 +177,12 @@ export function promoteToLTM(memoryId: string): { success: boolean; promoted: bo
  * STM decay_rate = 0.05 (fast), LTM with decay = 0.01 (slow).
  * LTM with decay_rate = 0 is never decayed.
  */
-export function applyDecay(): {
+export async function applyDecay(): Promise<{
   updated: number;
   decayed: number;
   archived: number;
   duration: number;
-} {
+}> {
   const startTime = Date.now();
   let totalUpdated = 0;
   let totalDecayed = 0;
@@ -201,6 +201,7 @@ export function applyDecay(): {
     for (const shard of allShards) {
       let db: any = null;
       let inTxn = false;
+      const toArchive: Array<{ id: string; shard: any }> = [];
       try {
         db = connectionManager.getConnection(shard.dbPath);
 
@@ -253,12 +254,23 @@ export function applyDecay(): {
           const ageMs = now - createdAt;
           if (clampedStrength < archiveThreshold && ageMs > archiveAfterMs) {
             archiveMemory(db, memory.id, shard);
+            toArchive.push({ id: memory.id, shard });
             totalArchived++;
           }
         }
 
         db.run("COMMIT");
         inTxn = false;
+
+        // Delete vectors after transaction commits to avoid fire-and-forget desync
+        for (const item of toArchive) {
+          try {
+            await vectorSearch.deleteVector(db, item.id, item.shard);
+            shardManager.decrementVectorCount(item.shard.id);
+          } catch (err) {
+            log("applyDecay vector delete error", { memoryId: item.id, error: String(err) });
+          }
+        }
       } catch (error) {
         if (inTxn) {
           try {
@@ -297,7 +309,7 @@ export function applyDecay(): {
 /**
  * Archive a memory by moving it to an archive table and deleting from memories.
  */
-function archiveMemory(db: any, memoryId: string, shard: any): void {
+async function archiveMemory(db: any, memoryId: string, shard: any): Promise<void> {
   try {
     // Create archive table if not exists
     db.run(`
@@ -338,9 +350,12 @@ function archiveMemory(db: any, memoryId: string, shard: any): void {
     db.run(`DELETE FROM memories WHERE id = ?`, memoryId);
 
     // Ensure the vector is removed from the backend index
-    vectorSearch.deleteVector(db, memoryId, shard).catch((err) => {
+    try {
+      await vectorSearch.deleteVector(db, memoryId, shard);
+      shardManager.decrementVectorCount(shard.id);
+    } catch (err) {
       log("archiveMemory vector delete error", { memoryId, error: String(err) });
-    });
+    }
 
     log("Memory archived", { memoryId, shardId: shard.id });
   } catch (error) {
@@ -444,7 +459,7 @@ export async function runLifecycleMaintenance(): Promise<void> {
   }
   _lifecycleIsRunning = true;
   try {
-    applyDecay();
+    await applyDecay();
     scanAndPromote();
   } catch (error) {
     log("Lifecycle maintenance error", { error: String(error) });
