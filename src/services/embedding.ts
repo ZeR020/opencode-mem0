@@ -1,6 +1,7 @@
 import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 
 const TIMEOUT_MS = 30000;
 const GLOBAL_EMBEDDING_KEY = Symbol.for("opencode-mem0.embedding.instance");
@@ -42,14 +43,61 @@ export class EmbeddingService {
   private initPromise: Promise<void> | null = null;
   public isWarmedUp: boolean = false;
   public embeddingAvailable: boolean = true;
-  private cache: Map<string, Float32Array> = new Map();
+  private cache = new Map<string, Float32Array>();
   private cachedModelName: string | null = null;
+  private cacheHits = 0;
+  private cacheMisses = 0;
 
   static getInstance(): EmbeddingService {
     if (!(globalThis as any)[GLOBAL_EMBEDDING_KEY]) {
       (globalThis as any)[GLOBAL_EMBEDDING_KEY] = new EmbeddingService();
     }
     return (globalThis as any)[GLOBAL_EMBEDDING_KEY];
+  }
+
+  private getHashKey(text: string): string {
+    return createHash("sha256").update(text).digest("hex");
+  }
+
+  private getFromCache(key: string): Float32Array | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      // Move to end (most recently used)
+      this.cache.delete(key);
+      this.cache.set(key, value);
+      this.cacheHits++;
+      log("Embedding cache hit", {
+        hits: this.cacheHits,
+        misses: this.cacheMisses,
+        rate: this.hitRate(),
+      });
+    }
+    return value;
+  }
+
+  private setInCache(key: string, value: Float32Array): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= MAX_CACHE_SIZE) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) this.cache.delete(firstKey);
+    }
+    this.cache.set(key, value);
+  }
+
+  private hitRate(): number {
+    const total = this.cacheHits + this.cacheMisses;
+    return total > 0 ? this.cacheHits / total : 0;
+  }
+
+  getCacheStats(): { size: number; maxSize: number; hits: number; misses: number; rate: number } {
+    return {
+      size: this.cache.size,
+      maxSize: MAX_CACHE_SIZE,
+      hits: this.cacheHits,
+      misses: this.cacheMisses,
+      rate: this.hitRate(),
+    };
   }
 
   async warmup(progressCallback?: (progress: any) => void): Promise<void> {
@@ -83,8 +131,12 @@ export class EmbeddingService {
       this.cachedModelName = CONFIG.embeddingModel;
     }
 
-    const cached = this.cache.get(text);
-    if (cached) return cached;
+    const hash = this.getHashKey(text);
+    const cached = this.getFromCache(hash);
+    if (cached) return new Float32Array(cached);
+
+    this.cacheMisses++;
+    log("Embedding cache miss", { misses: this.cacheMisses });
 
     let result: Float32Array;
 
@@ -126,13 +178,9 @@ export class EmbeddingService {
       throw error;
     }
 
-    if (this.cache.size >= MAX_CACHE_SIZE) {
-      const firstKey = this.cache.keys().next().value;
-      if (firstKey !== undefined) this.cache.delete(firstKey);
-    }
-    this.cache.set(text, result);
+    this.setInCache(hash, result);
 
-    return result;
+    return new Float32Array(result);
   }
 
   async embedWithTimeout(text: string): Promise<Float32Array> {
@@ -156,6 +204,8 @@ export class EmbeddingService {
 
   clearCache(): void {
     this.cache.clear();
+    this.cacheHits = 0;
+    this.cacheMisses = 0;
   }
 }
 
