@@ -131,6 +131,101 @@ export class VectorSearch {
   }
 
   /**
+   * Bulk-insert memory vectors using WAL batching for SQLite writes.
+   * SQLite inserts are queued via ConnectionManager.batchWrite and flushed
+   * in a single transaction. Vector backend indexing happens after the
+   * SQLite commit and is best-effort (errors are logged, not rolled back).
+   *
+   * @param db - SQLite database handle
+   * @param records - Memory records to insert
+   * @param shard - Shard info for batching and backend indexing
+   */
+  async batchInsertVectors(
+    db: DatabaseType,
+    records: MemoryRecord[],
+    shard?: ShardInfo
+  ): Promise<void> {
+    if (records.length === 0) return;
+
+    // Fallback to safe per-record inserts when no shard (no dbPath for batching)
+    if (!shard) {
+      for (const record of records) {
+        await this.insertVector(db, record);
+      }
+      return;
+    }
+
+    const insertMemorySQL = `
+      INSERT INTO memories (
+        id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
+        metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url,
+        recency_score, frequency_score, importance_score, utility_score, novelty_score,
+        confidence_score, interference_penalty, strength, access_count, last_accessed,
+        store_type, decay_rate
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    for (const record of records) {
+      connectionManager.batchWrite(shard.dbPath, insertMemorySQL, [
+        record.id,
+        record.content,
+        toBlob(record.vector),
+        toBlob(record.tagsVector),
+        record.containerTag,
+        record.tags || null,
+        record.type || null,
+        record.createdAt,
+        record.updatedAt,
+        record.metadata || null,
+        record.displayName || null,
+        record.userName || null,
+        record.userEmail || null,
+        record.projectPath || null,
+        record.projectName || null,
+        record.gitRepoUrl || null,
+        record.recencyScore ?? 0.5,
+        record.frequencyScore ?? 0.0,
+        record.importanceScore ?? 0.5,
+        record.utilityScore ?? 0.3,
+        record.noveltyScore ?? 0.5,
+        record.confidenceScore ?? 0.7,
+        record.interferencePenalty ?? 0.0,
+        record.strength ?? 0.5,
+        record.accessCount ?? 0,
+        record.lastAccessed || null,
+        record.storeType || "stm",
+        record.decayRate ?? 0.05,
+      ]);
+    }
+
+    // Ensure flush (auto-flush may have already triggered mid-loop)
+    connectionManager.flushBatch(shard.dbPath);
+
+    // Index in vector backend after SQLite commit — best-effort
+    const backend = await this.getBackend();
+    const insertPromises: Promise<void>[] = [];
+    for (const record of records) {
+      insertPromises.push(
+        backend.insert({ id: record.id, vector: record.vector, shard, kind: "content" })
+      );
+      if (record.tagsVector) {
+        insertPromises.push(
+          backend.insert({ id: record.id, vector: record.tagsVector, shard, kind: "tags" })
+        );
+      }
+    }
+    try {
+      await Promise.all(insertPromises);
+    } catch (error) {
+      log("Batch vector backend indexing error", {
+        error: String(error),
+        recordCount: records.length,
+        shardId: shard.id,
+      });
+    }
+  }
+
+  /**
    * Search for memories within a single shard using hybrid ranking.
    * Combines vector similarity (60%), tag similarity (40%), and FTS5 boost,
    * then applies multi-factor ranking (strength 40% + recency 30% + semantic 30%),
