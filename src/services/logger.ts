@@ -66,12 +66,51 @@ function safeStringify(data: unknown): string {
   }
 }
 
-export function log(message: string, data?: unknown) {
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
+const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+};
+
+let currentLogLevel: LogLevel = (process.env.OPENCODE_MEM_LOG_LEVEL as LogLevel) || "info";
+
+export function setLogLevel(level: LogLevel) {
+  currentLogLevel = level;
+}
+
+export function getLogLevel(): LogLevel {
+  return currentLogLevel;
+}
+
+function shouldLog(level: LogLevel): boolean {
+  return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[currentLogLevel];
+}
+
+function logWithLevel(level: LogLevel, message: string, data?: unknown) {
+  if (!shouldLog(level)) return;
   ensureLoggerInitialized();
   const logFile = getLogFilePath();
   const timestamp = new Date().toISOString();
-  const line = data
-    ? `[${timestamp}] ${message}: ${safeStringify(data)}\n`
-    : `[${timestamp}] ${message}\n`;
+  const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
+  const line = data ? `${prefix} ${message}: ${safeStringify(data)}\n` : `${prefix} ${message}\n`;
   appendFileSync(logFile, line);
+}
+
+export function log(message: string, data?: unknown) {
+  logWithLevel("info", message, data);
+}
+
+export function debug(message: string, data?: unknown) {
+  logWithLevel("debug", message, data);
+}
+
+export function warn(message: string, data?: unknown) {
+  logWithLevel("warn", message, data);
+}
+
+export function error(message: string, data?: unknown) {
+  logWithLevel("error", message, data);
 }

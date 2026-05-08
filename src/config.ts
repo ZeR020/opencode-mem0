@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { stripJsoncComments } from "./services/jsonc.js";
 import { resolveSecretValue } from "./services/secret-resolver.js";
-import { log } from "./services/logger.js";
+import { log, setLogLevel } from "./services/logger.js";
+import { z } from "zod";
 
 const CONFIG_DIR = join(homedir(), ".config", "opencode");
 const DATA_DIR = join(homedir(), ".opencode-mem0");
@@ -116,7 +117,109 @@ interface OpenCodeMemConfig {
     diversityThreshold?: number;
     contextBoost?: number;
   };
+  logLevel?: "debug" | "info" | "warn" | "error";
 }
+
+const OpenCodeMemConfigSchema = z.object({
+  storagePath: z.string().optional(),
+  userEmailOverride: z.string().optional(),
+  userNameOverride: z.string().optional(),
+  memory: z
+    .object({
+      defaultScope: z.enum(["project", "all-projects"]).optional(),
+    })
+    .optional(),
+  embeddingModel: z.string().optional(),
+  embeddingDimensions: z.number().positive().optional(),
+  embeddingApiUrl: z.string().url().optional(),
+  embeddingApiKey: z.string().optional(),
+  similarityThreshold: z.number().min(0).max(1).optional(),
+  maxMemories: z.number().positive().optional(),
+  maxProfileItems: z.number().positive().optional(),
+  injectProfile: z.boolean().optional(),
+  containerTagPrefix: z.string().optional(),
+  autoCaptureEnabled: z.boolean().optional(),
+  autoCaptureMaxIterations: z.number().positive().optional(),
+  autoCaptureIterationTimeout: z.number().positive().optional(),
+  autoCaptureLanguage: z.string().optional(),
+  memoryProvider: z
+    .enum(["openai-chat", "openai-responses", "anthropic", "google-gemini"])
+    .optional(),
+  memoryModel: z.string().optional(),
+  memoryApiUrl: z.string().url().optional(),
+  memoryApiKey: z.string().optional(),
+  memoryTemperature: z.union([z.number(), z.literal(false)]).optional(),
+  memoryExtraParams: z.record(z.string(), z.unknown()).optional(),
+  opencodeProvider: z.string().optional(),
+  opencodeModel: z.string().optional(),
+  vectorBackend: z.enum(["usearch-first", "usearch", "exact-scan"]).optional(),
+  aiSessionRetentionDays: z.number().positive().optional(),
+  webServerEnabled: z.boolean().optional(),
+  webServerPort: z.number().positive().max(65535).optional(),
+  webServerHost: z.string().optional(),
+  webServerApiKey: z.string().optional(),
+  maxVectorsPerShard: z.number().positive().optional(),
+  autoCleanupEnabled: z.boolean().optional(),
+  autoCleanupRetentionDays: z.number().positive().optional(),
+  deduplicationEnabled: z.boolean().optional(),
+  deduplicationSimilarityThreshold: z.number().min(0).max(1).optional(),
+  userProfileAnalysisInterval: z.number().positive().optional(),
+  userProfileMaxPreferences: z.number().positive().optional(),
+  userProfileMaxPatterns: z.number().positive().optional(),
+  userProfileMaxWorkflows: z.number().positive().optional(),
+  userProfileConfidenceDecayDays: z.number().positive().optional(),
+  userProfileChangelogRetentionCount: z.number().positive().optional(),
+  showAutoCaptureToasts: z.boolean().optional(),
+  showUserProfileToasts: z.boolean().optional(),
+  showErrorToasts: z.boolean().optional(),
+  transcriptStorage: z
+    .object({
+      enabled: z.boolean().optional(),
+      maxAgeDays: z.number().positive().optional(),
+    })
+    .optional(),
+  memoryScoring: z
+    .object({
+      enabled: z.boolean().optional(),
+      recalculationIntervalMinutes: z.number().positive().optional(),
+      recencyHalfLifeDays: z.number().positive().optional(),
+      utilityHalfLifeDays: z.number().positive().optional(),
+    })
+    .optional(),
+  memoryLifecycle: z
+    .object({
+      stmDecayDays: z.number().positive().optional(),
+      ltmDecayDays: z.number().positive().optional(),
+      promotionThreshold: z.number().min(0).max(1).optional(),
+      archiveThreshold: z.number().min(0).max(1).optional(),
+      archiveAfterDays: z.number().positive().optional(),
+      checkIntervalMinutes: z.number().positive().optional(),
+    })
+    .optional(),
+  compaction: z
+    .object({
+      enabled: z.boolean().optional(),
+      memoryLimit: z.number().positive().optional(),
+    })
+    .optional(),
+  chatMessage: z
+    .object({
+      enabled: z.boolean().optional(),
+      maxMemories: z.number().positive().optional(),
+      excludeCurrentSession: z.boolean().optional(),
+      maxAgeDays: z.number().positive().optional(),
+      injectOn: z.enum(["first", "always"]).optional(),
+    })
+    .optional(),
+  retrieval: z
+    .object({
+      maxResults: z.number().positive().optional(),
+      diversityThreshold: z.number().min(0).max(1).optional(),
+      contextBoost: z.number().optional(),
+    })
+    .optional(),
+  logLevel: z.enum(["debug", "info", "warn", "error"]).optional(),
+});
 
 const DEFAULTS: Required<
   Omit<
@@ -222,6 +325,7 @@ const DEFAULTS: Required<
     diversityThreshold: 0.9,
     contextBoost: 1.5,
   },
+  logLevel: "info",
 };
 
 function expandPath(path: string): string {
@@ -612,6 +716,13 @@ function getEmbeddingDimensions(model: string): number {
 }
 
 function buildConfig(fileConfig: OpenCodeMemConfig) {
+  const validation = OpenCodeMemConfigSchema.safeParse(fileConfig);
+  if (!validation.success) {
+    const issues = validation.error.issues
+      .map((i) => `${i.path.join(".")}: ${i.message}`)
+      .join(", ");
+    log(`⚠️ Config validation warnings: ${issues}`);
+  }
   const result = {
     storagePath: expandPath(fileConfig.storagePath ?? DEFAULTS.storagePath),
     userEmailOverride: fileConfig.userEmailOverride,
@@ -729,7 +840,13 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
         fileConfig.retrieval?.diversityThreshold ?? DEFAULTS.retrieval.diversityThreshold,
       contextBoost: fileConfig.retrieval?.contextBoost ?? DEFAULTS.retrieval.contextBoost,
     },
+    logLevel: fileConfig.logLevel ?? DEFAULTS.logLevel,
   };
+
+  // Apply log level from config
+  if (fileConfig.logLevel) {
+    setLogLevel(fileConfig.logLevel);
+  }
 
   function deepFreeze<T>(obj: T): T {
     // Skip freezing during tests so test helpers can mutate CONFIG
@@ -755,6 +872,27 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
 let _globalFileConfig = loadConfigFromPaths(CONFIG_FILES);
 export let CONFIG = buildConfig(_globalFileConfig);
 
+function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
+  const result = { ...target } as T;
+  for (const key in source) {
+    if (source[key] !== undefined) {
+      if (
+        typeof source[key] === "object" &&
+        source[key] !== null &&
+        !Array.isArray(source[key]) &&
+        typeof result[key] === "object" &&
+        result[key] !== null &&
+        !Array.isArray(result[key])
+      ) {
+        result[key] = deepMerge(result[key] as any, source[key] as any) as any;
+      } else {
+        result[key] = source[key] as any;
+      }
+    }
+  }
+  return result;
+}
+
 export function initConfig(directory: string): void {
   const projectPaths = [
     join(directory, ".opencode", "opencode-mem0.jsonc"),
@@ -762,7 +900,7 @@ export function initConfig(directory: string): void {
   ];
   const globalConfig = loadConfigFromPaths(CONFIG_FILES);
   const projectConfig = loadConfigFromPaths(projectPaths);
-  const merged: OpenCodeMemConfig = { ...globalConfig, ...projectConfig };
+  const merged = deepMerge(globalConfig, projectConfig);
   CONFIG = buildConfig(merged);
 }
 
