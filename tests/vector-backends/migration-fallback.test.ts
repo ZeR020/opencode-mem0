@@ -18,7 +18,7 @@ describe("migration with backend abstraction", () => {
     }
   });
 
-  it("rebuilds and searches memories without direct hnsw manager calls", async () => {
+  it("rebuilds and searches memories without direct nsw manager calls", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "migration-backend-"));
     tempDirs.push(tempDir);
     const dbPath = join(tempDir, "test.db");

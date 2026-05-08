@@ -8,7 +8,7 @@ class FallbackAwareBackend implements VectorBackend {
   private activeBackend: VectorBackend;
 
   constructor(
-    private readonly strategy: "usearch-first" | "usearch" | "hnsw-first" | "hnsw",
+    private readonly strategy: "usearch-first" | "usearch" | "nsw-first" | "nsw",
     private readonly primary: VectorBackend,
     private readonly fallback: VectorBackend
   ) {
@@ -59,7 +59,7 @@ class FallbackAwareBackend implements VectorBackend {
   }
 
   private logDegrade(operation: string, error: unknown): void {
-    const isStrict = this.strategy === "usearch" || this.strategy === "hnsw";
+    const isStrict = this.strategy === "usearch" || this.strategy === "nsw";
     log("Vector backend degraded to exact-scan", {
       strategy: this.strategy,
       severity: isStrict ? "warning" : "info",
@@ -87,26 +87,26 @@ export async function createVectorBackend(
     return exactScanBackend;
   }
 
-  const isHNSW = options.vectorBackend === "hnsw" || options.vectorBackend === "hnsw-first";
+  const isNSW = options.vectorBackend === "nsw" || options.vectorBackend === "nsw-first";
   const isUSearch =
     options.vectorBackend === "usearch" || options.vectorBackend === "usearch-first";
 
-  if (isHNSW) {
+  if (isNSW) {
     try {
-      const hnswBackend =
-        options.createHNSWBackend?.() ??
-        new (await import("./hnsw-backend.js")).HNSWBackend({
+      const nswBackend =
+        options.createNSWBackend?.() ??
+        new (await import("./nsw-backend.js")).NSWBackend({
           dimensions: CONFIG.embeddingDimensions,
         });
 
-      if (options.vectorBackend === "hnsw-first") {
-        return new FallbackAwareBackend(options.vectorBackend, hnswBackend, exactScanBackend);
+      if (options.vectorBackend === "nsw-first") {
+        return new FallbackAwareBackend(options.vectorBackend, nswBackend, exactScanBackend);
       }
-      return hnswBackend;
+      return nswBackend;
     } catch (error) {
       log("Vector backend degraded to exact-scan", {
         strategy: options.vectorBackend,
-        severity: options.vectorBackend === "hnsw" ? "warning" : "info",
+        severity: options.vectorBackend === "nsw" ? "warning" : "info",
         operation: "create",
         error: String(error),
       });

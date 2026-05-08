@@ -2,19 +2,19 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { HNSWBackend } from "../src/services/vector-backends/hnsw-backend.js";
+import { NSWBackend } from "../src/services/vector-backends/nsw-backend.js";
 import { getDatabase } from "../src/services/sqlite/sqlite-bootstrap.js";
 import { createVectorBackend } from "../src/services/vector-backends/backend-factory.js";
 import type { VectorBackend } from "../src/services/vector-backends/types.js";
 
 const Database = getDatabase();
 
-describe("HNSWBackend", () => {
+describe("NSWBackend", () => {
   const tempDirs: string[] = [];
-  let backend: HNSWBackend;
+  let backend: NSWBackend;
 
   beforeEach(() => {
-    backend = new HNSWBackend({ dimensions: 4 });
+    backend = new NSWBackend({ dimensions: 4 });
   });
 
   afterEach(() => {
@@ -123,7 +123,7 @@ describe("HNSWBackend", () => {
   });
 
   it("rebuildFromShard repopulates index from SQLite rows", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "hnsw-rebuild-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "nsw-rebuild-"));
     tempDirs.push(tempDir);
     const dbPath = join(tempDir, "test.db");
     const db = new Database(dbPath);
@@ -230,8 +230,8 @@ describe("HNSWBackend", () => {
     expect(tagsResults).toHaveLength(0);
   });
 
-  it("getBackendName returns hnsw", () => {
-    expect(backend.getBackendName()).toBe("hnsw");
+  it("getBackendName returns nsw", () => {
+    expect(backend.getBackendName()).toBe("nsw");
   });
 
   it("insertBatch adds multiple vectors", async () => {
@@ -258,7 +258,7 @@ describe("HNSWBackend", () => {
   });
 });
 
-describe("HNSW backend factory integration", () => {
+describe("NSW backend factory integration", () => {
   const tempDirs: string[] = [];
 
   afterEach(() => {
@@ -268,40 +268,40 @@ describe("HNSW backend factory integration", () => {
     }
   });
 
-  it('factory creates HNSWBackend when vectorBackend is "hnsw"', async () => {
-    const backend = await createVectorBackend({ vectorBackend: "hnsw" });
-    expect(backend.getBackendName()).toBe("hnsw");
+  it('factory creates NSWBackend when vectorBackend is "nsw"', async () => {
+    const backend = await createVectorBackend({ vectorBackend: "nsw" });
+    expect(backend.getBackendName()).toBe("nsw");
   });
 
-  it('factory creates HNSWBackend when vectorBackend is "hnsw-first"', async () => {
-    const backend = await createVectorBackend({ vectorBackend: "hnsw-first" });
-    expect(backend.getBackendName()).toBe("hnsw");
+  it('factory creates NSWBackend when vectorBackend is "nsw-first"', async () => {
+    const backend = await createVectorBackend({ vectorBackend: "nsw-first" });
+    expect(backend.getBackendName()).toBe("nsw");
   });
 
-  it('"hnsw-first" falls back to exact-scan on HNSW search error', async () => {
+  it('"nsw-first" falls back to exact-scan on NSW search error', async () => {
     const failingBackend: VectorBackend = {
-      getBackendName: () => "hnsw",
+      getBackendName: () => "nsw",
       insert: async () => {},
       insertBatch: async () => {},
       delete: async () => {},
       search: async () => {
-        throw new Error("simulated-hnsw-search-failure");
+        throw new Error("simulated-nsw-search-failure");
       },
       rebuildFromShard: async () => {
-        throw new Error("simulated-hnsw-rebuild-failure");
+        throw new Error("simulated-nsw-rebuild-failure");
       },
       deleteShardIndexes: async () => {},
     };
 
     const backend = await createVectorBackend({
-      vectorBackend: "hnsw-first",
-      createHNSWBackend: () => failingBackend,
+      vectorBackend: "nsw-first",
+      createNSWBackend: () => failingBackend,
     });
 
     // FallbackAwareBackend should report the active backend name initially
-    expect(backend.getBackendName()).toBe("hnsw");
+    expect(backend.getBackendName()).toBe("nsw");
 
-    const tempDir = mkdtempSync(join(tmpdir(), "hnsw-fallback-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "nsw-fallback-"));
     tempDirs.push(tempDir);
     const dbPath = join(tempDir, "test.db");
     const db = new Database(dbPath);
@@ -363,7 +363,7 @@ describe("HNSW backend factory integration", () => {
       createdAt: Date.now(),
     };
 
-    // First search triggers fallback because HNSW search throws
+    // First search triggers fallback because NSW search throws
     const results = await backend.search({
       db,
       shard,

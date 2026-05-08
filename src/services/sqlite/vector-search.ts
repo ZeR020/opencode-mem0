@@ -206,11 +206,15 @@ export class VectorSearch {
     const insertPromises: Promise<void>[] = [];
     for (const record of records) {
       insertPromises.push(
-        backend.insert({ id: record.id, vector: record.vector, shard, kind: "content" })
+        Promise.resolve(
+          backend.insert({ id: record.id, vector: record.vector, shard, kind: "content" })
+        )
       );
       if (record.tagsVector) {
         insertPromises.push(
-          backend.insert({ id: record.id, vector: record.tagsVector, shard, kind: "tags" })
+          Promise.resolve(
+            backend.insert({ id: record.id, vector: record.tagsVector, shard, kind: "tags" })
+          )
         );
       }
     }

@@ -27,21 +27,21 @@ export interface VectorBackend {
     vector: Float32Array;
     shard: ShardInfo;
     kind: VectorKind;
-  }): Promise<void>;
+  }): void | Promise<void>;
   insertBatch(args: {
     items: BackendInsertItem[];
     shard: ShardInfo;
     kind: VectorKind;
-  }): Promise<void>;
-  delete(args: { id: string; shard: ShardInfo; kind: VectorKind }): Promise<void>;
-  search(args: VectorBackendSearchParams): Promise<BackendSearchResult[]>;
-  rebuildFromShard(args: { db: unknown; shard: ShardInfo; kind: VectorKind }): Promise<void>;
-  deleteShardIndexes(args: { shard: ShardInfo }): Promise<void>;
+  }): void | Promise<void>;
+  delete(args: { id: string; shard: ShardInfo; kind: VectorKind }): void | Promise<void>;
+  search(args: VectorBackendSearchParams): BackendSearchResult[] | Promise<BackendSearchResult[]>;
+  rebuildFromShard(args: { db: unknown; shard: ShardInfo; kind: VectorKind }): void | Promise<void>;
+  deleteShardIndexes(args: { shard: ShardInfo }): void | Promise<void>;
 }
 
 export interface VectorBackendFactoryOptions {
-  vectorBackend: "hnsw-first" | "hnsw" | "usearch-first" | "usearch" | "exact-scan";
+  vectorBackend: "nsw-first" | "nsw" | "usearch-first" | "usearch" | "exact-scan";
   probeUSearch?: () => Promise<boolean>;
   createUSearchBackend?: () => VectorBackend;
-  createHNSWBackend?: () => VectorBackend;
+  createNSWBackend?: () => VectorBackend;
 }

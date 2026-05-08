@@ -223,3 +223,16 @@ export class ConnectionManager {
 }
 
 export const connectionManager = new ConnectionManager();
+
+// Emergency flush on process exit to prevent data loss from unwritten batches
+function emergencyFlush(): void {
+  try {
+    connectionManager.closeAll();
+  } catch (error) {
+    log("Emergency batch flush failed", { error: String(error) });
+  }
+}
+
+process.once("SIGINT", emergencyFlush);
+process.once("SIGTERM", emergencyFlush);
+process.once("beforeExit", emergencyFlush);

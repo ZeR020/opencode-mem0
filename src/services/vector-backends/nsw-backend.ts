@@ -7,7 +7,7 @@ import type {
 } from "./types.js";
 import type { ShardInfo } from "../sqlite/types.js";
 
-interface HNSWNode {
+interface NSWNode {
   id: string;
   vector: Float32Array;
   neighbors: Set<string>;
@@ -16,17 +16,22 @@ interface HNSWNode {
 /**
  * A pure-TypeScript Navigable Small World (NSW) vector backend.
  *
- * This is a single-layer HNSW approximation that avoids native C++ dependencies.
- * It provides approximate nearest-neighbor search with O(log N) average query
- * time versus O(N) for exact scan, at the cost of approximate results.
+ * NOTE: This is a single-layer NSW graph — NOT full multi-layer HNSW.
+ * HNSW (Hierarchical NSW) uses multiple layers with an exponentially
+ * decreasing density to achieve O(log N) search. This implementation
+ * uses only one layer, which is simpler but degrades toward O(N) at
+ * very large scales. For the typical project-memory dataset size
+ * (hundreds to low-thousands of vectors), performance is acceptable.
+ *
+ * It avoids native C++ dependencies entirely.
  *
  * Parameters:
  *   M = 16           – max bidirectional edges per node
  *   efConstruction = 200 – candidate pool size during insert
  *   efSearch = 50    – candidate pool size during search
  */
-export class HNSWBackend implements VectorBackend {
-  private readonly graphs = new Map<string, Map<string, HNSWNode>>();
+export class NSWBackend implements VectorBackend {
+  private readonly graphs = new Map<string, Map<string, NSWNode>>();
   private readonly options: {
     dimensions: number;
     M: number;
@@ -49,10 +54,10 @@ export class HNSWBackend implements VectorBackend {
   }
 
   getBackendName(): string {
-    return "hnsw";
+    return "nsw";
   }
 
-  private getGraph(indexKey: string): Map<string, HNSWNode> {
+  private getGraph(indexKey: string): Map<string, NSWNode> {
     let graph = this.graphs.get(indexKey);
     if (!graph) {
       graph = new Map();
@@ -84,12 +89,7 @@ export class HNSWBackend implements VectorBackend {
     return 1 - dot / (Math.sqrt(magA) * Math.sqrt(magB));
   }
 
-  async insert(args: {
-    id: string;
-    vector: Float32Array;
-    shard: ShardInfo;
-    kind: VectorKind;
-  }): Promise<void> {
+  insert(args: { id: string; vector: Float32Array; shard: ShardInfo; kind: VectorKind }): void {
     const indexKey = this.getIndexKey(args.shard, args.kind);
     const graph = this.getGraph(indexKey);
 
@@ -106,7 +106,7 @@ export class HNSWBackend implements VectorBackend {
       neighbors = this.searchKNN(graph, args.vector, this.options.M, this.options.efConstruction);
     }
 
-    const node: HNSWNode = {
+    const node: NSWNode = {
       id: args.id,
       vector: args.vector,
       neighbors: new Set(),
@@ -132,24 +132,20 @@ export class HNSWBackend implements VectorBackend {
     }
   }
 
-  async insertBatch(args: {
-    items: BackendInsertItem[];
-    shard: ShardInfo;
-    kind: VectorKind;
-  }): Promise<void> {
+  insertBatch(args: { items: BackendInsertItem[]; shard: ShardInfo; kind: VectorKind }): void {
     for (const item of args.items) {
-      await this.insert({ id: item.id, vector: item.vector, shard: args.shard, kind: args.kind });
+      this.insert({ id: item.id, vector: item.vector, shard: args.shard, kind: args.kind });
     }
   }
 
-  async delete(args: { id: string; shard: ShardInfo; kind: VectorKind }): Promise<void> {
+  delete(args: { id: string; shard: ShardInfo; kind: VectorKind }): void {
     const indexKey = this.getIndexKey(args.shard, args.kind);
     const graph = this.graphs.get(indexKey);
     if (!graph) return;
     this.removeNode(graph, args.id);
   }
 
-  async search(args: VectorBackendSearchParams): Promise<BackendSearchResult[]> {
+  search(args: VectorBackendSearchParams): BackendSearchResult[] {
     const indexKey = this.getIndexKey(args.shard, args.kind);
     const graph = this.graphs.get(indexKey);
     if (!graph || graph.size === 0) {
@@ -160,9 +156,9 @@ export class HNSWBackend implements VectorBackend {
     return results.map((r) => ({ id: r.id, distance: r.distance }));
   }
 
-  async rebuildFromShard(args: { db: unknown; shard: ShardInfo; kind: VectorKind }): Promise<void> {
+  rebuildFromShard(args: { db: unknown; shard: ShardInfo; kind: VectorKind }): void {
     const indexKey = this.getIndexKey(args.shard, args.kind);
-    const graph = new Map<string, HNSWNode>();
+    const graph = new Map<string, NSWNode>();
     this.graphs.set(indexKey, graph);
 
     const column = args.kind === "tags" ? "tags_vector" : "vector";
@@ -191,7 +187,7 @@ export class HNSWBackend implements VectorBackend {
         neighbors = this.searchKNN(graph, vector, this.options.M, this.options.efConstruction);
       }
 
-      const node: HNSWNode = {
+      const node: NSWNode = {
         id: row.id,
         vector,
         neighbors: new Set(),
@@ -216,7 +212,7 @@ export class HNSWBackend implements VectorBackend {
     }
   }
 
-  async deleteShardIndexes(args: { shard: ShardInfo }): Promise<void> {
+  deleteShardIndexes(args: { shard: ShardInfo }): void {
     for (const kind of ["content", "tags"] as const) {
       const indexKey = this.getIndexKey(args.shard, kind);
       this.graphs.delete(indexKey);
@@ -230,7 +226,7 @@ export class HNSWBackend implements VectorBackend {
    * Returns the k nearest distinct nodes sorted by ascending distance.
    */
   private searchKNN(
-    graph: Map<string, HNSWNode>,
+    graph: Map<string, NSWNode>,
     queryVector: Float32Array,
     k: number,
     ef: number
@@ -288,7 +284,7 @@ export class HNSWBackend implements VectorBackend {
     return results;
   }
 
-  private removeNode(graph: Map<string, HNSWNode>, id: string): void {
+  private removeNode(graph: Map<string, NSWNode>, id: string): void {
     const node = graph.get(id);
     if (!node) return;
 
@@ -302,7 +298,7 @@ export class HNSWBackend implements VectorBackend {
     graph.delete(id);
   }
 
-  private pruneNode(graph: Map<string, HNSWNode>, node: HNSWNode): void {
+  private pruneNode(graph: Map<string, NSWNode>, node: NSWNode): void {
     if (node.neighbors.size <= this.options.M) return;
 
     const neighborDistances: Array<{ id: string; distance: number }> = [];
