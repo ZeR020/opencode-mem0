@@ -619,7 +619,7 @@ describe("Memory Engine Integration", () => {
         run: () => ({ changes: 1 }),
       });
 
-      const result = applyDecay();
+      const result = await applyDecay();
       expect(result.updated).toBe(1); // only unpinned is updated
       vi.restoreAllMocks();
     });

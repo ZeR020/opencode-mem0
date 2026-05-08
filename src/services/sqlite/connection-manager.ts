@@ -11,6 +11,8 @@ const MAX_CONNECTIONS = 20;
 export class ConnectionManager {
   private connections: Map<string, Database> = new Map();
   private accessOrder: string[] = [];
+  private creating: Set<string> = new Set();
+  private isClosing = false;
 
   private initDatabase(db: Database): void {
     db.run("PRAGMA busy_timeout = 5000");
@@ -37,33 +39,66 @@ export class ConnectionManager {
   }
 
   getConnection(dbPath: string): Database {
-    if (this.connections.has(dbPath)) {
+    // Fast path: existing connection
+    const existing = this.connections.get(dbPath);
+    if (existing) {
       // Move to end of access order (MRU)
       this.accessOrder = this.accessOrder.filter((p) => p !== dbPath);
       this.accessOrder.push(dbPath);
-      return this.connections.get(dbPath)!;
+      return existing;
     }
 
-    // Evict oldest connection if at capacity
-    if (this.connections.size >= MAX_CONNECTIONS) {
-      const oldestPath = this.accessOrder.shift();
-      if (oldestPath) {
-        this.closeConnection(oldestPath);
-        log("ConnectionManager: evicted oldest connection", { path: oldestPath });
+    if (this.isClosing) {
+      throw new Error("ConnectionManager is closing — cannot create new connections");
+    }
+
+    // Race-condition guard: if another caller is already creating this path,
+    // spin until they finish (safe in single-threaded JS since creation is sync)
+    if (this.creating.has(dbPath)) {
+      // In single-threaded JS this is unreachable, but defensively return the
+      // connection that the concurrent caller will have just created.
+      const raced = this.connections.get(dbPath);
+      if (raced) {
+        this.accessOrder = this.accessOrder.filter((p) => p !== dbPath);
+        this.accessOrder.push(dbPath);
+        return raced;
       }
     }
 
-    const dir = dirname(dbPath);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
+    this.creating.add(dbPath);
+
+    try {
+      // Evict oldest connection if at capacity
+      if (this.connections.size >= MAX_CONNECTIONS) {
+        const oldestPath = this.accessOrder.shift();
+        if (oldestPath) {
+          this.closeConnection(oldestPath);
+          log("ConnectionManager: evicted oldest connection", { path: oldestPath });
+        }
+      }
+
+      const dir = dirname(dbPath);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+
+      // Double-check after eviction/mkdir in case another async caller raced us
+      const doubleCheck = this.connections.get(dbPath);
+      if (doubleCheck) {
+        this.accessOrder = this.accessOrder.filter((p) => p !== dbPath);
+        this.accessOrder.push(dbPath);
+        return doubleCheck;
+      }
+
+      const db = new Database(dbPath);
+      this.connections.set(dbPath, db);
+      this.accessOrder.push(dbPath);
+      this.initDatabase(db);
+
+      return db;
+    } finally {
+      this.creating.delete(dbPath);
     }
-
-    const db = new Database(dbPath);
-    this.connections.set(dbPath, db);
-    this.accessOrder.push(dbPath);
-    this.initDatabase(db);
-
-    return db;
   }
 
   closeConnection(dbPath: string): void {
@@ -81,16 +116,21 @@ export class ConnectionManager {
   }
 
   closeAll(): void {
-    for (const [path, db] of this.connections) {
-      try {
-        db.run("PRAGMA wal_checkpoint(TRUNCATE)");
-        db.close();
-      } catch (error) {
-        log("Error closing database", { path, error: String(error) });
+    this.isClosing = true;
+    try {
+      for (const [path, db] of this.connections) {
+        try {
+          db.run("PRAGMA wal_checkpoint(TRUNCATE)");
+          db.close();
+        } catch (error) {
+          log("Error closing database", { path, error: String(error) });
+        }
       }
+      this.connections.clear();
+      this.accessOrder = [];
+    } finally {
+      this.isClosing = false;
     }
-    this.connections.clear();
-    this.accessOrder = [];
   }
 
   checkpointAll(): void {
