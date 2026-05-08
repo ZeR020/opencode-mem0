@@ -12,7 +12,35 @@ vi.mock("../src/services/sqlite/connection-manager.js", () => ({
           return { run: vi.fn() };
         }
         if (sql.includes("SELECT * FROM memories")) {
-          return { all: vi.fn(() => []), get: vi.fn(() => null) };
+          return {
+            all: vi.fn((...params: any[]) => {
+              // Extract IDs from IN clause parameters
+              const ids = params.filter((p) => typeof p === "string" && p.startsWith("id-"));
+              return ids.map((id) => ({
+                id,
+                content: `memory-${id}`,
+                tags: null,
+                container_tag: "",
+                type: null,
+                created_at: Date.now(),
+                updated_at: Date.now(),
+                metadata: null,
+                display_name: null,
+                user_name: null,
+                user_email: null,
+                project_path: null,
+                project_name: null,
+                git_repo_url: null,
+                is_pinned: 0,
+                strength: 0.5,
+                recency_score: 0.5,
+                importance_score: 0.5,
+                access_count: 0,
+                is_deprecated: 0,
+              }));
+            }),
+            get: vi.fn(() => null),
+          };
         }
         if (sql.includes("memories_fts")) {
           return { all: vi.fn(() => []) };
@@ -130,24 +158,11 @@ describe("VectorSearch adaptive over-fetch", () => {
   });
 
   it("should retry with larger multiplier when fill ratio is low", async () => {
-    // First call returns few results, second call returns more
-    let callCount = 0;
+    // Always return only 2 results (fill ratio = 2/5 = 40% < 85%)
     mockBackend.search.mockImplementation((args: any) => {
-      callCount++;
-      if (callCount === 1) {
-        // First call with 2x multiplier returns only 2 results (fill ratio = 2/5 = 40% < 85%)
-        return Promise.resolve([
-          { id: "id-1", distance: 0.5 },
-          { id: "id-2", distance: 0.5 },
-        ]);
-      }
-      // Second call with larger multiplier returns more
       return Promise.resolve([
         { id: "id-1", distance: 0.5 },
         { id: "id-2", distance: 0.5 },
-        { id: "id-3", distance: 0.5 },
-        { id: "id-4", distance: 0.5 },
-        { id: "id-5", distance: 0.5 },
       ]);
     });
 
@@ -172,8 +187,8 @@ describe("VectorSearch adaptive over-fetch", () => {
       undefined
     );
 
-    // Should have called search twice (initial + retry)
-    expect(mockBackend.search).toHaveBeenCalledTimes(2);
+    // Should have called search 4 times (content+tags initial + content+tags retry)
+    expect(mockBackend.search).toHaveBeenCalledTimes(4);
   });
 
   it("should not retry when fill ratio is high", async () => {
@@ -208,12 +223,12 @@ describe("VectorSearch adaptive over-fetch", () => {
       undefined
     );
 
-    // Should have called search only once
-    expect(mockBackend.search).toHaveBeenCalledTimes(1);
+    // Should have called search twice (content + tags, no retry since fill is high)
+    expect(mockBackend.search).toHaveBeenCalledTimes(2);
   });
 
   it("should reset multiplier per query", async () => {
-    // First query
+    // First query returns few results (triggers retry)
     mockBackend.search.mockImplementation((args: any) => {
       return Promise.resolve([
         { id: "id-1", distance: 0.1 },
@@ -241,7 +256,21 @@ describe("VectorSearch adaptive over-fetch", () => {
       undefined
     );
 
-    const firstCallLimit = mockBackend.search.mock.calls[0][0].limit;
+    // First call of first query uses base multiplier
+    const firstQueryFirstCallLimit = mockBackend.search.mock.calls[0][0].limit;
+    expect(firstQueryFirstCallLimit).toBe(10); // 5 * 2.0
+
+    // Reset mock to return enough results for second query (no retry)
+    mockBackend.search.mockClear();
+    mockBackend.search.mockImplementation((args: any) => {
+      return Promise.resolve([
+        { id: "id-1", distance: 0.1 },
+        { id: "id-2", distance: 0.1 },
+        { id: "id-3", distance: 0.1 },
+        { id: "id-4", distance: 0.1 },
+        { id: "id-5", distance: 0.1 },
+      ]);
+    });
 
     // Second query should use same base multiplier, not carry over from first
     await (search as any).searchInShard(
@@ -253,8 +282,8 @@ describe("VectorSearch adaptive over-fetch", () => {
       undefined
     );
 
-    const secondCallLimit = mockBackend.search.mock.calls[2][0].limit;
-    expect(secondCallLimit).toBe(firstCallLimit);
+    const secondQueryFirstCallLimit = mockBackend.search.mock.calls[0][0].limit;
+    expect(secondQueryFirstCallLimit).toBe(firstQueryFirstCallLimit);
   });
 
   it("should use adaptive multiplier based on result quality", async () => {

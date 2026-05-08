@@ -239,19 +239,43 @@ export class VectorSearch {
    * @param context - Optional retrieval context for project/file boosting
    * @returns Ranked search results with score breakdowns
    */
-  async searchInShard(
+  private readonly MIN_OVER_FETCH = 1.5;
+  private readonly MAX_OVER_FETCH = 8.0;
+  private readonly TARGET_FILL_RATIO = 0.85;
+  private readonly BASE_MULTIPLIER = 2.0;
+
+  /**
+   * Execute vector search with a specific over-fetch multiplier.
+   * This is the core search implementation — backend search, FTS hybrid,
+   * scoring, diversity filtering, and access-count updates all happen here.
+   *
+   * @param shard - Shard to search
+   * @param queryVector - Embedded query vector
+   * @param containerTag - Container tag to filter by
+   * @param limit - Maximum results to return
+   * @param overFetchMultiplier - Multiplier for backend search limit
+   * @param queryText - Raw query text for FTS5
+   * @param context - Optional retrieval context
+   * @param providedDb - Optional pre-resolved DB connection (for tests)
+   * @returns Ranked search results
+   */
+  async searchWithMultiplier(
     shard: ShardInfo,
     queryVector: Float32Array | null,
     containerTag: string,
     limit: number,
+    overFetchMultiplier: number,
     queryText?: string,
-    context?: RetrievalContext
+    context?: RetrievalContext,
+    providedDb?: DatabaseType
   ): Promise<SearchResult[]> {
-    const db = connectionManager.getConnection(shard.dbPath);
+    const db = providedDb || connectionManager.getConnection(shard.dbPath);
     const backend = await this.getBackend();
     let contentResults: { id: string; distance: number }[] = [];
     let tagsResults: { id: string; distance: number }[] = [];
     let embeddingDegraded = false;
+
+    const searchLimit = Math.ceil(limit * overFetchMultiplier);
 
     if (queryVector) {
       try {
@@ -263,14 +287,14 @@ export class VectorSearch {
           shard,
           kind: "content",
           queryVector,
-          limit: limit * 4,
+          limit: searchLimit,
         });
         tagsResults = await backend.search({
           db,
           shard,
           kind: "tags",
           queryVector,
-          limit: limit * 4,
+          limit: searchLimit,
         });
       } catch (error) {
         log("Vector search degraded to exact scan in shard", {
@@ -286,14 +310,14 @@ export class VectorSearch {
           shard,
           kind: "content",
           queryVector,
-          limit: limit * 4,
+          limit: searchLimit,
         });
         tagsResults = await this.fallbackBackend.search({
           db,
           shard,
           kind: "tags",
           queryVector,
-          limit: limit * 4,
+          limit: searchLimit,
         });
       }
     } else {
@@ -503,6 +527,55 @@ export class VectorSearch {
     }
 
     return diverseResults;
+  }
+
+  /**
+   * Search for memories within a single shard using hybrid ranking
+   * with an adaptive over-fetch multiplier. The multiplier starts at
+   * BASE_MULTIPLIER (2.0x) and retries up to MAX_OVER_FETCH (8.0x) if
+   * the fill ratio (results returned / limit) falls below TARGET_FILL_RATIO.
+   *
+   * @param shard - Shard to search
+   * @param queryVector - Embedded query vector
+   * @param containerTag - Container tag to filter by (empty string for all)
+   * @param limit - Maximum results to return from this shard
+   * @param queryText - Raw query text for FTS5 and tag matching
+   * @param context - Optional retrieval context for project/file boosting
+   * @returns Ranked search results with score breakdowns
+   */
+  async searchInShard(
+    shard: ShardInfo,
+    queryVector: Float32Array | null,
+    containerTag: string,
+    limit: number,
+    queryText?: string,
+    context?: RetrievalContext
+  ): Promise<SearchResult[]> {
+    let finalResults = await this.searchWithMultiplier(
+      shard,
+      queryVector,
+      containerTag,
+      limit,
+      this.BASE_MULTIPLIER,
+      queryText,
+      context
+    );
+
+    // Retry with larger multiplier if fill ratio is below target and embedding is available
+    if (finalResults.length < limit * this.TARGET_FILL_RATIO && queryVector !== null) {
+      const retryMultiplier = Math.min(this.MAX_OVER_FETCH, this.BASE_MULTIPLIER * 2.0);
+      finalResults = await this.searchWithMultiplier(
+        shard,
+        queryVector,
+        containerTag,
+        limit,
+        retryMultiplier,
+        queryText,
+        context
+      );
+    }
+
+    return finalResults;
   }
 
   /**

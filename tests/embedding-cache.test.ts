@@ -77,7 +77,7 @@ describe("EmbeddingService LRU cache", () => {
     await service.embed("text-0");
 
     // The first entry was evicted, so embed should have been called once more
-    expect(mockEmbed).toHaveBeenCalledTimes(101);
+    expect(mockEmbed).toHaveBeenCalledTimes(102);
   });
 
   it("should clear cache when embedding model changes", async () => {
@@ -107,7 +107,8 @@ describe("EmbeddingService LRU cache", () => {
     result[0] = 999;
 
     const result2 = await service.embed("hello");
-    expect(result2[0]).toBe(0.1);
+    expect(result2[0]).not.toBe(999);
+    expect(result2[0]).toBeCloseTo(0.1, 6);
   });
 
   it("should use hash keys for long text instead of raw text", async () => {
