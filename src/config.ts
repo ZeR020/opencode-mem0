@@ -124,6 +124,14 @@ interface OpenCodeMemConfig {
     queryAwareFiltering?: boolean;
     relevanceThreshold?: number;
   };
+  contextualDecay?: {
+    enabled?: boolean;
+    baseDecayRate?: number;
+    strengthBoostFactor?: number;
+    accessBoostFactor?: number;
+    minDecayRate?: number;
+    maxDecayRate?: number;
+  };
   logLevel?: "debug" | "info" | "warn" | "error";
   warmupTimeoutMs?: number;
 }
@@ -233,6 +241,16 @@ const OpenCodeMemConfigSchema = z.object({
       format: z.enum(["plain", "xml", "yaml"]).optional(),
       queryAwareFiltering: z.boolean().optional(),
       relevanceThreshold: z.number().min(0).max(1).optional(),
+    })
+    .optional(),
+  contextualDecay: z
+    .object({
+      enabled: z.boolean().optional(),
+      baseDecayRate: z.number().min(0).max(1).optional(),
+      strengthBoostFactor: z.number().min(0).max(1).optional(),
+      accessBoostFactor: z.number().min(0).max(1).optional(),
+      minDecayRate: z.number().min(0).max(1).optional(),
+      maxDecayRate: z.number().min(0).max(1).optional(),
     })
     .optional(),
   logLevel: z.enum(["debug", "info", "warn", "error"]).optional(),
@@ -353,6 +371,14 @@ const DEFAULTS: Required<
     format: "plain",
     queryAwareFiltering: true,
     relevanceThreshold: 0.3,
+  },
+  contextualDecay: {
+    enabled: true,
+    baseDecayRate: 0.05,
+    strengthBoostFactor: 0.5,
+    accessBoostFactor: 0.3,
+    minDecayRate: 0.005,
+    maxDecayRate: 0.15,
   },
   logLevel: "info",
   warmupTimeoutMs: 30000,
@@ -894,6 +920,20 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
         fileConfig.injection?.queryAwareFiltering ?? DEFAULTS.injection.queryAwareFiltering,
       relevanceThreshold:
         fileConfig.injection?.relevanceThreshold ?? DEFAULTS.injection.relevanceThreshold,
+    },
+    contextualDecay: {
+      enabled: fileConfig.contextualDecay?.enabled ?? DEFAULTS.contextualDecay.enabled,
+      baseDecayRate:
+        fileConfig.contextualDecay?.baseDecayRate ?? DEFAULTS.contextualDecay.baseDecayRate,
+      strengthBoostFactor:
+        fileConfig.contextualDecay?.strengthBoostFactor ??
+        DEFAULTS.contextualDecay.strengthBoostFactor,
+      accessBoostFactor:
+        fileConfig.contextualDecay?.accessBoostFactor ?? DEFAULTS.contextualDecay.accessBoostFactor,
+      minDecayRate:
+        fileConfig.contextualDecay?.minDecayRate ?? DEFAULTS.contextualDecay.minDecayRate,
+      maxDecayRate:
+        fileConfig.contextualDecay?.maxDecayRate ?? DEFAULTS.contextualDecay.maxDecayRate,
     },
     logLevel: fileConfig.logLevel ?? DEFAULTS.logLevel,
     warmupTimeoutMs: fileConfig.warmupTimeoutMs ?? DEFAULTS.warmupTimeoutMs,

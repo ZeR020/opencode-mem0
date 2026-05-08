@@ -113,6 +113,56 @@ export function classifyMemory(memoryType?: string): {
 }
 
 /**
+ * Calculate a contextual decay rate based on memory strength, access frequency,
+ * and type. Strong, frequently-accessed memories decay slower; weak, rarely-
+ * accessed memories decay faster.
+ *
+ * Formula:
+ *   rate = baseRate × √(strengthMultiplier × accessMultiplier)
+ *   strengthMultiplier = max(0, 1 - strengthBoostFactor × strength)
+ *   accessMultiplier   = max(0, 1 - accessBoostFactor × log₂(accessCount + 1))
+ *
+ * The result is clamped to [minDecayRate, maxDecayRate].
+ */
+export function calculateContextualDecayRate(
+  memoryType?: string,
+  strength?: number,
+  accessCount?: number,
+  isPinned?: boolean
+): number {
+  // Pinned memories never decay
+  if (isPinned) {
+    return 0.0;
+  }
+
+  // Fall back to static classification when contextual decay is disabled
+  if (!CONFIG.contextualDecay?.enabled || strength === undefined) {
+    return classifyMemory(memoryType).decayRate;
+  }
+
+  // Hard LTM types (preference, decision, etc.) have static decayRate 0.0
+  const staticRate = classifyMemory(memoryType).decayRate;
+  if (staticRate === 0.0) {
+    return 0.0;
+  }
+
+  const config = CONFIG.contextualDecay;
+  const baseRate = config?.baseDecayRate ?? 0.05;
+  const strengthBoost = config?.strengthBoostFactor ?? 0.5;
+  const accessBoost = config?.accessBoostFactor ?? 0.3;
+  const minRate = config?.minDecayRate ?? 0.005;
+  const maxRate = config?.maxDecayRate ?? 0.15;
+
+  const strengthMultiplier = Math.max(0, 1 - strengthBoost * strength);
+  const accessMultiplier = Math.max(0, 1 - accessBoost * Math.log2((accessCount ?? 0) + 1));
+
+  const combinedMultiplier = Math.sqrt(strengthMultiplier * accessMultiplier);
+  const rate = baseRate * combinedMultiplier;
+
+  return Math.max(minRate, Math.min(maxRate, rate));
+}
+
+/**
  * Promote a memory from STM to LTM when it meets criteria:
  * - strength > promotionThreshold (default 0.7)
  * - access_count > 3

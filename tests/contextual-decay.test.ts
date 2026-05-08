@@ -6,7 +6,8 @@ vi.mock("../src/services/logger.js", () => ({
   log: mockLog,
 }));
 
-let mockConfig: any = {
+// Use a stable object reference so vi.mock captures it and mutations are visible
+const _mockConfig: any = {
   contextualDecay: {
     enabled: true,
     baseDecayRate: 0.05,
@@ -21,6 +22,8 @@ let mockConfig: any = {
     checkIntervalMinutes: 60,
   },
 };
+
+let mockConfig = _mockConfig;
 
 vi.mock("../src/config.js", () => ({
   CONFIG: mockConfig,
@@ -58,21 +61,13 @@ const { classifyMemory, calculateContextualDecayRate } =
 describe("contextual-decay", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockConfig = {
-      contextualDecay: {
-        enabled: true,
-        baseDecayRate: 0.05,
-        strengthBoostFactor: 0.5,
-        accessBoostFactor: 0.3,
-        minDecayRate: 0.005,
-        maxDecayRate: 0.15,
-      },
-      memoryLifecycle: {
-        archiveThreshold: 0.2,
-        archiveAfterDays: 30,
-        checkIntervalMinutes: 60,
-      },
-    };
+    // Mutate properties in-place so the vi.mock reference sees changes
+    _mockConfig.contextualDecay.enabled = true;
+    _mockConfig.contextualDecay.baseDecayRate = 0.05;
+    _mockConfig.contextualDecay.strengthBoostFactor = 0.5;
+    _mockConfig.contextualDecay.accessBoostFactor = 0.3;
+    _mockConfig.contextualDecay.minDecayRate = 0.005;
+    _mockConfig.contextualDecay.maxDecayRate = 0.15;
   });
 
   afterEach(() => {
