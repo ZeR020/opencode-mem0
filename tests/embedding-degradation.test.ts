@@ -51,7 +51,9 @@ describe("EmbeddingService graceful degradation", () => {
 
   it("returns cached embeddings even when embeddingAvailable is false", async () => {
     const fakeVector = new Float32Array([1, 2, 3]);
-    (embeddingService as any).cache.set("cached-query", fakeVector);
+    // Cache key is now SHA-256 hash of text (LRU cache from 02-02)
+    const cacheKey = (embeddingService as any).getHashKey("cached-query");
+    (embeddingService as any).cache.set(cacheKey, fakeVector);
     (embeddingService as any).cachedModelName = "Xenova/nomic-embed-text-v1";
 
     // Ensure config model matches cached model name (direct mutation since CONFIG isn't frozen in tests)
@@ -65,7 +67,7 @@ describe("EmbeddingService graceful degradation", () => {
     (embeddingService as any).isWarmedUp = true; // skip warmup
 
     const result = await embeddingService.embed("cached-query");
-    expect(result).toBe(fakeVector);
+    expect(result).toEqual(fakeVector);
 
     // Restore original config values
     originalConfig.CONFIG.embeddingModel = originalModel;
