@@ -11,6 +11,7 @@ import { calculateAllScores } from "./memory-scoring.js";
 import { classifyMemory } from "./memory-lifecycle.js";
 import { detectConflicts } from "./memory-conflicts.js";
 import { safeToISOString, safeJSONParse } from "./utils/safe-transforms.js";
+import { deduplicationService } from "./deduplication-service.js";
 
 export type MemoryScope = "project" | "all-projects";
 
@@ -183,6 +184,21 @@ export class LocalMemoryClient {
 
       const { scope, hash } = extractScopeFromContainerTag(containerTag);
       const shard = shardManager.getWriteShard(scope, hash);
+
+      // Check for near-duplicate at ingest time
+      const dedupResult = await deduplicationService.checkDuplicateAtIngest(
+        content,
+        containerTag,
+        vector,
+        metadata
+      );
+      if (dedupResult.isDuplicate && dedupResult.existingId) {
+        return {
+          success: true as const,
+          id: dedupResult.existingId,
+          duplicate: true,
+        };
+      }
 
       const id = `mem_${Date.now()}_${randomBytes(5).toString("hex")}`;
       const now = Date.now();

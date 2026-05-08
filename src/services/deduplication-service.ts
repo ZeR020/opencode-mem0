@@ -3,6 +3,7 @@ import { vectorSearch } from "./sqlite/vector-search.js";
 import { connectionManager } from "./sqlite/connection-manager.js";
 import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
+import type { ShardInfo } from "./sqlite/types.js";
 
 interface DuplicateGroup {
   representative: {
@@ -195,6 +196,98 @@ export class DeduplicationService {
     if (normA === 0 || normB === 0) return 0;
 
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
+
+  async checkDuplicateAtIngest(
+    content: string,
+    containerTag: string,
+    vector: Float32Array,
+    metadata?: Record<string, unknown>
+  ): Promise<{ isDuplicate: boolean; existingId?: string; merged?: boolean }> {
+    if (!CONFIG.deduplicationIngestEnabled) {
+      return { isDuplicate: false };
+    }
+
+    // Parse scope and hash from containerTag to locate the shard
+    const parts = containerTag.split("_");
+    const scope = (parts.length >= 3 ? parts[1] : "user") as "user" | "project";
+    const hash = parts.slice(2).join("_");
+
+    const shard = shardManager.getAllShards(scope, hash)[0];
+    if (!shard) {
+      return { isDuplicate: false };
+    }
+
+    const db = connectionManager.getConnection(shard.dbPath);
+
+    // Retrieve last 50 memories in the same containerTag
+    const candidates = vectorSearch.listMemories(db, containerTag, 50);
+    if (candidates.length === 0) {
+      return { isDuplicate: false };
+    }
+
+    const threshold = CONFIG.deduplicationSimilarityThreshold ?? 0.92;
+
+    for (const candidate of candidates) {
+      if (!candidate.vector) continue;
+
+      let candidateVector: Float32Array;
+      try {
+        const buf = new Uint8Array(candidate.vector);
+        if (buf.byteLength % 4 !== 0) throw new Error("Invalid vector alignment");
+        candidateVector = new Float32Array(
+          buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
+        );
+      } catch {
+        log("Ingest dedup: skipping malformed vector", {
+          id: candidate.id,
+          containerTag: candidate.container_tag,
+        });
+        continue;
+      }
+
+      const similarity = this.cosineSimilarity(vector, candidateVector);
+
+      if (similarity >= threshold) {
+        // Merge metadata: existing wins unless new metadata has source: "manual"
+        const existingMetadata: Record<string, unknown> =
+          candidate.metadata && typeof candidate.metadata === "string"
+            ? (() => {
+                try {
+                  return JSON.parse(candidate.metadata) as Record<string, unknown>;
+                } catch {
+                  return {};
+                }
+              })()
+            : ((candidate.metadata as Record<string, unknown>) ?? {});
+
+        const newMetadata = metadata ?? {};
+        const mergedMetadata =
+          newMetadata.source === "manual"
+            ? { ...existingMetadata, ...newMetadata }
+            : { ...newMetadata, ...existingMetadata };
+
+        const updateStmt = db.prepare(`
+          UPDATE memories
+          SET access_count = access_count + 1,
+              updated_at = ?,
+              metadata = ?
+          WHERE id = ?
+        `);
+        updateStmt.run(Date.now(), JSON.stringify(mergedMetadata), candidate.id);
+
+        log("Ingest dedup: merged near-duplicate memory", {
+          existingId: candidate.id,
+          containerTag,
+          similarity,
+          content: content.slice(0, 80),
+        });
+
+        return { isDuplicate: true, existingId: candidate.id, merged: true };
+      }
+    }
+
+    return { isDuplicate: false };
   }
 
   getStatus() {

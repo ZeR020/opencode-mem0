@@ -5,6 +5,38 @@ import { join } from "node:path";
 import { shardManager } from "../src/services/sqlite/shard-manager.js";
 import { connectionManager } from "../src/services/sqlite/connection-manager.js";
 import { CONFIG } from "../src/config.js";
+
+vi.mock("../src/services/embedding.js", () => ({
+  embeddingService: {
+    embedWithTimeout: async (text: string) => {
+      // Bag-of-words pseudo-embedding: each unique word hashes to a dimension.
+      // This gives high cosine similarity for texts with overlapping vocabulary.
+      const dims = 768;
+      const vec = new Float32Array(dims);
+      const words = [...new Set(text.toLowerCase().match(/\b\w+\b/g) || [])];
+      for (const word of words) {
+        let hash = 0;
+        for (let i = 0; i < word.length; i++) {
+          hash = ((hash << 5) - hash + word.charCodeAt(i)) | 0;
+        }
+        const idx = Math.abs(hash) % dims;
+        vec[idx] += 1;
+      }
+      // L2-normalize
+      let mag = 0;
+      for (let i = 0; i < dims; i++) mag += vec[i] * vec[i];
+      mag = Math.sqrt(mag);
+      if (mag > 0) {
+        for (let i = 0; i < dims; i++) vec[i] /= mag;
+      }
+      return vec;
+    },
+    isWarmedUp: true,
+    warmup: async () => {},
+    embeddingAvailable: true,
+  },
+}));
+
 import { LocalMemoryClient } from "../src/services/client.js";
 
 describe("semantic deduplication at ingest", () => {
@@ -83,9 +115,11 @@ describe("semantic deduplication at ingest", () => {
   });
 
   it("merges metadata for near-duplicate with cosine similarity > threshold", async () => {
-    const content1 = "implement user authentication with JWT tokens";
-    // Semantically very close — same words, slightly different phrasing
-    const content2 = "implement user authentication using JWT tokens";
+    // Use long word lists with 14/15 overlap (>0.92 cosine similarity with bag-of-words mock)
+    const content1 =
+      "apple banana cherry date elderberry fig grape honeydew jackfruit kiwi lemon mango nectarine orange papaya";
+    const content2 =
+      "apple banana cherry date elderberry fig grape honeydew jackfruit kiwi lemon mango nectarine orange quince";
     const containerTag = "opencode_project_testhash_b";
 
     const result1 = await client.addMemory(content1, containerTag, {
@@ -104,14 +138,17 @@ describe("semantic deduplication at ingest", () => {
     expect(result2.id).toBe(id1);
 
     // Access count should have been incremented
-    const row = await getMemoryById(id1!);
+    const row = await getMemoryById(id1!, containerTag);
     expect(row.access_count).toBeGreaterThanOrEqual(1);
     expect(row.updated_at).toBeGreaterThanOrEqual(row.created_at);
   });
 
   it("creates a new memory when similarity is below threshold", async () => {
-    const content1 = "completely different topic about database optimization";
-    const content2 = "something about frontend UI components and React hooks";
+    // Use long word lists with zero overlap (cosine similarity ≈ 0 with bag-of-words mock)
+    const content1 =
+      "apple banana cherry date elderberry fig grape honeydew jackfruit kiwi lemon mango nectarine orange papaya";
+    const content2 =
+      "zebra lion tiger elephant giraffe hippo rhino cheetah leopard wolf bear moose deer fox yak";
     const containerTag = "opencode_project_testhash_c";
 
     const result1 = await client.addMemory(content1, containerTag);

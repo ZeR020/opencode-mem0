@@ -74,6 +74,7 @@ interface OpenCodeMemConfig {
   autoCleanupRetentionDays?: number;
   deduplicationEnabled?: boolean;
   deduplicationSimilarityThreshold?: number;
+  deduplicationIngestEnabled?: boolean;
   userProfileAnalysisInterval?: number;
   userProfileMaxPreferences?: number;
   userProfileMaxPatterns?: number;
@@ -164,6 +165,7 @@ const OpenCodeMemConfigSchema = z.object({
   autoCleanupRetentionDays: z.number().positive().optional(),
   deduplicationEnabled: z.boolean().optional(),
   deduplicationSimilarityThreshold: z.number().min(0).max(1).optional(),
+  deduplicationIngestEnabled: z.boolean().optional(),
   userProfileAnalysisInterval: z.number().positive().optional(),
   userProfileMaxPreferences: z.number().positive().optional(),
   userProfileMaxPatterns: z.number().positive().optional(),
@@ -281,6 +283,7 @@ const DEFAULTS: Required<
   autoCleanupRetentionDays: 30,
   deduplicationEnabled: true,
   deduplicationSimilarityThreshold: 0.9,
+  deduplicationIngestEnabled: true,
   userProfileAnalysisInterval: 10,
   userProfileMaxPreferences: 20,
   userProfileMaxPatterns: 15,
@@ -777,6 +780,7 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
     deduplicationEnabled: fileConfig.deduplicationEnabled ?? DEFAULTS.deduplicationEnabled,
     deduplicationSimilarityThreshold:
       fileConfig.deduplicationSimilarityThreshold ?? DEFAULTS.deduplicationSimilarityThreshold,
+    deduplicationIngestEnabled: fileConfig.deduplicationIngestEnabled ?? true,
     userProfileAnalysisInterval:
       fileConfig.userProfileAnalysisInterval ?? DEFAULTS.userProfileAnalysisInterval,
     userProfileMaxPreferences:
