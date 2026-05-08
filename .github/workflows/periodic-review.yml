@@ -112,6 +112,9 @@ jobs:
         run: |
           BRANCH_NAME="review/main-$(date +%Y%m%d-%H%M%S)"
           git checkout -b "$BRANCH_NAME"
+          # Configure git identity for the empty commit
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           # Empty commit to mark the review point
           git commit --allow-empty -m "chore(review): periodic code review checkpoint"
           git push origin "$BRANCH_NAME"
