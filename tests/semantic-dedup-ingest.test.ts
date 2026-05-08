@@ -43,11 +43,35 @@ describe("semantic deduplication at ingest", () => {
   const tempDirs: string[] = [];
   let client: LocalMemoryClient;
   let sharedTempDir: string;
+  let originalStoragePath: string;
 
   beforeAll(() => {
+    originalStoragePath = (CONFIG as any).storagePath;
     sharedTempDir = mkdtempSync(join(tmpdir(), "dedup-ingest-"));
     tempDirs.push(sharedTempDir);
     (CONFIG as any).storagePath = sharedTempDir;
+  });
+
+  beforeEach(() => {
+    // Override CONFIG for test
+    (CONFIG as any).deduplicationIngestEnabled = true;
+    (CONFIG as any).deduplicationSimilarityThreshold = 0.92;
+
+    client = new LocalMemoryClient();
+  });
+
+  afterEach(() => {
+    // Intentionally NOT calling connectionManager.closeAll()
+    // because shardManager.metadataDb must stay open across tests.
+    // Each test uses a unique containerTag hash, so shard files are isolated.
+  });
+
+  afterAll(() => {
+    (CONFIG as any).storagePath = originalStoragePath;
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   beforeEach(() => {

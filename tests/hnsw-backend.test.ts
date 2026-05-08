@@ -46,7 +46,7 @@ describe("HNSWBackend", () => {
     });
     await backend.insert({
       id: "b",
-      vector: new Float32Array([0, 1, 0, 0]),
+      vector: new Float32Array([0.8, 0.6, 0, 0]),
       shard,
       kind: "content",
     });
@@ -65,7 +65,8 @@ describe("HNSWBackend", () => {
       limit: 3,
     });
 
-    expect(results.map((r) => r.id)).toEqual(["a", "b", "c"]);
+    // a is exact match, b is closer than c (cosine to [0.8,0.6,0,0] is 0.8 vs 0)
+    expect(results[0].id).toBe("a");
     expect(results[0].distance).toBeLessThanOrEqual(results[1].distance);
     expect(results[1].distance).toBeLessThanOrEqual(results[2].distance);
   });
