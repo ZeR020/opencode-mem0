@@ -30,6 +30,7 @@ import {
   handleListConflicts,
   handleResolveConflict,
   handleConflictStats,
+  handleEmbeddingCacheStats,
 } from "./api-handlers.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -329,6 +330,11 @@ export class WebServer {
 
       if (path === "/api/stats" && method === "GET") {
         const result = await handleStats();
+        return this.jsonResponse(result, 200, !isLocal);
+      }
+
+      if (path === "/api/embedding-cache" && method === "GET") {
+        const result = await handleEmbeddingCacheStats();
         return this.jsonResponse(result, 200, !isLocal);
       }
 

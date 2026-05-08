@@ -681,6 +681,24 @@ export async function handleSearch(
   }
 }
 
+export async function handleEmbeddingCacheStats(): Promise<
+  ApiResponse<{
+    size: number;
+    maxSize: number;
+    hits: number;
+    misses: number;
+    rate: number;
+  }>
+> {
+  try {
+    const stats = embeddingService.getCacheStats();
+    return { success: true, data: stats };
+  } catch (error) {
+    log("handleEmbeddingCacheStats: error", { error: String(error) });
+    return { success: false, error: "Internal error" };
+  }
+}
+
 export async function handleStats(): Promise<
   ApiResponse<{
     total: number;
