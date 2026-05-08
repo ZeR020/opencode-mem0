@@ -693,3 +693,5 @@ function formatMemoriesForCompaction(memories: any[]): string {
 
   return sections.join("\n");
 }
+
+// End of plugin entry point
