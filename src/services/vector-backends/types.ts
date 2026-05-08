@@ -40,7 +40,8 @@ export interface VectorBackend {
 }
 
 export interface VectorBackendFactoryOptions {
-  vectorBackend: "usearch-first" | "usearch" | "exact-scan";
+  vectorBackend: "hnsw-first" | "hnsw" | "usearch-first" | "usearch" | "exact-scan";
   probeUSearch?: () => Promise<boolean>;
   createUSearchBackend?: () => VectorBackend;
+  createHNSWBackend?: () => VectorBackend;
 }

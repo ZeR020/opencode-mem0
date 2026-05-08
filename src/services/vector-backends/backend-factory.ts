@@ -8,7 +8,7 @@ class FallbackAwareBackend implements VectorBackend {
   private activeBackend: VectorBackend;
 
   constructor(
-    private readonly strategy: "usearch-first" | "usearch",
+    private readonly strategy: "usearch-first" | "usearch" | "hnsw-first" | "hnsw",
     private readonly primary: VectorBackend,
     private readonly fallback: VectorBackend
   ) {
@@ -59,9 +59,10 @@ class FallbackAwareBackend implements VectorBackend {
   }
 
   private logDegrade(operation: string, error: unknown): void {
+    const isStrict = this.strategy === "usearch" || this.strategy === "hnsw";
     log("Vector backend degraded to exact-scan", {
       strategy: this.strategy,
-      severity: this.strategy === "usearch" ? "warning" : "info",
+      severity: isStrict ? "warning" : "info",
       operation,
       error: String(error),
     });
@@ -86,11 +87,38 @@ export async function createVectorBackend(
     return exactScanBackend;
   }
 
+  const isHNSW = options.vectorBackend === "hnsw" || options.vectorBackend === "hnsw-first";
+  const isUSearch =
+    options.vectorBackend === "usearch" || options.vectorBackend === "usearch-first";
+
+  if (isHNSW) {
+    try {
+      const hnswBackend =
+        options.createHNSWBackend?.() ??
+        new (await import("./hnsw-backend.js")).HNSWBackend({
+          dimensions: CONFIG.embeddingDimensions,
+        });
+
+      if (options.vectorBackend === "hnsw-first") {
+        return new FallbackAwareBackend(options.vectorBackend, hnswBackend, exactScanBackend);
+      }
+      return hnswBackend;
+    } catch (error) {
+      log("Vector backend degraded to exact-scan", {
+        strategy: options.vectorBackend,
+        severity: options.vectorBackend === "hnsw" ? "warning" : "info",
+        operation: "create",
+        error: String(error),
+      });
+      return exactScanBackend;
+    }
+  }
+
   const probeUSearch = options.probeUSearch ?? defaultUSearchProbe;
   if (!(await probeUSearch())) {
-    if (options.vectorBackend === "usearch") {
+    if (isUSearch) {
       log("Vector backend degraded to exact-scan", {
-        strategy: "usearch",
+        strategy: options.vectorBackend,
         severity: "warning",
         operation: "probe",
         error: "USearch unavailable",
@@ -111,7 +139,7 @@ export async function createVectorBackend(
   } catch (error) {
     log("Vector backend degraded to exact-scan", {
       strategy: options.vectorBackend,
-      severity: options.vectorBackend === "usearch" ? "warning" : "info",
+      severity: isUSearch ? "warning" : "info",
       operation: "create",
       error: String(error),
     });
