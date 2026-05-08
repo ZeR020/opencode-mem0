@@ -118,6 +118,12 @@ interface OpenCodeMemConfig {
     diversityThreshold?: number;
     contextBoost?: number;
   };
+  injection?: {
+    tokenBudget?: number;
+    format?: "plain" | "xml" | "yaml";
+    queryAwareFiltering?: boolean;
+    relevanceThreshold?: number;
+  };
   logLevel?: "debug" | "info" | "warn" | "error";
   warmupTimeoutMs?: number;
 }
@@ -221,6 +227,14 @@ const OpenCodeMemConfigSchema = z.object({
       contextBoost: z.number().optional(),
     })
     .optional(),
+  injection: z
+    .object({
+      tokenBudget: z.number().positive().optional(),
+      format: z.enum(["plain", "xml", "yaml"]).optional(),
+      queryAwareFiltering: z.boolean().optional(),
+      relevanceThreshold: z.number().min(0).max(1).optional(),
+    })
+    .optional(),
   logLevel: z.enum(["debug", "info", "warn", "error"]).optional(),
   warmupTimeoutMs: z.number().positive().optional(),
 });
@@ -256,10 +270,14 @@ const DEFAULTS: Required<
   opencodeModel?: string;
   vectorBackend?: "usearch-first" | "usearch" | "exact-scan";
   autoCaptureLanguage?: string;
-  userEmailOverride?: string;
-  userNameOverride?: string;
   memory?: {
     defaultScope?: "project" | "all-projects";
+  };
+  injection?: {
+    tokenBudget?: number;
+    format?: "plain" | "xml" | "yaml";
+    queryAwareFiltering?: boolean;
+    relevanceThreshold?: number;
   };
 } = {
   storagePath: join(DATA_DIR, "data"),
@@ -329,6 +347,12 @@ const DEFAULTS: Required<
     maxResults: 20,
     diversityThreshold: 0.9,
     contextBoost: 1.5,
+  },
+  injection: {
+    tokenBudget: 4000,
+    format: "plain",
+    queryAwareFiltering: true,
+    relevanceThreshold: 0.3,
   },
   logLevel: "info",
   warmupTimeoutMs: 30000,
@@ -660,6 +684,22 @@ const CONFIG_TEMPLATE = `{
     "contextBoost": 1.5
   },
 
+  // ============================================
+  // Memory Injection Format
+  // ============================================
+
+  // Controls how memories are injected into the AI context.
+  // - tokenBudget: max tokens for memory injection (default 4000)
+  // - format: "plain" (- [92%] content), "xml" (<memory ...>), or "yaml" (- similarity: ...)
+  // - queryAwareFiltering: analyze query intent and filter memories by relevance
+  // - relevanceThreshold: minimum relevance score (0-1) to include a memory
+  "injection": {
+    "tokenBudget": 4000,
+    "format": "plain",
+    "queryAwareFiltering": true,
+    "relevanceThreshold": 0.3
+  },
+
   // Inject user profile into AI context (preferences, patterns, workflows)
   "injectProfile": true
 }
@@ -846,6 +886,14 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
       diversityThreshold:
         fileConfig.retrieval?.diversityThreshold ?? DEFAULTS.retrieval.diversityThreshold,
       contextBoost: fileConfig.retrieval?.contextBoost ?? DEFAULTS.retrieval.contextBoost,
+    },
+    injection: {
+      tokenBudget: fileConfig.injection?.tokenBudget ?? DEFAULTS.injection.tokenBudget,
+      format: fileConfig.injection?.format ?? DEFAULTS.injection.format,
+      queryAwareFiltering:
+        fileConfig.injection?.queryAwareFiltering ?? DEFAULTS.injection.queryAwareFiltering,
+      relevanceThreshold:
+        fileConfig.injection?.relevanceThreshold ?? DEFAULTS.injection.relevanceThreshold,
     },
     logLevel: fileConfig.logLevel ?? DEFAULTS.logLevel,
     warmupTimeoutMs: fileConfig.warmupTimeoutMs ?? DEFAULTS.warmupTimeoutMs,

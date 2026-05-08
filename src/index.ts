@@ -317,7 +317,11 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         };
 
         const userId = tags.user.userEmail || null;
-        const memoryContext = formatContextForPrompt(userId, projectMemories);
+        const memoryContext = formatContextForPrompt(userId, projectMemories, {
+          query: userMessage,
+          format: CONFIG.injection?.format,
+          tokenBudget: CONFIG.injection?.tokenBudget,
+        });
 
         if (memoryContext) {
           const contextPart: Part = {
