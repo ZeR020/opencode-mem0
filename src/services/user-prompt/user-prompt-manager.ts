@@ -303,3 +303,4 @@ export class UserPromptManager {
 }
 
 export const userPromptManager = new UserPromptManager();
+// audit: src/services/user-prompt/user-prompt-manager.ts

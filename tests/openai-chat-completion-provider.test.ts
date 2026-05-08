@@ -444,3 +444,4 @@ describe("OpenAIChatCompletionProvider", () => {
     expect(result.success).toBe(false);
   });
 });
+// audit: tests/openai-chat-completion-provider.test.ts

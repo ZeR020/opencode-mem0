@@ -136,3 +136,4 @@ export function formatContextForPrompt(
 
   return parts.join("\n");
 }
+// audit: src/services/context.ts

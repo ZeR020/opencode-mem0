@@ -657,3 +657,4 @@ export function recordAccess(currentAccessCount: number): {
     lastAccessed: Date.now(),
   };
 }
+// audit: src/services/memory-scoring.ts

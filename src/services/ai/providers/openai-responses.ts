@@ -233,3 +233,4 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
     return data;
   }
 }
+// audit: src/services/ai/providers/openai-responses.ts

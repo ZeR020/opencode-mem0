@@ -117,3 +117,4 @@ describe("vector backend factory", () => {
     expect(backend.getBackendName()).toBe("exact-scan");
   });
 });
+// audit: tests/vector-backends/backend-factory.test.ts

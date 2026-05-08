@@ -148,3 +148,4 @@ describe("USearchBackend", () => {
     expect(result.map((x) => x.id)).toEqual(["alpha"]);
   });
 });
+// audit: tests/vector-backends/usearch-backend.test.ts

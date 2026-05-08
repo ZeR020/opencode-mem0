@@ -170,3 +170,4 @@ describe("tool memory scope", () => {
     expect(lastListScope).toBe("project");
   });
 });
+// audit: tests/tool-scope.test.ts

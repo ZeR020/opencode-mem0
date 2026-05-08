@@ -279,3 +279,4 @@ export class TranscriptManager {
 }
 
 export const transcriptManager = new TranscriptManager();
+// audit: src/services/sqlite/transcript-manager.ts

@@ -78,3 +78,4 @@ export function runMigrations(
     }
   }
 }
+// audit: src/services/sqlite/schema.ts

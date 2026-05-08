@@ -227,3 +227,4 @@ describe("query-aware-injection", () => {
     });
   });
 });
+// audit: tests/query-aware-injection.test.ts

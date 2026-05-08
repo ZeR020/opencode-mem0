@@ -67,3 +67,4 @@ export function resolveSecretValue(value: string | undefined): string | undefine
 
   return value;
 }
+// audit: src/services/secret-resolver.ts

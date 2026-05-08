@@ -210,3 +210,4 @@ export class EmbeddingService {
 }
 
 export const embeddingService = EmbeddingService.getInstance();
+// audit: src/services/embedding.ts

@@ -404,3 +404,4 @@ export function calculateDiversityPenalty(
 
   return 0;
 }
+// audit: src/services/retrieval-context.ts

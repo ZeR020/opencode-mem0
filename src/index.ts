@@ -693,3 +693,4 @@ function formatMemoriesForCompaction(memories: any[]): string {
 
   return sections.join("\n");
 }
+// audit: src/index.ts

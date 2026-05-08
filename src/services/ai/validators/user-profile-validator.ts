@@ -118,3 +118,4 @@ export class UserProfileValidator {
     return errors;
   }
 }
+// audit: src/services/ai/validators/user-profile-validator.ts

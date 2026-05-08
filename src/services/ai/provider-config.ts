@@ -33,3 +33,4 @@ export function buildMemoryProviderConfig(
     iterationTimeout: overrides.iterationTimeout ?? config.autoCaptureIterationTimeout,
   };
 }
+// audit: src/services/ai/provider-config.ts

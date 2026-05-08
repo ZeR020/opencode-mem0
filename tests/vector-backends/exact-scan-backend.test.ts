@@ -110,3 +110,4 @@ describe("ExactScanBackend", () => {
     expect(result).toEqual([]);
   });
 });
+// audit: tests/vector-backends/exact-scan-backend.test.ts

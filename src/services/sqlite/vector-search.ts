@@ -994,3 +994,4 @@ export class VectorSearch {
 }
 
 export const vectorSearch = new VectorSearch();
+// audit: src/services/sqlite/vector-search.ts

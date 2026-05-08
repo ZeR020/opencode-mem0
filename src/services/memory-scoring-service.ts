@@ -239,3 +239,4 @@ export async function runOneTimeScoringRecalculation(): Promise<{
 }> {
   return recalculateAllScores(true);
 }
+// audit: src/services/memory-scoring-service.ts

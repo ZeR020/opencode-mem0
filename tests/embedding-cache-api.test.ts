@@ -38,3 +38,4 @@ describe("handleEmbeddingCacheStats", () => {
     expect(result.data?.rate).toBeCloseTo(1 / 3, 5);
   });
 });
+// audit: tests/embedding-cache-api.test.ts

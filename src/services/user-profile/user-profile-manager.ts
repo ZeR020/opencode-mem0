@@ -418,3 +418,4 @@ export class UserProfileManager {
 }
 
 export const userProfileManager = new UserProfileManager();
+// audit: src/services/user-profile/user-profile-manager.ts

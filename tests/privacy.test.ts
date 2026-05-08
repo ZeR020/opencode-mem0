@@ -72,3 +72,4 @@ describe("privacy", () => {
     });
   });
 });
+// audit: tests/privacy.test.ts

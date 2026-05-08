@@ -1005,3 +1005,4 @@ export function isConfigured(): boolean {
   // The system should check specific sub-configurations when features are invoked.
   return true;
 }
+// audit: src/config.ts

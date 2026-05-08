@@ -277,3 +277,4 @@ describe("VectorSearch FTS5 fallback when embedding unavailable", () => {
     expect(results[0].vectorSimilarity).toBeGreaterThan(0.5); // 1 - 0.1 = 0.9
   });
 });
+// audit: tests/embedding-degradation.test.ts

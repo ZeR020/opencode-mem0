@@ -376,3 +376,4 @@ async function generateSummary(
     tags: (result.data.tags || []).map((t: string) => t.toLowerCase().trim()),
   };
 }
+// audit: src/services/auto-capture.ts

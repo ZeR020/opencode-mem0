@@ -684,3 +684,4 @@ export function getAllUnresolvedConflicts(
 
   return allConflicts.sort((a, b) => b.detectedAt - a.detectedAt).slice(0, limit);
 }
+// audit: src/services/memory-conflicts.ts

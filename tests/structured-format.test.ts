@@ -161,3 +161,4 @@ describe("structured-format", () => {
     });
   });
 });
+// audit: tests/structured-format.test.ts

@@ -320,3 +320,4 @@ export const aiSessionManager = {
     return getAISessionManager().getLastSequence.bind(getAISessionManager());
   },
 } as unknown as AISessionManager;
+// audit: src/services/ai/session/ai-session-manager.ts

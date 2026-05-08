@@ -177,3 +177,4 @@ describe("state management", () => {
     expect(isProviderConnected("gemini")).toBe(false);
   });
 });
+// audit: tests/opencode-provider.test.ts

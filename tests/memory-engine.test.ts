@@ -787,3 +787,4 @@ describe("Memory Engine Integration", () => {
     });
   });
 });
+// audit: tests/memory-engine.test.ts

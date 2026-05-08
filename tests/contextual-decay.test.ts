@@ -325,3 +325,4 @@ describe("contextual-decay", () => {
     });
   });
 });
+// audit: tests/contextual-decay.test.ts

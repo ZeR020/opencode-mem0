@@ -548,3 +548,4 @@ export async function runLifecycleMaintenance(): Promise<void> {
     _lifecycleIsRunning = false;
   }
 }
+// audit: src/services/memory-lifecycle.ts

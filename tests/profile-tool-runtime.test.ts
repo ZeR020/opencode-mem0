@@ -210,3 +210,4 @@ describe("memory tool profile runtime behavior", () => {
     );
   });
 });
+// audit: tests/profile-tool-runtime.test.ts

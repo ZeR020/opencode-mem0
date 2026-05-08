@@ -1260,3 +1260,4 @@ export async function handleConflictStats(): Promise<
     return { success: false, error: "Internal error" };
   }
 }
+// audit: src/services/api-handlers.ts

@@ -323,3 +323,4 @@ describe("VectorSearch adaptive over-fetch", () => {
     expect(expectedLimit).toBeLessThanOrEqual(5 * 8);
   });
 });
+// audit: tests/adaptive-overfetch.test.ts

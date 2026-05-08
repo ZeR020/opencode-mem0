@@ -88,3 +88,4 @@ describe("migration with backend abstraction", () => {
     expect(results.map((r) => r.id)).toEqual(["a"]);
   });
 });
+// audit: tests/vector-backends/migration-fallback.test.ts

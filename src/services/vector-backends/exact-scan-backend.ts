@@ -125,3 +125,4 @@ export class ExactScanBackend implements VectorBackend {
     return dot / (Math.sqrt(magA) * Math.sqrt(magB));
   }
 }
+// audit: src/services/vector-backends/exact-scan-backend.ts

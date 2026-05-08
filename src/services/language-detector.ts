@@ -37,3 +37,4 @@ export function getLanguageName(code: string): string {
   }
   return lang?.name || "English";
 }
+// audit: src/services/language-detector.ts

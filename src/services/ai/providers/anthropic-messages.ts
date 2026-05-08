@@ -237,3 +237,4 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
     return null;
   }
 }
+// audit: src/services/ai/providers/anthropic-messages.ts

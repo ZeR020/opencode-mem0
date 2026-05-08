@@ -335,3 +335,4 @@ export class NSWBackend implements VectorBackend {
     return new Float32Array(value);
   }
 }
+// audit: src/services/vector-backends/nsw-backend.ts

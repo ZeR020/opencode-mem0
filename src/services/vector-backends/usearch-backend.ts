@@ -265,3 +265,4 @@ export class USearchBackend implements VectorBackend {
     }
   }
 }
+// audit: src/services/vector-backends/usearch-backend.ts

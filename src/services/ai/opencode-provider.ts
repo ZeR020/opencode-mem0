@@ -297,3 +297,4 @@ export async function generateStructuredOutput<T>(options: {
   });
   return result.output as T;
 }
+// audit: src/services/ai/opencode-provider.ts

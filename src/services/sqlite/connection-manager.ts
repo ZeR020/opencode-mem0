@@ -236,3 +236,4 @@ function emergencyFlush(): void {
 process.once("SIGINT", emergencyFlush);
 process.once("SIGTERM", emergencyFlush);
 process.once("beforeExit", emergencyFlush);
+// audit: src/services/sqlite/connection-manager.ts

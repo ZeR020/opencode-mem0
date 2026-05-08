@@ -377,3 +377,4 @@ describe("NSW backend factory integration", () => {
     expect(backend.getBackendName()).toBe("exact-scan");
   });
 });
+// audit: tests/nsw-backend.test.ts

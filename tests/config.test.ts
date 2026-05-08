@@ -108,3 +108,4 @@ describe("config", () => {
     });
   });
 });
+// audit: tests/config.test.ts

@@ -1392,3 +1392,4 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   lucide.createIcons();
 });
+// audit: src/web/app.js

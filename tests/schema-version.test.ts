@@ -106,3 +106,4 @@ describe("schema versioning", () => {
     db.close();
   });
 });
+// audit: tests/schema-version.test.ts

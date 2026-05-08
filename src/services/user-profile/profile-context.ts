@@ -52,3 +52,4 @@ export function getUserProfileContext(userId: string): string | null {
 
   return parts.join("\n");
 }
+// audit: src/services/user-profile/profile-context.ts

@@ -239,3 +239,4 @@ describe("AI provider config", () => {
     expect(capturedBody?.temperature).toBeUndefined();
   });
 });
+// audit: tests/ai-provider-config.test.ts

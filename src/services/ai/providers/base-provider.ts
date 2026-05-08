@@ -61,3 +61,4 @@ export abstract class BaseAIProvider {
 
   abstract supportsSession(): boolean;
 }
+// audit: src/services/ai/providers/base-provider.ts

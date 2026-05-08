@@ -75,3 +75,4 @@ describe("project scope identity", () => {
     expect(rootTag.projectPath).toBe(nestedTag.projectPath);
   });
 });
+// audit: tests/project-scope.test.ts

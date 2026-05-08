@@ -265,3 +265,4 @@ window.t = t;
 window.getLanguage = getLanguage;
 window.setLanguage = setLanguage;
 window.applyLanguage = applyLanguage;
+// audit: src/web/i18n.js

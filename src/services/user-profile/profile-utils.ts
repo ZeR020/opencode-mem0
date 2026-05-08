@@ -38,3 +38,4 @@ export const safeObject = <T extends object>(obj: any, fallback: T): T => {
   }
   return result && typeof result === "object" && !Array.isArray(result) ? (result as T) : fallback;
 };
+// audit: src/services/user-profile/profile-utils.ts

@@ -81,3 +81,4 @@ describe("OpenCode 1.3.x plugin-loader contract", () => {
     }
   });
 });
+// audit: tests/plugin-loader-contract.test.ts

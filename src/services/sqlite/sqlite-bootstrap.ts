@@ -126,3 +126,4 @@ export function getDatabase(): new (path: string) => Database {
   }
   return DatabaseImpl;
 }
+// audit: src/services/sqlite/sqlite-bootstrap.ts

@@ -221,3 +221,4 @@ describe("vector search backend integration", () => {
     expect(typeof results[0]?.similarity).toBe("number");
   });
 });
+// audit: tests/vector-search-backend-integration.test.ts

@@ -84,3 +84,4 @@ export interface SearchResult {
   contextBoost?: number;
   finalScore?: number;
 }
+// audit: src/services/sqlite/types.ts

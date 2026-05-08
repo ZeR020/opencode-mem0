@@ -434,3 +434,4 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     };
   }
 }
+// audit: src/services/ai/providers/openai-chat-completion.ts

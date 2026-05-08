@@ -401,3 +401,4 @@ export class ShardManager {
 }
 
 export const shardManager = new ShardManager();
+// audit: src/services/sqlite/shard-manager.ts

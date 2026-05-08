@@ -62,3 +62,4 @@ export class ToolSchemaConverter {
     };
   }
 }
+// audit: src/services/ai/tools/tool-schema.ts

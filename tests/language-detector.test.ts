@@ -42,3 +42,4 @@ describe("getLanguageName", () => {
     expect(getLanguageName("xyz")).toBe("English");
   });
 });
+// audit: tests/language-detector.test.ts

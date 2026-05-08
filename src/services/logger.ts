@@ -114,3 +114,4 @@ export function warn(message: string, data?: unknown) {
 export function error(message: string, data?: unknown) {
   logWithLevel("error", message, data);
 }
+// audit: src/services/logger.ts

@@ -151,3 +151,4 @@ describe("WAL batch write API", () => {
     expect(rows2).toHaveLength(1);
   });
 });
+// audit: tests/wal-batch.test.ts

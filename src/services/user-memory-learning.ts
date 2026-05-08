@@ -302,3 +302,4 @@ async function analyzeUserProfile(
 
   return rawData as UserProfileData;
 }
+// audit: src/services/user-memory-learning.ts

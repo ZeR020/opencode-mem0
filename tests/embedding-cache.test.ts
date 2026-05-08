@@ -147,3 +147,4 @@ describe("EmbeddingService LRU cache", () => {
     expect(stats.rate).toBe(0.5);
   });
 });
+// audit: tests/embedding-cache.test.ts

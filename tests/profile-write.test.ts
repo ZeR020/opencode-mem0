@@ -211,3 +211,4 @@ describe("UserProfileManager – explicit preference writes", () => {
     expect(last.changeType).toBe("update");
   });
 });
+// audit: tests/profile-write.test.ts

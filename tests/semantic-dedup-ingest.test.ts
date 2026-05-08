@@ -240,3 +240,4 @@ describe("semantic deduplication at ingest", () => {
     expect(count).toBe(2);
   });
 });
+// audit: tests/semantic-dedup-ingest.test.ts

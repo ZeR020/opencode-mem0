@@ -94,3 +94,4 @@ describe("Windows Path Handling", () => {
     });
   });
 });
+// audit: tests/windows-path.test.ts

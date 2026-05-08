@@ -146,3 +146,4 @@ export async function createVectorBackend(
     return exactScanBackend;
   }
 }
+// audit: src/services/vector-backends/backend-factory.ts

@@ -82,3 +82,4 @@ describe("project-scoped config resolution", () => {
     expect(CONFIG.opencodeProvider).toBeUndefined();
   });
 });
+// audit: tests/config-resolution.test.ts

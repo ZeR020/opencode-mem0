@@ -193,3 +193,4 @@ describe("memory-scoring", () => {
     });
   });
 });
+// audit: tests/memory-scoring.test.ts

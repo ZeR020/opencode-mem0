@@ -151,3 +151,4 @@ describe("token-budget", () => {
     expect(result).toContain("memory two");
   });
 });
+// audit: tests/token-budget.test.ts

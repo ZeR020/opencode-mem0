@@ -57,3 +57,4 @@ export class AIProviderFactory {
     return getAISessionManager().cleanupExpiredSessions();
   }
 }
+// audit: src/services/ai/ai-provider-factory.ts

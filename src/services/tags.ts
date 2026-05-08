@@ -187,3 +187,4 @@ export function getTags(directory: string): {
     project: getProjectTagInfo(directory),
   };
 }
+// audit: src/services/tags.ts

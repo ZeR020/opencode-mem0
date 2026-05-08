@@ -41,3 +41,4 @@ export interface SessionUpdateParams {
   conversationId?: string;
   metadata?: Record<string, any>;
 }
+// audit: src/services/ai/session/session-types.ts

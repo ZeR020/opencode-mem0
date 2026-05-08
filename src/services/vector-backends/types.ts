@@ -45,3 +45,4 @@ export interface VectorBackendFactoryOptions {
   createUSearchBackend?: () => VectorBackend;
   createNSWBackend?: () => VectorBackend;
 }
+// audit: src/services/vector-backends/types.ts

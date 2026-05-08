@@ -271,3 +271,4 @@ export class GoogleGeminiProvider extends BaseAIProvider {
     return { success: false, error: `Max iterations (${maxIterations}) reached`, iterations };
   }
 }
+// audit: src/services/ai/providers/google-gemini.ts
