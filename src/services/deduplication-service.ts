@@ -49,6 +49,17 @@ export class DeduplicationService {
         const db = connectionManager.getConnection(shard.dbPath);
         const memories = vectorSearch.getAllMemories(db);
 
+        // Skip shards with too many memories to avoid O(n²) blow-up
+        const MAX_DEDUP_MEMORIES = 5000;
+        if (memories.length > MAX_DEDUP_MEMORIES) {
+          log("Deduplication: skipping oversized shard", {
+            shardId: shard.id,
+            memoryCount: memories.length,
+            max: MAX_DEDUP_MEMORIES,
+          });
+          continue;
+        }
+
         const contentMap = new Map<string, any[]>();
 
         for (const memory of memories) {
@@ -81,6 +92,8 @@ export class DeduplicationService {
 
         const uniqueMemories = Array.from(contentMap.values()).map((arr) => arr[0]);
         const processedIds = new Set<string>();
+        let comparisonCount = 0;
+        const MAX_COMPARISONS = 100_000;
 
         for (let i = 0; i < uniqueMemories.length; i++) {
           const mem1 = uniqueMemories[i];
@@ -111,6 +124,14 @@ export class DeduplicationService {
           };
 
           for (let j = i + 1; j < uniqueMemories.length; j++) {
+            if (comparisonCount >= MAX_COMPARISONS) {
+              log("Deduplication: hit max comparisons, stopping early", {
+                shardId: shard.id,
+                comparisons: comparisonCount,
+              });
+              break;
+            }
+            comparisonCount++;
             const mem2 = uniqueMemories[j];
             if (!mem2.vector || processedIds.has(mem2.id)) continue;
             if (mem1.container_tag !== mem2.container_tag) continue;

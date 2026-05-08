@@ -149,6 +149,11 @@ export async function handleListMemories(
         allMemories.push(...memories.filter((m: any) => m.container_tag?.includes(`_project_`)));
       }
     }
+    // Cap total to prevent unbounded memory growth
+    const MAX_LIST_MEMORIES = 2000;
+    if (allMemories.length > MAX_LIST_MEMORIES) {
+      allMemories = allMemories.slice(0, MAX_LIST_MEMORIES);
+    }
 
     const memoriesWithType = allMemories.map((r: any) => {
       const metadata = safeJSONParse(r.metadata);
@@ -186,6 +191,12 @@ export async function handleListMemories(
         linkedMemoryId: p.linkedMemoryId,
       }));
       timeline = [...memoriesWithType, ...promptsWithType];
+    }
+
+    // Cap timeline to prevent unbounded memory growth
+    const MAX_TIMELINE_ITEMS = 2500;
+    if (timeline.length > MAX_TIMELINE_ITEMS) {
+      timeline = timeline.slice(0, MAX_TIMELINE_ITEMS);
     }
 
     const linkedPairs = new Map<string, { memory: any; prompt: any }>();
@@ -519,6 +530,11 @@ export async function handleSearch(
           log("Shard search error", { shardId: shard.id, error: String(error) });
         }
       }
+      // Cap total to prevent unbounded memory growth
+      const MAX_SEARCH_RESULTS = 2000;
+      if (memoryResults.length > MAX_SEARCH_RESULTS) {
+        memoryResults = memoryResults.slice(0, MAX_SEARCH_RESULTS);
+      }
       const projectPath = getProjectPathFromTag(tag);
       promptResults = userPromptManager.searchPrompts(query, projectPath, safePageSize * 2);
     } else {
@@ -541,6 +557,11 @@ export async function handleSearch(
         } catch (error) {
           log("Shard search error", { shardId: shard.id, error: String(error) });
         }
+      }
+      // Cap total to prevent unbounded memory growth
+      const MAX_SEARCH_RESULTS = 2000;
+      if (memoryResults.length > MAX_SEARCH_RESULTS) {
+        memoryResults = memoryResults.slice(0, MAX_SEARCH_RESULTS);
       }
       promptResults = userPromptManager.searchPrompts(query, undefined, safePageSize * 2);
     }
@@ -591,13 +612,12 @@ export async function handleSearch(
 
     const missingPromptIds = new Set<string>();
     const missingMemoryIds = new Set<string>();
+    const existingIds = new Set(paginatedResults.map((r) => r.id));
     for (const item of paginatedResults) {
       if (item.type === "memory" && item.linkedPromptId) {
-        if (!paginatedResults.some((p) => p.id === item.linkedPromptId))
-          missingPromptIds.add(item.linkedPromptId);
+        if (!existingIds.has(item.linkedPromptId)) missingPromptIds.add(item.linkedPromptId);
       } else if (item.type === "prompt" && item.linkedMemoryId) {
-        if (!paginatedResults.some((m) => m.id === item.linkedMemoryId))
-          missingMemoryIds.add(item.linkedMemoryId);
+        if (!existingIds.has(item.linkedMemoryId)) missingMemoryIds.add(item.linkedMemoryId);
       }
     }
 
@@ -624,7 +644,7 @@ export async function handleSearch(
         const db = connectionManager.getConnection(shard.dbPath);
         for (const mid of missingMemoryIds) {
           const m = vectorSearch.getMemoryById(db, mid);
-          if (m && !paginatedResults.some((existing) => existing.id === m.id)) {
+          if (m && !existingIds.has(m.id)) {
             const parsedMetadata = safeJSONParse(m.metadata) as Record<string, unknown> | undefined;
             paginatedResults.push({
               type: "memory",
@@ -669,7 +689,6 @@ export async function handleStats(): Promise<
   }>
 > {
   try {
-    await embeddingService.warmup();
     const userShards = shardManager.getAllShards("user", "");
     const projectShards = shardManager.getAllShards("project", "");
     let userCount = 0,
