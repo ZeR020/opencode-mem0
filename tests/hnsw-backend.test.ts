@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { HNSWBackend } from "../src/services/vector-backends/hnsw-backend.js";
 import { getDatabase } from "../src/services/sqlite/sqlite-bootstrap.js";
 import { createVectorBackend } from "../src/services/vector-backends/backend-factory.js";
+import type { VectorBackend } from "../src/services/vector-backends/types.js";
 
 const Database = getDatabase();
 
@@ -278,6 +279,28 @@ describe("HNSW backend factory integration", () => {
   });
 
   it('"hnsw-first" falls back to exact-scan on HNSW search error', async () => {
+    const failingBackend: VectorBackend = {
+      getBackendName: () => "hnsw",
+      insert: async () => {},
+      insertBatch: async () => {},
+      delete: async () => {},
+      search: async () => {
+        throw new Error("simulated-hnsw-search-failure");
+      },
+      rebuildFromShard: async () => {
+        throw new Error("simulated-hnsw-rebuild-failure");
+      },
+      deleteShardIndexes: async () => {},
+    };
+
+    const backend = await createVectorBackend({
+      vectorBackend: "hnsw-first",
+      createHNSWBackend: () => failingBackend,
+    });
+
+    // FallbackAwareBackend should report the active backend name initially
+    expect(backend.getBackendName()).toBe("hnsw");
+
     const tempDir = mkdtempSync(join(tmpdir(), "hnsw-fallback-"));
     tempDirs.push(tempDir);
     const dbPath = join(tempDir, "test.db");
@@ -329,10 +352,6 @@ describe("HNSW backend factory integration", () => {
       Date.now()
     );
 
-    // Create a failing HNSW backend by overriding its search to throw
-    const backend = await createVectorBackend({ vectorBackend: "hnsw-first" });
-    expect(backend.getBackendName()).toBe("hnsw");
-
     const shard = {
       id: 1,
       scope: "project" as const,
@@ -344,23 +363,17 @@ describe("HNSW backend factory integration", () => {
       createdAt: Date.now(),
     };
 
-    // First search should work with HNSW (rebuildFromShard)
-    await backend.rebuildFromShard({ db, shard, kind: "content" });
-    const results1 = await backend.search({
+    // First search triggers fallback because HNSW search throws
+    const results = await backend.search({
       db,
       shard,
       kind: "content",
       queryVector: new Float32Array([1, 0, 0, 0]),
       limit: 1,
     });
-    expect(results1.map((r) => r.id)).toContain("f1");
+    expect(results.map((r) => r.id)).toContain("f1");
 
-    // Now simulate HNSW failure by monkey-patching the inner HNSW backend
-    // Since FallbackAwareBackend wraps it, we can't easily access the primary.
-    // Instead, we verify the fallback chain exists by checking factory supports hnsw-first.
-    // For true fallback test, we'd need to inject a failing HNSW. This test verifies
-    // the factory wiring; fallback behavior is tested at the FallbackAwareBackend level
-    // in vector-search-backend-integration.test.ts.
-    expect(true).toBe(true);
+    // After fallback, backend name should report exact-scan
+    expect(backend.getBackendName()).toBe("exact-scan");
   });
 });
