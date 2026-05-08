@@ -156,4 +156,172 @@ describe("contextual-decay", () => {
       expect(result4).toEqual({ storeType: "stm", decayRate: 0.05 });
     });
   });
+
+  describe("applyDecay integration", () => {
+    it("uses static decay_rate and does not update decay_rate column when disabled", async () => {
+      _mockConfig.contextualDecay.enabled = false;
+
+      const capturedParams: any[] = [];
+
+      const mockMemory = {
+        id: "mem-1",
+        strength: 0.5,
+        decay_rate: 0.05,
+        created_at: Date.now() - 86400000, // 1 day ago
+        last_decay_at: null,
+        store_type: "stm",
+        access_count: 2,
+        is_pinned: 0,
+      };
+
+      vi.doMock("../src/services/sqlite/connection-manager.js", () => ({
+        connectionManager: {
+          getConnection: vi.fn(() => ({
+            prepare: vi.fn((sql: string) => {
+              if (sql.includes("SELECT")) {
+                return {
+                  all: vi.fn(() => [mockMemory]),
+                  get: vi.fn(),
+                };
+              }
+              if (sql.includes("UPDATE")) {
+                return {
+                  run: vi.fn((...args: any[]) => {
+                    capturedParams.push(args);
+                  }),
+                };
+              }
+              return { all: vi.fn(() => []), get: vi.fn(), run: vi.fn() };
+            }),
+            run: vi.fn(),
+          })),
+        },
+      }));
+
+      vi.doMock("../src/services/sqlite/shard-manager.js", () => ({
+        shardManager: {
+          getAllShards: vi.fn(() => [{ id: "shard-1", dbPath: "/tmp/test.db" }]),
+          decrementVectorCount: vi.fn(),
+        },
+      }));
+
+      vi.resetModules();
+      const { applyDecay: applyDecayDisabled } =
+        await import("../src/services/memory-lifecycle.js");
+      await applyDecayDisabled();
+
+      // When disabled, the UPDATE should have 4 params (strength, recency, last_decay_at, id)
+      // and NOT include decay_rate
+      expect(capturedParams.length).toBeGreaterThan(0);
+      const updateCall = capturedParams[0];
+      expect(updateCall.length).toBe(4); // strength, recency, last_decay_at, id
+    });
+
+    it("computes contextual rate and updates decay_rate column when enabled", async () => {
+      _mockConfig.contextualDecay.enabled = true;
+
+      const capturedParams: any[] = [];
+
+      const mockMemory = {
+        id: "mem-2",
+        strength: 0.3,
+        decay_rate: 0.05,
+        created_at: Date.now() - 86400000 * 2, // 2 days ago
+        last_decay_at: null,
+        store_type: "stm",
+        access_count: 1,
+        is_pinned: 0,
+      };
+
+      vi.doMock("../src/services/sqlite/connection-manager.js", () => ({
+        connectionManager: {
+          getConnection: vi.fn(() => ({
+            prepare: vi.fn((sql: string) => {
+              if (sql.includes("SELECT")) {
+                return {
+                  all: vi.fn(() => [mockMemory]),
+                  get: vi.fn(),
+                };
+              }
+              if (sql.includes("UPDATE")) {
+                return {
+                  run: vi.fn((...args: any[]) => {
+                    capturedParams.push(args);
+                  }),
+                };
+              }
+              return { all: vi.fn(() => []), get: vi.fn(), run: vi.fn() };
+            }),
+            run: vi.fn(),
+          })),
+        },
+      }));
+
+      vi.doMock("../src/services/sqlite/shard-manager.js", () => ({
+        shardManager: {
+          getAllShards: vi.fn(() => [{ id: "shard-1", dbPath: "/tmp/test.db" }]),
+          decrementVectorCount: vi.fn(),
+        },
+      }));
+
+      vi.resetModules();
+      const { applyDecay: applyDecayEnabled } = await import("../src/services/memory-lifecycle.js");
+      await applyDecayEnabled();
+
+      expect(capturedParams.length).toBeGreaterThan(0);
+      const updateCall = capturedParams[0];
+      // When enabled, UPDATE has 5 params: strength, recency, last_decay_at, decay_rate, id
+      expect(updateCall.length).toBe(5);
+      // The 4th param (index 3) should be the contextual decay rate
+      const contextualRate = updateCall[3];
+      expect(contextualRate).toBeGreaterThan(0);
+      expect(contextualRate).not.toBe(0.05); // Should differ from original static rate
+    });
+
+    it("logs debug info when contextual decay rate is adjusted", async () => {
+      _mockConfig.contextualDecay.enabled = true;
+
+      const mockMemory = {
+        id: "mem-3",
+        strength: 0.3,
+        decay_rate: 0.05,
+        created_at: Date.now() - 86400000,
+        last_decay_at: null,
+        store_type: "stm",
+        access_count: 1,
+        is_pinned: 0,
+      };
+
+      vi.doMock("../src/services/sqlite/connection-manager.js", () => ({
+        connectionManager: {
+          getConnection: vi.fn(() => ({
+            prepare: vi.fn((sql: string) => {
+              if (sql.includes("SELECT")) {
+                return {
+                  all: vi.fn(() => [mockMemory]),
+                  get: vi.fn(),
+                };
+              }
+              return { all: vi.fn(() => []), get: vi.fn(), run: vi.fn() };
+            }),
+            run: vi.fn(),
+          })),
+        },
+      }));
+
+      vi.doMock("../src/services/sqlite/shard-manager.js", () => ({
+        shardManager: {
+          getAllShards: vi.fn(() => [{ id: "shard-1", dbPath: "/tmp/test.db" }]),
+          decrementVectorCount: vi.fn(),
+        },
+      }));
+
+      vi.resetModules();
+      const { applyDecay: applyDecayDebug } = await import("../src/services/memory-lifecycle.js");
+      await applyDecayDebug();
+
+      // Should have logged something (either decay applied or contextual rate info)
+      expect(mockLog).toHaveBeenCalled();
+    });
+  });
 });
