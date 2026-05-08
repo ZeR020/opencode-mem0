@@ -258,7 +258,7 @@ export async function applyDecay(): Promise<{
         // Get all STM memories and LTM memories with non-zero decay, excluding pinned
         const memories = db
           .prepare(
-            `SELECT id, strength, decay_rate, created_at, last_decay_at, store_type, access_count
+            `SELECT id, strength, decay_rate, created_at, last_decay_at, store_type, access_count, type, is_pinned
              FROM memories
              WHERE (store_type = 'stm' OR (store_type = 'ltm' AND decay_rate > 0)) AND is_pinned = 0`
           )
@@ -266,8 +266,12 @@ export async function applyDecay(): Promise<{
 
         if (memories.length === 0) continue;
 
+        const contextualDecayEnabled = CONFIG.contextualDecay?.enabled ?? false;
+
         const updateStmt = db.prepare(
-          `UPDATE memories SET strength = ?, recency_score = ?, last_decay_at = ? WHERE id = ?`
+          contextualDecayEnabled
+            ? `UPDATE memories SET strength = ?, recency_score = ?, last_decay_at = ?, decay_rate = ? WHERE id = ?`
+            : `UPDATE memories SET strength = ?, recency_score = ?, last_decay_at = ? WHERE id = ?`
         );
 
         db.run("BEGIN IMMEDIATE");
@@ -283,7 +287,30 @@ export async function applyDecay(): Promise<{
           const deltaMs = now - lastDecayAt;
           const deltaDays = deltaMs / (24 * 60 * 60 * 1000);
           const currentStrength = Number(memory.strength || 0.5);
-          const decayRate = Number(memory.decay_rate || 0.05);
+          const storedDecayRate = Number(memory.decay_rate || 0.05);
+
+          let decayRate = storedDecayRate;
+
+          if (contextualDecayEnabled) {
+            const contextualRate = calculateContextualDecayRate(
+              memory.type,
+              currentStrength,
+              Number(memory.access_count || 0),
+              memory.is_pinned === 1
+            );
+
+            if (contextualRate !== storedDecayRate) {
+              log("Contextual decay rate applied", {
+                memoryId: memory.id,
+                oldRate: storedDecayRate,
+                newRate: contextualRate,
+                strength: currentStrength,
+                accessCount: memory.access_count,
+              });
+            }
+
+            decayRate = contextualRate;
+          }
 
           if (decayRate <= 0) continue; // LTM with zero decay rate — skip
 
@@ -292,8 +319,12 @@ export async function applyDecay(): Promise<{
           const clampedStrength = Math.max(0, Math.min(1, newStrength));
           const recencyScore = calculateRecency(createdAt);
 
-          // Update strength, recency_score, and record last_decay_at
-          updateStmt.run(clampedStrength, recencyScore, now, memory.id);
+          // Update strength, recency_score, last_decay_at, and optionally decay_rate
+          if (contextualDecayEnabled) {
+            updateStmt.run(clampedStrength, recencyScore, now, decayRate, memory.id);
+          } else {
+            updateStmt.run(clampedStrength, recencyScore, now, memory.id);
+          }
           totalUpdated++;
 
           if (clampedStrength < currentStrength) {
