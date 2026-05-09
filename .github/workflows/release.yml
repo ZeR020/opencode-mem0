@@ -15,21 +15,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js for npm publish
-        uses: actions/setup-node@v5
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
-          cache: 'npm'
+          bun-version: latest
 
-      - run: npm ci
+      - run: bun install
 
-      - run: npm run typecheck
+      - run: bun run typecheck
 
-      - run: npm run build
+      - run: bun run build
 
       - name: Run tests
-        run: npm test
+        run: bun test
 
       - name: Check release state
         id: release_state
@@ -53,6 +51,13 @@ jobs:
           else
             echo "github_release_exists=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Setup Node.js for npm publish
+        if: steps.release_state.outputs.npm_published == 'false'
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Publish to npm
         if: steps.release_state.outputs.npm_published == 'false'

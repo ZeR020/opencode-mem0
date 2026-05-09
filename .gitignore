@@ -1,5 +1,6 @@
 # dependencies (bun install)
 node_modules
+package-lock.json
 
 # output
 out
@@ -36,6 +37,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # local design and implementation plans
 docs/plans/
 .sisyphus
+
+# CodeRabbit configuration (optional AI code review tool)
+.coderabbit.yaml
 
 # test artifacts & temporary databases
 *.test.db
