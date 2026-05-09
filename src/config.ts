@@ -970,6 +970,10 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
 let _globalFileConfig = loadConfigFromPaths(CONFIG_FILES);
 export let CONFIG = buildConfig(_globalFileConfig);
 
+if (!existsSync(CONFIG.storagePath)) {
+  mkdirSync(CONFIG.storagePath, { recursive: true });
+}
+
 function deepMerge<T extends object>(target: T, source: Partial<T>): T {
   const result = { ...target } as T;
   for (const key in source) {

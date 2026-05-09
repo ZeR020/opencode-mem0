@@ -6,6 +6,7 @@ import { buildMemoryProviderConfig } from "../src/services/ai/provider-config.js
 import { OpenAIChatCompletionProvider } from "../src/services/ai/providers/openai-chat-completion.js";
 import { OpenAIResponsesProvider } from "../src/services/ai/providers/openai-responses.js";
 import type { ChatCompletionTool } from "../src/services/ai/tools/tool-schema.js";
+import { flushLogs } from "../src/services/logger.js";
 
 const toolSchema: ChatCompletionTool = {
   type: "function",
@@ -174,6 +175,7 @@ describe("AI provider config", () => {
     );
 
     await provider.executeToolCall("system", "user", toolSchema, "session-id");
+    await flushLogs();
 
     const afterLog = readFileSync(logFile, "utf-8");
     const appendedLog = afterLog.slice(beforeLog.length);
@@ -203,6 +205,7 @@ describe("AI provider config", () => {
     );
 
     await provider.executeToolCall("system", "user", toolSchema, "session-id");
+    await flushLogs();
 
     const afterLog = readFileSync(logFile, "utf-8");
     const appendedLog = afterLog.slice(beforeLog.length);

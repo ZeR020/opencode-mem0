@@ -33,11 +33,18 @@ function rotateLog() {
 }
 
 function ensureLoggerInitialized() {
-  if ((globalThis as any)[GLOBAL_LOGGER_KEY]) return;
   const logDir = getLogDirPath();
   const logFile = getLogFilePath();
   if (!existsSync(logDir)) {
     mkdirSync(logDir, { recursive: true });
+  }
+  if ((globalThis as any)[GLOBAL_LOGGER_KEY]) {
+    if (!existsSync(logFile)) {
+      writeFileSync(logFile, `\n--- Session started: ${new Date().toISOString()} ---\n`, {
+        flag: "a",
+      });
+    }
+    return;
   }
   rotateLog();
   writeFileSync(logFile, `\n--- Session started: ${new Date().toISOString()} ---\n`, {
@@ -115,4 +122,8 @@ export function warn(message: string, data?: unknown) {
 
 export function error(message: string, data?: unknown) {
   logWithLevel("error", message, data);
+}
+
+export function flushLogs(): Promise<void> {
+  return writeQueue;
 }
