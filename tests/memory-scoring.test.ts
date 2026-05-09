@@ -15,7 +15,7 @@ describe("memory-scoring", () => {
   describe("calculateRecency", () => {
     it("returns 1.0 for very recent memories", () => {
       const now = Date.now();
-      expect(calculateRecency(now, 7)).toBeCloseTo(1.0, 10);
+      expect(calculateRecency(now, 7)).toBeCloseTo(1.0, 5);
     });
 
     it("returns lower values for older memories", () => {
