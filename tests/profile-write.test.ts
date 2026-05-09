@@ -11,10 +11,14 @@ import { connectionManager } from "../src/services/sqlite/connection-manager.js"
 
 // We patch CONFIG.storagePath before importing the manager so the DB lands in tmp.
 let tmpDir: string;
+let originalStoragePath: string;
 
 async function makeManager() {
   // Dynamic import after setting storagePath so the constructor picks up the temp dir.
   const { CONFIG } = await import("../src/config.js");
+  if (originalStoragePath === undefined) {
+    originalStoragePath = CONFIG.storagePath;
+  }
   CONFIG.storagePath = tmpDir;
   // Bun may cache the imported module, so this helper does not try to reload it.
   // Instead, each test creates a new UserProfileManager instance after updating CONFIG.storagePath.
@@ -28,9 +32,13 @@ describe("UserProfileManager – explicit preference writes", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "opencode-mem0-test-"));
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     connectionManager.closeAll();
     rmSync(tmpDir, { recursive: true, force: true });
+    if (originalStoragePath !== undefined) {
+      const { CONFIG } = await import("../src/config.js");
+      CONFIG.storagePath = originalStoragePath;
+    }
   });
 
   it("creates a profile with an explicit preference when none exists", async () => {

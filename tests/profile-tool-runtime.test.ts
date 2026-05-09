@@ -79,6 +79,15 @@ describe("memory tool profile runtime behavior", () => {
     vi.restoreAllMocks();
     delete globalThis[WARMUP_KEY as keyof typeof globalThis];
 
+    // Reset shared tags mock to avoid state leaking between tests
+    currentTags = {
+      project: { tag: "project-tag" },
+      user: {
+        userEmail: undefined as string | undefined,
+        userName: undefined as string | undefined,
+      },
+    };
+
     const userProfilesDbPath = join(tmpDir, "data", "user-profiles.db");
     if (existsSync(userProfilesDbPath)) {
       const db = connectionManager.getConnection(userProfilesDbPath);

@@ -70,5 +70,15 @@ describe("privacy", () => {
       const result = isFullyPrivate("just normal text");
       expect(result).toBe(false);
     });
+
+    it("should return true when content is only [REDACTED] tokens", () => {
+      const result = isFullyPrivate("[REDACTED] [REDACTED]");
+      expect(result).toBe(true);
+    });
+
+    it("should return true for multiple adjacent [REDACTED] tokens", () => {
+      const result = isFullyPrivate("[REDACTED][REDACTED][REDACTED]");
+      expect(result).toBe(true);
+    });
   });
 });

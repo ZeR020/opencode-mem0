@@ -60,35 +60,9 @@ describe("semantic deduplication at ingest", () => {
     client = new LocalMemoryClient();
   });
 
-  afterEach(() => {
-    // Intentionally NOT calling connectionManager.closeAll()
-    // because shardManager.metadataDb must stay open across tests.
-    // Each test uses a unique containerTag hash, so shard files are isolated.
-  });
-
   afterAll(() => {
     (CONFIG as any).storagePath = originalStoragePath;
-    while (tempDirs.length > 0) {
-      const dir = tempDirs.pop();
-      if (dir) rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  beforeEach(() => {
-    // Override CONFIG for test
-    (CONFIG as any).deduplicationIngestEnabled = true;
-    (CONFIG as any).deduplicationSimilarityThreshold = 0.92;
-
-    client = new LocalMemoryClient();
-  });
-
-  afterEach(() => {
-    // Intentionally NOT calling connectionManager.closeAll() here
-    // because shardManager.metadataDb must stay open across tests.
-    // Each test uses a unique containerTag hash, so shard files are isolated.
-  });
-
-  afterAll(() => {
+    connectionManager.closeAll();
     while (tempDirs.length > 0) {
       const dir = tempDirs.pop();
       if (dir) rmSync(dir, { recursive: true, force: true });
@@ -210,8 +184,8 @@ describe("semantic deduplication at ingest", () => {
     const result1 = await client.addMemory(content, containerTag);
     expect(result1.success).toBe(true);
 
-    // Wait a tiny bit to ensure updated_at is different
-    await new Promise((r) => setTimeout(r, 50));
+    // Wait to ensure updated_at is measurably different (avoids flakiness in fast CI)
+    await new Promise((r) => setTimeout(r, 200));
 
     const result2 = await client.addMemory(content, containerTag);
     expect(result2.success).toBe(true);

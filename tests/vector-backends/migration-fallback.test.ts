@@ -10,8 +10,15 @@ const Database = getDatabase();
 
 describe("migration with backend abstraction", () => {
   const tempDirs: string[] = [];
+  const dbs: InstanceType<ReturnType<typeof getDatabase>>[] = [];
 
   afterEach(() => {
+    for (const db of dbs) {
+      try {
+        db.close();
+      } catch {}
+    }
+    dbs.length = 0;
     while (tempDirs.length > 0) {
       const dir = tempDirs.pop();
       if (dir) rmSync(dir, { recursive: true, force: true });
@@ -23,6 +30,7 @@ describe("migration with backend abstraction", () => {
     tempDirs.push(tempDir);
     const dbPath = join(tempDir, "test.db");
     const db = new Database(dbPath);
+    dbs.push(db);
     db.run(`
       CREATE TABLE memories (
         id TEXT PRIMARY KEY,
