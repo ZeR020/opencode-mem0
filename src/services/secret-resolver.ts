@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, normalize, isAbsolute } from "node:path";
 import { homedir, platform } from "node:os";
 import { fileURLToPath } from "node:url";
 
@@ -38,7 +38,13 @@ export function resolveSecretValue(value: string | undefined): string | undefine
   }
 
   if (value.startsWith("file://")) {
-    const filePath = expandPath(fileURLToPath(new URL(value)));
+    const filePath = normalize(expandPath(fileURLToPath(new URL(value))));
+
+    if (filePath.includes("..") || (isAbsolute(filePath) && !existsSync(filePath))) {
+      if (filePath.includes("..")) {
+        throw new Error(`Secret file path traversal blocked: ${filePath}`);
+      }
+    }
 
     if (!existsSync(filePath)) {
       throw new Error(`Secret file not found: ${filePath}`);

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { CONFIG } from "../config.js";
 import { sep, normalize, resolve, isAbsolute, basename, dirname } from "node:path";
 import { realpathSync, existsSync } from "node:fs";
@@ -31,13 +31,16 @@ function execGitCommand(
   options: { cwd?: string; timeout?: number } = {}
 ): string | null {
   try {
-    const result = execSync(`git ${args.join(" ")}`, {
+    const result = spawnSync("git", args, {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
       timeout: options.timeout ?? 1000,
       cwd: options.cwd,
-    }).trim();
-    return result || null;
+    });
+    if (result.error || result.status !== 0) {
+      throw result.error || new Error(`git exited with code ${result.status}`);
+    }
+    return result.stdout?.trim() || null;
   } catch (err) {
     log("Git command failed", { command: args.join(" "), cwd: options.cwd, error: String(err) });
     return null;

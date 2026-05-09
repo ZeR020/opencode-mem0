@@ -159,8 +159,8 @@ function renderCombinedCard(pair) {
       : "";
 
   const pinButton = isPinned
-    ? `<button class="btn-pin pinned" onclick="unpinMemory('${memory.id}')" title="Unpin"><i data-lucide="pin" class="icon icon-filled"></i></button>`
-    : `<button class="btn-pin" onclick="pinMemory('${memory.id}')" title="Pin"><i data-lucide="pin" class="icon"></i></button>`;
+    ? `<button class="btn-pin pinned" onclick="unpinMemory('${escapeJsString(memory.id)}')" title="Unpin"><i data-lucide="pin" class="icon icon-filled"></i></button>`
+    : `<button class="btn-pin" onclick="pinMemory('${escapeJsString(memory.id)}')" title="Pin"><i data-lucide="pin" class="icon"></i></button>`;
 
   const createdDate = formatDate(memory.createdAt);
   const updatedDate =
@@ -195,8 +195,8 @@ function renderCombinedCard(pair) {
           </div>
           <div class="memory-actions">
             ${pinButton}
-            <button class="btn-edit" onclick="editMemory('${memory.id}')"><i data-lucide="edit-3" class="icon"></i></button>
-            <button class="btn-delete" onclick="deleteMemoryWithLink('${memory.id}', true)">
+            <button class="btn-edit" onclick="editMemory('${escapeJsString(memory.id)}')"><i data-lucide="edit-3" class="icon"></i></button>
+            <button class="btn-delete" onclick="deleteMemoryWithLink('${escapeJsString(memory.id)}', true)">
               <i data-lucide="trash-2" class="icon"></i> ${t("btn-delete-pair")}
             </button>
           </div>
@@ -228,7 +228,7 @@ function renderPromptCard(prompt) {
           <span class="prompt-date">${promptDate}</span>
         </div>
         <div class="prompt-actions">
-          <button class="btn-delete" onclick="deletePromptWithLink('${prompt.id}', ${isLinked})">
+          <button class="btn-delete" onclick="deletePromptWithLink('${escapeJsString(prompt.id)}', ${isLinked})">
             <i data-lucide="trash-2" class="icon"></i>
             ${isLinked ? t("btn-delete-pair") : t("btn-delete")}
           </button>
@@ -266,8 +266,8 @@ function renderMemoryCard(memory) {
   }
 
   const pinButton = isPinned
-    ? `<button class="btn-pin pinned" onclick="unpinMemory('${memory.id}')" title="Unpin"><i data-lucide="pin" class="icon icon-filled"></i></button>`
-    : `<button class="btn-pin" onclick="pinMemory('${memory.id}')" title="Pin"><i data-lucide="pin" class="icon"></i></button>`;
+    ? `<button class="btn-pin pinned" onclick="unpinMemory('${escapeJsString(memory.id)}')" title="Unpin"><i data-lucide="pin" class="icon icon-filled"></i></button>`
+    : `<button class="btn-pin" onclick="pinMemory('${escapeJsString(memory.id)}')" title="Pin"><i data-lucide="pin" class="icon"></i></button>`;
 
   const createdDate = formatDate(memory.createdAt);
   const updatedDate =
@@ -295,8 +295,8 @@ function renderMemoryCard(memory) {
         </div>
         <div class="memory-actions">
           ${pinButton}
-          <button class="btn-edit" onclick="editMemory('${memory.id}')"><i data-lucide="edit-3" class="icon"></i></button>
-          <button class="btn-delete" onclick="deleteMemoryWithLink('${memory.id}', ${isLinked})">
+          <button class="btn-edit" onclick="editMemory('${escapeJsString(memory.id)}')"><i data-lucide="edit-3" class="icon"></i></button>
+          <button class="btn-delete" onclick="deleteMemoryWithLink('${escapeJsString(memory.id)}', ${isLinked})">
             <i data-lucide="trash-2" class="icon"></i>
             ${isLinked ? t("btn-delete-pair") : t("btn-delete")}
           </button>
@@ -1238,16 +1238,16 @@ function renderConflicts() {
         </div>
       </div>
       <div class="conflict-actions">
-        <button class="btn-resolve" onclick="resolveConflictAction('${c.id}', 'keep_newer')">
+        <button class="btn-resolve" onclick="resolveConflictAction('${escapeJsString(c.id)}', 'keep_newer')">
           <i data-lucide="check" class="icon"></i> Keep Newer
         </button>
-        <button class="btn-resolve" onclick="resolveConflictAction('${c.id}', 'keep_both')">
+        <button class="btn-resolve" onclick="resolveConflictAction('${escapeJsString(c.id)}', 'keep_both')">
           <i data-lucide="git-merge" class="icon"></i> Keep Both
         </button>
-        <button class="btn-resolve" onclick="showMergeModal('${c.id}')">
+        <button class="btn-resolve" onclick="showMergeModal('${escapeJsString(c.id)}')">
           <i data-lucide="combine" class="icon"></i> Merge
         </button>
-        <button class="btn-resolve btn-manual" onclick="resolveConflictAction('${c.id}', 'manual')">
+        <button class="btn-resolve btn-manual" onclick="resolveConflictAction('${escapeJsString(c.id)}', 'manual')">
           <i data-lucide="flag" class="icon"></i> Flag for Review
         </button>
       </div>
@@ -1322,6 +1322,10 @@ function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
+}
+
+function escapeJsString(str) {
+  return str.replace(/[\\'"]/g, "\\$&");
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
