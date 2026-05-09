@@ -257,6 +257,147 @@ export class VectorSearch {
    * @param providedDb - Optional pre-resolved DB connection (for tests)
    * @returns Ranked search results
    */
+  private searchFTS5(db: DatabaseType, queryText: string | undefined, limit: number): string[] {
+    if (!queryText || queryText.length === 0) return [];
+    try {
+      const safeFtsQuery = queryText
+        .replace(/[\*\^:\-+?()"]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (safeFtsQuery.length > 0) {
+        const ftsStmt = db.prepare(`
+          SELECT id FROM memories_fts
+          WHERE memories_fts MATCH ?
+          ORDER BY rank
+          LIMIT ?
+        `);
+        const ftsRows = ftsStmt.all(safeFtsQuery, limit * 2) as any[];
+        return ftsRows.map((r: any) => r.id);
+      }
+    } catch {
+      try {
+        const likeStmt = db.prepare(`
+          SELECT id FROM memories
+          WHERE content LIKE ? AND is_deprecated = 0
+          LIMIT ?
+        `);
+        const likeRows = likeStmt.all(`%${queryText}%`, limit * 2) as any[];
+        return likeRows.map((r: any) => r.id);
+      } catch {
+        // Ignore FTS/like errors
+      }
+    }
+    return [];
+  }
+
+  private hydrateAndScoreResults(
+    rows: any[],
+    scoreMap: Map<string, { contentSim: number; tagsSim: number }>,
+    ftsResults: string[],
+    queryText: string | undefined,
+    context?: RetrievalContext
+  ): SearchResult[] {
+    const queryWords = queryText
+      ? queryText
+          .toLowerCase()
+          .split(/[\s,]+/)
+          .filter((w) => w.length > 1)
+      : [];
+
+    const hydratedResults: SearchResult[] = rows.map((row: any) => {
+      const scores = scoreMap.get(row.id) ?? { contentSim: 0, tagsSim: 0 };
+      const memoryTagsStr = row.tags || "";
+      const memoryTags = memoryTagsStr.split(",").map((t: string) => t.trim().toLowerCase());
+
+      let exactMatchBoost = 0;
+      if (queryWords.length > 0 && memoryTags.length > 0) {
+        const matches = queryWords.filter((w) =>
+          memoryTags.some((t: string) => t.includes(w) || w.includes(t))
+        ).length;
+        exactMatchBoost = matches / Math.max(queryWords.length, 1);
+      }
+
+      let ftsBoost = 0;
+      if (ftsResults.includes(row.id)) {
+        ftsBoost = 0.1;
+      }
+
+      const finalTagsSim = Math.max(scores.tagsSim, exactMatchBoost);
+      const vectorSimilarity = scores.contentSim * 0.6 + finalTagsSim * 0.4 + ftsBoost;
+
+      const strength = row.strength ?? 0.5;
+      const recencyScore = row.recency_score ?? 0.5;
+
+      const strengthWeight = strength * 0.4;
+      const recencyWeight = recencyScore * 0.3;
+      const vectorWeight = vectorSimilarity * 0.3;
+      const similarity = strengthWeight + recencyWeight + vectorWeight;
+
+      let contextBoost = 1.0;
+      if (context) {
+        contextBoost = calculateContextBoost(
+          {
+            projectPath: row.project_path,
+            projectName: row.project_name,
+            metadata: safeParseMetadata(row.metadata),
+          },
+          context
+        );
+      }
+
+      return {
+        id: row.id,
+        memory: row.content,
+        similarity: similarity * contextBoost,
+        tags: memoryTagsStr ? memoryTagsStr.split(",") : [],
+        metadata: safeParseMetadata(row.metadata),
+        containerTag: row.container_tag,
+        displayName: row.display_name,
+        userName: row.user_name,
+        userEmail: row.user_email,
+        projectPath: row.project_path,
+        projectName: row.project_name,
+        gitRepoUrl: row.git_repo_url,
+        isPinned: row.is_pinned,
+        type: row.type,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        strength: row.strength,
+        recencyScore: row.recency_score,
+        importanceScore: row.importance_score,
+        accessCount: row.access_count,
+        vectorSimilarity,
+        recencyWeight,
+        strengthWeight,
+        contextBoost,
+        finalScore: similarity * contextBoost,
+      };
+    });
+
+    hydratedResults.sort((a, b) => {
+      if ((a.isPinned || 0) !== (b.isPinned || 0)) {
+        return (b.isPinned || 0) - (a.isPinned || 0);
+      }
+      return (b.finalScore || 0) - (a.finalScore || 0);
+    });
+
+    return hydratedResults;
+  }
+
+  private updateAccessCounts(db: DatabaseType, results: SearchResult[]): void {
+    try {
+      const updateAccessStmt = db.prepare(
+        `UPDATE memories SET access_count = access_count + 1, last_accessed = ? WHERE id = ?`
+      );
+      const now = Date.now();
+      for (const result of results) {
+        updateAccessStmt.run(now, result.id);
+      }
+    } catch (error) {
+      log("Failed to update access count", { error: String(error) });
+    }
+  }
+
   async searchWithMultiplier(
     shard: ShardInfo,
     queryVector: Float32Array | null,
@@ -340,43 +481,8 @@ export class VectorSearch {
     }
 
     let ids = Array.from(scoreMap.keys());
+    const ftsResults = this.searchFTS5(db, queryText, limit);
 
-    // Hybrid search: also get FTS5 results for query text
-    let ftsResults: string[] = [];
-    if (queryText && queryText.length > 0) {
-      try {
-        // Sanitize queryText for FTS5: strip metacharacters to prevent syntax errors
-        const safeFtsQuery = queryText
-          .replace(/[\*\^:\-+?()"]/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-        if (safeFtsQuery.length > 0) {
-          const ftsStmt = db.prepare(`
-            SELECT id FROM memories_fts
-            WHERE memories_fts MATCH ?
-            ORDER BY rank
-            LIMIT ?
-          `);
-          const ftsRows = ftsStmt.all(safeFtsQuery, limit * 2) as any[];
-          ftsResults = ftsRows.map((r: any) => r.id);
-        }
-      } catch {
-        // FTS5 not available, fallback to LIKE
-        try {
-          const likeStmt = db.prepare(`
-            SELECT id FROM memories
-            WHERE content LIKE ? AND is_deprecated = 0
-            LIMIT ?
-          `);
-          const likeRows = likeStmt.all(`%${queryText}%`, limit * 2) as any[];
-          ftsResults = likeRows.map((r: any) => r.id);
-        } catch {
-          // Ignore FTS/like errors
-        }
-      }
-    }
-
-    // When embedding is unavailable, rely on FTS5 results for ids
     if (embeddingDegraded && ftsResults.length > 0) {
       ids = ftsResults;
     }
@@ -398,97 +504,14 @@ export class VectorSearch {
       )
       .all(...ids, ...(containerTag === "" ? [] : [containerTag])) as any[];
 
-    const queryWords = queryText
-      ? queryText
-          .toLowerCase()
-          .split(/[\s,]+/)
-          .filter((w) => w.length > 1)
-      : [];
+    let hydratedResults = this.hydrateAndScoreResults(
+      rows,
+      scoreMap,
+      ftsResults,
+      queryText,
+      context
+    );
 
-    const hydratedResults: SearchResult[] = rows.map((row: any) => {
-      const scores = scoreMap.get(row.id) ?? { contentSim: 0, tagsSim: 0 };
-      const memoryTagsStr = row.tags || "";
-      const memoryTags = memoryTagsStr.split(",").map((t: string) => t.trim().toLowerCase());
-
-      let exactMatchBoost = 0;
-      if (queryWords.length > 0 && memoryTags.length > 0) {
-        const matches = queryWords.filter((w) =>
-          memoryTags.some((t: string) => t.includes(w) || w.includes(t))
-        ).length;
-        exactMatchBoost = matches / Math.max(queryWords.length, 1);
-      }
-
-      // Hybrid: boost if in FTS results
-      let ftsBoost = 0;
-      if (ftsResults.includes(row.id)) {
-        ftsBoost = 0.1; // Small boost for being in FTS results
-      }
-
-      const finalTagsSim = Math.max(scores.tagsSim, exactMatchBoost);
-      const vectorSimilarity = scores.contentSim * 0.6 + finalTagsSim * 0.4 + ftsBoost;
-
-      // Get scoring fields
-      const strength = row.strength ?? 0.5;
-      const recencyScore = row.recency_score ?? 0.5;
-
-      // Multi-factor ranking: strength (40%) + recency (30%) + vector similarity (30%)
-      const strengthWeight = strength * 0.4;
-      const recencyWeight = recencyScore * 0.3;
-      const vectorWeight = vectorSimilarity * 0.3;
-      const similarity = strengthWeight + recencyWeight + vectorWeight;
-
-      // Context boost
-      let contextBoost = 1.0;
-      if (context) {
-        contextBoost = calculateContextBoost(
-          {
-            projectPath: row.project_path,
-            projectName: row.project_name,
-            metadata: safeParseMetadata(row.metadata),
-          },
-          context
-        );
-      }
-
-      return {
-        id: row.id,
-        memory: row.content,
-        similarity: similarity * contextBoost,
-        tags: memoryTagsStr ? memoryTagsStr.split(",") : [],
-        metadata: safeParseMetadata(row.metadata),
-        containerTag: row.container_tag,
-        displayName: row.display_name,
-        userName: row.user_name,
-        userEmail: row.user_email,
-        projectPath: row.project_path,
-        projectName: row.project_name,
-        gitRepoUrl: row.git_repo_url,
-        isPinned: row.is_pinned,
-        type: row.type,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        strength: row.strength,
-        recencyScore: row.recency_score,
-        importanceScore: row.importance_score,
-        accessCount: row.access_count,
-        // Store score components for transparency
-        vectorSimilarity,
-        recencyWeight,
-        strengthWeight,
-        contextBoost,
-        finalScore: similarity * contextBoost,
-      };
-    });
-
-    // Sort by: pinned first, then final score
-    hydratedResults.sort((a, b) => {
-      if ((a.isPinned || 0) !== (b.isPinned || 0)) {
-        return (b.isPinned || 0) - (a.isPinned || 0);
-      }
-      return (b.finalScore || 0) - (a.finalScore || 0);
-    });
-
-    // Apply diversity penalty
     const diversityThreshold = CONFIG.retrieval.diversityThreshold || 0.9;
     const diverseResults: SearchResult[] = [];
 
@@ -503,7 +526,6 @@ export class VectorSearch {
 
       candidate.diversityPenalty = penalty;
 
-      // Apply penalty to final score for ranking, but keep original for reference
       const penalizedScore = (candidate.finalScore || 0) * (1 - penalty);
 
       if (penalizedScore > 0.01 || diverseResults.length < limit / 2) {
@@ -511,18 +533,7 @@ export class VectorSearch {
       }
     }
 
-    // Update access_count for retrieved memories
-    try {
-      const updateAccessStmt = db.prepare(
-        `UPDATE memories SET access_count = access_count + 1, last_accessed = ? WHERE id = ?`
-      );
-      const now = Date.now();
-      for (const result of diverseResults) {
-        updateAccessStmt.run(now, result.id);
-      }
-    } catch (error) {
-      log("Failed to update access count", { error: String(error) });
-    }
+    this.updateAccessCounts(db, diverseResults);
 
     return diverseResults;
   }
