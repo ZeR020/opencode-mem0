@@ -10,10 +10,12 @@ import { join } from "node:path";
 import { connectionManager } from "../src/services/sqlite/connection-manager.js";
 
 // We patch CONFIG.storagePath before importing the manager so the DB lands in tmp.
-let tmpDir: string;
 let originalStoragePath: string;
+const tmpDirs: string[] = [];
 
 async function makeManager() {
+  const tmpDir = mkdtempSync(join(tmpdir(), "opencode-mem0-pw-"));
+  tmpDirs.push(tmpDir);
   // Dynamic import after setting storagePath so the constructor picks up the temp dir.
   const { CONFIG } = await import("../src/config.js");
   if (originalStoragePath === undefined) {
@@ -24,17 +26,16 @@ async function makeManager() {
   // Instead, each test creates a new UserProfileManager instance after updating CONFIG.storagePath.
   const { UserProfileManager } =
     await import("../src/services/user-profile/user-profile-manager.js");
-  return new UserProfileManager();
+  return { manager: new UserProfileManager(), tmpDir };
 }
 
 describe("UserProfileManager – explicit preference writes", () => {
-  beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "opencode-mem0-test-"));
-  });
-
   afterEach(async () => {
     connectionManager.closeAll();
-    rmSync(tmpDir, { recursive: true, force: true });
+    for (const dir of tmpDirs) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+    tmpDirs.length = 0;
     if (originalStoragePath !== undefined) {
       const { CONFIG } = await import("../src/config.js");
       CONFIG.storagePath = originalStoragePath;
@@ -42,7 +43,7 @@ describe("UserProfileManager – explicit preference writes", () => {
   });
 
   it("creates a profile with an explicit preference when none exists", async () => {
-    const mgr = await makeManager();
+    const { manager: mgr, tmpDir } = await makeManager();
     const userId = "test@example.com";
 
     mgr.createProfile(
@@ -76,7 +77,7 @@ describe("UserProfileManager – explicit preference writes", () => {
   });
 
   it("merges a new explicit preference into an existing profile without clobbering other prefs", async () => {
-    const mgr = await makeManager();
+    const { manager: mgr, tmpDir } = await makeManager();
     const userId = "test@example.com";
 
     // Seed with one AI-learned preference
@@ -131,7 +132,7 @@ describe("UserProfileManager – explicit preference writes", () => {
   });
 
   it("deduplicates when the same explicit preference is written twice, boosting confidence", async () => {
-    const mgr = await makeManager();
+    const { manager: mgr, tmpDir } = await makeManager();
     const userId = "test@example.com";
     const description = "Prefer short answers";
 
@@ -175,13 +176,13 @@ describe("UserProfileManager – explicit preference writes", () => {
   });
 
   it("returns null profile for unknown user (no auto-create on read)", async () => {
-    const mgr = await makeManager();
+    const { manager: mgr, tmpDir } = await makeManager();
     const profile = mgr.getActiveProfile("nobody@example.com");
     expect(profile).toBeNull();
   });
 
   it("changelog entry is recorded on explicit preference write", async () => {
-    const mgr = await makeManager();
+    const { manager: mgr, tmpDir } = await makeManager();
     const userId = "test@example.com";
     const summary = "Explicit preference added: Use snake_case";
 

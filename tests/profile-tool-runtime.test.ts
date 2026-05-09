@@ -69,6 +69,9 @@ async function createPlugin(tagsMock?: { userEmail?: string; userName?: string }
 }
 
 describe("memory tool profile runtime behavior", () => {
+  // UserProfileManager is instantiated as a module-level singleton; changing
+  // CONFIG.storagePath per test does not redirect it. Use a single tmpDir and
+  // clean the DB tables between tests instead.
   beforeAll(() => {
     tmpDir = mkdtempSync(join(tmpdir(), "opencode-mem0-runtime-"));
   });

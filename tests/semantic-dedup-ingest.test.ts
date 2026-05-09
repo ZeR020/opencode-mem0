@@ -184,8 +184,13 @@ describe("semantic deduplication at ingest", () => {
     const result1 = await client.addMemory(content, containerTag);
     expect(result1.success).toBe(true);
 
-    // Wait to ensure updated_at is measurably different (avoids flakiness in fast CI)
-    await new Promise((r) => setTimeout(r, 200));
+    // Advance clock to guarantee updated_at differs from created_at
+    const originalNow = Date.now;
+    let callCount = 0;
+    vi.spyOn(Date, "now").mockImplementation(() => {
+      callCount++;
+      return originalNow() + callCount * 1000;
+    });
 
     const result2 = await client.addMemory(content, containerTag);
     expect(result2.success).toBe(true);
@@ -194,6 +199,8 @@ describe("semantic deduplication at ingest", () => {
     const row = await getMemoryById(result1.id!, containerTag);
     expect(row.access_count).toBe(1);
     expect(row.updated_at).toBeGreaterThan(row.created_at);
+
+    vi.restoreAllMocks();
   });
 
   it("is gated by CONFIG.deduplicationIngestEnabled", async () => {

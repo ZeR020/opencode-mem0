@@ -1,38 +1,33 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { connectionManager } from "../src/services/sqlite/connection-manager.js";
+import { describe, it, expect } from "vitest";
 import { getDatabase } from "../src/services/sqlite/sqlite-bootstrap.js";
 import { runMigrations, getCurrentVersion } from "../src/services/sqlite/schema.js";
 
-let testDir: string;
 const DbClass = getDatabase();
-
-beforeEach(() => {
-  connectionManager.closeAll();
-  testDir = mkdtempSync(join(tmpdir(), "schema-version-test-"));
-});
-
-afterEach(() => {
-  connectionManager.closeAll();
-  try {
-    rmSync(testDir, { recursive: true, force: true });
-  } catch {}
-});
 
 describe("schema versioning", () => {
   it("new database gets schema_version table initialized to v1", () => {
-    const dbPath = join(testDir, "new.db");
-    const db = connectionManager.getConnection(dbPath);
+    const db = new DbClass(":memory:");
+    db.run(`
+      CREATE TABLE IF NOT EXISTS schema_version (
+        version INTEGER PRIMARY KEY,
+        applied_at INTEGER NOT NULL
+      )
+    `);
+    runMigrations(db);
     const version = getCurrentVersion(db);
     expect(version).toBe(1);
+    db.close();
   });
 
   it("existing database without schema_version is detected and migrated to v1", () => {
-    const dbPath = join(testDir, "old.db");
-    const rawDb = new DbClass(dbPath);
-    rawDb.run(`
+    const db = new DbClass(":memory:");
+    db.run(`
+      CREATE TABLE IF NOT EXISTS schema_version (
+        version INTEGER PRIMARY KEY,
+        applied_at INTEGER NOT NULL
+      )
+    `);
+    db.run(`
       CREATE TABLE memories (
         id TEXT PRIMARY KEY,
         content TEXT NOT NULL,
@@ -42,9 +37,7 @@ describe("schema versioning", () => {
         updated_at INTEGER NOT NULL
       )
     `);
-    rawDb.close();
-
-    const db = connectionManager.getConnection(dbPath);
+    runMigrations(db);
     const version = getCurrentVersion(db);
     expect(version).toBe(1);
 
@@ -54,35 +47,37 @@ describe("schema versioning", () => {
     expect(columnNames.has("is_pinned")).toBe(true);
     expect(columnNames.has("store_type")).toBe(true);
     expect(columnNames.has("decay_rate")).toBe(true);
+    db.close();
   });
 
   it("database at version N runs all migrations N+1..CURRENT sequentially", () => {
-    const dbPath = join(testDir, "partial.db");
-    const rawDb = new DbClass(dbPath);
-    rawDb.run(
-      "CREATE TABLE schema_version (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)"
-    );
-    rawDb.run("INSERT INTO schema_version (version, applied_at) VALUES (0, ?)", [Date.now()]);
-    rawDb.run(`
+    const db = new DbClass(":memory:");
+    db.run(`
+      CREATE TABLE IF NOT EXISTS schema_version (
+        version INTEGER PRIMARY KEY,
+        applied_at INTEGER NOT NULL
+      )
+    `);
+    db.run("INSERT INTO schema_version (version, applied_at) VALUES (0, ?)", [Date.now()]);
+    db.run(`
       CREATE TABLE memories (
         id TEXT PRIMARY KEY,
         content TEXT NOT NULL
       )
     `);
-    rawDb.close();
 
-    const db = connectionManager.getConnection(dbPath);
+    runMigrations(db);
     const version = getCurrentVersion(db);
     expect(version).toBe(1);
 
     const columns = db.prepare("PRAGMA table_info(memories)").all() as any[];
     const columnNames = new Set(columns.map((c) => c.name));
     expect(columnNames.has("is_deprecated")).toBe(true);
+    db.close();
   });
 
   it("failed migration rolls back and does not insert version row", () => {
-    const dbPath = join(testDir, "fail.db");
-    const db = new DbClass(dbPath);
+    const db = new DbClass(":memory:");
     db.run(
       "CREATE TABLE schema_version (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)"
     );
