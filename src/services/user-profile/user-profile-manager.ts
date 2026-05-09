@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { connectionManager } from "../sqlite/connection-manager.js";
 import { CONFIG } from "../../config.js";
 import { safeJSONParse } from "../utils/safe-transforms.js";
+import { log } from "../logger.js";
 import {
   type UserProfile,
   type UserProfileData,
@@ -174,16 +175,18 @@ export class UserProfileManager {
         throw new Error(`Concurrent update detected for profile ${profileId}`);
       }
 
-      this.db.run("COMMIT");
-      inTxn = false;
-
       this.addChangelog(profileId, newVersion, "update", changeSummary, cleanedData);
       this.cleanupOldChangelogs(profileId);
+
+      this.db.run("COMMIT");
+      inTxn = false;
     } catch (error) {
       if (inTxn) {
         try {
           this.db.run("ROLLBACK");
-        } catch {}
+        } catch (rollbackErr) {
+          log("Profile update rollback failed", { error: String(rollbackErr) });
+        }
       }
       throw error;
     }

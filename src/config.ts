@@ -793,7 +793,7 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
     const issues = validation.error.issues
       .map((i) => `${i.path.join(".")}: ${i.message}`)
       .join(", ");
-    log(`⚠️ Config validation warnings: ${issues}`);
+    throw new Error(`Invalid opencode-mem0 config: ${issues}`);
   }
   const result = {
     storagePath: expandPath(fileConfig.storagePath ?? DEFAULTS.storagePath),
@@ -1001,7 +1001,5 @@ export function initConfig(directory: string): void {
 }
 
 export function isConfigured(): boolean {
-  // Gracefully degrade: do not block plugin startup, but return true so it loads.
-  // The system should check specific sub-configurations when features are invoked.
-  return true;
+  return !!_globalFileConfig && existsSync(CONFIG.storagePath);
 }

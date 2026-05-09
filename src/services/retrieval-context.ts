@@ -226,6 +226,7 @@ class ContextTracker {
   private contexts = new Map<string, { recentQueries: string[]; recentFiles: string[] }>();
   private scopeAccessOrder: string[] = [];
   private maxHistory = 10;
+  private maxScopeHistory = 100;
 
   private getOrCreate(scope: string) {
     if (!this.contexts.has(scope)) {
@@ -246,12 +247,24 @@ class ContextTracker {
     return this.contexts.get(scope)!;
   }
 
+  private pruneScope(scope: string) {
+    const ctx = this.contexts.get(scope);
+    if (!ctx) return;
+    if (ctx.recentQueries.length > this.maxScopeHistory) {
+      ctx.recentQueries = ctx.recentQueries.slice(-this.maxScopeHistory);
+    }
+    if (ctx.recentFiles.length > this.maxScopeHistory) {
+      ctx.recentFiles = ctx.recentFiles.slice(-this.maxScopeHistory);
+    }
+  }
+
   addQuery(query: string, scope = "default") {
     const ctx = this.getOrCreate(scope);
     ctx.recentQueries.push(query);
     if (ctx.recentQueries.length > this.maxHistory) {
       ctx.recentQueries.shift();
     }
+    this.pruneScope(scope);
   }
 
   addFiles(files: string[], scope = "default") {
@@ -260,6 +273,7 @@ class ContextTracker {
     if (ctx.recentFiles.length > this.maxHistory) {
       ctx.recentFiles = ctx.recentFiles.slice(-this.maxHistory);
     }
+    this.pruneScope(scope);
   }
 
   getContext(projectPath?: string, projectName?: string, scope = "default"): RetrievalContext {

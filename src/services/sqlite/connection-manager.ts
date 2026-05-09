@@ -233,6 +233,6 @@ function emergencyFlush(): void {
   }
 }
 
-process.once("SIGINT", emergencyFlush);
-process.once("SIGTERM", emergencyFlush);
-process.once("beforeExit", emergencyFlush);
+// Expose emergency flush for host to call explicitly; do not bind process signals
+// to avoid interfering with host process lifecycle.
+(globalThis as any)[Symbol.for("opencode-mem0.emergencyFlush")] = emergencyFlush;

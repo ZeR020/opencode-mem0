@@ -27,9 +27,9 @@ function normalizeHeaders(rawHeaders: IncomingMessage["headers"]): Headers {
   return headers;
 }
 
-async function createNodeServer(options: ServeOptions): Promise<PlatformServer> {
-  const requestIPs = new WeakMap<Request, string>();
+const kRemoteAddress = Symbol.for("opencode-mem0.remoteAddress");
 
+async function createNodeServer(options: ServeOptions): Promise<PlatformServer> {
   const nodeServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     try {
       const host = req.headers.host || `${options.hostname}:${options.port}`;
@@ -57,7 +57,7 @@ async function createNodeServer(options: ServeOptions): Promise<PlatformServer> 
         body: body && body.length > 0 ? body : undefined,
       });
 
-      requestIPs.set(request, req.socket.remoteAddress || "127.0.0.1");
+      (request as any)[kRemoteAddress] = req.socket.remoteAddress || "127.0.0.1";
 
       const response = await options.fetch(request);
 
@@ -89,8 +89,8 @@ async function createNodeServer(options: ServeOptions): Promise<PlatformServer> 
           nodeServer.close();
         },
         requestIP(req: Request) {
-          const ip = requestIPs.get(req);
-          return ip ? { address: ip } : null;
+          const ip = (req as any)[kRemoteAddress];
+          return ip ? { address: ip } : { address: "127.0.0.1" };
         },
       });
     });

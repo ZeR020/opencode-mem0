@@ -15,7 +15,7 @@ import {
 type DatabaseType = Database;
 
 function toBlob(vector?: Float32Array): Uint8Array | null {
-  return vector ? new Uint8Array(vector.buffer) : null;
+  return vector ? new Uint8Array(vector.buffer, vector.byteOffset, vector.byteLength) : null;
 }
 
 function safeParseMetadata(raw: string | null | undefined): Record<string, unknown> | undefined {
@@ -43,12 +43,23 @@ export class VectorSearch {
   private readonly fallbackBackend: VectorBackend;
   private readonly stmtCache = new WeakMap<DatabaseType, Map<string, any>>();
   private readonly wordSetCache = new Map<string, Set<string>>();
+  private readonly MAX_WORDSET_CACHE = 1000;
 
   constructor(backend?: VectorBackend, fallbackBackend: VectorBackend = new ExactScanBackend()) {
     this.backendPromise = backend
       ? Promise.resolve(backend)
       : createVectorBackend({ vectorBackend: CONFIG.vectorBackend });
     this.fallbackBackend = fallbackBackend;
+  }
+
+  private setWordSet(key: string, value: Set<string>): void {
+    this.wordSetCache.set(key, value);
+    if (this.wordSetCache.size > this.MAX_WORDSET_CACHE) {
+      const firstKey = this.wordSetCache.keys().next().value;
+      if (firstKey !== undefined) {
+        this.wordSetCache.delete(firstKey);
+      }
+    }
   }
 
   private getStmt(db: DatabaseType, sql: string): any {
@@ -652,7 +663,7 @@ export class VectorSearch {
         set = new Set(
           (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length > 4)
         );
-        this.wordSetCache.set(text, set);
+        this.setWordSet(text, set);
       }
       return set;
     };

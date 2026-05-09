@@ -236,13 +236,8 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
     }
   };
 
-  // Avoid double-binding in multi-load scenarios
-  const GLOBAL_SIG_KEY = Symbol.for("opencode-mem0.signals.bound");
-  if (!(globalThis as any)[GLOBAL_SIG_KEY]) {
-    process.on("SIGINT", shutdownHandler);
-    process.on("SIGTERM", shutdownHandler);
-    (globalThis as any)[GLOBAL_SIG_KEY] = true;
-  }
+  // Expose shutdown handler for host to call explicitly
+  (globalThis as any)[Symbol.for("opencode-mem0.shutdown")] = shutdownHandler;
 
   return {
     "chat.message": async (input, output) => {
