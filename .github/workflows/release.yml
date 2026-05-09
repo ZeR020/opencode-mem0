@@ -27,7 +27,7 @@ jobs:
       - run: bun run build
 
       - name: Run tests
-        run: bun test
+        run: bun run test
 
       - name: Check release state
         id: release_state
