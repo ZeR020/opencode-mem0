@@ -17,8 +17,6 @@ export default defineConfig({
         "dist",
         "tests",
         "**/*.test.ts",
-        "scripts",
-        "src/web",
         ".opencode/**",
         "**/*.config.ts",
         "**/*.config.js",
