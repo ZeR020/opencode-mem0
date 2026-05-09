@@ -36,6 +36,13 @@ export class GoogleGeminiProvider extends BaseAIProvider {
       content,
       toolCallId,
     });
+    let response: any;
+    try {
+      response = JSON.parse(content);
+    } catch {
+      log("Gemini: failed to parse tool response content in addToolResponse", { content });
+      response = { raw: content };
+    }
     // Gemini tool response format
     messages.push({
       role: "function",
@@ -43,7 +50,7 @@ export class GoogleGeminiProvider extends BaseAIProvider {
         {
           functionResponse: {
             name: toolCallId.split(":")[0], // Gemini expects the name of the function
-            response: JSON.parse(content),
+            response,
           },
         },
       ],
@@ -86,23 +93,39 @@ export class GoogleGeminiProvider extends BaseAIProvider {
 
       if (msg.toolCalls) {
         for (const tc of msg.toolCalls) {
+          let args: any;
+          try {
+            args = JSON.parse(tc.function.arguments);
+          } catch {
+            log("Gemini: failed to parse tool call arguments", {
+              arguments: tc.function.arguments,
+            });
+            args = {};
+          }
           parts.push({
             functionCall: {
               name: tc.function.name,
-              args: JSON.parse(tc.function.arguments),
+              args,
             },
           });
         }
       }
 
       if (msg.role === "tool") {
+        let response: any;
+        try {
+          response = JSON.parse(msg.content);
+        } catch {
+          log("Gemini: failed to parse tool response content", { content: msg.content });
+          response = { raw: msg.content };
+        }
         contents.push({
           role: "function",
           parts: [
             {
               functionResponse: {
                 name: (msg.toolCallId || "").split(":")[0],
-                response: JSON.parse(msg.content),
+                response,
               },
             },
           ],

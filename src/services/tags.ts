@@ -3,10 +3,18 @@ import { execSync } from "node:child_process";
 import { CONFIG } from "../config.js";
 import { sep, normalize, resolve, isAbsolute, basename, dirname } from "node:path";
 import { realpathSync, existsSync } from "node:fs";
+import { log } from "./logger.js";
 
 function sha256(input: string): string {
   return createHash("sha256").update(input).digest("hex").slice(0, 16);
 }
+
+// Memoization caches — git config values don't change during a session
+const gitEmailCache: { value: string | null; cached: boolean } = { value: null, cached: false };
+const gitNameCache: { value: string | null; cached: boolean } = { value: null, cached: false };
+const gitRepoUrlCache = new Map<string, string | null>();
+const gitCommonDirCache = new Map<string, string | null>();
+const gitTopLevelCache = new Map<string, string | null>();
 
 export interface TagInfo {
   tag: string;
@@ -18,94 +26,84 @@ export interface TagInfo {
   gitRepoUrl?: string;
 }
 
-export function getGitEmail(): string | null {
+function execGitCommand(
+  args: string[],
+  options: { cwd?: string; timeout?: number } = {}
+): string | null {
   try {
-    const email = execSync("git config user.email", {
+    const result = execSync(`git ${args.join(" ")}`, {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
-      timeout: 1000,
+      timeout: options.timeout ?? 1000,
+      cwd: options.cwd,
     }).trim();
-    return email || null;
-  } catch {
+    return result || null;
+  } catch (err) {
+    log("Git command failed", { command: args.join(" "), cwd: options.cwd, error: String(err) });
     return null;
   }
 }
 
+export function getGitEmail(): string | null {
+  if (gitEmailCache.cached) return gitEmailCache.value;
+  gitEmailCache.value = execGitCommand(["config", "user.email"]);
+  gitEmailCache.cached = true;
+  return gitEmailCache.value;
+}
+
 export function getGitName(): string | null {
-  try {
-    const name = execSync("git config user.name", {
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "ignore"],
-      timeout: 1000,
-    }).trim();
-    return name || null;
-  } catch {
-    return null;
-  }
+  if (gitNameCache.cached) return gitNameCache.value;
+  gitNameCache.value = execGitCommand(["config", "user.name"]);
+  gitNameCache.cached = true;
+  return gitNameCache.value;
 }
 
 export function getGitRepoUrl(directory: string): string | null {
   if (!existsSync(directory)) {
     return null;
   }
-  try {
-    const url = execSync("git config --get remote.origin.url", {
-      encoding: "utf-8",
-      cwd: directory,
-      stdio: ["ignore", "pipe", "ignore"],
-      timeout: 1000,
-    }).trim();
-    return url || null;
-  } catch {
-    return null;
-  }
+  const cached = gitRepoUrlCache.get(directory);
+  if (cached !== undefined) return cached;
+  const result = execGitCommand(["config", "--get", "remote.origin.url"], { cwd: directory });
+  gitRepoUrlCache.set(directory, result);
+  return result;
 }
 
 export function getGitCommonDir(directory: string): string | null {
   if (!existsSync(directory)) {
     return null;
   }
-  try {
-    const commonDir = execSync("git rev-parse --git-common-dir", {
-      encoding: "utf-8",
-      cwd: directory,
-      stdio: ["ignore", "pipe", "ignore"],
-      timeout: 1000,
-    }).trim();
-
-    if (!commonDir) {
-      return null;
-    }
-
-    const resolved = isAbsolute(commonDir)
-      ? normalize(commonDir)
-      : normalize(resolve(directory, commonDir));
-
-    if (existsSync(resolved)) {
-      return realpathSync(resolved);
-    }
-
-    return resolved;
-  } catch {
+  const cached = gitCommonDirCache.get(directory);
+  if (cached !== undefined) return cached;
+  const commonDir = execGitCommand(["rev-parse", "--git-common-dir"], { cwd: directory });
+  if (!commonDir) {
+    gitCommonDirCache.set(directory, null);
     return null;
   }
+
+  const resolved = isAbsolute(commonDir)
+    ? normalize(commonDir)
+    : normalize(resolve(directory, commonDir));
+
+  if (existsSync(resolved)) {
+    const result = realpathSync(resolved);
+    gitCommonDirCache.set(directory, result);
+    return result;
+  }
+
+  gitCommonDirCache.set(directory, resolved);
+  return resolved;
 }
 
 export function getGitTopLevel(directory: string): string | null {
   if (!existsSync(directory)) {
     return null;
   }
-  try {
-    const topLevel = execSync("git rev-parse --show-toplevel", {
-      encoding: "utf-8",
-      cwd: directory,
-      stdio: ["ignore", "pipe", "ignore"],
-      timeout: 1000,
-    }).trim();
-    return topLevel || null;
-  } catch {
-    return null;
-  }
+  const cached = gitTopLevelCache.get(directory);
+  if (cached !== undefined) return cached;
+  const result = execGitCommand(["rev-parse", "--show-toplevel"], { cwd: directory });
+  gitTopLevelCache.set(directory, result);
+  return result;
 }
 
 export function getProjectRoot(directory: string): string {
@@ -138,7 +136,7 @@ export function getProjectIdentity(directory: string): string {
 
 export function getProjectName(directory: string): string {
   const parts = directory.split(/[\\/]+/).filter((p) => p);
-  return parts[parts.length - 1] || directory;
+  return parts.at(-1) || directory;
 }
 
 export function getUserTagInfo(): TagInfo {

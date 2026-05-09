@@ -4,15 +4,15 @@
  * Also removes trailing commas to support more relaxed JSONC format.
  */
 export function stripJsoncComments(content: string): string {
-  let result = "";
+  const out: string[] = [];
   let i = 0;
   let inString = false;
   let inSingleLineComment = false;
   let inMultiLineComment = false;
 
   while (i < content.length) {
-    const char = content[i];
-    const nextChar = content[i + 1];
+    const char = content.charAt(i);
+    const nextChar = content.charAt(i + 1);
 
     if (!inSingleLineComment && !inMultiLineComment) {
       if (char === '"') {
@@ -28,14 +28,14 @@ export function stripJsoncComments(content: string): string {
         if (backslashCount % 2 === 0) {
           inString = !inString;
         }
-        result += char;
+        out.push(char);
         i++;
         continue;
       }
     }
 
     if (inString) {
-      result += char;
+      out.push(char);
       i++;
       continue;
     }
@@ -57,7 +57,7 @@ export function stripJsoncComments(content: string): string {
     if (inSingleLineComment) {
       if (char === "\n") {
         inSingleLineComment = false;
-        result += char;
+        out.push(char);
       }
       i++;
       continue;
@@ -70,16 +70,16 @@ export function stripJsoncComments(content: string): string {
         continue;
       }
       if (char === "\n") {
-        result += char;
+        out.push(char);
       }
       i++;
       continue;
     }
 
-    result += char;
+    out.push(char);
     i++;
   }
 
   // Remove trailing commas before } or ]
-  return result.replace(/,\s*([}\]])/g, "$1");
+  return out.join("").replace(/,\s*([}\]])/g, "$1");
 }

@@ -214,6 +214,11 @@ export function createOAuthFetch(
 
     const response = await fetch(requestInput, { ...requestInit, body, headers: requestHeaders });
 
+    const MCP_NAME_REGEX = /"name"\s*:\s*"mcp_([^"]+)"/g;
+    function stripMcpPrefix(text: string): string {
+      return text.replace(MCP_NAME_REGEX, '"name": "$1"');
+    }
+
     // Strip mcp_ prefix from tool names in streaming response
     if (response.body) {
       const reader = response.body.getReader();
@@ -225,7 +230,7 @@ export function createOAuthFetch(
           const { done, value } = await reader.read();
           if (done) {
             if (buffer) {
-              buffer = buffer.replace(/"name"\s*:\s*"mcp_([^"]+)"/g, '"name": "$1"');
+              buffer = stripMcpPrefix(buffer);
               controller.enqueue(encoder.encode(buffer));
             }
             controller.close();
@@ -237,7 +242,7 @@ export function createOAuthFetch(
 
           if (lines.length > 0) {
             let textToEmit = lines.join("\n") + "\n";
-            textToEmit = textToEmit.replace(/"name"\s*:\s*"mcp_([^"]+)"/g, '"name": "$1"');
+            textToEmit = stripMcpPrefix(textToEmit);
             controller.enqueue(encoder.encode(textToEmit));
           }
         },

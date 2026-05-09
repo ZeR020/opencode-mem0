@@ -1,14 +1,7 @@
-import {
-  appendFileSync,
-  writeFileSync,
-  existsSync,
-  mkdirSync,
-  statSync,
-  renameSync,
-  unlinkSync,
-} from "fs";
+import { writeFileSync, existsSync, mkdirSync, statSync, renameSync, unlinkSync } from "fs";
+import { appendFile } from "fs/promises";
 import { homedir } from "os";
-import { join } from "path";
+import { join, dirname } from "path";
 
 function getLogFilePath(): string {
   return (
@@ -17,9 +10,7 @@ function getLogFilePath(): string {
 }
 
 function getLogDirPath(): string {
-  const logFile = getLogFilePath();
-  const lastSlash = Math.max(logFile.lastIndexOf("/"), logFile.lastIndexOf("\\"));
-  return lastSlash === -1 ? "." : logFile.slice(0, lastSlash);
+  return dirname(getLogFilePath());
 }
 
 const MAX_LOG_SIZE = 5 * 1024 * 1024;
@@ -36,7 +27,9 @@ function rotateLog() {
     const oldLog = logFile + ".old";
     if (existsSync(oldLog)) unlinkSync(oldLog);
     renameSync(logFile, oldLog);
-  } catch {}
+  } catch (err) {
+    console.error(`[opencode-mem0] Failed to rotate log at ${logFile}: ${err}`);
+  }
 }
 
 function ensureLoggerInitialized() {
@@ -53,10 +46,12 @@ function ensureLoggerInitialized() {
   (globalThis as any)[GLOBAL_LOGGER_KEY] = true;
 }
 
+const SENSITIVE_KEY_REGEX = /token|secret|password|api[-_]?key|authorization/i;
+
 function safeStringify(data: unknown): string {
   try {
     return JSON.stringify(data, (key, value) => {
-      if (/token|secret|password|api[-_]?key|authorization/i.test(key)) {
+      if (SENSITIVE_KEY_REGEX.test(key)) {
         return "[REDACTED]";
       }
       return value;
@@ -89,6 +84,9 @@ function shouldLog(level: LogLevel): boolean {
   return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[currentLogLevel];
 }
 
+// Ordered async write queue — prevents interleaved log lines from concurrent writes
+let writeQueue: Promise<void> = Promise.resolve();
+
 function logWithLevel(level: LogLevel, message: string, data?: unknown) {
   if (!shouldLog(level)) return;
   ensureLoggerInitialized();
@@ -96,7 +94,11 @@ function logWithLevel(level: LogLevel, message: string, data?: unknown) {
   const timestamp = new Date().toISOString();
   const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
   const line = data ? `${prefix} ${message}: ${safeStringify(data)}\n` : `${prefix} ${message}\n`;
-  appendFileSync(logFile, line);
+  writeQueue = writeQueue
+    .then(() => appendFile(logFile, line))
+    .catch((err) => {
+      console.error(`[opencode-mem0] Log write failed: ${err}`);
+    });
 }
 
 export function log(message: string, data?: unknown) {

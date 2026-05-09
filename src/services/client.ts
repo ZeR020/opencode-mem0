@@ -105,7 +105,8 @@ export class LocalMemoryClient {
       } catch (error) {
         if (!embeddingService.embeddingAvailable) {
           log("Embedding unavailable — falling back to text-only search", {
-            query,
+            queryLength: query.length,
+            queryHash: query.slice(0, 20),
             error: String(error),
           });
           degraded = true;

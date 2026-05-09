@@ -509,6 +509,7 @@ async function bulkDelete() {
   const memoryIds = ids.filter((id) => !id.startsWith("prompt_"));
 
   let deletedCount = 0;
+  let hadErrors = false;
 
   if (promptIds.length > 0) {
     const result = await fetchAPI("/api/prompts/bulk-delete", {
@@ -516,7 +517,12 @@ async function bulkDelete() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids: promptIds, cascade: true }),
     });
-    if (result.success) deletedCount += result.data.deleted;
+    if (result.success) {
+      deletedCount += result.data.deleted;
+    } else {
+      hadErrors = true;
+      log("Bulk delete prompts failed", { error: result.error });
+    }
   }
 
   if (memoryIds.length > 0) {
@@ -525,10 +531,19 @@ async function bulkDelete() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids: memoryIds, cascade: true }),
     });
-    if (result.success) deletedCount += result.data.deleted;
+    if (result.success) {
+      deletedCount += result.data.deleted;
+    } else {
+      hadErrors = true;
+      log("Bulk delete memories failed", { error: result.error });
+    }
   }
 
-  showToast(t("toast-bulk-delete-success"), "success");
+  if (hadErrors) {
+    showToast(t("toast-bulk-delete-partial"), "warning");
+  } else {
+    showToast(t("toast-bulk-delete-success"), "success");
+  }
   state.selectedMemories.clear();
   await loadMemories();
   await loadStats();
@@ -752,6 +767,7 @@ async function checkMigrationStatus() {
 function showTagMigrationModal(count) {
   const overlay = document.getElementById("tag-migration-overlay");
   const status = document.getElementById("tag-migration-status");
+  overlay.classList.remove("hidden");
   status.textContent = t("migration-found-tags", { count });
 
   document.getElementById("start-tag-migration-btn").onclick = runTagMigration;
@@ -814,6 +830,7 @@ async function runTagMigration() {
 function showMigrationWarning(data) {
   const section = document.getElementById("migration-section");
   const message = document.getElementById("migration-message");
+  section.classList.remove("hidden");
 
   const shardInfo =
     data.shardMismatches.length > 0

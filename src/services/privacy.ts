@@ -4,5 +4,5 @@ export function stripPrivateContent(content: string): string {
 
 export function isFullyPrivate(content: string): boolean {
   const stripped = stripPrivateContent(content).trim();
-  return stripped === "[REDACTED]" || stripped === "";
+  return stripped === "" || /^\[REDACTED\](\s*\[REDACTED\])*$/.test(stripped);
 }

@@ -24,36 +24,34 @@ function getRequire(): NodeRequire {
   return _require;
 }
 
-class BunSqliteDatabase implements Database {
-  private db: any;
+function wrapStatement(stmt: any): Statement {
+  return {
+    run: (...params: unknown[]) => {
+      const result = stmt.run(...params);
+      return {
+        changes: result.changes,
+        lastInsertRowid: result.lastInsertRowid,
+      };
+    },
+    get: (...params: unknown[]) => stmt.get(...params),
+    all: (...params: unknown[]) => stmt.all(...params),
+  };
+}
 
-  constructor(path: string) {
-    const bunSqlite = getRequire()("bun:sqlite") as typeof import("bun:sqlite");
-    this.db = new bunSqlite.Database(path);
+class SqliteDatabase implements Database {
+  protected db: any;
+
+  constructor(db: any) {
+    this.db = db;
   }
 
   prepare(sql: string): Statement {
-    const stmt = this.db.prepare(sql);
-    return {
-      run: (...params: unknown[]) => {
-        const result = params.length > 0 ? stmt.run(...params) : stmt.run();
-        return {
-          changes: result.changes,
-          lastInsertRowid: result.lastInsertRowid,
-        };
-      },
-      get: (...params: unknown[]) => {
-        return params.length > 0 ? stmt.get(...params) : stmt.get();
-      },
-      all: (...params: unknown[]) => {
-        return params.length > 0 ? stmt.all(...params) : stmt.all();
-      },
-    };
+    return wrapStatement(this.db.prepare(sql));
   }
 
   run(sql: string, ...params: unknown[]): { changes: number; lastInsertRowid: number | bigint } {
     const stmt = this.db.prepare(sql);
-    const result = params.length > 0 ? stmt.run(...params) : stmt.run();
+    const result = stmt.run(...params);
     return {
       changes: result.changes,
       lastInsertRowid: result.lastInsertRowid,
@@ -69,48 +67,17 @@ class BunSqliteDatabase implements Database {
   }
 }
 
-class BetterSqlite3Database implements Database {
-  private db: BSqliteDatabase;
+class BunSqliteDatabase extends SqliteDatabase {
+  constructor(path: string) {
+    const bunSqlite = getRequire()("bun:sqlite") as typeof import("bun:sqlite");
+    super(new bunSqlite.Database(path));
+  }
+}
 
+class BetterSqlite3Database extends SqliteDatabase {
   constructor(path: string) {
     const BetterSqlite3 = getRequire()("better-sqlite3") as typeof import("better-sqlite3");
-    this.db = new BetterSqlite3(path);
-  }
-
-  prepare(sql: string): Statement {
-    const stmt = this.db.prepare(sql);
-    return {
-      run: (...params: unknown[]) => {
-        const result = params.length > 0 ? stmt.run(...params) : stmt.run();
-        return {
-          changes: result.changes,
-          lastInsertRowid: result.lastInsertRowid,
-        };
-      },
-      get: (...params: unknown[]) => {
-        return params.length > 0 ? stmt.get(...params) : stmt.get();
-      },
-      all: (...params: unknown[]) => {
-        return params.length > 0 ? stmt.all(...params) : stmt.all();
-      },
-    };
-  }
-
-  run(sql: string, ...params: unknown[]): { changes: number; lastInsertRowid: number | bigint } {
-    const stmt = this.db.prepare(sql);
-    const result = params.length > 0 ? stmt.run(...params) : stmt.run();
-    return {
-      changes: result.changes,
-      lastInsertRowid: result.lastInsertRowid,
-    };
-  }
-
-  exec(sql: string): void {
-    this.db.exec(sql);
-  }
-
-  close(): void {
-    this.db.close();
+    super(new BetterSqlite3(path));
   }
 }
 
@@ -120,7 +87,12 @@ export function getDatabase(): new (path: string) => Database {
       // Test if bun:sqlite is available
       getRequire()("bun:sqlite");
       DatabaseImpl = BunSqliteDatabase;
-    } catch {
+    } catch (err: any) {
+      const isModuleMissing =
+        err.code === "MODULE_NOT_FOUND" || err.message?.includes("Cannot find module");
+      if (!isModuleMissing) {
+        console.error(`[opencode-mem0] bun:sqlite probe failed unexpectedly: ${err}`);
+      }
       DatabaseImpl = BetterSqlite3Database;
     }
   }

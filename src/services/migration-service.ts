@@ -63,7 +63,10 @@ export class MigrationService {
         const storedDimensions = parseInt(metadata.embedding_dimensions || "0");
         const storedModel = metadata.embedding_model || "unknown";
 
-        if (storedDimensions !== CONFIG.embeddingDimensions) {
+        if (
+          storedDimensions !== CONFIG.embeddingDimensions ||
+          storedModel !== CONFIG.embeddingModel
+        ) {
           const vectorCount = vectorSearch.countAllVectors(db);
 
           mismatches.push({
@@ -199,6 +202,7 @@ export class MigrationService {
 
     let reEmbeddedCount = 0;
     let processedCount = 0;
+    let deletedShards = 0;
 
     for (const shardInfo of mismatch.shardMismatches) {
       this.reportProgress({
@@ -306,6 +310,7 @@ export class MigrationService {
 
         if (!shardHadFailures) {
           await shardManager.deleteShard(shardInfo.shardId);
+          deletedShards++;
         } else {
           log("Migration: keeping original shard due to re-embedding failures", {
             shardId: shardInfo.shardId,
@@ -328,7 +333,7 @@ export class MigrationService {
     return {
       success: true,
       strategy: "re-embed",
-      deletedShards: mismatch.shardMismatches.length,
+      deletedShards,
       reEmbeddedMemories: reEmbeddedCount,
       duration: Date.now() - startTime,
     };

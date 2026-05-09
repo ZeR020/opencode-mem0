@@ -16,7 +16,7 @@ export function getUserProfileContext(userId: string): string | null {
   }
   const parts: string[] = [];
 
-  if (profileData.preferences.length > 0) {
+  if (Array.isArray(profileData.preferences) && profileData.preferences.length > 0) {
     parts.push("User Preferences:");
     profileData.preferences
       .sort((a, b) => b.confidence - a.confidence)
@@ -26,7 +26,7 @@ export function getUserProfileContext(userId: string): string | null {
       });
   }
 
-  if (profileData.patterns.length > 0) {
+  if (Array.isArray(profileData.patterns) && profileData.patterns.length > 0) {
     parts.push("\nUser Patterns:");
     profileData.patterns
       .sort((a, b) => b.frequency - a.frequency)
@@ -36,7 +36,7 @@ export function getUserProfileContext(userId: string): string | null {
       });
   }
 
-  if (profileData.workflows.length > 0) {
+  if (Array.isArray(profileData.workflows) && profileData.workflows.length > 0) {
     parts.push("\nUser Workflows:");
     profileData.workflows
       .sort((a, b) => b.frequency - a.frequency)

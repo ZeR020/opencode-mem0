@@ -10,22 +10,18 @@ export function safeToISOString(timestamp: unknown): string {
 
   const numValue = Number(timestamp);
 
-  if (!Number.isFinite(numValue)) {
-    if (typeof timestamp === "string") {
-      const parsedDate = new Date(timestamp);
-      if (!isNaN(parsedDate.getTime())) {
-        return parsedDate.toISOString();
-      }
+  if (Number.isFinite(numValue)) {
+    return new Date(numValue).toISOString();
+  }
+
+  if (typeof timestamp === "string") {
+    const parsedDate = new Date(timestamp);
+    if (!isNaN(parsedDate.getTime())) {
+      return parsedDate.toISOString();
     }
-    return new Date().toISOString();
   }
 
-  const date = new Date(numValue);
-  if (isNaN(date.getTime())) {
-    return new Date().toISOString();
-  }
-
-  return date.toISOString();
+  return new Date().toISOString();
 }
 
 export function safeJSONParse(jsonString: unknown): unknown {

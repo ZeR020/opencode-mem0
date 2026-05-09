@@ -28,10 +28,21 @@ function safeParseMetadata(raw: string | null | undefined): Record<string, unkno
   }
 }
 
+const MEMORIES_INSERT_SQL = `
+  INSERT INTO memories (
+    id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
+    metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url,
+    recency_score, frequency_score, importance_score, utility_score, novelty_score,
+    confidence_score, interference_penalty, strength, access_count, last_accessed,
+    store_type, decay_rate
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`;
+
 export class VectorSearch {
   private readonly backendPromise: Promise<VectorBackend>;
   private readonly fallbackBackend: VectorBackend;
   private readonly stmtCache = new WeakMap<DatabaseType, Map<string, any>>();
+  private readonly wordSetCache = new Map<string, Set<string>>();
 
   constructor(backend?: VectorBackend, fallbackBackend: VectorBackend = new ExactScanBackend()) {
     this.backendPromise = backend
@@ -67,18 +78,7 @@ export class VectorSearch {
    * @param shard - Optional shard info for vector backend indexing
    */
   async insertVector(db: DatabaseType, record: MemoryRecord, shard?: ShardInfo): Promise<void> {
-    const insertMemory = this.getStmt(
-      db,
-      `
-      INSERT INTO memories (
-        id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
-        metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url,
-        recency_score, frequency_score, importance_score, utility_score, novelty_score,
-        confidence_score, interference_penalty, strength, access_count, last_accessed,
-        store_type, decay_rate
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `
-    );
+    const insertMemory = this.getStmt(db, MEMORIES_INSERT_SQL);
 
     db.run("BEGIN IMMEDIATE");
     try {
@@ -125,7 +125,9 @@ export class VectorSearch {
     } catch (error) {
       try {
         db.run("ROLLBACK");
-      } catch {}
+      } catch (rollbackErr) {
+        log("Rollback failed", { error: String(rollbackErr) });
+      }
       throw error;
     }
   }
@@ -155,15 +157,7 @@ export class VectorSearch {
       return;
     }
 
-    const insertMemorySQL = `
-      INSERT INTO memories (
-        id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
-        metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url,
-        recency_score, frequency_score, importance_score, utility_score, novelty_score,
-        confidence_score, interference_penalty, strength, access_count, last_accessed,
-        store_type, decay_rate
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+    const insertMemorySQL = MEMORIES_INSERT_SQL;
 
     for (const record of records) {
       connectionManager.batchWrite(shard.dbPath, insertMemorySQL, [
@@ -243,10 +237,10 @@ export class VectorSearch {
    * @param context - Optional retrieval context for project/file boosting
    * @returns Ranked search results with score breakdowns
    */
-  private readonly MIN_OVER_FETCH = 1.5;
-  private readonly MAX_OVER_FETCH = 8.0;
-  private readonly TARGET_FILL_RATIO = 0.85;
-  private readonly BASE_MULTIPLIER = 2.0;
+  private static readonly MIN_OVER_FETCH = 1.5;
+  private static readonly MAX_OVER_FETCH = 8.0;
+  private static readonly TARGET_FILL_RATIO = 0.85;
+  private static readonly BASE_MULTIPLIER = 2.0;
 
   /**
    * Execute vector search with a specific over-fetch multiplier.
@@ -560,14 +554,17 @@ export class VectorSearch {
       queryVector,
       containerTag,
       limit,
-      this.BASE_MULTIPLIER,
+      VectorSearch.BASE_MULTIPLIER,
       queryText,
       context
     );
 
     // Retry with larger multiplier if fill ratio is below target and embedding is available
-    if (finalResults.length < limit * this.TARGET_FILL_RATIO && queryVector !== null) {
-      const retryMultiplier = Math.min(this.MAX_OVER_FETCH, this.BASE_MULTIPLIER * 2.0);
+    if (finalResults.length < limit * VectorSearch.TARGET_FILL_RATIO && queryVector !== null) {
+      const retryMultiplier = Math.min(
+        VectorSearch.MAX_OVER_FETCH,
+        VectorSearch.BASE_MULTIPLIER * 2.0
+      );
       finalResults = await this.searchWithMultiplier(
         shard,
         queryVector,
@@ -637,18 +634,17 @@ export class VectorSearch {
     const diversityThreshold = CONFIG.retrieval.diversityThreshold || 0.9;
     const finalResults: SearchResult[] = [];
     const maxResults = CONFIG.retrieval.maxResults || limit;
-    const wordSetCache = new Map<string, Set<string>>();
 
-    function getWordSet(text: string): Set<string> {
-      let set = wordSetCache.get(text);
+    const getWordSet = (text: string): Set<string> => {
+      let set = this.wordSetCache.get(text);
       if (!set) {
         set = new Set(
           (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length > 4)
         );
-        wordSetCache.set(text, set);
+        this.wordSetCache.set(text, set);
       }
       return set;
-    }
+    };
 
     for (const candidate of allResults) {
       if (finalResults.length >= maxResults) break;
@@ -742,7 +738,9 @@ export class VectorSearch {
     } catch (error) {
       try {
         db.run("ROLLBACK");
-      } catch {}
+      } catch (rollbackErr) {
+        log("Rollback failed", { error: String(rollbackErr) });
+      }
       throw error;
     }
   }
@@ -757,18 +755,7 @@ export class VectorSearch {
     record: MemoryRecord,
     shard?: ShardInfo
   ): Promise<void> {
-    const insertMemory = this.getStmt(
-      db,
-      `
-      INSERT INTO memories (
-        id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
-        metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url,
-        recency_score, frequency_score, importance_score, utility_score, novelty_score,
-        confidence_score, interference_penalty, strength, access_count, last_accessed,
-        store_type, decay_rate
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `
-    );
+    const insertMemory = this.getStmt(db, MEMORIES_INSERT_SQL);
 
     db.run("BEGIN IMMEDIATE");
     try {
@@ -818,7 +805,9 @@ export class VectorSearch {
     } catch (error) {
       try {
         db.run("ROLLBACK");
-      } catch {}
+      } catch (rollbackErr) {
+        log("Rollback failed", { error: String(rollbackErr) });
+      }
       throw error;
     }
   }
@@ -871,6 +860,14 @@ export class VectorSearch {
    * @param sessionID - Session ID to search for in metadata
    * @returns Matching memory rows with parsed tags and metadata
    */
+  private mapRowToResult(row: any): any {
+    return {
+      ...row,
+      tags: row.tags ? row.tags.split(",") : [],
+      metadata: safeParseMetadata(row.metadata) || {},
+    };
+  }
+
   getMemoriesBySessionID(db: DatabaseType, sessionID: string): any[] {
     // Prefer json_extract when available (SQLite 3.38+ / json1 extension)
     try {
@@ -880,11 +877,7 @@ export class VectorSearch {
         ORDER BY created_at DESC
       `);
       const rows = stmt.all(sessionID) as any[];
-      return rows.map((row: any) => ({
-        ...row,
-        tags: row.tags ? row.tags.split(",") : [],
-        metadata: safeParseMetadata(row.metadata) || {},
-      }));
+      return rows.map((row: any) => this.mapRowToResult(row));
     } catch {
       // Fallback: LIKE with structural JSON pattern to reduce false positives
       const likeEscaped = sessionID.replace(/[\\%_]/g, "\\$&");
@@ -894,11 +887,7 @@ export class VectorSearch {
         ORDER BY created_at DESC
       `);
       const rows = stmt.all(`%"sessionID":"${likeEscaped}"%`) as any[];
-      return rows.map((row: any) => ({
-        ...row,
-        tags: row.tags ? row.tags.split(",") : [],
-        metadata: safeParseMetadata(row.metadata) || {},
-      }));
+      return rows.map((row: any) => this.mapRowToResult(row));
     }
   }
 
