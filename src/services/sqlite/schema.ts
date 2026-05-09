@@ -72,7 +72,9 @@ export function runMigrations(
     } catch (error) {
       try {
         db.run("ROLLBACK");
-      } catch {}
+      } catch (rollbackErr) {
+        log(`Schema migration v${v} rollback failed`, { error: String(rollbackErr) });
+      }
       log(`Schema migration v${v} failed`, { error: String(error) });
       throw error;
     }

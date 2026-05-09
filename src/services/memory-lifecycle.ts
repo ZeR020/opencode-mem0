@@ -356,7 +356,9 @@ export async function applyDecay(): Promise<{
         if (inTxn) {
           try {
             db.run("ROLLBACK");
-          } catch {}
+          } catch (rollbackErr) {
+            log("applyDecay rollback failed", { error: String(rollbackErr) });
+          }
         }
         log("applyDecay shard error", { shardId: shard.id, error: String(error) });
       }

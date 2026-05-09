@@ -163,7 +163,9 @@ export async function recalculateAllScores(
         if (inTxn) {
           try {
             db.run("ROLLBACK");
-          } catch {}
+          } catch (rollbackErr) {
+            log("Score recalculation rollback failed", { error: String(rollbackErr) });
+          }
         }
         log("Score recalculation failed for shard", {
           shardId: shard.id,

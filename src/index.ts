@@ -32,6 +32,7 @@ import { getLanguageName } from "./services/language-detector.js";
 import type { MemoryScope } from "./services/client.js";
 
 const helpResponseCache = new Map<string, string>();
+const MAX_HELP_CACHE = 20;
 
 function getHelpResponse(langName: string): string {
   let cached = helpResponseCache.get(langName);
@@ -61,6 +62,10 @@ function getHelpResponse(langName: string): string {
     ],
     tagGuidance: "Use technical keywords for search. Tags rank highest.",
   });
+  if (helpResponseCache.size >= MAX_HELP_CACHE) {
+    const firstKey = helpResponseCache.keys().next().value;
+    if (firstKey !== undefined) helpResponseCache.delete(firstKey);
+  }
   helpResponseCache.set(langName, cached);
   return cached;
 }
@@ -71,6 +76,21 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   const tags = getTags(directory);
   let webServer: WebServer | null = null;
   const sessionIdleTimers = new Map<string, NodeJS.Timeout>();
+
+  // Periodic sweep to prevent leaks if sessions end without firing idle timers
+  const sessionIdleSweep = setInterval(() => {
+    sessionIdleTimers.forEach((timer, sessionID) => {
+      // Timers that have already fired are deleted in the finally block,
+      // so any remaining entries are pending. Nothing to do here unless
+      // we add a session-end event in the future.
+    });
+    // Keep the Map size bounded by clearing if it grows unexpectedly large
+    if (sessionIdleTimers.size > 10000) {
+      log("sessionIdleTimers exceeded 10k entries — clearing all pending timers");
+      sessionIdleTimers.forEach((timer) => clearTimeout(timer));
+      sessionIdleTimers.clear();
+    }
+  }, 3600_000);
 
   const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("opencode-mem0.plugin.warmedup");
 
@@ -223,6 +243,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
 
   const shutdownHandler = async () => {
     try {
+      clearInterval(sessionIdleSweep);
       stopScoringRecalculation();
       stopLifecycleJob();
       AIProviderFactory.stopCleanupSchedule();

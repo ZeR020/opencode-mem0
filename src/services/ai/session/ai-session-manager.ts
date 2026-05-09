@@ -141,7 +141,9 @@ export class AISessionManager {
     } catch (error) {
       try {
         this.db.run("ROLLBACK");
-      } catch {}
+      } catch (rollbackErr) {
+        console.error("AI session schema rollback failed", rollbackErr);
+      }
       throw error;
     }
   }
@@ -250,7 +252,9 @@ export class AISessionManager {
     } catch (error) {
       try {
         this.db.run("ROLLBACK");
-      } catch {}
+      } catch (rollbackErr) {
+        console.error("AI message add rollback failed", rollbackErr);
+      }
       throw error;
     }
   }

@@ -183,7 +183,9 @@ export class GoogleGeminiProvider extends BaseAIProvider {
             },
           },
           generationConfig: {
-            temperature: this.config.memoryTemperature ?? 0.3,
+            ...(this.config.memoryTemperature !== false
+              ? { temperature: this.config.memoryTemperature ?? 0.3 }
+              : {}),
           },
         };
 

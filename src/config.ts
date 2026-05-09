@@ -739,7 +739,9 @@ function ensureConfigExists(): void {
       writeFileSync(configPath, CONFIG_TEMPLATE, { encoding: "utf-8", mode: 0o600 });
       log(`\n✓ Created config template: ${configPath}`);
       log("  Edit this file to customize opencode-mem0 settings.\n");
-    } catch {}
+    } catch (err) {
+      log("Failed to create config template", { error: String(err) });
+    }
   }
 }
 
@@ -954,9 +956,9 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
     }
     if (obj === null || typeof obj !== "object") return obj;
     for (const key of Object.keys(obj)) {
-      const value = (obj as any)[key];
+      const value = (obj as Record<string, unknown>)[key];
       if (value !== null && typeof value === "object") {
-        deepFreeze(value);
+        deepFreeze(value as Record<string, unknown>);
       }
     }
     return Object.freeze(obj);
@@ -968,7 +970,7 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
 let _globalFileConfig = loadConfigFromPaths(CONFIG_FILES);
 export let CONFIG = buildConfig(_globalFileConfig);
 
-function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
+function deepMerge<T extends object>(target: T, source: Partial<T>): T {
   const result = { ...target } as T;
   for (const key in source) {
     if (source[key] !== undefined) {
@@ -980,9 +982,12 @@ function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>)
         result[key] !== null &&
         !Array.isArray(result[key])
       ) {
-        result[key] = deepMerge(result[key] as any, source[key] as any) as any;
+        result[key] = deepMerge(result[key] as object, source[key] as object) as T[Extract<
+          keyof T,
+          string
+        >];
       } else {
-        result[key] = source[key] as any;
+        result[key] = source[key] as T[Extract<keyof T, string>];
       }
     }
   }

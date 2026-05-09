@@ -64,7 +64,9 @@ export class ConnectionManager {
     } catch (error) {
       try {
         db.run("ROLLBACK");
-      } catch {}
+      } catch (rollbackErr) {
+        log("Batch flush rollback failed", { error: String(rollbackErr) });
+      }
       throw error;
     } finally {
       this.batches.delete(dbPath);

@@ -274,7 +274,8 @@ export class VectorSearch {
       const safeFtsQuery = queryText
         .replace(/[\*\^:\-+?()"]/g, " ")
         .replace(/\s+/g, " ")
-        .trim();
+        .trim()
+        .slice(0, 500);
       if (safeFtsQuery.length > 0) {
         const ftsStmt = db.prepare(`
           SELECT id FROM memories_fts
@@ -625,7 +626,13 @@ export class VectorSearch {
     context?: RetrievalContext,
     embeddingDegraded: boolean = false
   ): Promise<SearchResult[]> {
+    const maxSearchMs = 30000;
+    const deadline = Date.now() + maxSearchMs;
     const shardPromises = shards.map(async (shard) => {
+      if (Date.now() > deadline) {
+        log("Shard search deadline exceeded", { shardId: shard.id });
+        return [];
+      }
       try {
         return await this.searchInShard(
           shard,

@@ -191,11 +191,17 @@ export class WebServer {
 
   async checkServerAvailable(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.getUrl()}/api/stats`, {
-        method: "GET",
-        signal: AbortSignal.timeout(2000),
-      });
-      return response.ok;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
+      try {
+        const response = await fetch(`${this.getUrl()}/api/stats`, {
+          method: "GET",
+          signal: controller.signal,
+        });
+        return response.ok;
+      } finally {
+        clearTimeout(timeout);
+      }
     } catch {
       return false;
     }

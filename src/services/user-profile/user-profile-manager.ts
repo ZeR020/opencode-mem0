@@ -420,4 +420,22 @@ export class UserProfileManager {
   }
 }
 
-export const userProfileManager = new UserProfileManager();
+let _userProfileManager: UserProfileManager | null = null;
+
+export function getUserProfileManager(): UserProfileManager {
+  if (!_userProfileManager) {
+    _userProfileManager = new UserProfileManager();
+  }
+  return _userProfileManager;
+}
+
+export const userProfileManager = new Proxy({} as UserProfileManager, {
+  get(_target, prop) {
+    const instance = getUserProfileManager();
+    const value = (instance as any)[prop];
+    if (typeof value === "function") {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});

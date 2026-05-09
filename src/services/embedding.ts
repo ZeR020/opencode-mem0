@@ -26,13 +26,13 @@ function withTimeout<T>(promise: Promise<T>, ms: number, signal?: AbortSignal): 
   return Promise.race([
     promise,
     new Promise<T>((_, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
+      const onAbort = () => {
+        clearTimeout(timer);
+        reject(new Error("Aborted"));
+      };
       if (signal) {
-        signal.addEventListener("abort", () => {
-          reject(new Error("Aborted"));
-        });
-      } else {
-        const timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
-        // No need to clear timer on abort when we are the one controlling abort
+        signal.addEventListener("abort", onAbort);
       }
     }),
   ]);
