@@ -443,4 +443,49 @@ describe("OpenAIChatCompletionProvider", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("processes first tool call when multiple tool calls are returned", async () => {
+    const validArguments = JSON.stringify({
+      preferences: [],
+      patterns: [],
+      workflows: [],
+      codingStyle: {},
+      domainKnowledge: [],
+    });
+
+    globalThis.fetch = makeFetch({
+      ok: true,
+      body: {
+        choices: [
+          {
+            message: {
+              content: null,
+              tool_calls: [
+                {
+                  id: "call-1",
+                  type: "function",
+                  function: { name: "save_memories", arguments: validArguments },
+                },
+                {
+                  id: "call-2",
+                  type: "function",
+                  function: { name: "wrong_tool", arguments: "{}" },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    } as any);
+
+    const result = await makeProvider({ apiUrl: "https://api.openai.com/v1" }).executeToolCall(
+      "system",
+      "user",
+      toolSchema,
+      "session-id"
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.iterations).toBe(1);
+  });
 });
