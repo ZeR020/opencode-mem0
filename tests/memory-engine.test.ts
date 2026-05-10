@@ -9,8 +9,8 @@ vi.mock("../src/services/logger.js", () => ({
 vi.mock("../src/services/embedding.js", () => ({
   embeddingService: {
     isWarmedUp: true,
-    warmup: async () => {},
-    embedWithTimeout: async () => new Float32Array([1, 2, 3]),
+    warmup: () => Promise.resolve(),
+    embedWithTimeout: () => Promise.resolve(new Float32Array([1, 2, 3])),
   },
 }));
 
