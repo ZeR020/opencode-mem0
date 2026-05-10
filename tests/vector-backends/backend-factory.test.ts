@@ -5,19 +5,20 @@ import type { VectorBackend } from "../../src/services/vector-backends/types.js"
 function createThrowingBackend(method: "search" | "rebuildFromShard"): VectorBackend {
   return {
     getBackendName: () => "usearch",
-    insert: async () => {},
-    insertBatch: async () => {},
-    delete: async () => {},
-    search: async (args) => {
-      if (method === "search") throw new Error("boom-search");
+    insert: () => {},
+    insertBatch: () => {},
+    delete: () => {},
+    search: (args) => {
+      if (method === "search") return Promise.reject(new Error("boom-search"));
       void args;
-      return [];
+      return Promise.resolve([]);
     },
-    rebuildFromShard: async (args) => {
-      if (method === "rebuildFromShard") throw new Error("boom-rebuild");
+    rebuildFromShard: (args) => {
+      if (method === "rebuildFromShard") return Promise.reject(new Error("boom-rebuild"));
       void args;
+      return Promise.resolve();
     },
-    deleteShardIndexes: async () => {},
+    deleteShardIndexes: () => {},
   };
 }
 
@@ -25,7 +26,7 @@ describe("vector backend factory", () => {
   it("defaults to usearch-first strategy", async () => {
     const backend = await createVectorBackend({
       vectorBackend: "usearch-first",
-      probeUSearch: async () => true,
+      probeUSearch: () => true,
     });
 
     expect(backend.getBackendName()).toBe("usearch");
@@ -34,7 +35,7 @@ describe("vector backend factory", () => {
   it("falls back to exact scan when usearch-first cannot load usearch", async () => {
     const backend = await createVectorBackend({
       vectorBackend: "usearch-first",
-      probeUSearch: async () => false,
+      probeUSearch: () => false,
     });
 
     expect(backend.getBackendName()).toBe("exact-scan");
@@ -43,7 +44,7 @@ describe("vector backend factory", () => {
   it("uses usearch backend when requested and available", async () => {
     const backend = await createVectorBackend({
       vectorBackend: "usearch",
-      probeUSearch: async () => true,
+      probeUSearch: () => true,
     });
 
     expect(backend.getBackendName()).toBe("usearch");
@@ -52,7 +53,7 @@ describe("vector backend factory", () => {
   it("falls back to exact scan when usearch is unavailable", async () => {
     const backend = await createVectorBackend({
       vectorBackend: "usearch",
-      probeUSearch: async () => false,
+      probeUSearch: () => false,
     });
 
     expect(backend.getBackendName()).toBe("exact-scan");
@@ -61,7 +62,7 @@ describe("vector backend factory", () => {
   it("falls back to exact scan on usearch search failure", async () => {
     const backend = await createVectorBackend({
       vectorBackend: "usearch-first",
-      probeUSearch: async () => true,
+      probeUSearch: () => true,
       createUSearchBackend: () => createThrowingBackend("search"),
     });
 
@@ -93,7 +94,7 @@ describe("vector backend factory", () => {
   it("falls back to exact scan on usearch rebuild failure", async () => {
     const backend = await createVectorBackend({
       vectorBackend: "usearch-first",
-      probeUSearch: async () => true,
+      probeUSearch: () => true,
       createUSearchBackend: () => createThrowingBackend("rebuildFromShard"),
     });
 
