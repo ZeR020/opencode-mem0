@@ -371,7 +371,9 @@ async function migrate(storagePath: string): Promise<MigrationResult> {
     } finally {
       try {
         db?.close();
-      } catch {}
+      } catch {
+        // empty
+      }
     }
   }
 
