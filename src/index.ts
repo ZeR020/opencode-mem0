@@ -177,19 +177,17 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
               })
               .catch((err) => log("Toast display failed", { error: String(err) }));
           }
-        } else {
-          if (ctx.client?.tui) {
-            ctx.client.tui
-              .showToast({
-                body: {
-                  title: "Memory Explorer",
-                  message: `Web UI available at ${url}`,
-                  variant: "info",
-                  duration: 3000,
-                },
-              })
-              .catch((err) => log("Toast display failed", { error: String(err) }));
-          }
+        } else if (ctx.client?.tui) {
+          ctx.client.tui
+            .showToast({
+              body: {
+                title: "Memory Explorer",
+                message: `Web UI available at ${url}`,
+                variant: "info",
+                duration: 3000,
+              },
+            })
+            .catch((err) => log("Toast display failed", { error: String(err) }));
         }
       })
       .catch((error) => {
@@ -282,7 +280,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
             !m.parts.every((p) => p.type !== "text" || p.synthetic === true)
         );
 
-        const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+        const lastMessage = messages.length > 0 ? (messages.at(-1) ?? null) : null;
         const isAfterCompaction = lastMessage?.info?.summary === true;
 
         const shouldInject =

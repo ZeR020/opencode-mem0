@@ -48,15 +48,14 @@ describe("Windows Path Handling", () => {
   });
 
   describe("dirname for database path", () => {
-    it("should extract directory correctly from Windows path", () => {
-      // Skip on non-Windows platforms — Node's dirname() is platform-specific by design
-      if (process.platform !== "win32") {
-        return expect(true).toBe(true);
+    it.skipIf(process.platform !== "win32")(
+      "should extract directory correctly from Windows path",
+      () => {
+        const dbPath = "C:\\Users\\user\\.opencode-mem0\\shards\\project.db";
+        const dir = dirname(dbPath);
+        expect(dir).toBe("C:\\Users\\user\\.opencode-mem0\\shards");
       }
-      const dbPath = "C:\\Users\\user\\.opencode-mem0\\shards\\project.db";
-      const dir = dirname(dbPath);
-      expect(dir).toBe("C:\\Users\\user\\.opencode-mem0\\shards");
-    });
+    );
 
     it("should extract directory correctly from Unix path", () => {
       const dbPath = "/home/user/.opencode-mem0/shards/project.db";

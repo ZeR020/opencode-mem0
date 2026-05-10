@@ -93,8 +93,7 @@ describe("user-memory-learning", () => {
     );
   });
 
-  it("creates profile for new user when API returns data", async () => {
-    // This requires mocking the AI provider - complex setup
-    // For now just verify the early returns work
+  it.skip("creates profile for new user when API returns data", async () => {
+    // Skipped: requires mocking the AI provider — complex setup, defer to integration tests
   });
 });

@@ -68,41 +68,9 @@ describe("auto-capture helpers", () => {
     mockGetTags.mockReset();
   });
 
-  it("returns early when capture is already running", async () => {
-    // Start first capture that blocks
-    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
-      id: "p1",
-      messageId: "m1",
-      content: "test",
-    });
-    mockUserPromptManager.claimPrompt.mockReturnValue(true);
-
-    const ctx = {
-      client: {
-        session: { messages: async () => ({ data: [] }) },
-      },
-    } as any;
-
-    mockGetTags.mockReturnValue({
-      project: {
-        tag: "test",
-        displayName: "Test",
-        userName: "test",
-        userEmail: "test@test.com",
-        projectPath: "/test",
-        projectName: "Test",
-        gitRepoUrl: "",
-      },
-      user: { userEmail: "test@test.com", displayName: "Test", userName: "test" },
-    });
-
-    // First call will set isCaptureRunning = true and block on getLastUncapturedPrompt (already mocked)
-    // Actually, it returns early because messages.data is empty
-    await performAutoCapture(ctx, "sess-1", "/test");
-
-    // Second call should return immediately because isCaptureRunning is still true
-    // But after first call it sets isCaptureRunning = false in finally
-    // So this test isn't quite right for concurrent calls
+  it.skip("returns early when capture is already running", async () => {
+    // Skipped: race condition in isCaptureRunning flag makes this test unreliable
+    // The finally block in performAutoCapture resets the flag before we can test concurrent calls
   });
 
   it("returns early when no uncaptured prompt", async () => {

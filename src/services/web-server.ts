@@ -367,7 +367,7 @@ export class WebServer {
         return this.jsonResponse(result, 200, !isLocal);
       }
 
-      if (path.match(/^\/api\/memories\/[^/]+\/pin$/) && method === "POST") {
+      if (/^\/api\/memories\/[^/]+\/pin$/.exec(path) && method === "POST") {
         const id = path.split("/")[3];
         if (!id) {
           return this.jsonResponse({ success: false, error: "Invalid ID" });
@@ -376,7 +376,7 @@ export class WebServer {
         return this.jsonResponse(result, 200, !isLocal);
       }
 
-      if (path.match(/^\/api\/memories\/[^/]+\/unpin$/) && method === "POST") {
+      if (/^\/api\/memories\/[^/]+\/unpin$/.exec(path) && method === "POST") {
         const id = path.split("/")[3];
         if (!id) {
           return this.jsonResponse({ success: false, error: "Invalid ID" });

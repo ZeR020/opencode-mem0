@@ -19,7 +19,7 @@ async function ensureTransformersLoaded(): Promise<NonNullable<typeof _transform
   mod.env.allowRemoteModels = true;
   mod.env.cacheDir = join(CONFIG.storagePath, ".cache");
   _transformers = mod;
-  return _transformers!;
+  return _transformers;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, signal?: AbortSignal): Promise<T> {

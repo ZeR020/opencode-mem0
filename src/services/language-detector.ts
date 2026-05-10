@@ -32,8 +32,6 @@ export function getLanguageName(code: string): string {
   // Try 2-letter lookup first
   let lang = iso6393.find((l: any) => l.iso6391 === code);
   // Fallback to 3-letter lookup
-  if (!lang) {
-    lang = iso6393.find((l: any) => l.iso6393 === code);
-  }
+  lang ??= iso6393.find((l: any) => l.iso6393 === code);
   return lang?.name || "English";
 }

@@ -1015,7 +1015,8 @@ export async function handleDetectTagMigration(): Promise<
       untaggedCount += rows.count;
     }
     return { success: true, data: { needsMigration: untaggedCount > 0, count: untaggedCount } };
-  } catch (_error) {
+  } catch (error) {
+    log("Tag migration detection failed", { error: String(error) });
     return { success: false, error: "Internal error" };
   }
 }
@@ -1164,7 +1165,8 @@ export async function handleRunTagMigrationBatch(
       success: true,
       data: { processed: migrationProgress.processed, total: migrationProgress.total, hasMore },
     };
-  } catch (_error) {
+  } catch (error) {
+    log("Tag migration batch failed", { error: String(error) });
     return { success: false, error: "Internal error" };
   }
 }

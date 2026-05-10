@@ -107,9 +107,8 @@ describe("platform-server", () => {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/test`);
       expect(response.status).toBeGreaterThanOrEqual(500);
-    } catch {
-      // Connection closed is also acceptable for error cases
-      expect(true).toBe(true);
+    } catch (err) {
+      expect(err).toBeInstanceOf(Error);
     }
 
     server.stop();

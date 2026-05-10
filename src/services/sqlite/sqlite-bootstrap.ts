@@ -15,11 +15,9 @@ export interface Database {
 
 let DatabaseImpl: new (path: string) => Database;
 
-let _require: NodeRequire | undefined;
-function getRequire(): NodeRequire {
-  if (!_require) {
-    _require = typeof require !== "undefined" ? require : createRequire(import.meta.url);
-  }
+let _require: ((id: string) => any) | undefined;
+function getRequire(): (id: string) => any {
+  _require ??= typeof require !== "undefined" ? require : createRequire(import.meta.url);
   return _require;
 }
 

@@ -147,7 +147,7 @@ const OpenCodeMemConfigSchema = z.object({
     .optional(),
   embeddingModel: z.string().optional(),
   embeddingDimensions: z.number().positive().optional(),
-  embeddingApiUrl: z.string().url().optional(),
+  embeddingApiUrl: z.url().optional(),
   embeddingApiKey: z.string().optional(),
   similarityThreshold: z.number().min(0).max(1).optional(),
   maxMemories: z.number().positive().optional(),
@@ -162,7 +162,7 @@ const OpenCodeMemConfigSchema = z.object({
     .enum(["openai-chat", "openai-responses", "anthropic", "google-gemini"])
     .optional(),
   memoryModel: z.string().optional(),
-  memoryApiUrl: z.string().url().optional(),
+  memoryApiUrl: z.url().optional(),
   memoryApiKey: z.string().optional(),
   memoryTemperature: z.union([z.number(), z.literal(false)]).optional(),
   memoryExtraParams: z.record(z.string(), z.unknown()).optional(),

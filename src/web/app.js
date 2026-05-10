@@ -916,7 +916,7 @@ function renderUserProfile() {
   const container = document.getElementById("profile-content");
   const profile = state.userProfile;
 
-  if (!profile || !profile.exists) {
+  if (!profile?.exists) {
     container.innerHTML = `
       <div class="empty-state">
         <i data-lucide="user-x" class="icon-large"></i>

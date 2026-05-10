@@ -141,8 +141,10 @@ export function createOAuthFetch(
         requestInit.headers.forEach((value, key) => requestHeaders.set(key, value));
       } else if (Array.isArray(requestInit.headers)) {
         for (const pair of requestInit.headers) {
-          const [key, value] = pair as [string, string];
-          if (typeof value !== "undefined") requestHeaders.set(key, value);
+          const [key, value] = pair;
+          if (typeof key === "string" && typeof value === "string") {
+            requestHeaders.set(key, value);
+          }
         }
       } else {
         for (const [key, value] of Object.entries(requestInit.headers as Record<string, string>)) {
@@ -265,7 +267,7 @@ export function createOpencodeAIProvider(providerName: string, auth: Auth, state
       if (!statePath) throw new Error("statePath is required for OAuth authentication");
       return createAnthropic({
         apiKey: "",
-        fetch: createOAuthFetch(statePath, providerName) as unknown as typeof globalThis.fetch,
+        fetch: createOAuthFetch(statePath, providerName) as typeof globalThis.fetch,
       });
     }
     return createAnthropic({ apiKey: auth.key });
@@ -300,5 +302,5 @@ export async function generateStructuredOutput<T>(options: {
     output: Output.object({ schema: options.schema }),
     temperature: options.temperature ?? 0.3,
   });
-  return result.output as T;
+  return result.output;
 }
