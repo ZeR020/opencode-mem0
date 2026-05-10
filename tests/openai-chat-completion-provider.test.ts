@@ -74,14 +74,14 @@ function makeFetch(response: {
   const textBody =
     typeof response.body === "string" ? response.body : JSON.stringify(response.body ?? "error");
   const jsonBody = typeof response.body === "string" ? {} : (response.body ?? {});
-  return (async (_input: RequestInfo | URL, _init?: RequestInit) => {
-    return {
+  return ((_input: RequestInfo | URL, _init?: RequestInit) => {
+    return Promise.resolve({
       ok: response.ok ?? false,
       status: response.status ?? 400,
       statusText: response.statusText ?? "Bad Request",
-      text: async () => textBody,
-      json: async () => jsonBody,
-    } as Response;
+      text: () => Promise.resolve(textBody),
+      json: () => Promise.resolve(jsonBody),
+    } as Response);
   }) as typeof fetch;
 }
 
@@ -195,9 +195,14 @@ describe("OpenAIChatCompletionProvider", () => {
 
   it("uses custom apiUrl for the request", async () => {
     let capturedUrl = "";
-    globalThis.fetch = (async (input: RequestInfo | URL, _init?: RequestInit) => {
+    globalThis.fetch = ((input: RequestInfo | URL, _init?: RequestInit) => {
       capturedUrl = String(input);
-      return { ok: false, status: 400, statusText: "Bad", text: async () => "err" } as Response;
+      return Promise.resolve({
+        ok: false,
+        status: 400,
+        statusText: "Bad",
+        text: () => Promise.resolve("err"),
+      } as Response);
     }) as typeof fetch;
 
     await makeProvider({ apiUrl: "https://compatible.example.com/v1" }).executeToolCall(
@@ -212,9 +217,14 @@ describe("OpenAIChatCompletionProvider", () => {
 
   it("sends Authorization Bearer header", async () => {
     let capturedHeaders: Record<string, string> | undefined;
-    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    globalThis.fetch = ((_input: RequestInfo | URL, init?: RequestInit) => {
       capturedHeaders = init?.headers as Record<string, string>;
-      return { ok: false, status: 400, statusText: "Bad", text: async () => "err" } as Response;
+      return Promise.resolve({
+        ok: false,
+        status: 400,
+        statusText: "Bad",
+        text: () => Promise.resolve("err"),
+      } as Response);
     }) as typeof fetch;
 
     await makeProvider({ apiKey: "sk-mykey", apiUrl: "https://api.openai.com/v1" }).executeToolCall(
@@ -229,9 +239,14 @@ describe("OpenAIChatCompletionProvider", () => {
 
   it("omits Authorization header when apiKey is not set", async () => {
     let capturedHeaders: Record<string, string> | undefined;
-    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    globalThis.fetch = ((_input: RequestInfo | URL, init?: RequestInit) => {
       capturedHeaders = init?.headers as Record<string, string>;
-      return { ok: false, status: 400, statusText: "Bad", text: async () => "err" } as Response;
+      return Promise.resolve({
+        ok: false,
+        status: 400,
+        statusText: "Bad",
+        text: () => Promise.resolve("err"),
+      } as Response);
     }) as typeof fetch;
 
     await makeProvider({ apiKey: undefined, apiUrl: "https://api.openai.com/v1" }).executeToolCall(
@@ -246,9 +261,14 @@ describe("OpenAIChatCompletionProvider", () => {
 
   it("sends model, messages, tools, tool_choice in request body", async () => {
     let capturedBody: Record<string, unknown> | undefined;
-    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    globalThis.fetch = ((_input: RequestInfo | URL, init?: RequestInit) => {
       capturedBody = JSON.parse(String(init?.body ?? "{}"));
-      return { ok: false, status: 400, statusText: "Bad", text: async () => "err" } as Response;
+      return Promise.resolve({
+        ok: false,
+        status: 400,
+        statusText: "Bad",
+        text: () => Promise.resolve("err"),
+      } as Response);
     }) as typeof fetch;
 
     await makeProvider({
@@ -264,9 +284,14 @@ describe("OpenAIChatCompletionProvider", () => {
 
   it("includes temperature 0.3 by default", async () => {
     let capturedBody: Record<string, unknown> | undefined;
-    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    globalThis.fetch = ((_input: RequestInfo | URL, init?: RequestInit) => {
       capturedBody = JSON.parse(String(init?.body ?? "{}"));
-      return { ok: false, status: 400, statusText: "Bad", text: async () => "err" } as Response;
+      return Promise.resolve({
+        ok: false,
+        status: 400,
+        statusText: "Bad",
+        text: () => Promise.resolve("err"),
+      } as Response);
     }) as typeof fetch;
 
     await makeProvider({ apiUrl: "https://api.openai.com/v1" }).executeToolCall(
@@ -281,9 +306,14 @@ describe("OpenAIChatCompletionProvider", () => {
 
   it("omits temperature when memoryTemperature is false", async () => {
     let capturedBody: Record<string, unknown> | undefined;
-    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    globalThis.fetch = ((_input: RequestInfo | URL, init?: RequestInit) => {
       capturedBody = JSON.parse(String(init?.body ?? "{}"));
-      return { ok: false, status: 400, statusText: "Bad", text: async () => "err" } as Response;
+      return Promise.resolve({
+        ok: false,
+        status: 400,
+        statusText: "Bad",
+        text: () => Promise.resolve("err"),
+      } as Response);
     }) as typeof fetch;
 
     await makeProvider({
