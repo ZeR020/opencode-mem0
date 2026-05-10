@@ -11,7 +11,7 @@ import {
   generateStructuredOutput,
 } from "../src/services/ai/opencode-provider.js";
 
-vi.mock("ai", async () => {
+vi.mock("ai", () => {
   return {
     generateText: vi.fn(() => Promise.resolve({ output: { answer: 42 } })),
     Output: {

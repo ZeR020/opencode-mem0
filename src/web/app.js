@@ -524,7 +524,7 @@ async function bulkDelete() {
       deletedCount += result.data.deleted;
     } else {
       hadErrors = true;
-      log("Bulk delete prompts failed", { error: result.error });
+      console.error("Bulk delete prompts failed", { error: result.error });
     }
   }
 
@@ -538,7 +538,7 @@ async function bulkDelete() {
       deletedCount += result.data.deleted;
     } else {
       hadErrors = true;
-      log("Bulk delete memories failed", { error: result.error });
+      console.error("Bulk delete memories failed", { error: result.error });
     }
   }
 
