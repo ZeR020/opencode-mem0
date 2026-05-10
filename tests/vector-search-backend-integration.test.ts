@@ -18,8 +18,8 @@ function createFailingBackend(): VectorBackend {
     search: async () => {
       throw new Error("forced-search-failure");
     },
-    rebuildFromShard: async () => {
-      throw new Error("forced-rebuild-failure");
+    rebuildFromShard: () => {
+      return Promise.reject(new Error("forced-rebuild-failure"));
     },
     deleteShardIndexes: () => {},
   };
