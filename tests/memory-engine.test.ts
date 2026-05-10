@@ -42,10 +42,10 @@ vi.mock("../src/services/sqlite/shard-manager.js", () => ({
 
 vi.mock("../src/services/sqlite/vector-search.js", () => ({
   vectorSearch: {
-    searchAcrossShards: async (shards: any[]) =>
+    searchAcrossShards: (shards: any[]) =>
       shards.map((s) => ({ id: s.id, memory: s.id, similarity: 1 })),
     listMemories: (db: any, containerTag: string) => db.listMemories(containerTag),
-    insertVector: async () => {},
+    insertVector: () => {},
   },
 }));
 
