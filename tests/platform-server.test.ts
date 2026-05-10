@@ -12,7 +12,7 @@ describe("platform-server", () => {
     const server = await serve({
       port,
       hostname: "127.0.0.1",
-      fetch: async () => new Response("OK"),
+      fetch: () => new Response("OK"),
     });
 
     expect(server).toBeDefined();
@@ -34,7 +34,7 @@ describe("platform-server", () => {
     const server = await serve({
       port,
       hostname: "127.0.0.1",
-      fetch: async (req: Request) => {
+      fetch: (req: Request) => {
         receivedRequest = req;
         return new Response(JSON.stringify({ ok: true }), {
           headers: { "Content-Type": "application/json" },
@@ -62,7 +62,7 @@ describe("platform-server", () => {
     const server = await serve({
       port,
       hostname: "127.0.0.1",
-      fetch: async (req: Request) => {
+      fetch: (req: Request) => {
         if (req.method === "GET") {
           return new Response("GET response", { status: 200 });
         }
@@ -83,7 +83,7 @@ describe("platform-server", () => {
     const server = await serve({
       port,
       hostname: "127.0.0.1",
-      fetch: async () => new Response("Not found", { status: 404 }),
+      fetch: () => new Response("Not found", { status: 404 }),
     });
 
     const response = await fetch(`http://127.0.0.1:${port}/nonexistent`);
@@ -97,6 +97,7 @@ describe("platform-server", () => {
     const server = await serve({
       port,
       hostname: "127.0.0.1",
+      // skipcq: JS-0116 — Intentionally async to return rejected Promise for error handling test
       fetch: async () => {
         throw new Error("Test error");
       },
@@ -141,7 +142,7 @@ describe("platform-server", () => {
     const server = await serve({
       port,
       hostname: "127.0.0.1",
-      fetch: async (req: Request) => {
+      fetch: (req: Request) => {
         receivedHeaders = req.headers;
         return new Response("OK");
       },
