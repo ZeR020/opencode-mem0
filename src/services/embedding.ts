@@ -100,8 +100,8 @@ export class EmbeddingService {
     };
   }
 
-  async warmup(progressCallback?: (progress: any) => void): Promise<void> {
-    if (this.isWarmedUp) return;
+  warmup(progressCallback?: (progress: any) => void): Promise<void> {
+    if (this.isWarmedUp) return Promise.resolve();
     if (this.initPromise) return this.initPromise;
     this.initPromise = this.initializeModel(progressCallback);
     return this.initPromise;
