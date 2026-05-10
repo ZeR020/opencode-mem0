@@ -196,7 +196,7 @@ export function startScoringRecalculation(): void {
   const intervalMs = (CONFIG.memoryScoring.recalculationIntervalMinutes || 60) * 60 * 1000;
   let cycleCount = 0;
 
-  scoringInterval = setInterval(async () => {
+  scoringInterval = setInterval(() => {
     if (isRunning) return;
     isRunning = true;
 
