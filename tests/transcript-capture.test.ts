@@ -128,8 +128,8 @@ describe("transcript-capture", () => {
       {
         client: {
           session: {
-            messages: async () => {
-              throw new Error("fail");
+            messages: () => {
+              return Promise.reject(new Error("fail"));
             },
           },
         },
