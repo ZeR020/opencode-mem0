@@ -116,7 +116,7 @@ describe("transcript-capture", () => {
       () => new Promise((resolve) => setTimeout(() => resolve({ id: "trans" }), 50))
     );
 
-    const ctx = { client: { session: { messages: async () => ({ data: messages }) } } } as any;
+    const ctx = { client: { session: { messages: () => ({ data: messages }) } } } as any;
     const p1 = performTranscriptCapture(ctx, "sess-dedup", "/test");
     const p2 = performTranscriptCapture(ctx, "sess-dedup", "/test");
     await Promise.all([p1, p2]);
