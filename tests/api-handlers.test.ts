@@ -248,7 +248,7 @@ vi.mock("../src/services/memory-conflicts.js", () => ({
       resolutionType: null,
     },
   ],
-  resolveConflict: async () => ({ success: true, mergedMemoryId: "mem-merged" }),
+  resolveConflict: () => ({ success: true, mergedMemoryId: "mem-merged" }),
 }));
 
 vi.mock("../src/config.js", () => ({

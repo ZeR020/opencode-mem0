@@ -1,4 +1,4 @@
-/* global lucide, getLanguage, setLanguage */
+/* global lucide, getLanguage, setLanguage, t */
 const API_BASE = "";
 
 const state = {
@@ -543,9 +543,9 @@ async function bulkDelete() {
   }
 
   if (hadErrors) {
-    showToast(t("toast-bulk-delete-partial"), "warning");
+    showToast(`${t("toast-bulk-delete-partial")} (${deletedCount} deleted)`, "warning");
   } else {
-    showToast(t("toast-bulk-delete-success"), "success");
+    showToast(`${t("toast-bulk-delete-success")} (${deletedCount} deleted)`, "success");
   }
   state.selectedMemories.clear();
   await loadMemories();
