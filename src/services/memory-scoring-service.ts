@@ -16,7 +16,6 @@ import {
 let scoringInterval: NodeJS.Timeout | null = null;
 let isRunning = false;
 
-
 /**
  * Recalculate scores for all memories in all shards.
  * Updates recency, utility, and strength in-place.
@@ -229,7 +228,7 @@ export function stopScoringRecalculation(): void {
 /**
  * Run a one-time score recalculation (useful for initial migration or manual trigger).
  */
-export async function runOneTimeScoringRecalculation(): Promise<{
+export function runOneTimeScoringRecalculation(): Promise<{
   updated: number;
   shards: number;
   duration: number;
