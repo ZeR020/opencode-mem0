@@ -70,7 +70,7 @@ export class WebServer {
     this.onTakeoverCallback = callback;
   }
 
-  async start(): Promise<void> {
+  start(): Promise<void> {
     if (this.startPromise) {
       return this.startPromise;
     }
