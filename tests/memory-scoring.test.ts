@@ -88,16 +88,18 @@ describe("memory-scoring", () => {
     });
 
     it("boosts for recent files match", () => {
-      const base = calculateUtility(Date.now(), 3, "test content", {});
-      const withFiles = calculateUtility(Date.now(), 3, "test content", {
+      const now = Date.now();
+      const base = calculateUtility(now, 3, "test content", {});
+      const withFiles = calculateUtility(now, 3, "test content", {
         recentFiles: ["/test/file.ts"],
       });
       expect(withFiles).toBeGreaterThanOrEqual(Math.floor(base * 1000) / 1000);
     });
 
     it("boosts for query match", () => {
-      const base = calculateUtility(Date.now(), 3, "hello world", { recentQueries: ["hello"] });
-      const withQuery = calculateUtility(Date.now(), 3, "hello world", {
+      const now = Date.now();
+      const base = calculateUtility(now, 3, "hello world", { recentQueries: ["hello"] });
+      const withQuery = calculateUtility(now, 3, "hello world", {
         recentQueries: ["world"],
       });
       expect(withQuery).toBeGreaterThanOrEqual(base);
