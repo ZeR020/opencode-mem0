@@ -13,15 +13,15 @@ function createFailingBackend(): VectorBackend {
   return {
     getBackendName: () => "usearch",
     insert: async () => {},
-    insertBatch: async () => {},
-    delete: async () => {},
+    insertBatch: () => {},
+    delete: () => {},
     search: async () => {
       throw new Error("forced-search-failure");
     },
     rebuildFromShard: async () => {
       throw new Error("forced-rebuild-failure");
     },
-    deleteShardIndexes: async () => {},
+    deleteShardIndexes: () => {},
   };
 }
 
