@@ -265,4 +265,18 @@ describe("AISessionManager", () => {
     expect(typeof aiSessionManager.cleanupExpiredSessions).toBe("function");
     expect(typeof aiSessionManager.getLastSequence).toBe("function");
   });
+
+  it("accepts dbPath option to use :memory: SQLite", async () => {
+    const { AISessionManager } = await import("../src/services/ai/session/ai-session-manager.js");
+    const manager = new AISessionManager({ dbPath: ":memory:" });
+    const session = manager.createSession({
+      sessionId: "sess-memory",
+      provider: "openai-chat",
+    });
+    expect(session.sessionId).toBe("sess-memory");
+
+    const retrieved = manager.getSession("sess-memory", "openai-chat");
+    expect(retrieved).not.toBeNull();
+    expect(retrieved!.id).toBe(session.id);
+  });
 });
