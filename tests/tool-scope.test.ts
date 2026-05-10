@@ -109,13 +109,13 @@ mockConfig = {
 };
 
 mockClient = {
-  warmup: async () => {},
-  isReady: async () => true,
-  searchMemories: async (...args: unknown[]) => {
+  warmup: () => {},
+  isReady: () => true,
+  searchMemories: (...args: unknown[]) => {
     searchCalls.push(args);
     return { success: true, results: [], total: 0, timing: 0 };
   },
-  listMemories: async (_tag: unknown, _limit: unknown, scope = "project") => {
+  listMemories: (_tag: unknown, _limit: unknown, scope = "project") => {
     lastListScope = scope;
     return {
       success: true,
@@ -124,9 +124,9 @@ mockClient = {
       scope,
     };
   },
-  addMemory: async () => ({ success: true, id: "m1" }),
-  deleteMemory: async () => ({ success: true }),
-  searchMemoriesBySessionID: async () => ({ success: true, results: [], total: 0, timing: 0 }),
+  addMemory: () => ({ success: true, id: "m1" }),
+  deleteMemory: () => ({ success: true }),
+  searchMemoriesBySessionID: () => ({ success: true, results: [], total: 0, timing: 0 }),
   close() {},
 };
 
