@@ -13,7 +13,7 @@ import {
 
 vi.mock("ai", async () => {
   return {
-    generateText: vi.fn(async () => ({ output: { answer: 42 } })),
+    generateText: vi.fn(() => Promise.resolve({ output: { answer: 42 } })),
     Output: {
       object: ({ schema }: { schema: any }) => ({ schema }),
     },
