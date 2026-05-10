@@ -766,7 +766,7 @@ export async function handlePinMemory(id: string): Promise<ApiResponse<void>> {
   }
 }
 
-export async function handleUnpinMemory(id: string): Promise<ApiResponse<void>> {
+export function handleUnpinMemory(id: string): ApiResponse<void> {
   try {
     if (!id) return { success: false, error: "id is required" };
     const allShards = getAllShards();
