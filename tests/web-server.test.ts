@@ -155,8 +155,9 @@ describe("WebServer", () => {
   it("sets takeover callback", () => {
     const server = new WebServer({ port: 4753, host: "127.0.0.1", enabled: false });
     let called = false;
-    server.setOnTakeoverCallback(async () => {
+    server.setOnTakeoverCallback(() => {
       called = true;
+      return Promise.resolve();
     });
     expect(called).toBe(false);
   });
