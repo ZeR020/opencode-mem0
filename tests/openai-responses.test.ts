@@ -132,7 +132,7 @@ describe("OpenAIResponsesProvider", () => {
       ok: false,
       status: 429,
       statusText: "Too Many Requests",
-      text: async () => "Rate limited",
+      text: () => Promise.resolve("Rate limited"),
     });
 
     const result = await provider.executeToolCall(
