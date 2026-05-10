@@ -88,7 +88,7 @@ describe("memory-scoring", () => {
     });
 
     it("boosts for recent files match", () => {
-      const now = Date.now();
+      const now = Date.now() - 1000; // stable past timestamp
       const base = calculateUtility(now, 3, "test content", {});
       const withFiles = calculateUtility(now, 3, "test content", {
         recentFiles: ["/test/file.ts"],
