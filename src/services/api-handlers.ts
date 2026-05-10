@@ -1238,9 +1238,7 @@ export async function handleResolveConflict(
   }
 }
 
-export async function handleConflictStats(): Promise<
-  ApiResponse<{ unresolved: number; resolved: number }>
-> {
+export function handleConflictStats(): ApiResponse<{ unresolved: number; resolved: number }> {
   try {
     const unresolved = getAllUnresolvedConflicts(1000);
     // Count resolved across all shards
