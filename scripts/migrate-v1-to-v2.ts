@@ -314,7 +314,7 @@ function discoverDatabases(storagePath: string): string[] {
  * Detects v1 databases, adds all v2 columns and tables, backfills
  * default scores, and creates the transcripts database.
  */
-async function migrate(storagePath: string): Promise<MigrationResult> {
+function migrate(storagePath: string): MigrationResult {
   const result: MigrationResult = {
     databases: 0,
     columnsAdded: 0,
