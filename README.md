@@ -26,7 +26,10 @@
   <a href="#quick-start">Quick Start</a> ·
   <a href="#why-opencode-mem0">Why opencode-mem0</a> ·
   <a href="#screenshots">Screenshots</a> ·
+  <a href="#feature-deep-dives">Features</a> ·
+  <a href="#architecture">Architecture</a> ·
   <a href="#configuration">Configuration</a> ·
+  <a href="#api-endpoints">API</a> ·
   <a href="#development">Development</a>
 </p>
 
@@ -52,7 +55,7 @@ Most agents forget everything when the session ends. `opencode-mem0` gives OpenC
 ### 1. Install
 
 ```bash
-npm install opencode-mem0
+npm install -g opencode-mem0
 ```
 
 ### 2. Enable the Plugin
@@ -88,39 +91,70 @@ open http://localhost:4747
 
 ---
 
-## What It Does
+## Feature Deep-Dives
 
 ### Intelligent Memory Ranking
 
-Every memory gets a transparent strength score that balances recency, frequency, importance, utility, novelty, confidence, and interference. Strong memories surface first; stale or low-value memories naturally decay.
+Every memory gets a transparent strength score that balances **recency, frequency, importance, utility, novelty, confidence, and interference**. Strong memories surface first; stale or low-value memories naturally decay.
 
-### Short-Term and Long-Term Memory
+The scoring system evaluates:
 
-`opencode-mem0` separates conversational short-term memory from long-term rules and preferences. Useful short-term memories can be promoted automatically, while obsolete context is archived.
+- **Recency**: How recently the memory was accessed or created
+- **Frequency**: How often the memory is referenced
+- **Importance**: User-marked or inferred priority
+- **Utility**: Practical value based on successful retrievals
+- **Novelty**: Uniqueness compared to existing memories
+- **Confidence**: Certainty score from extraction quality
+- **Interference**: Penalty for conflicting or redundant information
+
+### Short-Term and Long-Term Memory (STM/LTM)
+
+`opencode-mem0` separates conversational short-term memory from long-term rules and preferences. Useful short-term memories can be promoted automatically based on scoring thresholds, while obsolete context is archived.
+
+| Memory Type          | Decay Period | Promotion Threshold | Use Case                                                      |
+| -------------------- | ------------ | ------------------- | ------------------------------------------------------------- |
+| **Short-Term (STM)** | 7 days       | 0.7                 | Recent conversations, temporary context                       |
+| **Long-Term (LTM)**  | 90 days      | N/A                 | Project conventions, user preferences, architecture decisions |
+
+When STM memories score above the promotion threshold, they graduate to LTM automatically. Memories below the archive threshold are safely archived after the configured period.
 
 ### Conflict Detection
 
-When new memories contradict old ones, conflicts are detected with an LLM-assisted check and a heuristic fallback. You can keep the newer memory, keep both, merge them, or resolve manually.
+When new memories contradict old ones, conflicts are detected with an LLM-assisted semantic check and a heuristic fallback for offline operation. You can:
+
+- **Keep the newer memory** — replace the old one
+- **Keep both** — store as separate, potentially-scoped memories
+- **Merge** — combine into a single updated memory
+- **Resolve manually** — use the web UI to review and decide
+
+Conflicts are surfaced in the web UI at `/conflicts` and via the `/api/conflicts` endpoint.
 
 ### Context-Aware Retrieval
 
-Search combines vectors, tags, full-text search, score weighting, project context, recency, and diversity filtering so results are relevant instead of merely similar.
+Search combines multiple signals so results are **relevant** instead of merely similar:
 
----
+1. **Vector similarity** — semantic meaning via usearch vector index
+2. **Full-text search (FTS5)** — keyword matching with SQLite FTS5
+3. **Score weighting** — 7-factor memory strength
+4. **Project context boost** — prioritize current project memories
+5. **Recency bias** — favor recently used memories
+6. **Diversity filtering** — avoid redundant results above similarity threshold
 
-## Current Release
+This hybrid approach ensures you get the most useful memories for your current task.
 
-`v2.15.1` focuses on stability and trust:
+### Transcript Capture
 
-| Area                   | Improvement                                                              |
-| ---------------------- | ------------------------------------------------------------------------ |
-| Cross-platform runtime | Native Bun support plus Node.js 20+ fallback for Windows, Linux, macOS.  |
-| Storage safety         | Shards are deleted only after successful re-embedding.                   |
-| Concurrency            | Prompt claims reset on early exits to prevent permanent deadlocks.       |
-| Web UI hardening       | Safer pagination boundaries and stricter API authentication behavior.    |
-| Test coverage          | 173 tests across memory lifecycle, transcript storage, search, and APIs. |
+Session transcripts are automatically captured and stored with FTS5 indexing, making every conversation searchable. Transcripts decay after the configured retention period (default 30 days) to prevent unbounded growth.
 
-For full historical release notes, see [`CHANGELOG.md`](CHANGELOG.md).
+### Web UI
+
+A built-in management interface runs at `http://localhost:4747`:
+
+- Browse and search all memories
+- View memory details and scoring breakdown
+- Resolve conflicts visually
+- Search transcript history
+- Manage user profile and preferences
 
 ---
 
@@ -136,7 +170,35 @@ OpenCode hooks
     -> local web UI / REST API
 ```
 
-Core modules live in `src/services/`:
+### File Structure
+
+```
+src/
+├── index.ts              # Plugin entry, lifecycle hooks
+├── config.ts             # Configuration loading
+├── services/
+│   ├── client.ts         # LocalMemoryClient
+│   ├── memory-scoring.ts # 7-factor scoring
+│   ├── memory-lifecycle.ts   # STM/LTM management
+│   ├── memory-conflicts.ts     # Contradiction detection
+│   ├── retrieval-context.ts    # Context boost + diversity
+│   ├── transcript-capture.ts   # Transcript hook
+│   ├── platform-server.ts      # Bun/Node HTTP server abstraction
+│   ├── sqlite/
+│   │   ├── sqlite-bootstrap.ts # Runtime SQLite abstraction
+│   │   ├── vector-search.ts    # Hybrid search
+│   │   ├── transcript-manager.ts   # Transcript DB
+│   │   └── shard-manager.ts      # Sharding + migration
+│   └── web/              # UI assets and handlers
+├── examples/             # basic-usage.ts, custom-scoring.ts
+├── scripts/
+│   ├── build.mjs         # Cross-platform build
+│   ├── migrate-tests.mjs # bun:test → vitest migration helper
+│   └── migrate-v1-to-v2.ts   # Database migration
+└── vitest.config.ts      # Vitest test runner config
+```
+
+### Core Modules
 
 | Module                    | Responsibility                          |
 | ------------------------- | --------------------------------------- |
@@ -224,6 +286,32 @@ Or any OpenAI-compatible endpoint such as Ollama, vLLM, Groq, or a local model:
 
 ---
 
+## API Endpoints
+
+Open the UI at `http://localhost:4747`.
+
+| Endpoint                        | Method | Description               | Parameters                               |
+| ------------------------------- | ------ | ------------------------- | ---------------------------------------- |
+| `/api/memories`                 | GET    | List all memories         | `project`, `scope`, `limit`, `offset`    |
+| `/api/memories/search?q=...`    | GET    | Search memories           | `q` (query), `project`, `scope`, `limit` |
+| `/api/memories`                 | POST   | Add a memory              | `{ content, scope, type, tags }`         |
+| `/api/memories/:id`             | GET    | Get memory by ID          | `id` (path)                              |
+| `/api/memories/:id`             | DELETE | Delete a memory           | `id` (path)                              |
+| `/api/memories/:id`             | PUT    | Update a memory           | `id` (path), `{ content, tags }`         |
+| `/api/conflicts`                | GET    | List unresolved conflicts | `limit`, `offset`                        |
+| `/api/conflicts/:id`            | GET    | Get conflict details      | `id` (path)                              |
+| `/api/conflicts/:id`            | POST   | Resolve a conflict        | `id` (path), `{ resolution }`            |
+| `/api/transcripts`              | GET    | List transcripts          | `project`, `limit`, `offset`             |
+| `/api/transcripts/search?q=...` | GET    | Search transcripts        | `q` (query), `project`, `limit`          |
+| `/api/profile`                  | GET    | Get user profile          | —                                        |
+| `/api/profile`                  | PUT    | Update user profile       | `{ name, email, preferences }`           |
+| `/api/stats`                    | GET    | Memory statistics         | `project`                                |
+| `/api/health`                   | GET    | Health check              | —                                        |
+
+All API endpoints except `/api/health` require the `Authorization: Bearer <webServerApiKey>` header when `webServerApiKey` is configured.
+
+---
+
 ## Examples
 
 ```typescript
@@ -240,7 +328,7 @@ More examples: [`examples/basic-usage.ts`](examples/basic-usage.ts) and [`exampl
 
 ---
 
-## Migration
+## Migration from v1
 
 Migrating from `opencode-mem` v1 is idempotent and safe to run more than once:
 
@@ -250,22 +338,13 @@ bun run scripts/migrate-v1-to-v2.ts ~/.opencode-mem/data
 
 The migration upgrades schema columns, backfills scores, creates transcript/conflict tables, adds indexes, and promotes high-quality existing memories to long-term memory.
 
----
+### What the migration does
 
-## Web UI and API
-
-Open the UI at `http://localhost:4747`.
-
-| Endpoint                        | Method | Description                |
-| ------------------------------- | ------ | -------------------------- |
-| `/api/memories`                 | GET    | List all memories.         |
-| `/api/memories/search?q=...`    | GET    | Search memories.           |
-| `/api/memories`                 | POST   | Add a memory.              |
-| `/api/memories/:id`             | DELETE | Delete a memory.           |
-| `/api/conflicts`                | GET    | List unresolved conflicts. |
-| `/api/conflicts/:id`            | POST   | Resolve a conflict.        |
-| `/api/transcripts`              | GET    | List transcripts.          |
-| `/api/transcripts/search?q=...` | GET    | Search transcripts.        |
+1. **Schema upgrade** — Adds new columns (score factors, lifecycle state, conflict markers)
+2. **Backfill scores** — Calculates 7-factor scores for existing memories
+3. **Create new tables** — Transcript storage, conflict tracking, user profiles
+4. **Add indexes** — FTS5 indexes for full-text search, vector index for semantic search
+5. **Promote memories** — High-quality v1 memories graduate to LTM automatically
 
 ---
 
@@ -281,13 +360,46 @@ Open the UI at `http://localhost:4747`.
 ### Commands
 
 ```bash
-bun install          # install dependencies
-bun run build        # build with Bun
-npm run build        # cross-platform Node.js build
-bun run test         # Vitest test runner
-npm test             # Vitest test runner
-bun run typecheck    # TypeScript validation
+# Install dependencies
+bun install          # Bun
+npm install          # Node.js
+
+# Build
+bun run build        # TypeScript compile + copy web assets (Bun)
+npm run build        # TypeScript compile + copy web assets (Node.js)
+
+# Type checking
+bun run typecheck    # tsc --noEmit
+
+# Tests
+bun test             # Run test suite (Bun)
+npm test             # Run test suite (Node.js / vitest)
+bun run test:bun     # Run test suite with Bun test runner
+
+# Code quality
+bun run format       # Prettier format
+bun audit            # Security audit
 ```
+
+### Test Coverage
+
+- **545 tests** covering memory lifecycle, transcript storage, hybrid search, conflict resolution, web API, and cross-platform runtime abstraction.
+
+---
+
+## Current Release
+
+`v2.16` (in development) — Phase 03: Experience & Polish
+
+| Area                   | Improvement                                                              |
+| ---------------------- | ------------------------------------------------------------------------ |
+| Cross-platform runtime | Native Bun support plus Node.js 20+ fallback for Windows, Linux, macOS.  |
+| Storage safety         | Shards are deleted only after successful re-embedding.                   |
+| Concurrency            | Prompt claims reset on early exits to prevent permanent deadlocks.       |
+| Web UI hardening       | Safer pagination boundaries and stricter API authentication behavior.    |
+| Test coverage          | 545 tests across memory lifecycle, transcript storage, search, and APIs. |
+
+For full historical release notes, see [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
@@ -295,8 +407,14 @@ bun run typecheck    # TypeScript validation
 
 MIT License. See [`LICENSE`](LICENSE).
 
-Repository: [github.com/ZeR020/opencode-mem0](https://github.com/ZeR020/opencode-mem0)
+**Repository:** [github.com/ZeR020/opencode-mem0](https://github.com/ZeR020/opencode-mem0)
 
-Original project: [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem)
+**Author:** ZeR020
 
-Inspired by [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem).
+**Original project:** [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem) — `opencode-mem0` is a cognitive enhancement fork with fresh git history, extended features, and ongoing development.
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ for privacy-first agent memory.</sub>
+</p>

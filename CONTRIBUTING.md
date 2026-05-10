@@ -1,45 +1,206 @@
 # Contributing to opencode-mem0
 
-Thank you for your interest in contributing! This document outlines the process for contributing to this project.
+Welcome, and thank you for your interest in contributing to **opencode-mem0** — an MIT-licensed OpenCode plugin that gives coding agents persistent, private long-term memory using a local vector database (SQLite + usearch).
 
-## Getting Started
+This project is a cognitive enhancement of [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem) (upstream) with a fresh git history, cross-platform support, and advanced features such as 7-factor memory scoring, STM/LTM dual-store lifecycle, intelligent conflict resolution, and hybrid vector + FTS5 search.
 
-1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/opencode-mem0.git`
-3. Install dependencies: `bun install`
-4. Create a branch: `git checkout -b feature/your-feature-name`
+Whether you're fixing a bug, adding a feature, improving documentation, or sharing feedback, we appreciate your help.
 
-## Development Workflow
+---
 
-- **TypeScript**: All code must pass `bun run typecheck`
-- **Tests**: Run `npm test` or `bun run test` before submitting
-- **Formatting**: Run `bun run format` or ensure lint-staged runs on commit
-- **Build**: Verify `bun run build` succeeds
+## Table of Contents
+
+- [Development Setup](#development-setup)
+- [Code Style Requirements](#code-style-requirements)
+- [Testing Requirements](#testing-requirements)
+- [Pull Request Process](#pull-request-process)
+- [Areas Needing Contributions](#areas-needing-contributions)
+- [Security Issues](#security-issues)
+- [Code of Conduct](#code-of-conduct)
+- [License](#license)
+- [Attribution](#attribution)
+
+---
+
+## Development Setup
+
+### Prerequisites
+
+- [Bun](https://bun.sh/) 1.x **(primary runtime)** or Node.js 20+
+- Git
+
+### Quick Start
+
+```bash
+# 1. Fork the repository on GitHub
+# 2. Clone your fork
+git clone https://github.com/YOUR_USERNAME/opencode-mem0.git
+cd opencode-mem0
+
+# 3. Install dependencies
+bun install        # or: npm install
+
+# 4. Verify the build
+bun run build      # or: npm run build
+
+# 5. Run the test suite
+bun test           # or: npm test
+```
+
+### Useful Commands
+
+| Command                 | Description                                    |
+| ----------------------- | ---------------------------------------------- |
+| `bun run typecheck`     | Run TypeScript in strict mode (`tsc --noEmit`) |
+| `bun test`              | Run the full test suite (Vitest)               |
+| `bun run test:coverage` | Run tests with coverage report                 |
+| `bun run format`        | Format code with Prettier                      |
+| `bun run format:check`  | Check formatting without writing               |
+| `bun run build`         | Compile TypeScript + copy web assets           |
+| `bun audit`             | Run security audit                             |
+
+---
+
+## Code Style Requirements
+
+All contributions must follow these standards. CI will enforce them.
+
+### TypeScript
+
+- **Strict mode is mandatory.** All code must pass `tsc --noEmit` with zero errors.
+- Prefer explicit types over `any`. Use `unknown` when the type is truly unknown, then narrow.
+- Keep functions focused and testable. Avoid deep nesting.
+
+### Formatting
+
+- **Prettier** is used for all TypeScript, JavaScript, CSS, and HTML files.
+- Run `bun run format` before committing, or configure your editor to format on save.
+- `lint-staged` + Husky will auto-format staged files, but do not rely solely on this.
+
+### Documentation
+
+- **JSDoc is required** for all public functions, classes, and exported constants.
+- Include `@param`, `@returns`, and a brief description of behavior and side effects.
+- Update relevant documentation in `docs/` if your change affects user-facing behavior.
+
+### Commit Messages
+
+We use **Conventional Commits**. This drives our changelog and release automation.
+
+```
+type(scope): description
+```
+
+**Valid types:** `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`
+
+Examples:
+
+```
+feat(retrieval): add diversity-aware re-ranking
+fix(sqlite): handle WAL checkpoint during concurrent reads
+docs(api): document new env:// override syntax
+test(scoring): add edge case for negative recency boost
+```
+
+- Use the present tense ("add" not "added").
+- Do not use bullet points or reveal internal cleanup/history rewrites in commit messages.
+- If you amend a commit, the message must reflect the **end state**, not the process.
+
+---
+
+## Testing Requirements
+
+- **Run the full test suite before opening any pull request:**
+
+  ```bash
+  bun test      # or: npm test
+  ```
+
+- The project currently maintains **430+ tests** across 53 test files.
+- All tests must pass. If a test is flaky, open an issue rather than ignoring it.
+- New features must include accompanying tests.
+- Bug fixes should include a regression test that fails before the fix and passes after.
+- Use descriptive test names. Prefer `it('should reject invalid API keys', ...)` over `it('test 7', ...)`.
+
+---
 
 ## Pull Request Process
 
-1. Ensure your branch is up to date with `main`
-2. Include a clear description of the changes
-3. Reference any related issues
-4. Wait for CI checks to pass
-5. Request review from maintainers
+1. **Fork and branch**
+   - Create a feature branch from `main`:
+     ```bash
+     git checkout -b feature/your-feature-name
+     ```
+   - Use descriptive branch names: `feat/hybrid-search-boost`, `fix/wal-lock-timeout`, `docs/config-examples`.
 
-## Code Style
+2. **Make your changes**
+   - Follow the [Code Style Requirements](#code-style-requirements).
+   - Keep changes focused. Separate unrelated changes into multiple PRs.
 
-- Use TypeScript strict mode
-- Prefer explicit types over `any`
-- Write JSDoc for public functions
-- Keep functions focused and testable
+3. **Verify locally**
+   - [ ] `bun run typecheck` passes
+   - [ ] `bun test` passes (all tests green)
+   - [ ] `bun run build` succeeds
+   - [ ] `bun audit` reports no new vulnerabilities
+   - [ ] `bun run format` has been applied
 
-## Reporting Issues
+4. **Update documentation**
+   - If your PR changes user-facing behavior, update the relevant docs in `docs/` (e.g., `CONFIGURATION.md`, `GETTING-STARTED.md`, `DEVELOPMENT.md`, `ARCHITECTURE.md`).
+   - If you modify configuration options, update the JSON schema and example configs.
 
-When reporting bugs, please include:
+5. **Open the PR**
+   - Fill out the PR template (if applicable).
+   - Include a clear description of what changed and **why**.
+   - Reference related issues: `Closes #123`, `Fixes #456`.
+   - Ensure CI passes (typecheck, build, test, audit).
 
-- Node.js/Bun version
-- Steps to reproduce
-- Expected vs actual behavior
-- Any error messages or logs
+6. **Review**
+   - Request review from maintainers.
+   - Be responsive to feedback. Changes may be requested before merging.
+
+---
+
+## Areas Needing Contributions
+
+We welcome contributions in all areas. Below are some open directions:
+
+- **Additional AI providers** — Integrations beyond OpenAI, Anthropic, and Google Gemini.
+- **Embedding backends** — Alternative local embedding models or backends.
+- **Web UI improvements** — Accessibility, mobile layout, or new visualizations.
+- **Performance** — Faster vector search, reduced memory footprint, or parallelized indexing.
+- **Cross-platform packaging** — Easier install methods for Windows, macOS, and Linux.
+- **Documentation** — Tutorials, video guides, or translated docs.
+- **Test coverage** — Edge cases for conflict resolution, migration paths, and platform abstractions.
+
+If you have an idea not listed here, open a discussion issue first so we can align on approach before you invest significant time.
+
+---
 
 ## Security Issues
 
-Please do not open public issues for security vulnerabilities. Instead, email security concerns directly to the maintainer or use GitHub's private vulnerability reporting.
+**Do NOT open a public issue for security vulnerabilities.**
+
+Instead, report privately via one of these channels:
+
+- Open a [GitHub private security advisory](https://github.com/ZeR020/opencode-mem0/security/advisories/new)
+- Or contact the maintainer directly: [@ZeR020](https://github.com/ZeR020)
+
+We aim to acknowledge receipt within 48 hours and will work with you to assess, fix, and disclose responsibly. See [SECURITY.md](./SECURITY.md) for the full policy, supported versions, and disclosure timeline.
+
+---
+
+## Code of Conduct
+
+This project adheres to the [Contributor Covenant Code of Conduct](./CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to the project maintainer.
+
+---
+
+## License
+
+By contributing to opencode-mem0, you agree that your contributions will be licensed under the [MIT License](./LICENSE).
+
+---
+
+## Attribution
+
+opencode-mem0 is a cognitive enhancement fork of [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem), the upstream OpenCode memory plugin. We are grateful for the foundation it provided and recognize its authors for the original design and architecture.
