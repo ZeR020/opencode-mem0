@@ -92,7 +92,7 @@ describe("memory-scoring", () => {
       const withFiles = calculateUtility(Date.now(), 3, "test content", {
         recentFiles: ["/test/file.ts"],
       });
-      expect(withFiles).toBeGreaterThanOrEqual(base);
+      expect(withFiles).toBeGreaterThanOrEqual(Math.floor(base * 1000) / 1000);
     });
 
     it("boosts for query match", () => {

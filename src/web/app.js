@@ -916,11 +916,11 @@ function renderUserProfile() {
   const container = document.getElementById("profile-content");
   const profile = state.userProfile;
 
-  if (!profile.exists) {
+  if (!profile || !profile.exists) {
     container.innerHTML = `
       <div class="empty-state">
         <i data-lucide="user-x" class="icon-large"></i>
-        <p>${escapeHtml(profile.message)}</p>
+        <p>${escapeHtml(profile ? profile.message : "No profile data available")}</p>
       </div>
     `;
     lucide.createIcons();
