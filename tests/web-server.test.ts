@@ -5,34 +5,34 @@ vi.mock("../src/services/logger.js", () => ({
 }));
 
 vi.mock("../src/services/api-handlers.js", () => ({
-  handleListTags: async () => ({ success: true, data: { project: [] } }),
-  handleListMemories: async () => ({
+  handleListTags: () => ({ success: true, data: { project: [] } }),
+  handleListMemories: () => ({
     success: true,
     data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
   }),
-  handleAddMemory: async () => ({ success: true, data: { id: "mem-1" } }),
-  handleDeleteMemory: async () => ({ success: true, data: { deletedPrompt: false } }),
-  handleBulkDelete: async () => ({ success: true, data: { deleted: 1 } }),
-  handleUpdateMemory: async () => ({ success: true }),
-  handleSearch: async () => ({
+  handleAddMemory: () => ({ success: true, data: { id: "mem-1" } }),
+  handleDeleteMemory: () => ({ success: true, data: { deletedPrompt: false } }),
+  handleBulkDelete: () => ({ success: true, data: { deleted: 1 } }),
+  handleUpdateMemory: () => ({ success: true }),
+  handleSearch: () => ({
     success: true,
     data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
   }),
-  handleStats: async () => ({
+  handleStats: () => ({
     success: true,
     data: { total: 0, byScope: { user: 0, project: 0 }, byType: {} },
   }),
-  handlePinMemory: async () => ({ success: true }),
-  handleUnpinMemory: async () => ({ success: true }),
-  handleRunCleanup: async () => ({
+  handlePinMemory: () => ({ success: true }),
+  handleUnpinMemory: () => ({ success: true }),
+  handleRunCleanup: () => ({
     success: true,
     data: { deletedCount: 0, userCount: 0, projectCount: 0 },
   }),
-  handleRunDeduplication: async () => ({
+  handleRunDeduplication: () => ({
     success: true,
     data: { exactDuplicatesDeleted: 0, nearDuplicateGroups: [] },
   }),
-  handleDetectMigration: async () => ({
+  handleDetectMigration: () => ({
     success: true,
     data: {
       needsMigration: false,
@@ -41,19 +41,19 @@ vi.mock("../src/services/api-handlers.js", () => ({
       shardMismatches: [],
     },
   }),
-  handleRunMigration: async () => ({
+  handleRunMigration: () => ({
     success: true,
     data: { success: true, strategy: "test", deletedShards: 0, reEmbeddedMemories: 0, duration: 0 },
   }),
-  handleDetectTagMigration: async () => ({
+  handleDetectTagMigration: () => ({
     success: true,
     data: { needsMigration: false, count: 0 },
   }),
-  handleRunTagMigrationBatch: async () => ({
+  handleRunTagMigrationBatch: () => ({
     success: true,
     data: { processed: 0, total: 0, hasMore: false },
   }),
-  handleGetTagMigrationProgress: async () => ({
+  handleGetTagMigrationProgress: () => ({
     success: true,
     data: {
       processed: 0,
@@ -64,16 +64,16 @@ vi.mock("../src/services/api-handlers.js", () => ({
       errors: [],
     },
   }),
-  handleDeletePrompt: async () => ({ success: true, data: { deletedMemory: false } }),
-  handleBulkDeletePrompts: async () => ({ success: true, data: { deleted: 1 } }),
-  handleGetUserProfile: async () => ({ success: true, data: { exists: false } }),
-  handleGetProfileChangelog: async () => ({ success: true, data: [] }),
-  handleGetProfileSnapshot: async () => ({ success: true, data: { version: 1, profileData: {} } }),
-  handleRefreshProfile: async () => ({ success: true, data: { message: "ok" } }),
-  handleListConflicts: async () => ({ success: true, data: [] }),
-  handleResolveConflict: async () => ({ success: true, data: { mergedMemoryId: "mem-1" } }),
-  handleConflictStats: async () => ({ success: true, data: { unresolved: 0, resolved: 0 } }),
-  handleEmbeddingCacheStats: async () => ({
+  handleDeletePrompt: () => ({ success: true, data: { deletedMemory: false } }),
+  handleBulkDeletePrompts: () => ({ success: true, data: { deleted: 1 } }),
+  handleGetUserProfile: () => ({ success: true, data: { exists: false } }),
+  handleGetProfileChangelog: () => ({ success: true, data: [] }),
+  handleGetProfileSnapshot: () => ({ success: true, data: { version: 1, profileData: {} } }),
+  handleRefreshProfile: () => ({ success: true, data: { message: "ok" } }),
+  handleListConflicts: () => ({ success: true, data: [] }),
+  handleResolveConflict: () => ({ success: true, data: { mergedMemoryId: "mem-1" } }),
+  handleConflictStats: () => ({ success: true, data: { unresolved: 0, resolved: 0 } }),
+  handleEmbeddingCacheStats: () => ({
     success: true,
     data: { size: 0, maxSize: 1000, hits: 0, misses: 0, rate: 0 },
   }),
@@ -96,7 +96,7 @@ describe("WebServer", () => {
     await server.stop();
   });
 
-  it("redacts PII from objects", async () => {
+  it("redacts PII from objects", () => {
     const server = new WebServer({ port: 4749, host: "127.0.0.1", enabled: false });
     // Access private method via any
     const redacted = (server as any).redactPII({
@@ -119,7 +119,7 @@ describe("WebServer", () => {
     expect(redacted.safeField).toBe("visible");
   });
 
-  it("redacts PII from nested objects", async () => {
+  it("redacts PII from nested objects", () => {
     const server = new WebServer({ port: 4750, host: "127.0.0.1", enabled: false });
     const redacted = (server as any).redactPII({
       nested: { userEmail: "test@example.com", safe: "ok" },
@@ -131,7 +131,7 @@ describe("WebServer", () => {
     expect(redacted.arr[1].userName).toBe("[REDACTED]");
   });
 
-  it("redacts empty/null PII values without [REDACTED]", async () => {
+  it("redacts empty/null PII values without [REDACTED]", () => {
     const server = new WebServer({ port: 4751, host: "127.0.0.1", enabled: false });
     const redacted = (server as any).redactPII({
       userEmail: "",
