@@ -145,7 +145,7 @@ describe("WebServer", () => {
     expect(redacted.safe).toBe("visible");
   });
 
-  it("passes through primitives in redactPII", async () => {
+  it("passes through primitives in redactPII", () => {
     const server = new WebServer({ port: 4752, host: "127.0.0.1", enabled: false });
     expect((server as any).redactPII(null)).toBeNull();
     expect((server as any).redactPII("string")).toBe("string");
