@@ -22,3 +22,6 @@ exclude_patterns = [
   "**/*.test.ts",
   "tests/**"
 ]
+
+[analyzers.ignore_rules]
+javascript = ["JS-0067"]

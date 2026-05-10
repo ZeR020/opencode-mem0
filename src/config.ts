@@ -789,15 +789,8 @@ function getEmbeddingDimensions(model: string): number {
   return dimensionMap[model] || 768;
 }
 
-function buildConfig(fileConfig: OpenCodeMemConfig) {
-  const validation = OpenCodeMemConfigSchema.safeParse(fileConfig);
-  if (!validation.success) {
-    const issues = validation.error.issues
-      .map((i) => `${i.path.join(".")}: ${i.message}`)
-      .join(", ");
-    throw new Error(`Invalid opencode-mem0 config: ${issues}`);
-  }
-  const result = {
+function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
+  return {
     storagePath: expandPath(fileConfig.storagePath ?? DEFAULTS.storagePath),
     userEmailOverride: fileConfig.userEmailOverride,
     userNameOverride: fileConfig.userNameOverride,
@@ -940,28 +933,21 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
     logLevel: fileConfig.logLevel ?? DEFAULTS.logLevel,
     warmupTimeoutMs: fileConfig.warmupTimeoutMs ?? DEFAULTS.warmupTimeoutMs,
   };
+}
+
+function buildConfig(fileConfig: OpenCodeMemConfig) {
+  const validation = OpenCodeMemConfigSchema.safeParse(fileConfig);
+  if (!validation.success) {
+    const issues = validation.error.issues
+      .map((i) => `${i.path.join(".")}: ${i.message}`)
+      .join(", ");
+    throw new Error(`Invalid opencode-mem0 config: ${issues}`);
+  }
+  const result = mergeConfigWithDefaults(fileConfig);
 
   // Apply log level from config
   if (fileConfig.logLevel) {
     setLogLevel(fileConfig.logLevel);
-  }
-
-  function deepFreeze<T>(obj: T): T {
-    // Skip freezing during tests so test helpers can mutate CONFIG
-    if (
-      typeof process !== "undefined" &&
-      (process.env?.VITEST || process.env?.NODE_ENV === "test")
-    ) {
-      return obj;
-    }
-    if (obj === null || typeof obj !== "object") return obj;
-    for (const key of Object.keys(obj)) {
-      const value = (obj as Record<string, unknown>)[key];
-      if (value !== null && typeof value === "object") {
-        deepFreeze(value as Record<string, unknown>);
-      }
-    }
-    return Object.freeze(obj);
   }
 
   return result;

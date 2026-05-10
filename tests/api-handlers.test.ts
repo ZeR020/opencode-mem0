@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { shardManager } from "../src/services/sqlite/shard-manager.js";
 
-const mockDbByPath = new Map<string, any>();
+const mockDbByPath = new Map<string, unknown>();
 
 function makeDb(name: string) {
-  const data: Record<string, any[]> = {};
-  const stmts = new Map<string, any>();
+  const data: Record<string, unknown[]> = {};
+  const stmts = new Map<string, unknown>();
   return {
     name,
-    run: (sql: string, ...params: any[]) => {
+    run: (sql: string, ...params: unknown[]) => {
       if (sql.includes("INSERT")) {
         const table = sql.match(/INTO\s+(\w+)/)?.[1] || "default";
         if (!data[table]) data[table] = [];
@@ -26,12 +26,12 @@ function makeDb(name: string) {
     prepare: (sql: string) => {
       if (!stmts.has(sql)) {
         stmts.set(sql, {
-          get: (..._params: any[]) => {
+          get: (..._params: unknown[]) => {
             if (sql.includes("COUNT")) return { count: 0 };
             if (sql.includes("SUM")) return { user_count: 0, project_count: 0 };
             return null;
           },
-          all: (..._params: any[]) => {
+          all: (..._params: unknown[]) => {
             if (sql.includes("memories")) {
               return data["memories"] || [];
             }
@@ -40,7 +40,7 @@ function makeDb(name: string) {
             }
             return [];
           },
-          run: (..._params: any[]) => ({ changes: 1 }),
+          run: (..._params: unknown[]) => ({ changes: 1 }),
         });
       }
       return stmts.get(sql)!;
@@ -55,7 +55,25 @@ function makeShard(id: string) {
 
 const mockShards = [makeShard("shard-a"), makeShard("shard-b")];
 
-const mockMemories: any[] = [
+interface MockMemory {
+  id: string;
+  content: string;
+  container_tag: string;
+  type: string;
+  tags: string;
+  created_at: number;
+  updated_at: number | null;
+  metadata: string;
+  display_name: string | null;
+  user_name: string | null;
+  user_email: string | null;
+  project_path: string | null;
+  project_name: string | null;
+  git_repo_url: string | null;
+  is_pinned: number;
+}
+
+const mockMemories: MockMemory[] = [
   {
     id: "mem-1",
     content: "Test memory 1",
@@ -158,12 +176,12 @@ vi.mock("../src/services/sqlite/shard-manager.js", () => ({
 
 vi.mock("../src/services/sqlite/vector-search.js", () => ({
   vectorSearch: {
-    getDistinctTags: (_db: any) => mockDistinctTags,
-    listMemories: (db: any, tag: string, limit: number) => {
-      if (!tag) return mockMemories.filter((m) => m.container_tag?.includes("_project_"));
+    getDistinctTags: (_db: unknown) => mockDistinctTags,
+    listMemories: (_db: unknown, tag: string, limit: number) => {
+      if (!tag) return mockMemories.filter((m) => m.container_tag.includes("_project_"));
       return mockMemories.filter((m) => m.container_tag === tag).slice(0, limit);
     },
-    getMemoryById: (db: any, id: string) => mockMemories.find((m) => m.id === id) || null,
+    getMemoryById: (_db: unknown, id: string) => mockMemories.find((m) => m.id === id) || null,
     insertVector: async () => {},
     deleteVector: async () => {},
     replaceVector: async () => {},
@@ -171,8 +189,8 @@ vi.mock("../src/services/sqlite/vector-search.js", () => ({
     unpinMemory: () => {},
     updateVector: async () => {},
     searchInShard: async (
-      _shard: any,
-      _vector: any,
+      _shard: unknown,
+      _vector: unknown,
       _tag: string,
       _limit: number,
       _query?: string
