@@ -51,7 +51,7 @@ describe("transcript-capture", () => {
 
   it("returns early if no messages", async () => {
     await performTranscriptCapture(
-      { client: { session: { messages: async () => ({ data: [] }) } } } as any,
+      { client: { session: { messages: () => ({ data: [] }) } } } as any,
       "sess-1",
       "/test"
     );
