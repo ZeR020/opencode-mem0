@@ -259,3 +259,4 @@ log/
 *.testing.json
 *.testing.yaml
 *.testing.yml
+.graphifyignore
