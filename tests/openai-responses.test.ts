@@ -58,7 +58,7 @@ describe("OpenAIResponsesProvider", () => {
   it("creates new session when none exists", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({
+      json: () => ({
         id: "resp-1",
         object: "response",
         model: "gpt-4o",
@@ -98,7 +98,7 @@ describe("OpenAIResponsesProvider", () => {
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({
+      json: () => ({
         id: "resp-2",
         object: "response",
         model: "gpt-4o",
@@ -186,7 +186,7 @@ describe("OpenAIResponsesProvider", () => {
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({
+        json: () => ({
           id: "resp-3",
           object: "response",
           model: "gpt-4o",
@@ -201,7 +201,7 @@ describe("OpenAIResponsesProvider", () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({
+        json: () => ({
           id: "resp-4",
           object: "response",
           model: "gpt-4o",
@@ -233,7 +233,7 @@ describe("OpenAIResponsesProvider", () => {
   it("returns error when max iterations reached without tool call", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
-      json: async () => ({
+      json: () => ({
         id: "resp-5",
         object: "response",
         model: "gpt-4o",
@@ -267,7 +267,7 @@ describe("OpenAIResponsesProvider", () => {
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({
+      json: () => ({
         id: "resp-extra",
         object: "response",
         model: "gpt-4o",
@@ -300,7 +300,7 @@ describe("OpenAIResponsesProvider", () => {
   it("handles invalid JSON in function arguments", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({
+      json: () => ({
         id: "resp-bad",
         object: "response",
         model: "gpt-4o",
@@ -330,7 +330,7 @@ describe("OpenAIResponsesProvider", () => {
   it("handles missing function arguments", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({
+      json: () => ({
         id: "resp-no-args",
         object: "response",
         model: "gpt-4o",
@@ -365,7 +365,7 @@ describe("OpenAIResponsesProvider", () => {
     // First call - should use instructions
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({
+      json: () => ({
         id: "resp-inst",
         object: "response",
         model: "gpt-4o",
@@ -397,7 +397,7 @@ describe("OpenAIResponsesProvider", () => {
     // Second call - should use conversation
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({
+      json: () => ({
         id: "resp-conv",
         object: "response",
         model: "gpt-4o",
@@ -430,7 +430,7 @@ describe("OpenAIResponsesProvider", () => {
   it("validates response structure", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({
+      json: () => ({
         id: "resp-val",
         object: "response",
         model: "gpt-4o",
@@ -461,7 +461,7 @@ describe("OpenAIResponsesProvider", () => {
   it("rejects array responses from validation", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({
+      json: () => ({
         id: "resp-arr",
         object: "response",
         model: "gpt-4o",
