@@ -155,7 +155,10 @@ opencode-mem0/
 ├── package.json
 ├── tsconfig.json
 ├── vitest.config.ts
-├── CONTRIBUTING.md
+├── .github/
+│   ├── CONTRIBUTING.md
+│   ├── CODE_OF_CONDUCT.md
+│   └── SECURITY.md
 └── .github/workflows/
     ├── ci.yml                    # CI: typecheck + build + test + audit
     ├── release.yml               # Release: npm publish + GitHub release
@@ -201,7 +204,7 @@ dist/
 └── web/                          # Copied web assets
 ```
 
-The `package.json` `files` array only includes `dist/`, `package.json`, `README.md`, `LICENSE`, and `CHANGELOG.md` in the published tarball.
+The `package.json` `files` array only includes `dist/`, `package.json`, `README.md`, `LICENSE`, and `docs/CHANGELOG.md` in the published tarball.
 
 ---
 
@@ -356,7 +359,7 @@ There is no separate hot-reload server; the UI is intentionally simple static HT
 
 ## Contributing
 
-Please read [`CONTRIBUTING.md`](../CONTRIBUTING.md) for the full contribution workflow. In summary:
+Please read [`CONTRIBUTING.md`](../.github/CONTRIBUTING.md) for the full contribution workflow. In summary:
 
 1. Fork and clone the repository.
 2. Install dependencies with `bun install`.
@@ -381,12 +384,12 @@ Releases are automated via GitHub Actions (`.github/workflows/release.yml`) and 
 
 1. **Update version**: Bump the version in `package.json` following [SemVer](https://semver.org/).
 
-2. **Update changelog**: Add release notes to `CHANGELOG.md`.
+2. **Update changelog**: Add release notes to `docs/CHANGELOG.md`.
 
 3. **Commit and tag**:
 
    ```bash
-   git add package.json CHANGELOG.md
+   git add package.json docs/CHANGELOG.md
    git commit -m "chore(release): prepare v2.x.x"
    git tag v2.x.x
    git push origin main --tags
@@ -423,7 +426,7 @@ bun audit           # No unaddressed security issues
 - **Registry**: `https://registry.npmjs.org`
 - **Access**: `public` (scoped package behavior not applicable)
 - **Auth**: Uses `NPM_TOKEN` repository secret
-- **Files included**: `dist/`, `package.json`, `README.md`, `LICENSE`, `CHANGELOG.md`
+- **Files included**: `dist/`, `package.json`, `README.md`, `LICENSE`, `docs/CHANGELOG.md`
 
 ---
 

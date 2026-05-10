@@ -399,7 +399,7 @@ bun audit            # Security audit
 | Web UI hardening       | Safer pagination boundaries and stricter API authentication behavior.    |
 | Test coverage          | 545 tests across memory lifecycle, transcript storage, search, and APIs. |
 
-For full historical release notes, see [`CHANGELOG.md`](CHANGELOG.md).
+For full historical release notes, see [`CHANGELOG.md`](docs/CHANGELOG.md).
 
 ---
 

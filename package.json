@@ -88,7 +88,7 @@
     "package.json",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "docs/CHANGELOG.md"
   ],
   "overrides": {
     "protobufjs": "^7.5.6",
