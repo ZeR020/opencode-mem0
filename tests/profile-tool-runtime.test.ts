@@ -22,12 +22,12 @@ vi.mock("../src/services/tags.js", () => ({
 
 mockClient = {
   warmup: async () => {},
-  isReady: async () => true,
-  searchMemories: async () => ({ success: true, results: [], total: 0, timing: 0 }),
-  listMemories: async () => ({ success: true, memories: [], pagination: {} }),
-  addMemory: async () => ({ success: true, id: "m1" }),
-  deleteMemory: async () => ({ success: true }),
-  searchMemoriesBySessionID: async () => ({ success: true, results: [], total: 0, timing: 0 }),
+  isReady: () => true,
+  searchMemories: () => ({ success: true, results: [], total: 0, timing: 0 }),
+  listMemories: () => ({ success: true, memories: [], pagination: {} }),
+  addMemory: () => ({ success: true, id: "m1" }),
+  deleteMemory: () => ({ success: true }),
+  searchMemoriesBySessionID: () => ({ success: true, results: [], total: 0, timing: 0 }),
   close() {},
 };
 
