@@ -681,15 +681,13 @@ export async function handleSearch(
   }
 }
 
-export async function handleEmbeddingCacheStats(): Promise<
-  ApiResponse<{
-    size: number;
-    maxSize: number;
-    hits: number;
-    misses: number;
-    rate: number;
-  }>
-> {
+export function handleEmbeddingCacheStats(): ApiResponse<{
+  size: number;
+  maxSize: number;
+  hits: number;
+  misses: number;
+  rate: number;
+}> {
   try {
     const stats = embeddingService.getCacheStats();
     return { success: true, data: stats };
