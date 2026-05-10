@@ -84,7 +84,7 @@ describe("semantic deduplication at ingest", () => {
     return db.prepare(`SELECT * FROM memories WHERE id = ?`).get(id) as any;
   }
 
-  async function countMemories(containerTag: string): Promise<number> {
+  function countMemories(containerTag: string): number {
     const db = getDbForShard(containerTag);
     if (!db) return 0;
     const row = db
