@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import {
   readOpencodeAuth,
   createOpencodeAIProvider,
@@ -7,7 +8,17 @@ import {
   getStatePath,
   setConnectedProviders,
   isProviderConnected,
+  generateStructuredOutput,
 } from "../src/services/ai/opencode-provider.js";
+
+vi.mock("ai", async () => {
+  return {
+    generateText: vi.fn(async () => ({ output: { answer: 42 } })),
+    Output: {
+      object: ({ schema }: { schema: any }) => ({ schema }),
+    },
+  };
+});
 
 (globalThis as any).__mockFs = {
   existsSync: () => false,
@@ -175,5 +186,33 @@ describe("state management", () => {
     expect(isProviderConnected("anthropic")).toBe(true);
     expect(isProviderConnected("openai")).toBe(true);
     expect(isProviderConnected("gemini")).toBe(false);
+  });
+});
+
+describe("generateStructuredOutput", () => {
+  afterEach(() => {
+    (globalThis as any).__mockFs.existsSync = () => false;
+    (globalThis as any).__mockFs.readFileSync = () => "{}";
+  });
+
+  it("returns structured output from generateText", async () => {
+    (globalThis as any).__mockFs.existsSync = () => true;
+    (globalThis as any).__mockFs.readFileSync = () =>
+      JSON.stringify({
+        anthropic: { type: "api", key: "sk-test" },
+      });
+
+    const schema = z.object({ answer: z.number() });
+    const result = await generateStructuredOutput({
+      providerName: "anthropic",
+      modelId: "claude-3-haiku",
+      statePath: "/mock/state",
+      systemPrompt: "You are a calculator",
+      userPrompt: "What is 6 times 7?",
+      schema,
+      temperature: 0.1,
+    });
+
+    expect(result).toEqual({ answer: 42 });
   });
 });

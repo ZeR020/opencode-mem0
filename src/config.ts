@@ -964,11 +964,11 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
     return Object.freeze(obj);
   }
 
-  return deepFreeze(result);
+  return result;
 }
 
-let _globalFileConfig = loadConfigFromPaths(CONFIG_FILES);
-export let CONFIG = buildConfig(_globalFileConfig);
+const _globalFileConfig = loadConfigFromPaths(CONFIG_FILES);
+export const CONFIG = buildConfig(_globalFileConfig);
 
 if (!existsSync(CONFIG.storagePath)) {
   mkdirSync(CONFIG.storagePath, { recursive: true });
@@ -1006,9 +1006,9 @@ export function initConfig(directory: string): void {
   const globalConfig = loadConfigFromPaths(CONFIG_FILES);
   const projectConfig = loadConfigFromPaths(projectPaths);
   const merged = deepMerge(globalConfig, projectConfig);
-  CONFIG = buildConfig(merged);
+  Object.assign(CONFIG, buildConfig(merged));
 }
 
 export function isConfigured(): boolean {
-  return !!_globalFileConfig && existsSync(CONFIG.storagePath);
+  return Boolean(_globalFileConfig) && existsSync(CONFIG.storagePath);
 }

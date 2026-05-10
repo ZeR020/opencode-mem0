@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { shardManager } from "../src/services/sqlite/shard-manager.js";
 
 const mockDbByPath = new Map<string, any>();
 
@@ -169,7 +170,13 @@ vi.mock("../src/services/sqlite/vector-search.js", () => ({
     pinMemory: () => {},
     unpinMemory: () => {},
     updateVector: async () => {},
-    searchInShard: async (_shard: any, _vector: any, _tag: string, _limit: number, _query?: string) => {
+    searchInShard: async (
+      _shard: any,
+      _vector: any,
+      _tag: string,
+      _limit: number,
+      _query?: string
+    ) => {
       return mockMemories.map((m) => ({
         id: m.id,
         memory: m.content,
@@ -248,6 +255,7 @@ const {
   handleConflictStats,
   handleDetectTagMigration,
   handleGetTagMigrationProgress,
+  handleRunTagMigrationBatch,
 } = await import("../src/services/api-handlers.js");
 
 describe("api-handlers", () => {
@@ -549,6 +557,16 @@ describe("api-handlers", () => {
       expect(result.data?.needsMigration).toBeDefined();
       expect(result.data?.count).toBeDefined();
     });
+
+    it("handles errors gracefully", async () => {
+      const spy = vi.spyOn(shardManager, "getAllShards").mockImplementation(() => {
+        throw new Error("DB error");
+      });
+      const result = await handleDetectTagMigration();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Internal error");
+      spy.mockRestore();
+    });
   });
 
   describe("handleGetTagMigrationProgress", () => {
@@ -557,6 +575,18 @@ describe("api-handlers", () => {
       expect(result.success).toBe(true);
       expect(result.data?.processed).toBe(0);
       expect(result.data?.isComplete).toBe(true);
+    });
+  });
+
+  describe("handleRunTagMigrationBatch", () => {
+    it("handles errors gracefully", async () => {
+      const spy = vi.spyOn(shardManager, "getAllShards").mockImplementation(() => {
+        throw new Error("DB error");
+      });
+      const result = await handleRunTagMigrationBatch();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Internal error");
+      spy.mockRestore();
     });
   });
 });
