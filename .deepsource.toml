@@ -1,0 +1,24 @@
+version = 1
+
+[[analyzers]]
+name = "javascript"
+enabled = true
+
+  [analyzers.meta]
+  plugins = ["react"]
+  environment = ["nodejs"]
+  module_system = "esm"
+
+[[analyzers]]
+name = "secrets"
+enabled = true
+
+[[analyzers]]
+name = "shell"
+enabled = true
+
+exclude_patterns = [
+  "examples/**",
+  "**/*.test.ts",
+  "tests/**"
+]
