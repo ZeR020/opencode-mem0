@@ -699,13 +699,11 @@ export async function handleEmbeddingCacheStats(): Promise<
   }
 }
 
-export async function handleStats(): Promise<
-  ApiResponse<{
-    total: number;
-    byScope: { user: number; project: number };
-    byType: Record<string, number>;
-  }>
-> {
+export function handleStats(): ApiResponse<{
+  total: number;
+  byScope: { user: number; project: number };
+  byType: Record<string, number>;
+}> {
   try {
     const userShards = shardManager.getAllShards("user", "");
     const projectShards = shardManager.getAllShards("project", "");
