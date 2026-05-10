@@ -197,12 +197,12 @@ export class DeduplicationService {
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
   }
 
-  async checkDuplicateAtIngest(
+  checkDuplicateAtIngest(
     content: string,
     containerTag: string,
     vector: Float32Array,
     metadata?: Record<string, unknown>
-  ): Promise<{ isDuplicate: boolean; existingId?: string; merged?: boolean }> {
+  ): { isDuplicate: boolean; existingId?: string; merged?: boolean } {
     if (!CONFIG.deduplicationIngestEnabled) {
       return { isDuplicate: false };
     }
