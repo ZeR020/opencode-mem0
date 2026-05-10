@@ -23,8 +23,8 @@ describe("EmbeddingService graceful degradation", () => {
     expect(embeddingService.embeddingAvailable).toBe(true);
 
     // Mock the internal initializeModel to throw, which will cause embed() to fail
-    vi.spyOn(embeddingService as any, "initializeModel").mockImplementation(async () => {
-      throw new Error("Model load failed");
+    vi.spyOn(embeddingService as any, "initializeModel").mockImplementation(() => {
+      return Promise.reject(new Error("Model load failed"));
     });
 
     // Prevent warmup from succeeding before embed()
@@ -38,8 +38,8 @@ describe("EmbeddingService graceful degradation", () => {
   it("propagates flag=false through embedWithTimeout()", async () => {
     expect(embeddingService.embeddingAvailable).toBe(true);
 
-    vi.spyOn(embeddingService as any, "initializeModel").mockImplementation(async () => {
-      throw new Error("Model load failed");
+    vi.spyOn(embeddingService as any, "initializeModel").mockImplementation(() => {
+      return Promise.reject(new Error("Model load failed"));
     });
 
     (embeddingService as any).isWarmedUp = false;
