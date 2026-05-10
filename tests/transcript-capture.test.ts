@@ -100,7 +100,7 @@ describe("transcript-capture", () => {
     mockSaveTranscript.mockReturnValue({ id: "trans-2" });
 
     await performTranscriptCapture(
-      { client: { session: { messages: async () => ({ data: messages }) } } } as any,
+      { client: { session: { messages: () => ({ data: messages }) } } } as any,
       "sess-3",
       "/test"
     );
