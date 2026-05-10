@@ -78,7 +78,7 @@ describe("semantic deduplication at ingest", () => {
     return connectionManager.getConnection(shard.dbPath);
   }
 
-  async function getMemoryById(id: string, containerTag: string): Promise<any> {
+  function getMemoryById(id: string, containerTag: string): any {
     const db = getDbForShard(containerTag);
     if (!db) return null;
     return db.prepare(`SELECT * FROM memories WHERE id = ?`).get(id) as any;
