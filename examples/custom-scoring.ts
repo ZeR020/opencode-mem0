@@ -18,12 +18,11 @@ import {
   type ScoreComponents,
 } from "../src/services/memory-scoring.js";
 
-function log(message: string): void {
-  // Use stdout for example output to avoid console in browser contexts
-  process.stdout.write(message + "\n");
-}
-
 function main() {
+  const log = (message: string): void => {
+    // Use stdout for example output to avoid console in browser contexts
+    process.stdout.write(`${message}\n`);
+  };
   const content =
     "Refactored the authentication middleware to use JWT tokens instead of session cookies for better scalability.";
   const existingContents = [

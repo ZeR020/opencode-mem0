@@ -460,6 +460,7 @@ async function loadMemories() {
   }
 }
 
+// skipcq: JS-0128 — Used in HTML template literal: onclick="deleteMemoryWithLink(...)"
 async function deleteMemoryWithLink(id, isLinked) {
   const message = isLinked ? t("confirm-delete-pair") : t("confirm-delete");
   if (!confirm(message)) return;
@@ -479,6 +480,7 @@ async function deleteMemoryWithLink(id, isLinked) {
   }
 }
 
+// skipcq: JS-0128 — Used in HTML template literal: onclick="deletePromptWithLink(...)"
 async function deletePromptWithLink(id, isLinked) {
   const message = isLinked ? t("confirm-delete-prompt") : t("confirm-delete");
   if (!confirm(message)) return;
@@ -575,6 +577,7 @@ function selectAllCurrentPage() {
   updateBulkActions();
 }
 
+// skipcq: JS-0128 — Used in HTML template literal: onclick="editMemory(...)"
 function editMemory(id) {
   const memory = state.memories.find((m) => m.id === id && m.type === "memory");
   if (!memory) return;
@@ -688,6 +691,7 @@ function formatDate(isoString) {
   });
 }
 
+// skipcq: JS-0128 — Used in HTML template literal: onclick="pinMemory(...)"
 async function pinMemory(id) {
   const result = await fetchAPI(`/api/memories/${id}/pin`, { method: "POST" });
 
@@ -699,6 +703,7 @@ async function pinMemory(id) {
   }
 }
 
+// skipcq: JS-0128 — Used in HTML template literal: onclick="unpinMemory(...)"
 async function unpinMemory(id) {
   const result = await fetchAPI(`/api/memories/${id}/unpin`, { method: "POST" });
 
@@ -1260,6 +1265,7 @@ function renderConflicts() {
   lucide.createIcons();
 }
 
+// skipcq: JS-0128 — Used in HTML template literal: onclick="resolveConflictAction(...)"
 async function resolveConflictAction(conflictId, strategy) {
   if (strategy === "merge") return;
 
