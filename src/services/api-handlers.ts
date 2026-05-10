@@ -1053,8 +1053,8 @@ class MigrationProgressTracker {
 
 const migrationProgress = new MigrationProgressTracker();
 
-export async function handleGetTagMigrationProgress(): Promise<
-  ApiResponse<ReturnType<MigrationProgressTracker["toJSON"]>>
+export function handleGetTagMigrationProgress(): ApiResponse<
+  ReturnType<MigrationProgressTracker["toJSON"]>
 > {
   return { success: true, data: migrationProgress.toJSON() };
 }
