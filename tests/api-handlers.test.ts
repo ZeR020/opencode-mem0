@@ -192,7 +192,7 @@ vi.mock("../src/services/sqlite/vector-search.js", () => ({
     pinMemory: () => {},
     unpinMemory: () => {},
     updateVector: async () => {},
-    searchInShard: async (
+    searchInShard: (
       _shard: unknown,
       _vector: unknown,
       _tag: string,

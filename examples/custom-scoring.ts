@@ -18,6 +18,11 @@ import {
   type ScoreComponents,
 } from "../src/services/memory-scoring.js";
 
+function log(message: string): void {
+  // Use stdout for example output to avoid console in browser contexts
+  process.stdout.write(message + "\n");
+}
+
 function main() {
   const content =
     "Refactored the authentication middleware to use JWT tokens instead of session cookies for better scalability.";
@@ -43,14 +48,14 @@ function main() {
   const confidence = calculateConfidence("manual", "refactor");
   const interference = calculateInterference(content, conflictingMemories);
 
-  console.log("=== Individual Scores ===");
-  console.log(`Recency:      ${recency.toFixed(3)}`);
-  console.log(`Frequency:    ${frequency.toFixed(3)}`);
-  console.log(`Importance:   ${importance.toFixed(3)}`);
-  console.log(`Utility:      ${utility.toFixed(3)}`);
-  console.log(`Novelty:      ${novelty.toFixed(3)}`);
-  console.log(`Confidence:   ${confidence.toFixed(3)}`);
-  console.log(`Interference: ${interference.toFixed(3)}`);
+  log("=== Individual Scores ===");
+  log(`Recency:      ${recency.toFixed(3)}`);
+  log(`Frequency:    ${frequency.toFixed(3)}`);
+  log(`Importance:   ${importance.toFixed(3)}`);
+  log(`Utility:      ${utility.toFixed(3)}`);
+  log(`Novelty:      ${novelty.toFixed(3)}`);
+  log(`Confidence:   ${confidence.toFixed(3)}`);
+  log(`Interference: ${interference.toFixed(3)}`);
 
   // --- Compute overall strength ---
   const scores: ScoreComponents = {
@@ -64,7 +69,7 @@ function main() {
   };
 
   const strength = computeStrength(scores);
-  console.log(`\n=== Overall Strength: ${strength.toFixed(3)} ===`);
+  log(`\n=== Overall Strength: ${strength.toFixed(3)} ===`);
 
   // --- Calculate all scores in one call ---
   const allScores = calculateAllScores({
@@ -80,21 +85,21 @@ function main() {
     utilityHalfLifeDays: 3,
   });
 
-  console.log("\n=== Batch Calculation ===");
-  console.log(JSON.stringify(allScores, null, 2));
+  log("\n=== Batch Calculation ===");
+  log(JSON.stringify(allScores, null, 2));
 
   // --- Score interpretation ---
-  console.log("\n=== Interpretation ===");
+  log("\n=== Interpretation ===");
   if (strength > 0.8) {
-    console.log("High-strength memory → eligible for automatic LTM promotion.");
+    log("High-strength memory → eligible for automatic LTM promotion.");
   } else if (strength > 0.5) {
-    console.log("Medium-strength memory → remains in STM with standard decay.");
+    log("Medium-strength memory → remains in STM with standard decay.");
   } else {
-    console.log("Low-strength memory → may be archived after prolonged inactivity.");
+    log("Low-strength memory → may be archived after prolonged inactivity.");
   }
 
   if (interference > 0.3) {
-    console.log("⚠️  High interference detected — consider conflict resolution.");
+    log("⚠️  High interference detected — consider conflict resolution.");
   }
 }
 

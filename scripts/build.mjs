@@ -1,3 +1,4 @@
+// skipcq: JS-0833 — Valid ESM syntax, DeepSource false positive for .mjs files
 import { cpSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { spawnSync } from "node:child_process";

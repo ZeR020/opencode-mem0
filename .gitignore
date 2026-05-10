@@ -260,3 +260,4 @@ log/
 *.testing.yaml
 *.testing.yml
 .graphifyignore
+.config/

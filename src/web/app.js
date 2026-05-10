@@ -1,3 +1,4 @@
+/* global lucide */
 const API_BASE = "";
 
 const state = {
@@ -1277,6 +1278,7 @@ async function resolveConflictAction(conflictId, strategy) {
   }
 }
 
+// skipcq: JS-0128 — Used in HTML template literal: onclick="showMergeModal(...)"
 function showMergeModal(conflictId) {
   const conflict = state.conflicts.find((c) => c.id === conflictId);
   if (!conflict) return;

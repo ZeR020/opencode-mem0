@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import { log } from "../logger.js";
 import { runMigrations } from "./schema.js";
 
-const Database = getDatabase();
+const DB = getDatabase();
 
 const MAX_CONNECTIONS = 20;
 const MAX_BATCH_SIZE = 50;
@@ -160,7 +160,7 @@ export class ConnectionManager {
         return doubleCheck;
       }
 
-      const db = new Database(dbPath);
+      const db = new DB(dbPath);
       this.connections.set(dbPath, db);
       this.accessOrder.push(dbPath);
       this.initDatabase(db);
