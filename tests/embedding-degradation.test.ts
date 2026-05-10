@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { embeddingService, EmbeddingService } from "../src/services/embedding.js";
+import { embeddingService } from "../src/services/embedding.js";
 import { VectorSearch } from "../src/services/sqlite/vector-search.js";
 import { ExactScanBackend } from "../src/services/vector-backends/exact-scan-backend.js";
 import { CONFIG } from "../src/config.js";

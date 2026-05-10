@@ -27,7 +27,7 @@ function checkFilePermissions(filePath: string): void {
         `Warning: Secret file ${filePath} has group/other permissions (${(mode & 0o077).toString(8)}). Recommend chmod 600.`
       );
     }
-  } catch (error) {
+  } catch (_error) {
     console.warn(`Warning: Could not check file permissions for ${filePath}`);
   }
 }

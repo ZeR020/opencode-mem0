@@ -25,12 +25,12 @@ function makeDb(name: string) {
     prepare: (sql: string) => {
       if (!stmts.has(sql)) {
         stmts.set(sql, {
-          get: (...params: any[]) => {
+          get: (..._params: any[]) => {
             if (sql.includes("COUNT")) return { count: 0 };
             if (sql.includes("SUM")) return { user_count: 0, project_count: 0 };
             return null;
           },
-          all: (...params: any[]) => {
+          all: (..._params: any[]) => {
             if (sql.includes("memories")) {
               return data["memories"] || [];
             }
@@ -39,7 +39,7 @@ function makeDb(name: string) {
             }
             return [];
           },
-          run: (...params: any[]) => ({ changes: 1 }),
+          run: (..._params: any[]) => ({ changes: 1 }),
         });
       }
       return stmts.get(sql)!;
@@ -157,7 +157,7 @@ vi.mock("../src/services/sqlite/shard-manager.js", () => ({
 
 vi.mock("../src/services/sqlite/vector-search.js", () => ({
   vectorSearch: {
-    getDistinctTags: (db: any) => mockDistinctTags,
+    getDistinctTags: (_db: any) => mockDistinctTags,
     listMemories: (db: any, tag: string, limit: number) => {
       if (!tag) return mockMemories.filter((m) => m.container_tag?.includes("_project_"));
       return mockMemories.filter((m) => m.container_tag === tag).slice(0, limit);
@@ -169,7 +169,7 @@ vi.mock("../src/services/sqlite/vector-search.js", () => ({
     pinMemory: () => {},
     unpinMemory: () => {},
     updateVector: async () => {},
-    searchInShard: async (shard: any, vector: any, tag: string, limit: number, query?: string) => {
+    searchInShard: async (_shard: any, _vector: any, _tag: string, _limit: number, _query?: string) => {
       return mockMemories.map((m) => ({
         id: m.id,
         memory: m.content,
@@ -194,7 +194,7 @@ vi.mock("../src/services/sqlite/vector-search.js", () => ({
 vi.mock("../src/services/user-prompt/user-prompt-manager.js", () => ({
   userPromptManager: {
     getCapturedPrompts: () => mockPrompts,
-    searchPrompts: (query: string, projectPath?: string, limit?: number) => {
+    searchPrompts: (query: string, _projectPath?: string, _limit?: number) => {
       return mockPrompts.filter((p) =>
         query ? p.content.toLowerCase().includes(query.toLowerCase()) : true
       );
@@ -206,7 +206,7 @@ vi.mock("../src/services/user-prompt/user-prompt-manager.js", () => ({
 }));
 
 vi.mock("../src/services/memory-conflicts.js", () => ({
-  getAllUnresolvedConflicts: (limit: number) => [
+  getAllUnresolvedConflicts: (_limit: number) => [
     {
       id: "conflict-1",
       memoryId1: "mem-1",

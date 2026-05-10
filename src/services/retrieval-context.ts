@@ -352,12 +352,6 @@ export function calculateContextBoost(
 
   // Query relevance - check if memory content contains words from recent queries
   if (context.recentQueries && context.recentQueries.length > 0) {
-    const queryWords = context.recentQueries
-      .join(" ")
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((w) => w.length > 3);
-
     // This is checked at a higher level where we have access to content
   }
 

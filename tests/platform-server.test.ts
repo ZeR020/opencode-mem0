@@ -117,13 +117,12 @@ describe("platform-server", () => {
 
   it("handles empty body requests", async () => {
     const port = 19994;
-    let bodyText: string | null = null;
 
     const server = await serve({
       port,
       hostname: "127.0.0.1",
       fetch: async (req: Request) => {
-        bodyText = await req.text().catch(() => null);
+        await req.text().catch(() => null);
         return new Response("OK", { status: 200 });
       },
     });

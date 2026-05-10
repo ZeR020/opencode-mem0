@@ -3,7 +3,6 @@ import { vectorSearch } from "./sqlite/vector-search.js";
 import { connectionManager } from "./sqlite/connection-manager.js";
 import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
-import type { ShardInfo } from "./sqlite/types.js";
 
 interface DuplicateGroup {
   representative: {

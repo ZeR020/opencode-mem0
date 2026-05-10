@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const dbByPath = new Map<string, any>();
-let mockConfig: Record<string, any> = {};
 
 vi.mock("../src/services/logger.js", () => ({
   log: () => {},
@@ -724,7 +723,6 @@ describe("Memory Engine Integration", () => {
     it("resolves conflict with keep_newer strategy", async () => {
       const db = makeDb("/tmp/shard-current.db");
       dbByPath.set("/tmp/shard-current.db", db);
-      let deprecatedId: string | null = null;
 
       db.prepare = (sql: string) => {
         if (sql.includes("memory_conflicts WHERE id = ?")) {

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { CONFIG } from "../config.js";
-import { sep, normalize, resolve, isAbsolute, basename, dirname } from "node:path";
+import { normalize, resolve, isAbsolute, basename, dirname } from "node:path";
 import { realpathSync, existsSync } from "node:fs";
 import { log } from "./logger.js";
 

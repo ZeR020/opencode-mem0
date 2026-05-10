@@ -74,7 +74,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
       messages.push(anthropicMsg);
     }
 
-    const userSequence = this.aiSessionManager.addMessageAtomic({
+    this.aiSessionManager.addMessageAtomic({
       aiSessionId: session.id,
       role: "user",
       content: userPrompt,
@@ -139,7 +139,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
 
         const data = (await response.json()) as AnthropicResponse;
 
-        const assistantSequence = this.aiSessionManager.addMessageAtomic({
+        this.aiSessionManager.addMessageAtomic({
           aiSessionId: session.id,
           role: "assistant",
           content: JSON.stringify(data.content),
@@ -189,7 +189,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
           const retryPrompt =
             "Please use the save_memories tool to extract and save the memories from the conversation as instructed.";
 
-          const retrySequence = this.aiSessionManager.addMessageAtomic({
+          this.aiSessionManager.addMessageAtomic({
             aiSessionId: session.id,
             role: "user",
             content: retryPrompt,

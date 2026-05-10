@@ -159,7 +159,7 @@ export class WebServer {
           }
         }
       }
-    } catch (error) {
+    } catch (_error) {
       this.startHealthCheckLoop();
     }
   }
@@ -517,7 +517,7 @@ export class WebServer {
           "Cache-Control": "no-cache",
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return new Response("File not found", { status: 404 });
     }
   }

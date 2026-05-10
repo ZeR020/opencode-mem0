@@ -1,6 +1,6 @@
 import { getDatabase } from "../src/services/sqlite/sqlite-bootstrap.ts";
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
-import { join, dirname, basename } from "node:path";
+import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { log } from "../src/services/logger.ts";
 

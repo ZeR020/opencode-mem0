@@ -88,7 +88,7 @@ describe("OpenAIResponsesProvider", () => {
   });
 
   it("reuses existing session with conversationId", async () => {
-    const session = sessionManager.createSession({
+    const _session = sessionManager.createSession({
       provider: "openai-responses",
       sessionId: "session-2",
     });
@@ -357,7 +357,7 @@ describe("OpenAIResponsesProvider", () => {
   });
 
   it("uses instructions on first call, conversation on subsequent", async () => {
-    const session = sessionManager.createSession({
+    const _session = sessionManager.createSession({
       provider: "openai-responses",
       sessionId: "session-instructions",
     });

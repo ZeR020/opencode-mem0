@@ -1015,7 +1015,7 @@ export async function handleDetectTagMigration(): Promise<
       untaggedCount += rows.count;
     }
     return { success: true, data: { needsMigration: untaggedCount > 0, count: untaggedCount } };
-  } catch (error) {
+  } catch (_error) {
     return { success: false, error: "Internal error" };
   }
 }
@@ -1146,7 +1146,6 @@ export async function handleRunTagMigrationBatch(
         await vectorSearch.updateVector(db, m.id, vector, shard, tagsVector);
 
         migrationProgress.processed++;
-        batchProcessed++;
       } catch (e) {
         const errorMsg = String(e);
         migrationProgress.errors.push(errorMsg);
@@ -1165,7 +1164,7 @@ export async function handleRunTagMigrationBatch(
       success: true,
       data: { processed: migrationProgress.processed, total: migrationProgress.total, hasMore },
     };
-  } catch (error) {
+  } catch (_error) {
     return { success: false, error: "Internal error" };
   }
 }

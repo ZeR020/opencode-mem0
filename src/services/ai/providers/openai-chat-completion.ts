@@ -92,7 +92,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     toolCallId: string,
     content: string
   ): void {
-    const sequence = this.aiSessionManager.addMessageAtomic({
+    this.aiSessionManager.addMessageAtomic({
       aiSessionId: sessionId,
       role: "tool",
       content,
@@ -183,7 +183,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     }
 
     if (messages.length === 0) {
-      const sequence = this.aiSessionManager.addMessageAtomic({
+      const _sequence = this.aiSessionManager.addMessageAtomic({
         aiSessionId: session.id,
         role: "system",
         content: systemPrompt,
@@ -192,7 +192,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
       messages.push({ role: "system", content: systemPrompt });
     }
 
-    const userSequence = this.aiSessionManager.addMessageAtomic({
+    const _userSequence = this.aiSessionManager.addMessageAtomic({
       aiSessionId: session.id,
       role: "user",
       content: userPrompt,
@@ -326,7 +326,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
           assistantMsg.toolCalls = choice.message.tool_calls;
         }
 
-        const assistantSequence = this.aiSessionManager.addMessageAtomic(assistantMsg);
+        this.aiSessionManager.addMessageAtomic(assistantMsg);
         messages.push({
           role: "assistant",
           content: choice.message.content ?? null,
@@ -403,7 +403,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
         const retryPrompt =
           "Please use the save_memories tool to extract and save the memories from the conversation as instructed.";
 
-        const retrySequence = this.aiSessionManager.addMessageAtomic({
+        this.aiSessionManager.addMessageAtomic({
           aiSessionId: session.id,
           role: "user",
           content: retryPrompt,

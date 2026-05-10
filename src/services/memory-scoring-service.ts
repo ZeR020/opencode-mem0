@@ -16,11 +16,6 @@ import {
 let scoringInterval: NodeJS.Timeout | null = null;
 let isRunning = false;
 
-function getDatabase() {
-  // Lazy import to avoid circular dependency
-  const { getDatabase: getDb } = require("./sqlite/sqlite-bootstrap.js");
-  return getDb() as new (path: string) => import("./sqlite/sqlite-bootstrap.js").Database;
-}
 
 /**
  * Recalculate scores for all memories in all shards.

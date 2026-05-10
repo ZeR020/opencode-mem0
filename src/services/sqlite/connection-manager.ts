@@ -2,7 +2,6 @@ import { getDatabase, type Database } from "./sqlite-bootstrap.js";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { log } from "../logger.js";
-import { CONFIG } from "../../config.js";
 import { runMigrations } from "./schema.js";
 
 const Database = getDatabase();

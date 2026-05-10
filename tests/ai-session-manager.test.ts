@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -188,7 +188,7 @@ describe("AISessionManager", () => {
   });
 
   it("cleans up expired sessions", async () => {
-    const { manager, tmpDir } = await makeSessionManager();
+    await makeSessionManager();
     // Set retention to 0 to make sessions expire immediately
     const { CONFIG } = await import("../src/config.js");
     const originalRetention = CONFIG.aiSessionRetentionDays;

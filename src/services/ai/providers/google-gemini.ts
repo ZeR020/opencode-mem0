@@ -30,7 +30,7 @@ export class GoogleGeminiProvider extends BaseAIProvider {
     toolCallId: string,
     content: string
   ): void {
-    const sequence = this.aiSessionManager.addMessageAtomic({
+    this.aiSessionManager.addMessageAtomic({
       aiSessionId: sessionId,
       role: "tool",
       content,
@@ -137,7 +137,7 @@ export class GoogleGeminiProvider extends BaseAIProvider {
     }
 
     if (contents.length === 0 || contents[contents.length - 1].role !== "user") {
-      const userSequence = this.aiSessionManager.addMessageAtomic({
+      this.aiSessionManager.addMessageAtomic({
         aiSessionId: session.id,
         role: "user",
         content: userPrompt,
@@ -247,7 +247,7 @@ export class GoogleGeminiProvider extends BaseAIProvider {
           }
         }
 
-        const assistantSequence = this.aiSessionManager.addMessageAtomic(assistantMsg);
+        const _assistantSequence = this.aiSessionManager.addMessageAtomic(assistantMsg);
         contents.push(modelMsg);
 
         if (assistantMsg.toolCalls.length > 0) {
@@ -281,7 +281,7 @@ export class GoogleGeminiProvider extends BaseAIProvider {
 
         // Retry if no tool call was made
         const retryPrompt = "Please use the save_memories tool as instructed.";
-        const retrySequence = this.aiSessionManager.addMessageAtomic({
+        const _retrySequence = this.aiSessionManager.addMessageAtomic({
           aiSessionId: session.id,
           role: "user",
           content: retryPrompt,
