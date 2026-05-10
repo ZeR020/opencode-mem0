@@ -334,78 +334,70 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
         });
 
         if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
-          const toolCall = choice.message.tool_calls[0];
-          if (!toolCall) {
-            const retryPrompt =
-              "Please use the save_memories tool to extract and save the memories from the conversation as instructed.";
-            const retrySequence = this.aiSessionManager.addMessageAtomic({
-              aiSessionId: session.id,
-              role: "user",
-              content: retryPrompt,
-            });
-            messages.push({ role: "user", content: retryPrompt });
-            continue;
-          }
-          const toolCallId = toolCall.id;
+          for (const toolCall of choice.message.tool_calls) {
+            const toolCallId = toolCall.id;
 
-          if (toolCall.function.name === toolSchema.function.name) {
-            try {
-              const parsed = JSON.parse(toolCall.function.arguments);
-              const result = UserProfileValidator.validate(parsed);
-              if (!result.valid) {
-                throw new Error(result.errors.join(", "));
+            if (toolCall.function.name === toolSchema.function.name) {
+              try {
+                const parsed = JSON.parse(toolCall.function.arguments);
+                const result = UserProfileValidator.validate(parsed);
+                if (!result.valid) {
+                  throw new Error(result.errors.join(", "));
+                }
+
+                this.addToolResponse(
+                  session.id,
+                  messages,
+                  toolCallId,
+                  JSON.stringify({ success: true })
+                );
+
+                return {
+                  success: true,
+                  data: result.data,
+                  iterations,
+                };
+              } catch (validationError) {
+                const errorStack =
+                  validationError instanceof Error ? validationError.stack : undefined;
+                log("OpenAI tool response validation failed", {
+                  error: String(validationError),
+                  stack: errorStack,
+                  errorType:
+                    validationError instanceof Error
+                      ? validationError.constructor.name
+                      : typeof validationError,
+                  toolName: toolSchema.function.name,
+                  iteration: iterations,
+                  rawArgumentsSize: toolCall.function.arguments.length,
+                });
+
+                const errorMessage = `Validation failed: ${String(validationError)}`;
+                this.addToolResponse(
+                  session.id,
+                  messages,
+                  toolCallId,
+                  JSON.stringify({ success: false, error: errorMessage })
+                );
+
+                return {
+                  success: false,
+                  error: errorMessage,
+                  iterations,
+                };
               }
-
-              this.addToolResponse(
-                session.id,
-                messages,
-                toolCallId,
-                JSON.stringify({ success: true })
-              );
-
-              return {
-                success: true,
-                data: result.data,
-                iterations,
-              };
-            } catch (validationError) {
-              const errorStack =
-                validationError instanceof Error ? validationError.stack : undefined;
-              log("OpenAI tool response validation failed", {
-                error: String(validationError),
-                stack: errorStack,
-                errorType:
-                  validationError instanceof Error
-                    ? validationError.constructor.name
-                    : typeof validationError,
-                toolName: toolSchema.function.name,
-                iteration: iterations,
-                rawArgumentsSize: toolCall.function.arguments.length,
-              });
-
-              const errorMessage = `Validation failed: ${String(validationError)}`;
-              this.addToolResponse(
-                session.id,
-                messages,
-                toolCallId,
-                JSON.stringify({ success: false, error: errorMessage })
-              );
-
-              return {
-                success: false,
-                error: errorMessage,
-                iterations,
-              };
             }
-          }
 
-          const wrongToolMessage = `Wrong tool called. Please use ${toolSchema.function.name} instead.`;
-          this.addToolResponse(
-            session.id,
-            messages,
-            toolCallId,
-            JSON.stringify({ success: false, error: wrongToolMessage })
-          );
+            const wrongToolMessage = `Wrong tool called. Please use ${toolSchema.function.name} instead.`;
+            this.addToolResponse(
+              session.id,
+              messages,
+              toolCallId,
+              JSON.stringify({ success: false, error: wrongToolMessage })
+            );
+
+            break;
+          }
         }
 
         const retryPrompt =
