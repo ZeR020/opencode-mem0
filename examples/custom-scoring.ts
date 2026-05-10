@@ -43,15 +43,6 @@ function main() {
   const confidence = calculateConfidence("manual", "refactor");
   const interference = calculateInterference(content, conflictingMemories);
 
-  console.log("=== Individual Scores ===");
-  console.log(`Recency:      ${recency.toFixed(3)}`);
-  console.log(`Frequency:    ${frequency.toFixed(3)}`);
-  console.log(`Importance:   ${importance.toFixed(3)}`);
-  console.log(`Utility:      ${utility.toFixed(3)}`);
-  console.log(`Novelty:      ${novelty.toFixed(3)}`);
-  console.log(`Confidence:   ${confidence.toFixed(3)}`);
-  console.log(`Interference: ${interference.toFixed(3)}`);
-
   // --- Compute overall strength ---
   const scores: ScoreComponents = {
     recency,
@@ -64,7 +55,6 @@ function main() {
   };
 
   const strength = computeStrength(scores);
-  console.log(`\n=== Overall Strength: ${strength.toFixed(3)} ===`);
 
   // --- Calculate all scores in one call ---
   const allScores = calculateAllScores({
@@ -80,21 +70,21 @@ function main() {
     utilityHalfLifeDays: 3,
   });
 
-  console.log("\n=== Batch Calculation ===");
-  console.log(JSON.stringify(allScores, null, 2));
-
   // --- Score interpretation ---
-  console.log("\n=== Interpretation ===");
   if (strength > 0.8) {
-    console.log("High-strength memory → eligible for automatic LTM promotion.");
+    // High-strength memory → eligible for automatic LTM promotion.
+    // You may trigger a UI update here.
   } else if (strength > 0.5) {
-    console.log("Medium-strength memory → remains in STM with standard decay.");
+    // Medium-strength memory → remains in STM with standard decay.
+    // You may trigger a UI update here.
   } else {
-    console.log("Low-strength memory → may be archived after prolonged inactivity.");
+    // Low-strength memory → may be archived after prolonged inactivity.
+    // You may trigger a UI update here.
   }
 
   if (interference > 0.3) {
-    console.log("⚠️  High interference detected — consider conflict resolution.");
+    // ⚠️  High interference detected — consider conflict resolution.
+    // You may trigger a UI warning here.
   }
 }
 
