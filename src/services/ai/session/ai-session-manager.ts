@@ -33,10 +33,10 @@ export class AISessionManager {
   private updateMetadataStmt: any;
   private updateBothStmt: any;
 
-  constructor() {
-    this.dbPath = join(CONFIG.storagePath, AI_SESSIONS_DB_NAME);
+  constructor(opts?: { dbPath?: string }) {
+    this.dbPath = opts?.dbPath ?? join(CONFIG.storagePath, AI_SESSIONS_DB_NAME);
     const dir = dirname(this.dbPath);
-    if (!existsSync(dir)) {
+    if (this.dbPath !== ":memory:" && !existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
     this.db = connectionManager.getConnection(this.dbPath);

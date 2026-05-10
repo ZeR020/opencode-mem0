@@ -1,6 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { unlinkSync } from "node:fs";
-import { join, dirname } from "node:path";
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -20,7 +18,6 @@ vi.mock("../src/services/ai/tools/tool-schema.js", () => ({
 
 import { OpenAIResponsesProvider } from "../src/services/ai/providers/openai-responses.js";
 import { AISessionManager } from "../src/services/ai/session/ai-session-manager.js";
-import { CONFIG } from "../src/config.js";
 
 describe("OpenAIResponsesProvider", () => {
   let provider: OpenAIResponsesProvider;
@@ -46,11 +43,7 @@ describe("OpenAIResponsesProvider", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // Clean up shared SQLite database to prevent state leakage between tests
-    try {
-      unlinkSync(join(CONFIG.storagePath, "ai-sessions.db"));
-    } catch {}
-    sessionManager = new AISessionManager({ dbPath: ":memory:" } as any);
+    sessionManager = new AISessionManager({ dbPath: ":memory:" });
     provider = new OpenAIResponsesProvider(mockConfig, sessionManager);
   });
 
