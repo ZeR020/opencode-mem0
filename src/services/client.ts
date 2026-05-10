@@ -44,8 +44,8 @@ export class LocalMemoryClient {
 
   constructor() {}
 
-  private async initialize(): Promise<void> {
-    if (this.isInitialized) return;
+  private initialize(): Promise<void> {
+    if (this.isInitialized) return Promise.resolve();
     if (this.initPromise) return this.initPromise;
 
     this.initPromise = Promise.resolve();
