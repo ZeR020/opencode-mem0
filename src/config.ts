@@ -789,149 +789,217 @@ function getEmbeddingDimensions(model: string): number {
   return dimensionMap[model] || 768;
 }
 
-function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
+function coalesce<T>(value: T | undefined, defaultValue: T): T {
+  return value ?? defaultValue;
+}
+
+function buildMemoryConfig(f: OpenCodeMemConfig) {
+  return { defaultScope: coalesce(f.memory?.defaultScope, DEFAULTS.memory.defaultScope) };
+}
+
+function buildCompactionConfig(f: OpenCodeMemConfig) {
   return {
-    storagePath: expandPath(fileConfig.storagePath ?? DEFAULTS.storagePath),
-    userEmailOverride: fileConfig.userEmailOverride,
-    userNameOverride: fileConfig.userNameOverride,
-    embeddingModel: fileConfig.embeddingModel ?? DEFAULTS.embeddingModel,
-    embeddingDimensions:
-      fileConfig.embeddingDimensions ??
-      getEmbeddingDimensions(fileConfig.embeddingModel ?? DEFAULTS.embeddingModel),
-    embeddingApiUrl: fileConfig.embeddingApiUrl,
-    embeddingApiKey: fileConfig.embeddingApiUrl
-      ? resolveSecretValue(fileConfig.embeddingApiKey ?? process.env.OPENAI_API_KEY)
+    enabled: coalesce(f.compaction?.enabled, DEFAULTS.compaction.enabled),
+    memoryLimit: coalesce(f.compaction?.memoryLimit, DEFAULTS.compaction.memoryLimit),
+  };
+}
+
+function buildTranscriptConfig(f: OpenCodeMemConfig) {
+  return {
+    enabled: coalesce(f.transcriptStorage?.enabled, DEFAULTS.transcriptStorage.enabled),
+    maxAgeDays: coalesce(f.transcriptStorage?.maxAgeDays, DEFAULTS.transcriptStorage.maxAgeDays),
+  };
+}
+
+function buildScoringConfig(f: OpenCodeMemConfig) {
+  return {
+    enabled: coalesce(f.memoryScoring?.enabled, DEFAULTS.memoryScoring.enabled),
+    recalculationIntervalMinutes: coalesce(
+      f.memoryScoring?.recalculationIntervalMinutes,
+      DEFAULTS.memoryScoring.recalculationIntervalMinutes
+    ),
+    recencyHalfLifeDays: coalesce(
+      f.memoryScoring?.recencyHalfLifeDays,
+      DEFAULTS.memoryScoring.recencyHalfLifeDays
+    ),
+    utilityHalfLifeDays: coalesce(
+      f.memoryScoring?.utilityHalfLifeDays,
+      DEFAULTS.memoryScoring.utilityHalfLifeDays
+    ),
+  };
+}
+
+function buildLifecycleConfig(f: OpenCodeMemConfig) {
+  return {
+    stmDecayDays: coalesce(f.memoryLifecycle?.stmDecayDays, DEFAULTS.memoryLifecycle.stmDecayDays),
+    ltmDecayDays: coalesce(f.memoryLifecycle?.ltmDecayDays, DEFAULTS.memoryLifecycle.ltmDecayDays),
+    promotionThreshold: coalesce(
+      f.memoryLifecycle?.promotionThreshold,
+      DEFAULTS.memoryLifecycle.promotionThreshold
+    ),
+    archiveThreshold: coalesce(
+      f.memoryLifecycle?.archiveThreshold,
+      DEFAULTS.memoryLifecycle.archiveThreshold
+    ),
+    archiveAfterDays: coalesce(
+      f.memoryLifecycle?.archiveAfterDays,
+      DEFAULTS.memoryLifecycle.archiveAfterDays
+    ),
+    checkIntervalMinutes: coalesce(
+      f.memoryLifecycle?.checkIntervalMinutes,
+      DEFAULTS.memoryLifecycle.checkIntervalMinutes
+    ),
+  };
+}
+
+function buildChatConfig(f: OpenCodeMemConfig) {
+  return {
+    enabled: coalesce(f.chatMessage?.enabled, DEFAULTS.chatMessage.enabled),
+    maxMemories: coalesce(f.chatMessage?.maxMemories, DEFAULTS.chatMessage.maxMemories),
+    excludeCurrentSession: coalesce(
+      f.chatMessage?.excludeCurrentSession,
+      DEFAULTS.chatMessage.excludeCurrentSession
+    ),
+    maxAgeDays: f.chatMessage?.maxAgeDays,
+    injectOn: coalesce(f.chatMessage?.injectOn, DEFAULTS.chatMessage.injectOn) as
+      | "first"
+      | "always",
+  };
+}
+
+function buildRetrievalConfig(f: OpenCodeMemConfig) {
+  return {
+    maxResults: coalesce(f.retrieval?.maxResults, DEFAULTS.retrieval.maxResults),
+    diversityThreshold: coalesce(
+      f.retrieval?.diversityThreshold,
+      DEFAULTS.retrieval.diversityThreshold
+    ),
+    contextBoost: coalesce(f.retrieval?.contextBoost, DEFAULTS.retrieval.contextBoost),
+  };
+}
+
+function buildInjectionConfig(f: OpenCodeMemConfig) {
+  return {
+    tokenBudget: coalesce(f.injection?.tokenBudget, DEFAULTS.injection.tokenBudget),
+    format: coalesce(f.injection?.format, DEFAULTS.injection.format),
+    queryAwareFiltering: coalesce(
+      f.injection?.queryAwareFiltering,
+      DEFAULTS.injection.queryAwareFiltering
+    ),
+    relevanceThreshold: coalesce(
+      f.injection?.relevanceThreshold,
+      DEFAULTS.injection.relevanceThreshold
+    ),
+  };
+}
+
+function buildDecayConfig(f: OpenCodeMemConfig) {
+  return {
+    enabled: coalesce(f.contextualDecay?.enabled, DEFAULTS.contextualDecay.enabled),
+    baseDecayRate: coalesce(
+      f.contextualDecay?.baseDecayRate,
+      DEFAULTS.contextualDecay.baseDecayRate
+    ),
+    strengthBoostFactor: coalesce(
+      f.contextualDecay?.strengthBoostFactor,
+      DEFAULTS.contextualDecay.strengthBoostFactor
+    ),
+    accessBoostFactor: coalesce(
+      f.contextualDecay?.accessBoostFactor,
+      DEFAULTS.contextualDecay.accessBoostFactor
+    ),
+    minDecayRate: coalesce(f.contextualDecay?.minDecayRate, DEFAULTS.contextualDecay.minDecayRate),
+    maxDecayRate: coalesce(f.contextualDecay?.maxDecayRate, DEFAULTS.contextualDecay.maxDecayRate),
+  };
+}
+
+function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
+  const f = fileConfig;
+  const d = DEFAULTS;
+  return {
+    storagePath: expandPath(coalesce(f.storagePath, d.storagePath)),
+    userEmailOverride: f.userEmailOverride,
+    userNameOverride: f.userNameOverride,
+    embeddingModel: coalesce(f.embeddingModel, d.embeddingModel),
+    embeddingDimensions: coalesce(
+      f.embeddingDimensions,
+      getEmbeddingDimensions(coalesce(f.embeddingModel, d.embeddingModel))
+    ),
+    embeddingApiUrl: f.embeddingApiUrl,
+    embeddingApiKey: f.embeddingApiUrl
+      ? resolveSecretValue(coalesce(f.embeddingApiKey, process.env.OPENAI_API_KEY))
       : undefined,
-    similarityThreshold: fileConfig.similarityThreshold ?? DEFAULTS.similarityThreshold,
-    maxMemories: fileConfig.maxMemories ?? DEFAULTS.maxMemories,
-    maxProfileItems: fileConfig.maxProfileItems ?? DEFAULTS.maxProfileItems,
-    injectProfile: fileConfig.injectProfile ?? DEFAULTS.injectProfile,
-    containerTagPrefix: fileConfig.containerTagPrefix ?? DEFAULTS.containerTagPrefix,
-    autoCaptureEnabled: fileConfig.autoCaptureEnabled ?? DEFAULTS.autoCaptureEnabled,
-    autoCaptureMaxIterations:
-      fileConfig.autoCaptureMaxIterations ?? DEFAULTS.autoCaptureMaxIterations,
-    autoCaptureIterationTimeout:
-      fileConfig.autoCaptureIterationTimeout ?? DEFAULTS.autoCaptureIterationTimeout,
-    autoCaptureLanguage: fileConfig.autoCaptureLanguage,
-    memoryProvider: (fileConfig.memoryProvider ?? "openai-chat") as
+    similarityThreshold: coalesce(f.similarityThreshold, d.similarityThreshold),
+    maxMemories: coalesce(f.maxMemories, d.maxMemories),
+    maxProfileItems: coalesce(f.maxProfileItems, d.maxProfileItems),
+    injectProfile: coalesce(f.injectProfile, d.injectProfile),
+    containerTagPrefix: coalesce(f.containerTagPrefix, d.containerTagPrefix),
+    autoCaptureEnabled: coalesce(f.autoCaptureEnabled, d.autoCaptureEnabled),
+    autoCaptureMaxIterations: coalesce(f.autoCaptureMaxIterations, d.autoCaptureMaxIterations),
+    autoCaptureIterationTimeout: coalesce(
+      f.autoCaptureIterationTimeout,
+      d.autoCaptureIterationTimeout
+    ),
+    autoCaptureLanguage: f.autoCaptureLanguage,
+    memoryProvider: coalesce(f.memoryProvider, "openai-chat") as
       | "openai-chat"
       | "openai-responses"
       | "anthropic"
       | "google-gemini",
-    memoryModel: fileConfig.memoryModel,
-    memoryApiUrl: fileConfig.memoryApiUrl,
-    memoryApiKey: resolveSecretValue(fileConfig.memoryApiKey),
-    memoryTemperature: fileConfig.memoryTemperature,
-    memoryExtraParams: fileConfig.memoryExtraParams,
-    opencodeProvider: fileConfig.opencodeProvider,
-    opencodeModel: fileConfig.opencodeModel,
-    vectorBackend: (fileConfig.vectorBackend ?? "usearch-first") as
+    memoryModel: f.memoryModel,
+    memoryApiUrl: f.memoryApiUrl,
+    memoryApiKey: resolveSecretValue(f.memoryApiKey),
+    memoryTemperature: f.memoryTemperature,
+    memoryExtraParams: f.memoryExtraParams,
+    opencodeProvider: f.opencodeProvider,
+    opencodeModel: f.opencodeModel,
+    vectorBackend: coalesce(f.vectorBackend, "usearch-first") as
       | "usearch-first"
       | "usearch"
       | "exact-scan",
-    aiSessionRetentionDays: fileConfig.aiSessionRetentionDays ?? DEFAULTS.aiSessionRetentionDays,
-    webServerEnabled: fileConfig.webServerEnabled ?? DEFAULTS.webServerEnabled,
-    webServerPort: fileConfig.webServerPort ?? DEFAULTS.webServerPort,
-    webServerHost: fileConfig.webServerHost ?? DEFAULTS.webServerHost,
-    webServerApiKey: fileConfig.webServerApiKey,
-    maxVectorsPerShard: fileConfig.maxVectorsPerShard ?? DEFAULTS.maxVectorsPerShard,
-    autoCleanupEnabled: fileConfig.autoCleanupEnabled ?? DEFAULTS.autoCleanupEnabled,
-    autoCleanupRetentionDays:
-      fileConfig.autoCleanupRetentionDays ?? DEFAULTS.autoCleanupRetentionDays,
-    deduplicationEnabled: fileConfig.deduplicationEnabled ?? DEFAULTS.deduplicationEnabled,
-    deduplicationSimilarityThreshold:
-      fileConfig.deduplicationSimilarityThreshold ?? DEFAULTS.deduplicationSimilarityThreshold,
-    deduplicationIngestEnabled: fileConfig.deduplicationIngestEnabled ?? true,
-    userProfileAnalysisInterval:
-      fileConfig.userProfileAnalysisInterval ?? DEFAULTS.userProfileAnalysisInterval,
-    userProfileMaxPreferences:
-      fileConfig.userProfileMaxPreferences ?? DEFAULTS.userProfileMaxPreferences,
-    userProfileMaxPatterns: fileConfig.userProfileMaxPatterns ?? DEFAULTS.userProfileMaxPatterns,
-    userProfileMaxWorkflows: fileConfig.userProfileMaxWorkflows ?? DEFAULTS.userProfileMaxWorkflows,
-    userProfileConfidenceDecayDays:
-      fileConfig.userProfileConfidenceDecayDays ?? DEFAULTS.userProfileConfidenceDecayDays,
-    userProfileChangelogRetentionCount:
-      fileConfig.userProfileChangelogRetentionCount ?? DEFAULTS.userProfileChangelogRetentionCount,
-    showAutoCaptureToasts: fileConfig.showAutoCaptureToasts ?? DEFAULTS.showAutoCaptureToasts,
-    showUserProfileToasts: fileConfig.showUserProfileToasts ?? DEFAULTS.showUserProfileToasts,
-    showErrorToasts: fileConfig.showErrorToasts ?? DEFAULTS.showErrorToasts,
-    memory: {
-      defaultScope: fileConfig.memory?.defaultScope ?? DEFAULTS.memory.defaultScope,
-    },
-    compaction: {
-      enabled: fileConfig.compaction?.enabled ?? DEFAULTS.compaction.enabled,
-      memoryLimit: fileConfig.compaction?.memoryLimit ?? DEFAULTS.compaction.memoryLimit,
-    },
-    transcriptStorage: {
-      enabled: fileConfig.transcriptStorage?.enabled ?? DEFAULTS.transcriptStorage.enabled,
-      maxAgeDays: fileConfig.transcriptStorage?.maxAgeDays ?? DEFAULTS.transcriptStorage.maxAgeDays,
-    },
-    memoryScoring: {
-      enabled: fileConfig.memoryScoring?.enabled ?? DEFAULTS.memoryScoring.enabled,
-      recalculationIntervalMinutes:
-        fileConfig.memoryScoring?.recalculationIntervalMinutes ??
-        DEFAULTS.memoryScoring.recalculationIntervalMinutes,
-      recencyHalfLifeDays:
-        fileConfig.memoryScoring?.recencyHalfLifeDays ?? DEFAULTS.memoryScoring.recencyHalfLifeDays,
-      utilityHalfLifeDays:
-        fileConfig.memoryScoring?.utilityHalfLifeDays ?? DEFAULTS.memoryScoring.utilityHalfLifeDays,
-    },
-    memoryLifecycle: {
-      stmDecayDays:
-        fileConfig.memoryLifecycle?.stmDecayDays ?? DEFAULTS.memoryLifecycle.stmDecayDays,
-      ltmDecayDays:
-        fileConfig.memoryLifecycle?.ltmDecayDays ?? DEFAULTS.memoryLifecycle.ltmDecayDays,
-      promotionThreshold:
-        fileConfig.memoryLifecycle?.promotionThreshold ??
-        DEFAULTS.memoryLifecycle.promotionThreshold,
-      archiveThreshold:
-        fileConfig.memoryLifecycle?.archiveThreshold ?? DEFAULTS.memoryLifecycle.archiveThreshold,
-      archiveAfterDays:
-        fileConfig.memoryLifecycle?.archiveAfterDays ?? DEFAULTS.memoryLifecycle.archiveAfterDays,
-      checkIntervalMinutes:
-        fileConfig.memoryLifecycle?.checkIntervalMinutes ??
-        DEFAULTS.memoryLifecycle.checkIntervalMinutes,
-    },
-    chatMessage: {
-      enabled: fileConfig.chatMessage?.enabled ?? DEFAULTS.chatMessage.enabled,
-      maxMemories: fileConfig.chatMessage?.maxMemories ?? DEFAULTS.chatMessage.maxMemories,
-      excludeCurrentSession:
-        fileConfig.chatMessage?.excludeCurrentSession ?? DEFAULTS.chatMessage.excludeCurrentSession,
-      maxAgeDays: fileConfig.chatMessage?.maxAgeDays,
-      injectOn: (fileConfig.chatMessage?.injectOn ?? DEFAULTS.chatMessage.injectOn) as
-        | "first"
-        | "always",
-    },
-    retrieval: {
-      maxResults: fileConfig.retrieval?.maxResults ?? DEFAULTS.retrieval.maxResults,
-      diversityThreshold:
-        fileConfig.retrieval?.diversityThreshold ?? DEFAULTS.retrieval.diversityThreshold,
-      contextBoost: fileConfig.retrieval?.contextBoost ?? DEFAULTS.retrieval.contextBoost,
-    },
-    injection: {
-      tokenBudget: fileConfig.injection?.tokenBudget ?? DEFAULTS.injection.tokenBudget,
-      format: fileConfig.injection?.format ?? DEFAULTS.injection.format,
-      queryAwareFiltering:
-        fileConfig.injection?.queryAwareFiltering ?? DEFAULTS.injection.queryAwareFiltering,
-      relevanceThreshold:
-        fileConfig.injection?.relevanceThreshold ?? DEFAULTS.injection.relevanceThreshold,
-    },
-    contextualDecay: {
-      enabled: fileConfig.contextualDecay?.enabled ?? DEFAULTS.contextualDecay.enabled,
-      baseDecayRate:
-        fileConfig.contextualDecay?.baseDecayRate ?? DEFAULTS.contextualDecay.baseDecayRate,
-      strengthBoostFactor:
-        fileConfig.contextualDecay?.strengthBoostFactor ??
-        DEFAULTS.contextualDecay.strengthBoostFactor,
-      accessBoostFactor:
-        fileConfig.contextualDecay?.accessBoostFactor ?? DEFAULTS.contextualDecay.accessBoostFactor,
-      minDecayRate:
-        fileConfig.contextualDecay?.minDecayRate ?? DEFAULTS.contextualDecay.minDecayRate,
-      maxDecayRate:
-        fileConfig.contextualDecay?.maxDecayRate ?? DEFAULTS.contextualDecay.maxDecayRate,
-    },
-    logLevel: fileConfig.logLevel ?? DEFAULTS.logLevel,
-    warmupTimeoutMs: fileConfig.warmupTimeoutMs ?? DEFAULTS.warmupTimeoutMs,
+    aiSessionRetentionDays: coalesce(f.aiSessionRetentionDays, d.aiSessionRetentionDays),
+    webServerEnabled: coalesce(f.webServerEnabled, d.webServerEnabled),
+    webServerPort: coalesce(f.webServerPort, d.webServerPort),
+    webServerHost: coalesce(f.webServerHost, d.webServerHost),
+    webServerApiKey: f.webServerApiKey,
+    maxVectorsPerShard: coalesce(f.maxVectorsPerShard, d.maxVectorsPerShard),
+    autoCleanupEnabled: coalesce(f.autoCleanupEnabled, d.autoCleanupEnabled),
+    autoCleanupRetentionDays: coalesce(f.autoCleanupRetentionDays, d.autoCleanupRetentionDays),
+    deduplicationEnabled: coalesce(f.deduplicationEnabled, d.deduplicationEnabled),
+    deduplicationSimilarityThreshold: coalesce(
+      f.deduplicationSimilarityThreshold,
+      d.deduplicationSimilarityThreshold
+    ),
+    deduplicationIngestEnabled: coalesce(f.deduplicationIngestEnabled, true),
+    userProfileAnalysisInterval: coalesce(
+      f.userProfileAnalysisInterval,
+      d.userProfileAnalysisInterval
+    ),
+    userProfileMaxPreferences: coalesce(f.userProfileMaxPreferences, d.userProfileMaxPreferences),
+    userProfileMaxPatterns: coalesce(f.userProfileMaxPatterns, d.userProfileMaxPatterns),
+    userProfileMaxWorkflows: coalesce(f.userProfileMaxWorkflows, d.userProfileMaxWorkflows),
+    userProfileConfidenceDecayDays: coalesce(
+      f.userProfileConfidenceDecayDays,
+      d.userProfileConfidenceDecayDays
+    ),
+    userProfileChangelogRetentionCount: coalesce(
+      f.userProfileChangelogRetentionCount,
+      d.userProfileChangelogRetentionCount
+    ),
+    showAutoCaptureToasts: coalesce(f.showAutoCaptureToasts, d.showAutoCaptureToasts),
+    showUserProfileToasts: coalesce(f.showUserProfileToasts, d.showUserProfileToasts),
+    showErrorToasts: coalesce(f.showErrorToasts, d.showErrorToasts),
+    memory: buildMemoryConfig(f),
+    compaction: buildCompactionConfig(f),
+    transcriptStorage: buildTranscriptConfig(f),
+    memoryScoring: buildScoringConfig(f),
+    memoryLifecycle: buildLifecycleConfig(f),
+    chatMessage: buildChatConfig(f),
+    retrieval: buildRetrievalConfig(f),
+    injection: buildInjectionConfig(f),
+    contextualDecay: buildDecayConfig(f),
+    logLevel: coalesce(f.logLevel, d.logLevel),
+    warmupTimeoutMs: coalesce(f.warmupTimeoutMs, d.warmupTimeoutMs),
   };
 }
 
@@ -960,28 +1028,22 @@ if (!existsSync(CONFIG.storagePath)) {
   mkdirSync(CONFIG.storagePath, { recursive: true });
 }
 
+function isPlainObject(value: unknown): value is object {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function deepMerge<T extends object>(target: T, source: Partial<T>): T {
-  const result = { ...target } as T;
-  for (const key in source) {
-    if (source[key] !== undefined) {
-      if (
-        typeof source[key] === "object" &&
-        source[key] !== null &&
-        !Array.isArray(source[key]) &&
-        typeof result[key] === "object" &&
-        result[key] !== null &&
-        !Array.isArray(result[key])
-      ) {
-        result[key] = deepMerge(result[key] as object, source[key] as object) as T[Extract<
-          keyof T,
-          string
-        >];
-      } else {
-        result[key] = source[key] as T[Extract<keyof T, string>];
-      }
+  const result = { ...target } as Record<string, unknown>;
+  for (const key of Object.keys(source) as Array<keyof T>) {
+    const srcVal = source[key];
+    if (srcVal === undefined) continue;
+    if (isPlainObject(srcVal) && isPlainObject(result[key as string])) {
+      result[key as string] = deepMerge(result[key as string] as object, srcVal as object);
+    } else {
+      result[key as string] = srcVal;
     }
   }
-  return result;
+  return result as T;
 }
 
 export function initConfig(directory: string): void {

@@ -43,7 +43,11 @@ function makeDb(name: string) {
           run: (..._params: unknown[]) => ({ changes: 1 }),
         });
       }
-      return stmts.get(sql)!;
+      return stmts.get(sql) as {
+        get: (...args: unknown[]) => unknown;
+        all: (...args: unknown[]) => unknown[];
+        run: (...args: unknown[]) => { changes: number };
+      };
     },
     _data: data,
   };
