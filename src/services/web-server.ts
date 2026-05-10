@@ -164,7 +164,7 @@ export class WebServer {
     }
   }
 
-  async stop(): Promise<void> {
+  stop(): void {
     this.stopHealthCheckLoop();
     this.startPromise = null;
 
