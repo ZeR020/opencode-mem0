@@ -9,8 +9,7 @@ enabled = true
   environment = ["nodejs"]
   module_system = "esm"
 
-  [analyzers.ignore_rules]
-  javascript = ["JS-0067"]
+
 
 [[analyzers]]
 name = "secrets"

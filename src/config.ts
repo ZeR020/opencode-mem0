@@ -384,6 +384,7 @@ const DEFAULTS: Required<
   warmupTimeoutMs: 30000,
 };
 
+// skipcq: JS-0067
 function expandPath(path: string): string {
   if (path.startsWith("~/")) {
     return join(homedir(), path.slice(2));
@@ -394,6 +395,7 @@ function expandPath(path: string): string {
   return path;
 }
 
+// skipcq: JS-0067
 function loadConfigFromPaths(paths: string[]): OpenCodeMemConfig {
   for (const path of paths) {
     if (existsSync(path)) {
@@ -731,6 +733,7 @@ const CONFIG_TEMPLATE = `{
 }
 `;
 
+// skipcq: JS-0067
 function ensureConfigExists(): void {
   const configPath = join(CONFIG_DIR, "opencode-mem0.jsonc");
 
@@ -747,6 +750,7 @@ function ensureConfigExists(): void {
 
 ensureConfigExists();
 
+// skipcq: JS-0067
 function getEmbeddingDimensions(model: string): number {
   const dimensionMap: Record<string, number> = {
     // Local Xenova models
@@ -789,14 +793,17 @@ function getEmbeddingDimensions(model: string): number {
   return dimensionMap[model] || 768;
 }
 
+// skipcq: JS-0067
 function coalesce<T>(value: T | undefined, defaultValue: T): T {
   return value ?? defaultValue;
 }
 
+// skipcq: JS-0067
 function buildMemoryConfig(f: OpenCodeMemConfig) {
   return { defaultScope: coalesce(f.memory?.defaultScope, DEFAULTS.memory.defaultScope) };
 }
 
+// skipcq: JS-0067
 function buildCompactionConfig(f: OpenCodeMemConfig) {
   return {
     enabled: coalesce(f.compaction?.enabled, DEFAULTS.compaction.enabled),
@@ -804,6 +811,7 @@ function buildCompactionConfig(f: OpenCodeMemConfig) {
   };
 }
 
+// skipcq: JS-0067
 function buildTranscriptConfig(f: OpenCodeMemConfig) {
   return {
     enabled: coalesce(f.transcriptStorage?.enabled, DEFAULTS.transcriptStorage.enabled),
@@ -811,6 +819,7 @@ function buildTranscriptConfig(f: OpenCodeMemConfig) {
   };
 }
 
+// skipcq: JS-0067
 function buildScoringConfig(f: OpenCodeMemConfig) {
   return {
     enabled: coalesce(f.memoryScoring?.enabled, DEFAULTS.memoryScoring.enabled),
@@ -829,6 +838,7 @@ function buildScoringConfig(f: OpenCodeMemConfig) {
   };
 }
 
+// skipcq: JS-0067
 function buildLifecycleConfig(f: OpenCodeMemConfig) {
   return {
     stmDecayDays: coalesce(f.memoryLifecycle?.stmDecayDays, DEFAULTS.memoryLifecycle.stmDecayDays),
@@ -852,6 +862,7 @@ function buildLifecycleConfig(f: OpenCodeMemConfig) {
   };
 }
 
+// skipcq: JS-0067
 function buildChatConfig(f: OpenCodeMemConfig) {
   return {
     enabled: coalesce(f.chatMessage?.enabled, DEFAULTS.chatMessage.enabled),
@@ -867,6 +878,7 @@ function buildChatConfig(f: OpenCodeMemConfig) {
   };
 }
 
+// skipcq: JS-0067
 function buildRetrievalConfig(f: OpenCodeMemConfig) {
   return {
     maxResults: coalesce(f.retrieval?.maxResults, DEFAULTS.retrieval.maxResults),
@@ -878,6 +890,7 @@ function buildRetrievalConfig(f: OpenCodeMemConfig) {
   };
 }
 
+// skipcq: JS-0067
 function buildInjectionConfig(f: OpenCodeMemConfig) {
   return {
     tokenBudget: coalesce(f.injection?.tokenBudget, DEFAULTS.injection.tokenBudget),
@@ -893,6 +906,7 @@ function buildInjectionConfig(f: OpenCodeMemConfig) {
   };
 }
 
+// skipcq: JS-0067
 function buildDecayConfig(f: OpenCodeMemConfig) {
   return {
     enabled: coalesce(f.contextualDecay?.enabled, DEFAULTS.contextualDecay.enabled),
@@ -913,6 +927,7 @@ function buildDecayConfig(f: OpenCodeMemConfig) {
   };
 }
 
+// skipcq: JS-0067
 function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
   const f = fileConfig;
   const d = DEFAULTS;
@@ -1003,6 +1018,7 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
   };
 }
 
+// skipcq: JS-0067
 function buildConfig(fileConfig: OpenCodeMemConfig) {
   const validation = OpenCodeMemConfigSchema.safeParse(fileConfig);
   if (!validation.success) {
@@ -1028,10 +1044,12 @@ if (!existsSync(CONFIG.storagePath)) {
   mkdirSync(CONFIG.storagePath, { recursive: true });
 }
 
+// skipcq: JS-0067
 function isPlainObject(value: unknown): value is object {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+// skipcq: JS-0067
 function deepMerge<T extends object>(target: T, source: Partial<T>): T {
   const result = { ...target } as Record<string, unknown>;
   for (const key of Object.keys(source) as Array<keyof T>) {
@@ -1046,6 +1064,7 @@ function deepMerge<T extends object>(target: T, source: Partial<T>): T {
   return result as T;
 }
 
+// skipcq: JS-0067
 export function initConfig(directory: string): void {
   const projectPaths = [
     join(directory, ".opencode", "opencode-mem0.jsonc"),
@@ -1057,6 +1076,7 @@ export function initConfig(directory: string): void {
   Object.assign(CONFIG, buildConfig(merged));
 }
 
+// skipcq: JS-0067
 export function isConfigured(): boolean {
   return Boolean(_globalFileConfig) && existsSync(CONFIG.storagePath);
 }
