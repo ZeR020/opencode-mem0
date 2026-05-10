@@ -21,9 +21,11 @@ let isRunning = false;
  * Updates recency, utility, and strength in-place.
  * Optionally recalculates novelty and interference (expensive).
  */
-export async function recalculateAllScores(
-  recalculateNoveltyAndInterference: boolean = false
-): Promise<{ updated: number; shards: number; duration: number }> {
+export function recalculateAllScores(recalculateNoveltyAndInterference: boolean = false): {
+  updated: number;
+  shards: number;
+  duration: number;
+} {
   const startTime = Date.now();
   let totalUpdated = 0;
   let shardsProcessed = 0;
@@ -201,7 +203,7 @@ export function startScoringRecalculation(): void {
     try {
       cycleCount++;
       const fullRecalc = cycleCount % 4 === 0; // Full recalc every 4 cycles
-      await recalculateAllScores(fullRecalc);
+      recalculateAllScores(fullRecalc);
     } catch (error) {
       log("Background scoring recalculation error", { error: String(error) });
     } finally {
@@ -228,10 +230,10 @@ export function stopScoringRecalculation(): void {
 /**
  * Run a one-time score recalculation (useful for initial migration or manual trigger).
  */
-export function runOneTimeScoringRecalculation(): Promise<{
+export function runOneTimeScoringRecalculation(): {
   updated: number;
   shards: number;
   duration: number;
-}> {
+} {
   return recalculateAllScores(true);
 }

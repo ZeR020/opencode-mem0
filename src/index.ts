@@ -216,9 +216,11 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   if (CONFIG.memoryScoring.enabled) {
     startScoringRecalculation();
     // Run one-time recalculation on startup to ensure existing memories are scored
-    runOneTimeScoringRecalculation().catch((error) => {
+    try {
+      runOneTimeScoringRecalculation();
+    } catch (error) {
       log("Initial scoring recalculation failed", { error: String(error) });
-    });
+    }
   }
 
   // Start memory lifecycle job (STM/LTM decay, promotion, archiving)
