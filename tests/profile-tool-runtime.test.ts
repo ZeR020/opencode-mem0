@@ -58,8 +58,8 @@ async function createPlugin(tagsMock?: { userEmail?: string; userName?: string }
     project: { id: "test-project" } as any,
     serverUrl: new URL("http://localhost:4096"),
     client: {
-      path: { get: async () => ({ data: { state: join(tmpDir, "state") } }) },
-      provider: { list: async () => ({ data: { connected: [] } }) },
+      path: { get: () => ({ data: { state: join(tmpDir, "state") } }) },
+      provider: { list: () => ({ data: { connected: [] } }) },
       tui: null,
     } as any,
     $: (() => {
@@ -97,7 +97,9 @@ describe("memory tool profile runtime behavior", () => {
       try {
         db.run("DELETE FROM user_profile_changelogs");
         db.run("DELETE FROM user_profiles");
-      } catch { /* empty */ }
+      } catch {
+        /* empty */
+      }
     }
   });
 
