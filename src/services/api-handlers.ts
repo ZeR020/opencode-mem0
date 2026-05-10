@@ -1172,10 +1172,10 @@ export async function handleRunTagMigrationBatch(
   }
 }
 
-export async function handleListConflicts(
+export function handleListConflicts(
   resolved: boolean = false,
   limit: number = 100
-): Promise<ApiResponse<any[]>> {
+): ApiResponse<any[]> {
   try {
     if (resolved) {
       return {
