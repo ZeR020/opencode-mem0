@@ -144,7 +144,7 @@ vi.mock("../src/services/logger.js", () => ({
 vi.mock("../src/services/embedding.js", () => ({
   embeddingService: {
     isWarmedUp: true,
-    warmup: async () => {},
+    warmup: () => Promise.resolve(),
     embedWithTimeout: () => Promise.resolve(new Float32Array([1, 2, 3])),
     getCacheStats: () => ({ size: 100, maxSize: 1000, hits: 50, misses: 50, rate: 0.5 }),
     embeddingAvailable: true,
@@ -186,12 +186,12 @@ vi.mock("../src/services/sqlite/vector-search.js", () => ({
       return mockMemories.filter((m) => m.container_tag === tag).slice(0, limit);
     },
     getMemoryById: (_db: unknown, id: string) => mockMemories.find((m) => m.id === id) || null,
-    insertVector: async () => {},
-    deleteVector: async () => {},
-    replaceVector: async () => {},
+    insertVector: () => Promise.resolve(),
+    deleteVector: () => Promise.resolve(),
+    replaceVector: () => Promise.resolve(),
     pinMemory: () => {},
     unpinMemory: () => {},
-    updateVector: async () => {},
+    updateVector: () => Promise.resolve(),
     searchInShard: (
       _shard: unknown,
       _vector: unknown,

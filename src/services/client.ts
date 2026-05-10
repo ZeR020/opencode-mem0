@@ -48,9 +48,7 @@ export class LocalMemoryClient {
     if (this.isInitialized) return;
     if (this.initPromise) return this.initPromise;
 
-    this.initPromise = (async () => {
-      // SQLite initialization happens implicitly via first connection use
-    })();
+    this.initPromise = Promise.resolve();
 
     return this.initPromise;
   }
