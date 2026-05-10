@@ -127,7 +127,7 @@ describe("auto-capture helpers", () => {
     mockUserPromptManager.claimPrompt.mockReturnValue(true);
     const ctx = {
       client: {
-        session: { messages: async () => ({ data: [{ info: { id: "m1" } }] }) },
+        session: { messages: () => ({ data: [{ info: { id: "m1" } }] }) },
       },
     } as any;
     await performAutoCapture(ctx, "sess-1", "/test");
