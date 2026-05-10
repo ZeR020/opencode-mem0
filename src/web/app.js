@@ -1,4 +1,4 @@
-/* global lucide, getLanguage, setLanguage, t, jsonrepair */
+/* global lucide, getLanguage, setLanguage, t, jsonrepair, DOMPurify */
 const API_BASE = "";
 
 const state = {

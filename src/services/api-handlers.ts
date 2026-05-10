@@ -1001,9 +1001,10 @@ export async function handleRefreshProfile(userId?: string): Promise<ApiResponse
   }
 }
 
-export async function handleDetectTagMigration(): Promise<
-  ApiResponse<{ needsMigration: boolean; count: number }>
-> {
+export function handleDetectTagMigration(): ApiResponse<{
+  needsMigration: boolean;
+  count: number;
+}> {
   try {
     const projectShards = shardManager.getAllShards("project", "");
     let untaggedCount = 0;
