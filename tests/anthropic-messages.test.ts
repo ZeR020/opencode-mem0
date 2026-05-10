@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { unlinkSync } from "node:fs";
+import { join } from "node:path";
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -27,6 +29,7 @@ import { AnthropicMessagesProvider } from "../src/services/ai/providers/anthropi
 import { AISessionManager } from "../src/services/ai/session/ai-session-manager.js";
 import { ToolSchemaConverter } from "../src/services/ai/tools/tool-schema.js";
 import { UserProfileValidator } from "../src/services/ai/validators/user-profile-validator.js";
+import { CONFIG } from "../src/config.js";
 
 describe("AnthropicMessagesProvider", () => {
   let provider: AnthropicMessagesProvider;
@@ -52,7 +55,11 @@ describe("AnthropicMessagesProvider", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    sessionManager = new AISessionManager({ dbPath: ":memory:" });
+    // Clean up shared SQLite database to prevent state leakage between tests
+    try {
+      unlinkSync(join(CONFIG.storagePath, "ai-sessions.db"));
+    } catch {}
+    sessionManager = new AISessionManager({ dbPath: ":memory:" } as any);
     provider = new AnthropicMessagesProvider(mockConfig, sessionManager);
   });
 
