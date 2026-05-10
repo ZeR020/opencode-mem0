@@ -15,8 +15,8 @@ function createFailingBackend(): VectorBackend {
     insert: async () => {},
     insertBatch: () => {},
     delete: () => {},
-    search: async () => {
-      throw new Error("forced-search-failure");
+    search: () => {
+      return Promise.reject(new Error("forced-search-failure"));
     },
     rebuildFromShard: () => {
       return Promise.reject(new Error("forced-rebuild-failure"));
