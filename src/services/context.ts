@@ -24,6 +24,8 @@ export interface FormatOptions {
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
+
+/**
  * Format a single memory entry according to the specified output format.
  *
  * @param result - Memory result

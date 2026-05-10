@@ -755,8 +755,7 @@ describe("Memory Engine Integration", () => {
         }
         if (sql.includes("UPDATE memories SET is_deprecated = 1")) {
           return {
-            run: (id: string) => {
-              deprecatedId = id;
+            run: (_id: string) => {
               return { changes: 1 };
             },
             get: () => null,
