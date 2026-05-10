@@ -444,6 +444,29 @@ describe("OpenAIChatCompletionProvider", () => {
     expect(result.success).toBe(false);
   });
 
+  it("handles undefined first tool call in non-empty array", async () => {
+    globalThis.fetch = makeFetch({
+      ok: true,
+      body: {
+        choices: [
+          {
+            message: {
+              content: null,
+              tool_calls: [undefined],
+            },
+          },
+        ],
+      },
+    } as any);
+
+    const result = await makeProvider({
+      maxIterations: 1,
+      apiUrl: "https://api.openai.com/v1",
+    }).executeToolCall("system", "user", toolSchema, "session-id");
+
+    expect(result.success).toBe(false);
+  });
+
   it("processes first tool call when multiple tool calls are returned", async () => {
     const validArguments = JSON.stringify({
       preferences: [],
