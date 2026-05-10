@@ -8,7 +8,7 @@ import { CONFIG } from "../src/config.js";
 
 vi.mock("../src/services/embedding.js", () => ({
   embeddingService: {
-    embedWithTimeout: async (text: string) => {
+    embedWithTimeout: (text: string) => {
       // Bag-of-words pseudo-embedding: each unique word hashes to a dimension.
       // This gives high cosine similarity for texts with overlapping vocabulary.
       const dims = 768;
@@ -32,7 +32,7 @@ vi.mock("../src/services/embedding.js", () => ({
       return vec;
     },
     isWarmedUp: true,
-    warmup: async () => {},
+    warmup: () => {},
     embeddingAvailable: true,
   },
 }));
