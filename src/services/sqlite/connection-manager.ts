@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import { log } from "../logger.js";
 import { runMigrations } from "./schema.js";
 
-const Database = getDatabase();
+const mainDb = getDatabase();
 
 const MAX_CONNECTIONS = 20;
 const MAX_BATCH_SIZE = 50;
