@@ -16,7 +16,9 @@ describe("migration with backend abstraction", () => {
     for (const db of dbs) {
       try {
         db.close();
-      } catch {}
+      } catch {
+        // empty
+      }
     }
     dbs.length = 0;
     while (tempDirs.length > 0) {

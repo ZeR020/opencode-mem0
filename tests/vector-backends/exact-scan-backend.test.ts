@@ -16,7 +16,9 @@ describe("ExactScanBackend", () => {
       const db = dbs.pop();
       try {
         db?.close?.();
-      } catch {}
+      } catch {
+        // empty
+      }
     }
     while (tempDirs.length > 0) {
       const dir = tempDirs.pop();

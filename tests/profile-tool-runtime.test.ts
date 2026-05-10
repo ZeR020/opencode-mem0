@@ -97,7 +97,7 @@ describe("memory tool profile runtime behavior", () => {
       try {
         db.run("DELETE FROM user_profile_changelogs");
         db.run("DELETE FROM user_profiles");
-      } catch {}
+      } catch { /* empty */ }
     }
   });
 

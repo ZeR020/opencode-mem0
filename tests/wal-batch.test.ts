@@ -26,7 +26,9 @@ describe("WAL batch write API", () => {
     connectionManager.closeAll();
     try {
       rmSync(testDir, { recursive: true, force: true });
-    } catch {}
+    } catch {
+      // empty
+    }
   });
 
   it("batchWrite queues statements without executing immediately", () => {
