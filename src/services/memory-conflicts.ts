@@ -476,7 +476,7 @@ export async function resolveConflict(
   mergedContent?: string
 ): Promise<{ success: boolean; error?: string; mergedMemoryId?: string }> {
   try {
-    const { scope, hash } = extractScopeFromContainerTag("mem_user_"); // We'll search all shards
+    const { hash } = extractScopeFromContainerTag("mem_user_"); // We'll search all shards
     const shards = [
       ...shardManager.getAllShards("user", ""),
       ...shardManager.getAllShards("project", hash),

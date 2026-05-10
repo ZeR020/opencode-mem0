@@ -9,7 +9,7 @@ import { stripPrivateContent, isFullyPrivate } from "./services/privacy.js";
 import { performAutoCapture } from "./services/auto-capture.js";
 import { performUserProfileLearning } from "./services/user-memory-learning.js";
 import { userPromptManager } from "./services/user-prompt/user-prompt-manager.js";
-import { performTranscriptCapture, cleanupOldTranscripts } from "./services/transcript-capture.js";
+import { cleanupOldTranscripts } from "./services/transcript-capture.js";
 import { startWebServer, WebServer } from "./services/web-server.js";
 import { safeJSONParse } from "./services/utils/safe-transforms.js";
 import {
@@ -79,7 +79,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
 
   // Periodic sweep to prevent leaks if sessions end without firing idle timers
   const sessionIdleSweep = setInterval(() => {
-    sessionIdleTimers.forEach((timer, sessionID) => {
+    sessionIdleTimers.forEach(() => {
       // Timers that have already fired are deleted in the finally block,
       // so any remaining entries are pending. Nothing to do here unless
       // we add a session-end event in the future.
@@ -358,7 +358,6 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         }
       }
     },
-
     tool: {
       memory: tool({
         description: `Manage and query project memory (MATCH USER LANGUAGE: ${getLanguageName(CONFIG.autoCaptureLanguage || "en")}). Use 'search' with technical keywords/tags, 'add' to store knowledge, 'profile' for preferences. Search/list scope: project or all-projects.`,
@@ -383,7 +382,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
             limit?: number;
             scope?: MemoryScope;
           },
-          toolCtx: { sessionID: string }
+          _toolCtx: { sessionID: string }
         ) {
           if (!isConfigured()) {
             return JSON.stringify({

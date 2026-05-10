@@ -3,11 +3,10 @@
  * Exercises the write path added to src/index.ts `profile` mode
  * by testing the underlying manager directly (no live plugin context needed).
  */
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { describe, it, expect } from "vitest";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { connectionManager } from "../src/services/sqlite/connection-manager.js";
 
 // We patch CONFIG.storagePath before importing the manager so the DB lands in tmp.
 let originalStoragePath: string;
@@ -43,7 +42,7 @@ describe("UserProfileManager – explicit preference writes", () => {
   });
 
   it("creates a profile with an explicit preference when none exists", async () => {
-    const { manager: mgr, tmpDir } = await makeManager();
+    const { manager: mgr } = await makeManager();
     const userId = "test@example.com";
 
     mgr.createProfile(
@@ -77,7 +76,7 @@ describe("UserProfileManager – explicit preference writes", () => {
   });
 
   it("merges a new explicit preference into an existing profile without clobbering other prefs", async () => {
-    const { manager: mgr, tmpDir } = await makeManager();
+    const { manager: mgr } = await makeManager();
     const userId = "test@example.com";
 
     // Seed with one AI-learned preference
@@ -132,7 +131,7 @@ describe("UserProfileManager – explicit preference writes", () => {
   });
 
   it("deduplicates when the same explicit preference is written twice, boosting confidence", async () => {
-    const { manager: mgr, tmpDir } = await makeManager();
+    const { manager: mgr } = await makeManager();
     const userId = "test@example.com";
     const description = "Prefer short answers";
 
@@ -176,13 +175,13 @@ describe("UserProfileManager – explicit preference writes", () => {
   });
 
   it("returns null profile for unknown user (no auto-create on read)", async () => {
-    const { manager: mgr, tmpDir } = await makeManager();
+    const { manager: mgr } = await makeManager();
     const profile = mgr.getActiveProfile("nobody@example.com");
     expect(profile).toBeNull();
   });
 
   it("changelog entry is recorded on explicit preference write", async () => {
-    const { manager: mgr, tmpDir } = await makeManager();
+    const { manager: mgr } = await makeManager();
     const userId = "test@example.com";
     const summary = "Explicit preference added: Use snake_case";
 

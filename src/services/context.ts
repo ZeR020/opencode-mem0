@@ -1,6 +1,6 @@
 import { CONFIG } from "../config.js";
 import { getUserProfileContext } from "./user-profile/profile-context.js";
-import { analyzeQueryIntent, scoreMemoryRelevance, type QueryIntent } from "./retrieval-context.js";
+import { analyzeQueryIntent, scoreMemoryRelevance } from "./retrieval-context.js";
 
 export interface MemoryResultMinimal {
   id?: string;
@@ -24,8 +24,6 @@ export interface FormatOptions {
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
-
-/**
  * Format a single memory entry according to the specified output format.
  *
  * @param result - Memory result

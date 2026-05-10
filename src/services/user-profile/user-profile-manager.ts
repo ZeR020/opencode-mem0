@@ -9,9 +9,6 @@ import {
   type UserProfile,
   type UserProfileData,
   type UserProfileChangelog,
-  type UserProfilePreference,
-  type UserProfilePattern,
-  type UserProfileWorkflow,
 } from "./types.js";
 
 type DatabaseType = Database;

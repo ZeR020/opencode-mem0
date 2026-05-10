@@ -1,4 +1,3 @@
-import type { Database as BSqliteDatabase, Statement as BSqliteStatement } from "better-sqlite3";
 import { createRequire } from "node:module";
 
 export interface Statement {

@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { VectorSearch } from "../src/services/sqlite/vector-search.js";
 import { ExactScanBackend } from "../src/services/vector-backends/exact-scan-backend.js";
-import { connectionManager } from "../src/services/sqlite/connection-manager.js";
 
 vi.mock("../src/services/sqlite/connection-manager.js", () => ({
   connectionManager: {
@@ -159,14 +158,13 @@ describe("VectorSearch adaptive over-fetch", () => {
 
   it("should retry with larger multiplier when fill ratio is low", async () => {
     // Always return only 2 results (fill ratio = 2/5 = 40% < 85%)
-    mockBackend.search.mockImplementation((args: any) => {
+    mockBackend.search.mockImplementation((_args: any) => {
       return Promise.resolve([
         { id: "id-1", distance: 0.5 },
         { id: "id-2", distance: 0.5 },
       ]);
     });
 
-    const db = { prepare: vi.fn(() => ({ all: () => [], get: () => ({}) })) } as any;
     const shard = {
       id: 1,
       dbPath: "/tmp/test.db",
@@ -192,7 +190,7 @@ describe("VectorSearch adaptive over-fetch", () => {
   });
 
   it("should not retry when fill ratio is high", async () => {
-    mockBackend.search.mockImplementation((args: any) => {
+    mockBackend.search.mockImplementation((_args: any) => {
       return Promise.resolve([
         { id: "id-1", distance: 0.1 },
         { id: "id-2", distance: 0.1 },
@@ -202,7 +200,6 @@ describe("VectorSearch adaptive over-fetch", () => {
       ]);
     });
 
-    const db = { prepare: vi.fn(() => ({ all: () => [], get: () => ({}) })) } as any;
     const shard = {
       id: 1,
       dbPath: "/tmp/test.db",
@@ -229,7 +226,7 @@ describe("VectorSearch adaptive over-fetch", () => {
 
   it("should reset multiplier per query", async () => {
     // First query returns few results (triggers retry)
-    mockBackend.search.mockImplementation((args: any) => {
+    mockBackend.search.mockImplementation((_args: any) => {
       return Promise.resolve([
         { id: "id-1", distance: 0.1 },
         { id: "id-2", distance: 0.1 },
@@ -262,7 +259,7 @@ describe("VectorSearch adaptive over-fetch", () => {
 
     // Reset mock to return enough results for second query (no retry)
     mockBackend.search.mockClear();
-    mockBackend.search.mockImplementation((args: any) => {
+    mockBackend.search.mockImplementation((_args: any) => {
       return Promise.resolve([
         { id: "id-1", distance: 0.1 },
         { id: "id-2", distance: 0.1 },

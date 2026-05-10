@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { initConfig, CONFIG } from "../src/config.js";
 
 (globalThis as any).__mockFs = {

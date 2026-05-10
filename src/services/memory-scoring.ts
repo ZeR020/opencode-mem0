@@ -1,5 +1,3 @@
-import { log } from "./logger.js";
-
 export interface ScoreComponents {
   recency: number;
   frequency: number;

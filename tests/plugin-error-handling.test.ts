@@ -193,7 +193,7 @@ describe("OpenCodeMemPlugin error handling", () => {
       },
     };
 
-    const plugin = await OpenCodeMemPlugin(mockCtx as any);
+    await OpenCodeMemPlugin(mockCtx as any);
 
     // Wait for the takeover callback to be registered and called
     await new Promise((resolve) => setTimeout(resolve, 100));
