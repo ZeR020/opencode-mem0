@@ -1,4 +1,4 @@
-/* global lucide */
+/* global lucide, getLanguage */
 const API_BASE = "";
 
 const state = {

@@ -18,6 +18,7 @@ import {
   type ScoreComponents,
 } from "../src/services/memory-scoring.js";
 
+// skipcq: JS-0067 — Example file, top-level function is module-scoped in ESM
 function main() {
   const log = (message: string): void => {
     // Use stdout for example output to avoid console in browser contexts
