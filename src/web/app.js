@@ -1,4 +1,4 @@
-/* global lucide, getLanguage */
+/* global lucide, getLanguage, setLanguage */
 const API_BASE = "";
 
 const state = {
@@ -889,15 +889,13 @@ async function runMigration(strategy) {
 
   if (result.success) {
     const data = result.data;
-    let message = `Migration complete! `;
+    const duration = (data.duration / 1000).toFixed(2);
+    const message =
+      strategy === "fresh-start"
+        ? `Deleted ${data.deletedShards} shard(s). Duration: ${duration}s`
+        : `Re-embedded ${data.reEmbeddedMemories} memories. Duration: ${duration}s`;
 
-    if (strategy === "fresh-start") {
-      message += `Deleted ${data.deletedShards} shard(s). Duration: ${(data.duration / 1000).toFixed(2)}s`;
-    } else {
-      message += `Re-embedded ${data.reEmbeddedMemories} memories. Duration: ${(data.duration / 1000).toFixed(2)}s`;
-    }
-
-    showToast(t("toast-migration-success"), "success");
+    showToast(`${t("toast-migration-success")} ${message}`, "success");
     document.getElementById("migration-section").classList.add("hidden");
     document.getElementById("migration-confirm-checkbox").checked = false;
 

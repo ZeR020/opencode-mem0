@@ -9,6 +9,13 @@ import { memoryClient } from "../src/services/client.js";
 import { log } from "../src/services/logger.js";
 
 async function main() {
+  const write = (msg: string): void => {
+    process.stdout.write(`${msg}\n`);
+  };
+  const writeErr = (msg: string): void => {
+    process.stderr.write(`${msg}\n`);
+  };
+
   // Ensure the memory system is warmed up
   await memoryClient.warmup();
 
@@ -29,9 +36,9 @@ async function main() {
   );
 
   if (addResult.success) {
-    console.log(`Memory added with ID: ${addResult.id}`);
+    write(`Memory added with ID: ${addResult.id}`);
   } else {
-    console.error("Failed to add memory:", addResult.error);
+    writeErr(`Failed to add memory: ${addResult.error}`);
     return;
   }
 
@@ -59,30 +66,28 @@ async function main() {
   );
 
   if (searchResult.success) {
-    console.log(`\nSearch returned ${searchResult.total} results:`);
+    write(`\nSearch returned ${searchResult.total} results:`);
     for (const result of searchResult.results) {
-      console.log(`  - ${result.memory} (score: ${result.similarity?.toFixed(3)})`);
+      write(`  - ${result.memory} (score: ${result.similarity?.toFixed(3)})`);
     }
   } else {
-    console.error("Search failed:", searchResult.error);
+    writeErr(`Search failed: ${searchResult.error}`);
   }
 
   // --- List all memories ---
   const listResult = await memoryClient.listMemories(containerTag, 20, "project");
 
   if (listResult.success) {
-    console.log(`\nListed ${listResult.memories.length} memories:`);
+    write(`\nListed ${listResult.memories.length} memories:`);
     for (const memory of listResult.memories) {
-      console.log(`  [${memory.id}] ${memory.summary}`);
-      console.log(
-        `    Strength: ${memory.strength?.toFixed(3)} | Store: ${memory.storeType || "stm"}`
-      );
+      write(`  [${memory.id}] ${memory.summary}`);
+      write(`    Strength: ${memory.strength?.toFixed(3)} | Store: ${memory.storeType || "stm"}`);
     }
   }
 
   // --- Clean up ---
   memoryClient.close();
-  console.log("\nDone!");
+  write("\nDone!");
 }
 
 main().catch((error) => {

@@ -145,7 +145,7 @@ vi.mock("../src/services/embedding.js", () => ({
   embeddingService: {
     isWarmedUp: true,
     warmup: async () => {},
-    embedWithTimeout: async () => new Float32Array([1, 2, 3]),
+    embedWithTimeout: () => Promise.resolve(new Float32Array([1, 2, 3])),
     getCacheStats: () => ({ size: 100, maxSize: 1000, hits: 50, misses: 50, rate: 0.5 }),
     embeddingAvailable: true,
   },
