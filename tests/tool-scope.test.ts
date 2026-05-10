@@ -15,15 +15,15 @@ vi.mock("../src/services/privacy.js", () => ({
   stripPrivateContent: (value: unknown) => value,
   isFullyPrivate: () => false,
 }));
-vi.mock("../src/services/auto-capture.js", () => ({ performAutoCapture: async () => {} }));
+vi.mock("../src/services/auto-capture.js", () => ({ performAutoCapture: () => {} }));
 vi.mock("../src/services/user-memory-learning.js", () => ({
-  performUserProfileLearning: async () => {},
+  performUserProfileLearning: () => {},
 }));
 vi.mock("../src/services/user-prompt/user-prompt-manager.js", () => ({
   userPromptManager: { savePrompt() {} },
 }));
 vi.mock("../src/services/web-server.js", () => ({
-  startWebServer: async () => null,
+  startWebServer: () => null,
   WebServer: class {},
 }));
 vi.mock("../src/services/language-detector.js", () => ({ getLanguageName: () => "English" }));
