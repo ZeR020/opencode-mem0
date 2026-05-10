@@ -13,7 +13,7 @@ function readPackageJson(): Record<string, unknown> {
   return JSON.parse(raw) as Record<string, unknown>;
 }
 
-async function loadDistPlugin(): Promise<unknown> {
+function loadDistPlugin(): Promise<unknown> {
   const modUrl = new URL("../dist/plugin.js", import.meta.url).href;
   return import(modUrl);
 }
