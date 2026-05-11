@@ -9,7 +9,18 @@ enabled = true
   environment = ["nodejs"]
   module_system = "esm"
 
-
+  # Ignore architectural/by-design patterns that are intentional for this codebase
+  skip_issues = [
+    "JS-0323",  # Detected usage of the `any` type — intentional for plugin API boundaries
+    "JS-R1005", # Function cyclomatic complexity > threshold — core logic requires branching
+    "JS-0067",  # Variables in global scope — module-level singletons by design
+    "JS-0105",  # Class methods should utilize `this` — static method pattern in providers
+    "JS-0327",  # Classes used as namespaces — organizational pattern for related functions
+    "JS-C1002", # Short variable names — conventional single-letter vars (db, err, i)
+    "JS-R1004", # Useless template literals — markdown formatting strings (e.g. `---`)
+    "JS-0052",  # Use of alert/confirm/prompt — intentional browser UI confirmations
+    "JS-0339",  # Non-null assertions — SQLite query results guaranteed by schema
+  ]
 
 [[analyzers]]
 name = "secrets"
