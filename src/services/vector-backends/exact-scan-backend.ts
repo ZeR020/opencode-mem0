@@ -27,7 +27,7 @@ export class ExactScanBackend implements VectorBackend {
     return rows
       .map((row) => ({
         id: row.id,
-        distance: 1 - this.cosineSimilarity(row.vector, queryVector),
+        distance: 1 - ExactScanBackend.cosineSimilarity(row.vector, queryVector),
       }))
       .sort((a, b) => a.distance - b.distance)
       .slice(0, limit);
@@ -69,7 +69,7 @@ export class ExactScanBackend implements VectorBackend {
     const rankedRows: RankedRow[] = rows
       .map((row) => ({
         id: row.id,
-        vector: this.decodeVector(args.kind === "tags" ? row.tags_vector : row.vector),
+        vector: ExactScanBackend.decodeVector(args.kind === "tags" ? row.tags_vector : row.vector),
       }))
       .filter((row) => row.vector.length > 0);
 
@@ -84,7 +84,7 @@ export class ExactScanBackend implements VectorBackend {
     // No-op: exact-scan searches directly from SQLite, no index to delete
   }
 
-  private decodeVector(value: Uint8Array | ArrayBuffer | null | undefined): Float32Array {
+  private static decodeVector(value: Uint8Array | ArrayBuffer | null | undefined): Float32Array {
     if (!value) {
       return new Float32Array();
     }
@@ -98,7 +98,7 @@ export class ExactScanBackend implements VectorBackend {
     return new Float32Array(value);
   }
 
-  private cosineSimilarity(a: Float32Array, b: Float32Array): number {
+  private static cosineSimilarity(a: Float32Array, b: Float32Array): number {
     if (a.length !== b.length) {
       return 0;
     }

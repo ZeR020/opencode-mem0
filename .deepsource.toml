@@ -7,9 +7,7 @@ enabled = true
   [analyzers.meta]
   plugins = ["react"]
   environment = ["nodejs"]
-  module_system = "esm"
-
-
+  module_system = "es-modules"
 
 [[analyzers]]
 name = "secrets"
