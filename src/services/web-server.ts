@@ -233,7 +233,7 @@ export class WebServer {
 
     try {
       // Enforce API key auth whenever an apiKey is configured
-      const requiresAuth = !!this.config.apiKey;
+      const requiresAuth = Boolean(this.config.apiKey);
 
       const remoteIp = this.server?.requestIP(req)?.address;
       const isLocal = remoteIp ? LOCAL_HOSTS.has(remoteIp) : false;

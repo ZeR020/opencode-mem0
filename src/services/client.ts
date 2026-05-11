@@ -42,8 +42,6 @@ export class LocalMemoryClient {
   private initPromise: Promise<void> | null = null;
   private isInitialized: boolean = false;
 
-  constructor() {}
-
   private initialize(): Promise<void> {
     if (this.isInitialized) return Promise.resolve();
     if (this.initPromise) return this.initPromise;
@@ -65,7 +63,7 @@ export class LocalMemoryClient {
     }
   }
 
-  async isReady(): Promise<boolean> {
+  isReady(): boolean {
     return this.isInitialized && embeddingService.isWarmedUp;
   }
 
@@ -175,7 +173,7 @@ export class LocalMemoryClient {
 
       const tags = metadata?.tags || [];
       const vector = await embeddingService.embedWithTimeout(content);
-      let tagsVector: Float32Array | undefined = undefined;
+      let tagsVector: Float32Array | undefined;
 
       if (tags.length > 0) {
         tagsVector = await embeddingService.embedWithTimeout(tags.join(", "));

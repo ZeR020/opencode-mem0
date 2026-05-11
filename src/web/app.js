@@ -34,17 +34,18 @@ async function fetchAPI(endpoint, options = {}) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
-    let response;
     try {
-      response = await fetch(API_BASE + endpoint, {
+      const response = await fetch(API_BASE + endpoint, {
         ...options,
         signal: controller.signal,
       });
-    } finally {
       clearTimeout(timeoutId);
+      const data = await response.json();
+      return data;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
     }
-    const data = await response.json();
-    return data;
   } catch (error) {
     console.error("API Error:", error);
     return { success: false, error: error.message };
@@ -71,7 +72,7 @@ function populateTagDropdowns() {
   scopeTags.forEach((tagInfo) => {
     const displayText = tagInfo.displayName || tagInfo.tag;
     const shortDisplay =
-      displayText.length > 50 ? displayText.substring(0, 50) + "..." : displayText;
+      displayText.length > 50 ? `${displayText.substring(0, 50)}...` : displayText;
 
     const option1 = document.createElement("option");
     option1.value = tagInfo.tag;
@@ -124,16 +125,16 @@ function groupMemories(items) {
 
     if (item.type === "memory" && item.linkedPromptId && map.has(item.linkedPromptId)) {
       const prompt = map.get(item.linkedPromptId);
-      pairs.push({ isPair: true, memory: item, prompt: prompt });
+      pairs.push({ isPair: true, memory: item, prompt });
       processed.add(item.id);
       processed.add(prompt.id);
     } else if (item.type === "prompt" && item.linkedMemoryId && map.has(item.linkedMemoryId)) {
       const memory = map.get(item.linkedMemoryId);
-      pairs.push({ isPair: true, memory: memory, prompt: item });
+      pairs.push({ isPair: true, memory, prompt: item });
       processed.add(item.id);
       processed.add(memory.id);
     } else {
-      pairs.push({ isPair: false, type: item.type, item: item });
+      pairs.push({ isPair: false, type: item.type, item });
       processed.add(item.id);
     }
   });
@@ -214,7 +215,7 @@ function renderCombinedCard(pair) {
 }
 
 function renderPromptCard(prompt) {
-  const isLinked = !!prompt.linkedMemoryId;
+  const isLinked = Boolean(prompt.linkedMemoryId);
   const isSelected = state.selectedMemories.has(prompt.id);
   const promptDate = formatDate(prompt.createdAt);
 
@@ -246,7 +247,7 @@ function renderPromptCard(prompt) {
 function renderMemoryCard(memory) {
   const isSelected = state.selectedMemories.has(memory.id);
   const isPinned = memory.isPinned || false;
-  const isLinked = !!memory.linkedPromptId;
+  const isLinked = Boolean(memory.linkedPromptId);
   const similarityHtml =
     memory.similarity !== undefined
       ? `<span class="similarity-score">${memory.similarity}%</span>`
@@ -802,7 +803,7 @@ async function runTagMigration() {
     });
 
     if (!result.success) {
-      status.textContent = t("toast-migration-failed") + ": " + result.error;
+      status.textContent = `${t("toast-migration-failed")}: ${result.error}`;
       return;
     }
 
@@ -811,8 +812,8 @@ async function runTagMigration() {
     const total = result.data.total;
     const percent = total > 0 ? Math.round((totalProcessed / total) * 100) : 0;
 
-    progress.style.width = percent + "%";
-    status.textContent = t("status-migration-progress", { current: totalProcessed, total: total });
+    progress.style.width = `${percent}%`;
+    status.textContent = t("status-migration-progress", { current: totalProcessed, total });
     if (hasMore) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }

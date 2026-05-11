@@ -301,7 +301,7 @@ export async function handleAddMemory(data: {
       tags.length > 0 ? `${data.content}\nTags: ${tags.join(", ")}` : data.content;
 
     const vector = await embeddingService.embedWithTimeout(embeddingInput);
-    let tagsVector: Float32Array | undefined = undefined;
+    let tagsVector: Float32Array | undefined;
     if (tags.length > 0) {
       tagsVector = await embeddingService.embedWithTimeout(tags.join(", "));
     }
@@ -362,7 +362,7 @@ export async function handleDeleteMemory(
         return {
           success: true,
           data: {
-            deletedPrompt: cascade && !!linkedPromptId,
+            deletedPrompt: cascade && Boolean(linkedPromptId),
           },
         };
       }
@@ -416,7 +416,7 @@ export async function handleUpdateMemory(
     const tags = data.tags || (existingMemory.tags ? existingMemory.tags.split(",") : []);
 
     const vector = await embeddingService.embedWithTimeout(newContent);
-    let tagsVector: Float32Array | undefined = undefined;
+    let tagsVector: Float32Array | undefined;
     if (tags.length > 0) {
       tagsVector = await embeddingService.embedWithTimeout(tags.join(", "));
     }
@@ -1068,7 +1068,6 @@ export async function handleRunTagMigrationBatch(
     const provider = AIProviderFactory.createProvider(CONFIG.memoryProvider, providerConfig);
     const projectShards = shardManager.getAllShards("project", "");
 
-    let batchProcessed = 0;
     const allMemories: { memory: any; shard: any }[] = [];
 
     for (const shard of projectShards) {

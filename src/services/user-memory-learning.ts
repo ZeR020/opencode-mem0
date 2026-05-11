@@ -198,7 +198,7 @@ async function analyzeUserProfile(
       providerName: CONFIG.opencodeProvider,
       modelId: CONFIG.opencodeModel,
       statePath: getStatePath(),
-      systemPrompt: USER_PROFILE_SYSTEM_PROMPT(!!existingProfile),
+      systemPrompt: USER_PROFILE_SYSTEM_PROMPT(Boolean(existingProfile)),
       userPrompt: context,
       schema,
       temperature:
@@ -283,7 +283,7 @@ async function analyzeUserProfile(
   };
 
   const result = await provider.executeToolCall(
-    USER_PROFILE_SYSTEM_PROMPT(!!existingProfile),
+    USER_PROFILE_SYSTEM_PROMPT(Boolean(existingProfile)),
     context,
     toolSchema,
     `user-profile-${Date.now()}`

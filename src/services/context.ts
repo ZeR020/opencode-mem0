@@ -53,7 +53,7 @@ export function formatMemoryEntry(
     case "yaml": {
       const indentedContent = content
         .split("\n")
-        .map((line) => "    " + line)
+        .map((line) => `    ${line}`)
         .join("\n");
       return `- similarity: ${(result.similarity || 0).toFixed(2)}\n  relevance: ${relevance.toFixed(2)}\n  type: ${result.type || "note"}\n  content: |\n${indentedContent}`;
     }
@@ -104,7 +104,7 @@ export function formatContextForPrompt(
       const profileTokens = estimateTokens(profileContext);
       if (usedTokens + profileTokens < tokenBudget || tokenBudget === 0) {
         usedTokens += profileTokens;
-        parts.push("\n" + profileContext);
+        parts.push(`\n${profileContext}`);
       }
     }
   }

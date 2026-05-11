@@ -28,7 +28,7 @@ export class USearchBackend implements VectorBackend {
       dimensions: number;
     }
   ) {
-    void this.options.baseDir;
+    // constructor intentionally empty - options stored for later use
   }
 
   getBackendName(): string {

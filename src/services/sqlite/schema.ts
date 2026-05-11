@@ -17,7 +17,7 @@ function tableExists(db: Database, tableName: string): boolean {
     const row = db
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
       .get(tableName) as any;
-    return !!row;
+    return Boolean(row);
   } catch {
     return false;
   }
@@ -54,13 +54,13 @@ export function runMigrations(
       for (const sql of versionMigrations) {
         // Skip ALTER TABLE on non-existent tables
         const alterMatch = sql.match(/ALTER TABLE (\w+)/i);
-        if (alterMatch && alterMatch[1]) {
+        if (alterMatch?.[1]) {
           if (!tableExists(db, alterMatch[1])) continue;
         }
 
         // Skip ADD COLUMN if column already exists
         const addColMatch = sql.match(/ADD COLUMN (\w+)/i);
-        if (addColMatch && addColMatch[1]) {
+        if (addColMatch?.[1]) {
           if (columnNames.has(addColMatch[1])) continue;
         }
 

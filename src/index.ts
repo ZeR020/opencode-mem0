@@ -391,7 +391,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
             });
           }
 
-          const needsWarmup = !(await memoryClient.isReady());
+          const needsWarmup = !memoryClient.isReady();
           if (needsWarmup) {
             return JSON.stringify({ success: false, error: "Memory system is initializing." });
           }
@@ -404,7 +404,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
               case "help":
                 return getHelpResponse(langName);
 
-              case "add":
+              case "add": {
                 if (!args.content)
                   return JSON.stringify({ success: false, error: "content required" });
                 const sanitizedContent = stripPrivateContent(args.content);
@@ -426,12 +426,13 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
                 });
                 return JSON.stringify({
                   success: result.success,
-                  message: `Memory added`,
+                  message: "Memory added",
                   id: result.id,
                   tags: parsedTags,
                 });
+              }
 
-              case "search":
+              case "search": {
                 if (!args.query) return JSON.stringify({ success: false, error: "query required" });
                 const searchRes = await memoryClient.searchMemories(
                   args.query,
@@ -454,6 +455,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
                     .catch((err) => log("Toast display failed", { error: String(err) }));
                 }
                 return formatSearchResults(args.query, searchRes, args.limit);
+              }
 
               case "profile": {
                 if (args.query) {
@@ -547,7 +549,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
                 });
               }
 
-              case "list":
+              case "list": {
                 const listRes = await memoryClient.listMemories(
                   tags.project.tag,
                   args.limit || 20,
@@ -564,12 +566,14 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
                     createdAt: m.createdAt,
                   })),
                 });
+              }
 
-              case "forget":
+              case "forget": {
                 if (!args.memoryId)
                   return JSON.stringify({ success: false, error: "memoryId required" });
                 const delRes = await memoryClient.deleteMemory(args.memoryId);
-                return JSON.stringify({ success: delRes.success, message: `Memory removed` });
+                return JSON.stringify({ success: delRes.success, message: "Memory removed" });
+              }
 
               default:
                 return JSON.stringify({ success: false, error: `Unknown mode: ${mode}` });

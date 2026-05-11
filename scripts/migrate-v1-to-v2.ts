@@ -149,9 +149,9 @@ function createConflictsTable(db: DatabaseType): boolean {
       )
     `);
 
-    db.run(`CREATE INDEX idx_conflict_m1 ON memory_conflicts(memory_id_1)`);
-    db.run(`CREATE INDEX idx_conflict_m2 ON memory_conflicts(memory_id_2)`);
-    db.run(`CREATE INDEX idx_conflict_resolved ON memory_conflicts(resolved, detected_at)`);
+    db.run("CREATE INDEX idx_conflict_m1 ON memory_conflicts(memory_id_1)");
+    db.run("CREATE INDEX idx_conflict_m2 ON memory_conflicts(memory_id_2)");
+    db.run("CREATE INDEX idx_conflict_resolved ON memory_conflicts(resolved, detected_at)");
 
     log("Migration: created memory_conflicts table");
     return true;
@@ -183,9 +183,9 @@ function createTranscriptsDb(storagePath: string): boolean {
       )
     `);
 
-    db.run(`CREATE INDEX IF NOT EXISTS idx_transcripts_session ON transcripts(session_id)`);
-    db.run(`CREATE INDEX IF NOT EXISTS idx_transcripts_created ON transcripts(created_at DESC)`);
-    db.run(`CREATE INDEX IF NOT EXISTS idx_transcripts_project ON transcripts(project_path)`);
+    db.run("CREATE INDEX IF NOT EXISTS idx_transcripts_session ON transcripts(session_id)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_transcripts_created ON transcripts(created_at DESC)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_transcripts_project ON transcripts(project_path)");
 
     db.run(`
       CREATE VIRTUAL TABLE IF NOT EXISTS transcripts_fts USING fts5(

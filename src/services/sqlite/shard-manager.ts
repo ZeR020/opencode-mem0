@@ -296,7 +296,7 @@ export class ShardManager {
   }
 
   getWriteShard(scope: "user" | "project", scopeHash: string): ShardInfo {
-    let shard = this.getActiveShard(scope, scopeHash);
+    const shard = this.getActiveShard(scope, scopeHash);
 
     if (!shard) {
       return this.createShard(scope, scopeHash, 0);

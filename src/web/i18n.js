@@ -224,7 +224,7 @@ function setLanguage(lang) {
 
 function t(key, params = {}) {
   const lang = getLanguage();
-  let text = (translations[lang] && translations[lang][key]) || translations["en"][key] || key;
+  let text = translations[lang]?.[key] || translations["en"][key] || key;
 
   for (const [k, v] of Object.entries(params)) {
     text = text.replace(new RegExp(`\\{${k}\\}`, "g"), v);
@@ -243,12 +243,12 @@ function applyLanguage() {
       let textNodeFound = false;
       for (const node of el.childNodes) {
         if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== "") {
-          node.textContent = " " + translated + " ";
+          node.textContent = ` ${translated} `;
           textNodeFound = true;
         }
       }
       if (!textNodeFound) {
-        el.appendChild(document.createTextNode(" " + translated));
+        el.appendChild(document.createTextNode(` ${translated}`));
       }
     } else {
       el.textContent = translated;

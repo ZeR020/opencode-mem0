@@ -24,7 +24,7 @@ function rotateLog() {
     const stats = statSync(logFile);
     if (stats.size < MAX_LOG_SIZE) return;
 
-    const oldLog = logFile + ".old";
+    const oldLog = `${logFile}.old`;
     if (existsSync(oldLog)) unlinkSync(oldLog);
     renameSync(logFile, oldLog);
   } catch (err) {

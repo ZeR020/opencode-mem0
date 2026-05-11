@@ -272,7 +272,7 @@ export class VectorSearch {
     if (!queryText || queryText.length === 0) return [];
     try {
       const safeFtsQuery = queryText
-        .replace(/[\*\^:\-+?()"]/g, " ")
+        .replace(/[*^:\-+?()"]/g, " ")
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, 500);
@@ -516,7 +516,7 @@ export class VectorSearch {
       )
       .all(...ids, ...(containerTag === "" ? [] : [containerTag])) as any[];
 
-    let hydratedResults = this.hydrateAndScoreResults(
+    const hydratedResults = this.hydrateAndScoreResults(
       rows,
       scoreMap,
       ftsResults,

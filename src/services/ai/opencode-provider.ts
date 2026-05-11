@@ -243,7 +243,7 @@ export function createOAuthFetch(
           buffer = lines.pop() || "";
 
           if (lines.length > 0) {
-            let textToEmit = lines.join("\n") + "\n";
+            let textToEmit = `${lines.join("\n")}\n`;
             textToEmit = stripMcpPrefix(textToEmit);
             controller.enqueue(encoder.encode(textToEmit));
           }

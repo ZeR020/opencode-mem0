@@ -140,8 +140,7 @@ const NEGATION_PATTERNS = [
 function getWords(text: string): string[] {
   const words: string[] = [];
   let current = "";
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i]!;
+  for (const ch of text) {
     if (ch <= " ") {
       if (current.length > 3) words.push(current.toLowerCase());
       current = "";
@@ -593,6 +592,8 @@ export async function resolveConflict(
           // Just flag for user review - update conflict record
           break;
         }
+        default:
+          return { success: false, error: `Unknown resolution strategy: ${strategy}` };
       }
 
       // Update conflict record
