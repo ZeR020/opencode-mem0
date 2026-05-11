@@ -36,5 +36,6 @@ export const safeObject = <T extends object>(obj: any, fallback: T): T => {
       return fallback;
     }
   }
-  return result && typeof result === "object" && !Array.isArray(result) ? (result as T) : fallback;
+  const isValidObject = result && typeof result === "object" && !Array.isArray(result);
+  return isValidObject ? (result as T) : fallback;
 };

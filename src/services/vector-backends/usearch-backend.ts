@@ -147,7 +147,7 @@ export class USearchBackend implements VectorBackend {
     }
   }
 
-  async deleteShardIndexes(args: { shard: ShardInfo }): Promise<void> {
+  deleteShardIndexes(args: { shard: ShardInfo }): void {
     for (const kind of ["content", "tags"] as const) {
       const indexKey = this.getIndexKey(args.shard, kind);
       this.indexes.delete(indexKey);

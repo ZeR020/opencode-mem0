@@ -33,22 +33,13 @@ export class ExactScanBackend implements VectorBackend {
       .slice(0, limit);
   }
 
-  async insert(_args: {
-    id: string;
-    vector: Float32Array;
-    shard: ShardInfo;
-    kind: VectorKind;
-  }): Promise<void> {}
+  insert(_args: { id: string; vector: Float32Array; shard: ShardInfo; kind: VectorKind }): void {}
 
-  async insertBatch(_args: {
-    items: BackendInsertItem[];
-    shard: ShardInfo;
-    kind: VectorKind;
-  }): Promise<void> {}
+  insertBatch(_args: { items: BackendInsertItem[]; shard: ShardInfo; kind: VectorKind }): void {}
 
-  async delete(_args: { id: string; shard: ShardInfo; kind: VectorKind }): Promise<void> {}
+  delete(_args: { id: string; shard: ShardInfo; kind: VectorKind }): void {}
 
-  async search(args: VectorBackendSearchParams): Promise<BackendSearchResult[]> {
+  search(args: VectorBackendSearchParams): BackendSearchResult[] {
     const COLUMN_MAP: Record<string, string> = {
       content: "vector",
       tags: "tags_vector",
@@ -79,13 +70,9 @@ export class ExactScanBackend implements VectorBackend {
     return this.rankVectors(rankedRows, args.queryVector, args.limit);
   }
 
-  async rebuildFromShard(_args: {
-    db: unknown;
-    shard: ShardInfo;
-    kind: VectorKind;
-  }): Promise<void> {}
+  rebuildFromShard(_args: { db: unknown; shard: ShardInfo; kind: VectorKind }): void {}
 
-  async deleteShardIndexes(_args: { shard: ShardInfo }): Promise<void> {}
+  deleteShardIndexes(_args: { shard: ShardInfo }): void {}
 
   private decodeVector(value: Uint8Array | ArrayBuffer | null | undefined): Float32Array {
     if (!value) {

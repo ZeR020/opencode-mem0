@@ -182,7 +182,7 @@ function extractAIContent(messages: any[]): {
       }
 
       if (input.length > MAX_TOOL_INPUT_LENGTH) {
-        input = input.substring(0, MAX_TOOL_INPUT_LENGTH) + "...";
+        input = `${input.substring(0, MAX_TOOL_INPUT_LENGTH)}...`;
       }
 
       toolCalls.push({ name, input });
@@ -210,7 +210,7 @@ async function getLatestProjectMemory(containerTag: string): Promise<string | nu
       return content;
     }
 
-    return content.substring(0, 500) + "...";
+    return `${content.substring(0, 500)}...`;
   } catch {
     return null;
   }

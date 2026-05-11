@@ -84,7 +84,7 @@ export async function performTranscriptCapture(
  *
  * @returns Number of transcripts deleted
  */
-export async function cleanupOldTranscripts(): Promise<number> {
+export function cleanupOldTranscripts(): number {
   if (!CONFIG.transcriptStorage.enabled) return 0;
 
   const maxAgeDays = CONFIG.transcriptStorage.maxAgeDays ?? 30;

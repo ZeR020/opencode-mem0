@@ -18,7 +18,7 @@ export class CleanupService {
   private lastCleanupTime: number = 0;
   private isRunning: boolean = false;
 
-  async shouldRunCleanup(): Promise<boolean> {
+  shouldRunCleanup(): boolean {
     if (!CONFIG.autoCleanupEnabled) return false;
     if (this.isRunning) return false;
 
