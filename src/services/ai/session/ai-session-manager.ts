@@ -178,7 +178,11 @@ export class AISessionManager {
       ]
     );
 
-    return this.getSession(params.sessionId, params.provider)!;
+    const session = this.getSession(params.sessionId, params.provider);
+    if (!session) {
+      throw new Error("Failed to retrieve newly created session");
+    }
+    return session;
   }
 
   updateSession(sessionId: string, provider: AIProviderType, updates: SessionUpdateParams): void {

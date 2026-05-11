@@ -261,3 +261,5 @@ log/
 *.testing.yml
 .graphifyignore
 .config/
+bin/
+deepsource-*.json
