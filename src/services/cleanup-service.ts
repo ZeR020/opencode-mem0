@@ -19,17 +19,9 @@ export class CleanupService {
   private isRunning: boolean = false;
 
   shouldRunCleanup(): boolean {
-    if (!CONFIG.autoCleanupEnabled) return false;
-    if (this.isRunning) return false;
-
     const now = Date.now();
     const oneDayMs = 24 * 60 * 60 * 1000;
-
-    if (now - this.lastCleanupTime < oneDayMs) {
-      return false;
-    }
-
-    return true;
+    return CONFIG.autoCleanupEnabled && !this.isRunning && now - this.lastCleanupTime >= oneDayMs;
   }
 
   async runCleanup(): Promise<CleanupResult> {
@@ -49,7 +41,7 @@ export class CleanupService {
       const pinnedMemoryIds = new Set<string>();
       for (const shard of allShards) {
         const db = connectionManager.getConnection(shard.dbPath);
-        const pinned = db.prepare(`SELECT id FROM memories WHERE is_pinned = 1`).all() as any[];
+        const pinned = db.prepare("SELECT id FROM memories WHERE is_pinned = 1").all() as any[];
         pinned.forEach((row) => pinnedMemoryIds.add(row.id));
       }
 

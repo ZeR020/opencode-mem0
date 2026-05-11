@@ -90,7 +90,9 @@ export async function performUserProfileLearning(
             duration: 3000,
           },
         })
-        .catch(() => {});
+        .catch(() => {
+          // Notification errors are non-critical
+        });
     }
   } finally {
     isLearningRunning = false;

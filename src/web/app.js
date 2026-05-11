@@ -1177,7 +1177,7 @@ function switchView(view) {
 
 async function loadConflicts() {
   const list = document.getElementById("conflicts-list");
-  list.innerHTML = `<div class="loading">Loading conflicts...</div>`;
+  list.innerHTML = '<div class="loading">Loading conflicts...</div>';
 
   const result = await fetchAPI("/api/conflicts");
   const statsResult = await fetchAPI("/api/conflicts/stats");
@@ -1216,7 +1216,7 @@ function renderConflicts() {
   const container = document.getElementById("conflicts-list");
 
   if (state.conflicts.length === 0) {
-    container.innerHTML = `<div class="empty-state">No unresolved conflicts found. Great!</div>`;
+    container.innerHTML = '<div class="empty-state">No unresolved conflicts found. Great!</div>';
     return;
   }
 

@@ -244,7 +244,9 @@ class ContextTracker {
       this.scopeAccessOrder = this.scopeAccessOrder.filter((s) => s !== scope);
       this.scopeAccessOrder.push(scope);
     }
-    return this.contexts.get(scope)!;
+    const ctx = this.contexts.get(scope);
+    if (!ctx) throw new Error(`Context for scope ${scope} not found`);
+    return ctx;
   }
 
   private pruneScope(scope: string) {

@@ -181,7 +181,7 @@ export function promoteToLTM(memoryId: string): { success: boolean; promoted: bo
         const db = connectionManager.getConnection(shard.dbPath);
 
         const memory = db
-          .prepare(`SELECT id, store_type, strength, access_count FROM memories WHERE id = ?`)
+          .prepare("SELECT id, store_type, strength, access_count FROM memories WHERE id = ?")
           .get(memoryId) as any;
 
         if (!memory) continue;
@@ -194,7 +194,7 @@ export function promoteToLTM(memoryId: string): { success: boolean; promoted: bo
         const accessCount = Number(memory.access_count || 0);
 
         if (strength > threshold && accessCount > 3) {
-          db.prepare(`UPDATE memories SET store_type = 'ltm', decay_rate = 0.01 WHERE id = ?`).run(
+          db.prepare("UPDATE memories SET store_type = 'ltm', decay_rate = 0.01 WHERE id = ?").run(
             memoryId
           );
 
@@ -270,8 +270,8 @@ export async function applyDecay(): Promise<{
 
         const updateStmt = db.prepare(
           contextualDecayEnabled
-            ? `UPDATE memories SET strength = ?, recency_score = ?, last_decay_at = ?, decay_rate = ? WHERE id = ?`
-            : `UPDATE memories SET strength = ?, recency_score = ?, last_decay_at = ? WHERE id = ?`
+            ? "UPDATE memories SET strength = ?, recency_score = ?, last_decay_at = ?, decay_rate = ? WHERE id = ?"
+            : "UPDATE memories SET strength = ?, recency_score = ?, last_decay_at = ? WHERE id = ?"
         );
 
         db.run("BEGIN IMMEDIATE");
@@ -430,7 +430,7 @@ async function archiveMemory(db: any, memoryId: string, shard: any): Promise<voi
     }
 
     // Delete from memories
-    db.run(`DELETE FROM memories WHERE id = ?`, memoryId);
+    db.run("DELETE FROM memories WHERE id = ?", memoryId);
 
     // Ensure the vector is removed from the backend index
     try {
@@ -460,7 +460,7 @@ export function getArchivedCount(): number {
     for (const shard of allShards) {
       try {
         const db = connectionManager.getConnection(shard.dbPath);
-        const result = db.prepare(`SELECT COUNT(*) as count FROM memories_archive`).get() as any;
+        const result = db.prepare("SELECT COUNT(*) as count FROM memories_archive").get() as any;
         count += result?.count || 0;
       } catch {
         // Archive table may not exist

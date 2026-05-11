@@ -62,7 +62,7 @@ export function readOpencodeAuth(statePath: string, providerName: string): Auth 
   try {
     parsed = JSON.parse(raw) as Record<string, Auth>;
   } catch {
-    throw new Error(`Failed to read opencode auth.json: invalid JSON`);
+    throw new Error("Failed to read opencode auth.json: invalid JSON");
   }
   const auth = parsed[providerName];
   if (!auth) {

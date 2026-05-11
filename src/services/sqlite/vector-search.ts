@@ -76,7 +76,7 @@ export class VectorSearch {
     return stmt;
   }
 
-  private async getBackend(): Promise<VectorBackend> {
+  private getBackend(): Promise<VectorBackend> {
     return this.backendPromise;
   }
 
@@ -399,7 +399,7 @@ export class VectorSearch {
   private updateAccessCounts(db: DatabaseType, results: SearchResult[]): void {
     try {
       const updateAccessStmt = db.prepare(
-        `UPDATE memories SET access_count = access_count + 1, last_accessed = ? WHERE id = ?`
+        "UPDATE memories SET access_count = access_count + 1, last_accessed = ? WHERE id = ?"
       );
       const now = Date.now();
       for (const result of results) {
@@ -720,7 +720,7 @@ export class VectorSearch {
    * @param shard - Optional shard info for backend index cleanup
    */
   async deleteVector(db: DatabaseType, memoryId: string, shard?: ShardInfo): Promise<void> {
-    this.getStmt(db, `DELETE FROM memories WHERE id = ?`).run(memoryId);
+    this.getStmt(db, "DELETE FROM memories WHERE id = ?").run(memoryId);
 
     if (shard) {
       const backend = await this.getBackend();
@@ -747,7 +747,7 @@ export class VectorSearch {
   ): Promise<void> {
     db.run("BEGIN IMMEDIATE");
     try {
-      this.getStmt(db, `UPDATE memories SET vector = ?, tags_vector = ? WHERE id = ?`).run(
+      this.getStmt(db, "UPDATE memories SET vector = ?, tags_vector = ? WHERE id = ?").run(
         toBlob(vector),
         toBlob(tagsVector),
         memoryId
@@ -788,7 +788,7 @@ export class VectorSearch {
 
     db.run("BEGIN IMMEDIATE");
     try {
-      this.getStmt(db, `DELETE FROM memories WHERE id = ?`).run(memoryId);
+      this.getStmt(db, "DELETE FROM memories WHERE id = ?").run(memoryId);
       insertMemory.run(
         record.id,
         record.content,
@@ -852,8 +852,8 @@ export class VectorSearch {
   listMemories(db: DatabaseType, containerTag: string, limit: number): any[] {
     const sql =
       containerTag === ""
-        ? `SELECT * FROM memories WHERE is_deprecated = 0 ORDER BY is_pinned DESC, strength DESC, recency_score DESC LIMIT ?`
-        : `SELECT * FROM memories WHERE container_tag = ? AND is_deprecated = 0 ORDER BY is_pinned DESC, strength DESC, recency_score DESC LIMIT ?`;
+        ? "SELECT * FROM memories WHERE is_deprecated = 0 ORDER BY is_pinned DESC, strength DESC, recency_score DESC LIMIT ?"
+        : "SELECT * FROM memories WHERE container_tag = ? AND is_deprecated = 0 ORDER BY is_pinned DESC, strength DESC, recency_score DESC LIMIT ?";
     const stmt = this.getStmt(db, sql);
     return (containerTag === "" ? stmt.all(limit) : stmt.all(containerTag, limit)) as any[];
   }
@@ -867,7 +867,7 @@ export class VectorSearch {
   getAllMemories(db: DatabaseType): any[] {
     return this.getStmt(
       db,
-      `SELECT * FROM memories WHERE is_deprecated = 0 ORDER BY created_at DESC`
+      "SELECT * FROM memories WHERE is_deprecated = 0 ORDER BY created_at DESC"
     ).all() as any[];
   }
 
@@ -879,7 +879,7 @@ export class VectorSearch {
    * @returns The memory row, or null if not found
    */
   getMemoryById(db: DatabaseType, memoryId: string): any | null {
-    return this.getStmt(db, `SELECT * FROM memories WHERE id = ?`).get(memoryId) as any;
+    return this.getStmt(db, "SELECT * FROM memories WHERE id = ?").get(memoryId) as any;
   }
 
   /**
@@ -930,7 +930,7 @@ export class VectorSearch {
   countVectors(db: DatabaseType, containerTag: string): number {
     const result = this.getStmt(
       db,
-      `SELECT COUNT(*) as count FROM memories WHERE container_tag = ? AND is_deprecated = 0`
+      "SELECT COUNT(*) as count FROM memories WHERE container_tag = ? AND is_deprecated = 0"
     ).get(containerTag) as any;
     return result.count;
   }
@@ -942,7 +942,7 @@ export class VectorSearch {
    * @returns Total number of memories
    */
   countAllVectors(db: DatabaseType): number {
-    const stmt = db.prepare(`SELECT COUNT(*) as count FROM memories WHERE is_deprecated = 0`);
+    const stmt = db.prepare("SELECT COUNT(*) as count FROM memories WHERE is_deprecated = 0");
     const result = stmt.get() as any;
     return result.count;
   }
@@ -969,7 +969,7 @@ export class VectorSearch {
    * @param memoryId - ID of the memory to pin
    */
   pinMemory(db: DatabaseType, memoryId: string): void {
-    const stmt = db.prepare(`UPDATE memories SET is_pinned = 1 WHERE id = ?`);
+    const stmt = db.prepare("UPDATE memories SET is_pinned = 1 WHERE id = ?");
     stmt.run(memoryId);
   }
 
@@ -980,7 +980,7 @@ export class VectorSearch {
    * @param memoryId - ID of the memory to unpin
    */
   unpinMemory(db: DatabaseType, memoryId: string): void {
-    const stmt = db.prepare(`UPDATE memories SET is_pinned = 0 WHERE id = ?`);
+    const stmt = db.prepare("UPDATE memories SET is_pinned = 0 WHERE id = ?");
     stmt.run(memoryId);
   }
 

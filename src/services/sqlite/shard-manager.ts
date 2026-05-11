@@ -184,16 +184,16 @@ export class ShardManager {
       )
     `);
 
-    db.run(`CREATE INDEX IF NOT EXISTS idx_container_tag ON memories(container_tag)`);
-    db.run(`CREATE INDEX IF NOT EXISTS idx_type ON memories(type)`);
-    db.run(`CREATE INDEX IF NOT EXISTS idx_created_at ON memories(created_at DESC)`);
-    db.run(`CREATE INDEX IF NOT EXISTS idx_is_pinned ON memories(is_pinned)`);
-    db.run(`CREATE INDEX IF NOT EXISTS idx_strength ON memories(strength DESC)`);
-    db.run(`CREATE INDEX IF NOT EXISTS idx_recency ON memories(recency_score DESC)`);
-    db.run(`CREATE INDEX IF NOT EXISTS idx_access_count ON memories(access_count DESC)`);
-    db.run(`CREATE INDEX IF NOT EXISTS idx_store_type ON memories(store_type)`);
-    db.run(`CREATE INDEX IF NOT EXISTS idx_decay_strength ON memories(strength, created_at)`);
-    db.run(`CREATE INDEX IF NOT EXISTS idx_is_deprecated ON memories(is_deprecated)`);
+    db.run("CREATE INDEX IF NOT EXISTS idx_container_tag ON memories(container_tag)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_type ON memories(type)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_created_at ON memories(created_at DESC)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_is_pinned ON memories(is_pinned)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_strength ON memories(strength DESC)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_recency ON memories(recency_score DESC)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_access_count ON memories(access_count DESC)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_store_type ON memories(store_type)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_decay_strength ON memories(strength, created_at)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_is_deprecated ON memories(is_deprecated)");
 
     db.run(`
       CREATE TABLE IF NOT EXISTS memory_conflicts (
@@ -211,10 +211,10 @@ export class ShardManager {
       )
     `);
 
-    db.run(`CREATE INDEX IF NOT EXISTS idx_conflict_m1 ON memory_conflicts(memory_id_1)`);
-    db.run(`CREATE INDEX IF NOT EXISTS idx_conflict_m2 ON memory_conflicts(memory_id_2)`);
+    db.run("CREATE INDEX IF NOT EXISTS idx_conflict_m1 ON memory_conflicts(memory_id_1)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_conflict_m2 ON memory_conflicts(memory_id_2)");
     db.run(
-      `CREATE INDEX IF NOT EXISTS idx_conflict_resolved ON memory_conflicts(resolved, detected_at)`
+      "CREATE INDEX IF NOT EXISTS idx_conflict_resolved ON memory_conflicts(resolved, detected_at)"
     );
 
     // Migrate existing databases to add scoring columns
@@ -264,7 +264,7 @@ export class ShardManager {
     try {
       const db = connectionManager.getConnection(shard.dbPath);
       const result = db
-        .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='memories'`)
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='memories'")
         .get() as any;
       if (!result) {
         log("Shard DB missing 'memories' table", {
@@ -312,7 +312,7 @@ export class ShardManager {
 
       connectionManager.closeConnection(shard.dbPath);
 
-      const deleteStmt = this.metadataDb.prepare(`DELETE FROM shards WHERE id = ?`);
+      const deleteStmt = this.metadataDb.prepare("DELETE FROM shards WHERE id = ?");
       deleteStmt.run(shard.id);
 
       return this.createShard(scope, scopeHash, shard.shardIndex);
@@ -349,7 +349,7 @@ export class ShardManager {
 
   getShardByPath(dbPath: string): ShardInfo | null {
     const fileName = basename(dbPath);
-    const stmt = this.metadataDb.prepare(`SELECT * FROM shards WHERE db_path LIKE '%' || ?`);
+    const stmt = this.metadataDb.prepare("SELECT * FROM shards WHERE db_path LIKE '%' || ?");
     const row = stmt.get(fileName) as any;
     if (!row) return null;
 
@@ -366,7 +366,7 @@ export class ShardManager {
   }
 
   async deleteShard(shardId: number): Promise<void> {
-    const stmt = this.metadataDb.prepare(`SELECT * FROM shards WHERE id = ?`);
+    const stmt = this.metadataDb.prepare("SELECT * FROM shards WHERE id = ?");
     const row = stmt.get(shardId) as any;
 
     if (row) {
@@ -394,7 +394,7 @@ export class ShardManager {
         });
       }
 
-      const deleteStmt = this.metadataDb.prepare(`DELETE FROM shards WHERE id = ?`);
+      const deleteStmt = this.metadataDb.prepare("DELETE FROM shards WHERE id = ?");
       deleteStmt.run(shardId);
     }
   }

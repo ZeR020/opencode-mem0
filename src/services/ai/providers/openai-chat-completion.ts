@@ -46,12 +46,9 @@ type RequestBody = {
 type AssistantSessionMessage = Omit<AIMessage, "id" | "sequence" | "createdAt">;
 
 function isErrorResponseBody(data: unknown): data is { status: string; msg: string } {
-  return (
-    typeof data === "object" &&
-    data !== null &&
-    typeof (data as { status?: unknown }).status === "string" &&
-    typeof (data as { msg?: unknown }).msg === "string"
-  );
+  if (typeof data !== "object" || data === null) return false;
+  const candidate = data as { status?: unknown; msg?: unknown };
+  return typeof candidate.status === "string" && typeof candidate.msg === "string";
 }
 
 function hasNonEmptyChoices(data: unknown): data is ToolCallResponse {

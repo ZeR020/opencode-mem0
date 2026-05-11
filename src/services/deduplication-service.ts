@@ -67,7 +67,8 @@ export class DeduplicationService {
           if (!contentMap.has(key)) {
             contentMap.set(key, []);
           }
-          contentMap.get(key)!.push(memory);
+          const arr = contentMap.get(key);
+          if (arr) arr.push(memory);
         }
 
         for (const [, duplicates] of contentMap) {

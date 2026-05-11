@@ -224,7 +224,7 @@ function setLanguage(lang) {
 
 function t(key, params = {}) {
   const lang = getLanguage();
-  let text = translations[lang]?.[key] || translations["en"][key] || key;
+  let text = translations[lang]?.[key] || translations.en[key] || key;
 
   for (const [k, v] of Object.entries(params)) {
     text = text.replace(new RegExp(`\\{${k}\\}`, "g"), v);

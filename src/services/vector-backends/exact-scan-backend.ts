@@ -33,11 +33,17 @@ export class ExactScanBackend implements VectorBackend {
       .slice(0, limit);
   }
 
-  insert(_args: { id: string; vector: Float32Array; shard: ShardInfo; kind: VectorKind }): void {}
+  insert(_args: { id: string; vector: Float32Array; shard: ShardInfo; kind: VectorKind }): void {
+    // No-op: exact-scan searches directly from SQLite, no index to maintain
+  }
 
-  insertBatch(_args: { items: BackendInsertItem[]; shard: ShardInfo; kind: VectorKind }): void {}
+  insertBatch(_args: { items: BackendInsertItem[]; shard: ShardInfo; kind: VectorKind }): void {
+    // No-op: exact-scan searches directly from SQLite, no index to maintain
+  }
 
-  delete(_args: { id: string; shard: ShardInfo; kind: VectorKind }): void {}
+  delete(_args: { id: string; shard: ShardInfo; kind: VectorKind }): void {
+    // No-op: exact-scan searches directly from SQLite, no index to maintain
+  }
 
   search(args: VectorBackendSearchParams): BackendSearchResult[] {
     const COLUMN_MAP: Record<string, string> = {
@@ -70,9 +76,13 @@ export class ExactScanBackend implements VectorBackend {
     return this.rankVectors(rankedRows, args.queryVector, args.limit);
   }
 
-  rebuildFromShard(_args: { db: unknown; shard: ShardInfo; kind: VectorKind }): void {}
+  rebuildFromShard(_args: { db: unknown; shard: ShardInfo; kind: VectorKind }): void {
+    // No-op: exact-scan searches directly from SQLite, no index to rebuild
+  }
 
-  deleteShardIndexes(_args: { shard: ShardInfo }): void {}
+  deleteShardIndexes(_args: { shard: ShardInfo }): void {
+    // No-op: exact-scan searches directly from SQLite, no index to delete
+  }
 
   private decodeVector(value: Uint8Array | ArrayBuffer | null | undefined): Float32Array {
     if (!value) {

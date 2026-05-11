@@ -5,11 +5,7 @@ import { connectionManager } from "../sqlite/connection-manager.js";
 import { CONFIG } from "../../config.js";
 import { safeJSONParse } from "../utils/safe-transforms.js";
 import { log } from "../logger.js";
-import {
-  type UserProfile,
-  type UserProfileData,
-  type UserProfileChangelog,
-} from "./types.js";
+import { type UserProfile, type UserProfileData, type UserProfileChangelog } from "./types.js";
 
 type DatabaseType = Database;
 
@@ -147,7 +143,7 @@ export class UserProfileManager {
       this.db.run("BEGIN TRANSACTION");
       inTxn = true;
 
-      const getVersionStmt = this.db.prepare(`SELECT version FROM user_profiles WHERE id = ?`);
+      const getVersionStmt = this.db.prepare("SELECT version FROM user_profiles WHERE id = ?");
       const versionRow = getVersionStmt.get(profileId) as any;
       const newVersion = (versionRow?.version || 0) + 1;
 
@@ -269,19 +265,19 @@ export class UserProfileManager {
   }
 
   deleteProfile(profileId: string): void {
-    const stmt = this.db.prepare(`DELETE FROM user_profiles WHERE id = ?`);
+    const stmt = this.db.prepare("DELETE FROM user_profiles WHERE id = ?");
     stmt.run(profileId);
   }
 
   getProfileById(profileId: string): UserProfile | null {
-    const stmt = this.db.prepare(`SELECT * FROM user_profiles WHERE id = ?`);
+    const stmt = this.db.prepare("SELECT * FROM user_profiles WHERE id = ?");
     const row = stmt.get(profileId) as any;
     if (!row) return null;
     return this.rowToProfile(row);
   }
 
   getAllActiveProfiles(): UserProfile[] {
-    const stmt = this.db.prepare(`SELECT * FROM user_profiles WHERE is_active = 1`);
+    const stmt = this.db.prepare("SELECT * FROM user_profiles WHERE is_active = 1");
     const rows = stmt.all() as any[];
     return rows.map((row) => this.rowToProfile(row));
   }

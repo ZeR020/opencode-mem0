@@ -29,7 +29,7 @@ function normalizeHeaders(rawHeaders: IncomingMessage["headers"]): Headers {
 
 const kRemoteAddress = Symbol.for("opencode-mem0.remoteAddress");
 
-async function createNodeServer(options: ServeOptions): Promise<PlatformServer> {
+function createNodeServer(options: ServeOptions): Promise<PlatformServer> {
   const nodeServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     try {
       const host = req.headers.host || `${options.hostname}:${options.port}`;

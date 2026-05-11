@@ -256,7 +256,7 @@ export class TranscriptManager {
 
     try {
       const db = this.getDb();
-      const stmt = db.prepare(`SELECT COUNT(*) as count FROM transcripts`);
+      const stmt = db.prepare("SELECT COUNT(*) as count FROM transcripts");
       const row = stmt.get() as any;
       return row?.count || 0;
     } catch (error) {

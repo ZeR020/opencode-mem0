@@ -188,9 +188,9 @@ export class USearchBackend implements VectorBackend {
   private indexLocks = new Map<string, Promise<CachedIndex>>();
   private rebuildLocks = new Map<string, Promise<void>>();
 
-  private async getOrCreateIndex(indexKey: string): Promise<CachedIndex> {
+  private getOrCreateIndex(indexKey: string): Promise<CachedIndex> {
     const existing = this.indexes.get(indexKey);
-    if (existing) return existing;
+    if (existing) return Promise.resolve(existing);
 
     const pending = this.indexLocks.get(indexKey);
     if (pending) return pending;

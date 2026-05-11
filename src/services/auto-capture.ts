@@ -132,7 +132,9 @@ export async function performAutoCapture(
               duration: 3000,
             },
           })
-          .catch(() => {});
+          .catch(() => {
+            // Notification errors are non-critical
+          });
       }
     }
   } finally {
@@ -225,27 +227,27 @@ function buildMarkdownContext(
   const sections: string[] = [];
 
   if (latestMemory) {
-    sections.push(`## Previous Memory Context`);
-    sections.push(`---`);
+    sections.push("## Previous Memory Context");
+    sections.push("---");
     sections.push(latestMemory);
-    sections.push(`---\n`);
+    sections.push("---\n");
   }
 
-  sections.push(`## User Request`);
-  sections.push(`---`);
+  sections.push("## User Request");
+  sections.push("---");
   sections.push(userPrompt);
-  sections.push(`---\n`);
+  sections.push("---\n");
 
   if (textResponses.length > 0) {
-    sections.push(`## AI Response`);
-    sections.push(`---`);
+    sections.push("## AI Response");
+    sections.push("---");
     sections.push(textResponses.join("\n\n"));
-    sections.push(`---\n`);
+    sections.push("---\n");
   }
 
   if (toolCalls.length > 0) {
-    sections.push(`## Tools Used`);
-    sections.push(`---`);
+    sections.push("## Tools Used");
+    sections.push("---");
     for (const tool of toolCalls) {
       if (tool.input) {
         sections.push(`- ${tool.name}(${tool.input})`);
@@ -253,7 +255,7 @@ function buildMarkdownContext(
         sections.push(`- ${tool.name}`);
       }
     }
-    sections.push(`---\n`);
+    sections.push("---\n");
   }
 
   return sections.join("\n");

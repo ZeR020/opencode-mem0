@@ -146,7 +146,7 @@ export async function handleListMemories(
       for (const shard of shards) {
         const db = connectionManager.getConnection(shard.dbPath);
         const memories = vectorSearch.listMemories(db, "", perShardLimit);
-        allMemories.push(...memories.filter((m: any) => m.container_tag?.includes(`_project_`)));
+        allMemories.push(...memories.filter((m: any) => m.container_tag?.includes("_project_")));
       }
     }
     // Cap total to prevent unbounded memory growth
@@ -206,13 +206,15 @@ export async function handleListMemories(
         if (!linkedPairs.has(item.linkedPromptId)) {
           linkedPairs.set(item.linkedPromptId, { memory: item, prompt: null });
         } else {
-          linkedPairs.get(item.linkedPromptId)!.memory = item;
+          const pair = linkedPairs.get(item.linkedPromptId);
+          if (pair) pair.memory = item;
         }
       } else if (item.type === "prompt" && item.linkedMemoryId) {
         if (!linkedPairs.has(item.id)) {
           linkedPairs.set(item.id, { memory: null, prompt: item });
         } else {
-          linkedPairs.get(item.id)!.prompt = item;
+          const pair = linkedPairs.get(item.id);
+          if (pair) pair.prompt = item;
         }
       } else {
         standalone.push(item);
@@ -712,7 +714,7 @@ export function handleStats(): ApiResponse<{
       const db = connectionManager.getConnection(shard.dbPath);
       const scopeRow = db
         .prepare(
-          `SELECT SUM(CASE WHEN container_tag LIKE '%_user_%' THEN 1 ELSE 0 END) as user_count, SUM(CASE WHEN container_tag LIKE '%_project_%' THEN 1 ELSE 0 END) as project_count FROM memories WHERE is_deprecated = 0`
+          "SELECT SUM(CASE WHEN container_tag LIKE '%_user_%' THEN 1 ELSE 0 END) as user_count, SUM(CASE WHEN container_tag LIKE '%_project_%' THEN 1 ELSE 0 END) as project_count FROM memories WHERE is_deprecated = 0"
         )
         .get() as any;
       userCount += scopeRow?.user_count || 0;
@@ -720,7 +722,7 @@ export function handleStats(): ApiResponse<{
 
       const typeRows = db
         .prepare(
-          `SELECT type, COUNT(*) as count FROM memories WHERE is_deprecated = 0 GROUP BY type`
+          "SELECT type, COUNT(*) as count FROM memories WHERE is_deprecated = 0 GROUP BY type"
         )
         .all() as any[];
       for (const row of typeRows) {

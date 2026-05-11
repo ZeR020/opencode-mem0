@@ -67,16 +67,16 @@ export class UserPromptManager {
         ORDER BY created_at DESC 
         LIMIT 1
       `),
-      deletePrompt: this.db.prepare(`DELETE FROM user_prompts WHERE id = ?`),
-      markCaptured: this.db.prepare(`UPDATE user_prompts SET captured = 1 WHERE id = ?`),
+      deletePrompt: this.db.prepare("DELETE FROM user_prompts WHERE id = ?"),
+      markCaptured: this.db.prepare("UPDATE user_prompts SET captured = 1 WHERE id = ?"),
       claimPrompt: this.db.prepare(
-        `UPDATE user_prompts SET captured = 2 WHERE id = ? AND captured = 0`
+        "UPDATE user_prompts SET captured = 2 WHERE id = ? AND captured = 0"
       ),
       resetClaim: this.db.prepare(
-        `UPDATE user_prompts SET captured = 0 WHERE id = ? AND captured = 2`
+        "UPDATE user_prompts SET captured = 0 WHERE id = ? AND captured = 2"
       ),
       countUncaptured: this.db.prepare(
-        `SELECT COUNT(*) as count FROM user_prompts WHERE captured = 0`
+        "SELECT COUNT(*) as count FROM user_prompts WHERE captured = 0"
       ),
       getUncaptured: this.db.prepare(`
         SELECT * FROM user_prompts 
@@ -84,9 +84,9 @@ export class UserPromptManager {
         ORDER BY created_at ASC 
         LIMIT ?
       `),
-      markMultipleCaptured: this.db.prepare(`UPDATE user_prompts SET captured = 1 WHERE id = ?`),
+      markMultipleCaptured: this.db.prepare("UPDATE user_prompts SET captured = 1 WHERE id = ?"),
       countUnanalyzed: this.db.prepare(
-        `SELECT COUNT(*) as count FROM user_prompts WHERE user_learning_captured = 0`
+        "SELECT COUNT(*) as count FROM user_prompts WHERE user_learning_captured = 0"
       ),
       getForUserLearning: this.db.prepare(`
         SELECT * FROM user_prompts 
@@ -95,31 +95,31 @@ export class UserPromptManager {
         LIMIT ?
       `),
       markUserLearningCaptured: this.db.prepare(
-        `UPDATE user_prompts SET user_learning_captured = 1 WHERE id = ?`
+        "UPDATE user_prompts SET user_learning_captured = 1 WHERE id = ?"
       ),
       markMultipleUserLearning: this.db.prepare(
-        `UPDATE user_prompts SET user_learning_captured = 1 WHERE id = ?`
+        "UPDATE user_prompts SET user_learning_captured = 1 WHERE id = ?"
       ),
       getLinkedMemoryIds: this.db.prepare(`
         SELECT linked_memory_id FROM user_prompts 
         WHERE created_at < ? AND linked_memory_id IS NOT NULL
       `),
-      deleteOldPrompts: this.db.prepare(`DELETE FROM user_prompts WHERE created_at < ?`),
-      linkMemory: this.db.prepare(`UPDATE user_prompts SET linked_memory_id = ? WHERE id = ?`),
-      getById: this.db.prepare(`SELECT * FROM user_prompts WHERE id = ?`),
+      deleteOldPrompts: this.db.prepare("DELETE FROM user_prompts WHERE created_at < ?"),
+      linkMemory: this.db.prepare("UPDATE user_prompts SET linked_memory_id = ? WHERE id = ?"),
+      getById: this.db.prepare("SELECT * FROM user_prompts WHERE id = ?"),
       getCaptured: this.db.prepare(
-        `SELECT * FROM user_prompts WHERE captured = 1 ORDER BY created_at DESC`
+        "SELECT * FROM user_prompts WHERE captured = 1 ORDER BY created_at DESC"
       ),
       getCapturedByProject: this.db.prepare(
-        `SELECT * FROM user_prompts WHERE captured = 1 AND project_path = ? ORDER BY created_at DESC`
+        "SELECT * FROM user_prompts WHERE captured = 1 AND project_path = ? ORDER BY created_at DESC"
       ),
       searchPrompts: this.db.prepare(
-        `SELECT * FROM user_prompts WHERE content LIKE ? ESCAPE '\\' AND captured = 1 ORDER BY created_at DESC LIMIT ?`
+        "SELECT * FROM user_prompts WHERE content LIKE ? ESCAPE '\\' AND captured = 1 ORDER BY created_at DESC LIMIT ?"
       ),
       searchPromptsByProject: this.db.prepare(
-        `SELECT * FROM user_prompts WHERE content LIKE ? ESCAPE '\\' AND captured = 1 AND project_path = ? ORDER BY created_at DESC LIMIT ?`
+        "SELECT * FROM user_prompts WHERE content LIKE ? ESCAPE '\\' AND captured = 1 AND project_path = ? ORDER BY created_at DESC LIMIT ?"
       ),
-      getByIds: this.db.prepare(`SELECT * FROM user_prompts WHERE id = ?`),
+      getByIds: this.db.prepare("SELECT * FROM user_prompts WHERE id = ?"),
     };
   }
 
