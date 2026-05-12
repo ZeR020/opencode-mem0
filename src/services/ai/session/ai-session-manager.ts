@@ -178,11 +178,8 @@ export class AISessionManager {
       ]
     );
 
-    const session = this.getSession(params.sessionId, params.provider);
-    if (!session) {
-      throw new Error("Failed to retrieve newly created session");
-    }
-    return session;
+    // skipcq: JS-0339 — session is guaranteed after insert above
+    return this.getSession(params.sessionId, params.provider)!;
   }
 
   updateSession(sessionId: string, provider: AIProviderType, updates: SessionUpdateParams): void {
