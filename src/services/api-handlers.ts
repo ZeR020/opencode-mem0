@@ -645,26 +645,28 @@ export async function handleSearch(
       for (const shard of projectShards) {
         const db = connectionManager.getConnection(shard.dbPath);
         for (const mid of missingMemoryIds) {
-          const m = vectorSearch.getMemoryById(db, mid);
-          if (m && !existingIds.has(m.id)) {
-            const parsedMetadata = safeJSONParse(m.metadata) as Record<string, unknown> | undefined;
+          const memory = vectorSearch.getMemoryById(db, mid);
+          if (memory && !existingIds.has(memory.id)) {
+            const parsedMetadata = safeJSONParse(memory.metadata) as
+              | Record<string, unknown>
+              | undefined;
             paginatedResults.push({
               type: "memory",
-              id: m.id,
-              content: m.content,
-              memoryType: m.type,
-              tags: m.tags ? m.tags.split(",").map((t: string) => t.trim()) : [],
-              createdAt: safeToISOString(m.created_at),
-              updatedAt: m.updated_at ? safeToISOString(m.updated_at) : undefined,
+              id: memory.id,
+              content: memory.content,
+              memoryType: memory.type,
+              tags: memory.tags ? memory.tags.split(",").map((t: string) => t.trim()) : [],
+              createdAt: safeToISOString(memory.created_at),
+              updatedAt: memory.updated_at ? safeToISOString(memory.updated_at) : undefined,
               similarity: 0,
               metadata: parsedMetadata,
-              displayName: m.display_name,
-              userName: m.user_name,
-              userEmail: m.user_email,
-              projectPath: m.project_path,
-              projectName: m.project_name,
-              gitRepoUrl: m.git_repo_url,
-              isPinned: m.is_pinned === 1,
+              displayName: memory.display_name,
+              userName: memory.user_name,
+              userEmail: memory.user_email,
+              projectPath: memory.project_path,
+              projectName: memory.project_name,
+              gitRepoUrl: memory.git_repo_url,
+              isPinned: memory.is_pinned === 1,
               linkedPromptId: parsedMetadata?.promptId as string | undefined,
               isContext: true,
             });

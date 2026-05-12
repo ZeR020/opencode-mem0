@@ -227,10 +227,12 @@ export class AISessionManager {
   }
 
   getLastSequence(aiSessionId: string): number {
+    // skipcq: JS-0323 — SQLite raw row, strict typing would require schema duplication
     const row = this.getLastSequenceStmt.get(aiSessionId) as any;
     return row?.max_seq ?? -1;
   }
 
+  // skipcq: JS-R1005 — Transaction logic is intentionally sequential for atomicity
   addMessageAtomic(message: Omit<AIMessage, "id" | "sequence" | "createdAt">): number {
     this.db.run("BEGIN IMMEDIATE");
     try {
@@ -277,6 +279,7 @@ export class AISessionManager {
     };
   }
 
+  // skipcq: JS-0105 — Private row mapper, static would break class encapsulation pattern
   private rowToMessage(row: any): AIMessage {
     return {
       id: row.id,
@@ -294,6 +297,7 @@ export class AISessionManager {
 
 let _aiSessionManager: AISessionManager | null = null;
 
+// skipcq: JS-0067 — Intentional module-level singleton for connection pooling
 export function getAISessionManager(): AISessionManager {
   if (!_aiSessionManager) {
     _aiSessionManager = new AISessionManager();

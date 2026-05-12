@@ -15,8 +15,8 @@ interface CleanupResult {
 }
 
 export class CleanupService {
-  private lastCleanupTime: number = 0;
-  private isRunning: boolean = false;
+  private lastCleanupTime = 0;
+  private isRunning = false;
 
   shouldRunCleanup(): boolean {
     const now = Date.now();
