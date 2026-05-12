@@ -2,6 +2,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, normalize, isAbsolute } from "node:path";
 import { homedir, platform } from "node:os";
 import { fileURLToPath } from "node:url";
+import { log } from "./logger.js";
 
 function expandPath(path: string): string {
   if (path.startsWith("~/")) {
@@ -23,12 +24,13 @@ function checkFilePermissions(filePath: string): void {
     const mode = stats.mode & 0o777;
 
     if ((mode & 0o077) !== 0) {
-      console.warn(
-        `Warning: Secret file ${filePath} has group/other permissions (${(mode & 0o077).toString(8)}). Recommend chmod 600.`
+      log(
+        `Warning: Secret file ${filePath} has group/other permissions (${(mode & 0o077).toString(8)}). Recommend chmod 600.`,
+        { level: "warn" }
       );
     }
   } catch (_error) {
-    console.warn(`Warning: Could not check file permissions for ${filePath}`);
+    log(`Warning: Could not check file permissions for ${filePath}`, { level: "warn" });
   }
 }
 

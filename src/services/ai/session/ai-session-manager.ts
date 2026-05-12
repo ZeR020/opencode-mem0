@@ -4,6 +4,7 @@ import { join, dirname } from "node:path";
 import { existsSync, mkdirSync } from "node:fs";
 import { connectionManager } from "../../sqlite/connection-manager.js";
 import { CONFIG } from "../../../config.js";
+import { log } from "../../logger.js";
 import {
   type AIProviderType,
   type AISession,
@@ -142,7 +143,7 @@ export class AISessionManager {
       try {
         this.db.run("ROLLBACK");
       } catch (rollbackErr) {
-        console.error("AI session schema rollback failed", rollbackErr);
+        log("AI session schema rollback failed", { error: String(rollbackErr), level: "error" });
       }
       throw error;
     }
@@ -256,7 +257,7 @@ export class AISessionManager {
       try {
         this.db.run("ROLLBACK");
       } catch (rollbackErr) {
-        console.error("AI message add rollback failed", rollbackErr);
+        log("AI message add rollback failed", { error: String(rollbackErr), level: "error" });
       }
       throw error;
     }

@@ -8,6 +8,7 @@ enabled = true
   plugins = ["react"]
   environment = ["nodejs"]
   module_system = "es-modules"
+  dialect = "typescript"
 
 [[analyzers]]
 name = "secrets"

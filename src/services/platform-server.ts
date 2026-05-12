@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { log } from "./logger.js";
 
 export interface PlatformServer {
   stop(): void;
@@ -69,7 +70,7 @@ function createNodeServer(options: ServeOptions): Promise<PlatformServer> {
       const responseBody = await response.arrayBuffer();
       res.end(Buffer.from(responseBody));
     } catch (error) {
-      console.error("Platform server error:", error);
+      log("Platform server error", { error: String(error), level: "error" });
       res.statusCode = 500;
       res.end("Internal server error");
     }

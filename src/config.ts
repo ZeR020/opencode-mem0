@@ -404,7 +404,7 @@ function loadConfigFromPaths(paths: string[]): OpenCodeMemConfig {
         const json = stripJsoncComments(content);
         return JSON.parse(json) as OpenCodeMemConfig;
       } catch (error) {
-        console.error(`Failed to load config from ${path}: ${error}`);
+        log(`Failed to load config from ${path}: ${error}`, { level: "error" });
         throw new Error(`Config error in ${path}: ${error}`);
       }
     }

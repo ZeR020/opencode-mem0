@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { log } from "../logger.js";
 
 export interface Statement {
   run(...params: unknown[]): { changes: number; lastInsertRowid: number | bigint };
@@ -88,7 +89,7 @@ export function getDatabase(): new (path: string) => Database {
       const isModuleMissing =
         err.code === "MODULE_NOT_FOUND" || err.message?.includes("Cannot find module");
       if (!isModuleMissing) {
-        console.error(`[opencode-mem0] bun:sqlite probe failed unexpectedly: ${err}`);
+        log(`[opencode-mem0] bun:sqlite probe failed unexpectedly: ${err}`, { level: "error" });
       }
       DatabaseImpl = BetterSqlite3Database;
     }
