@@ -17,7 +17,7 @@ describe("secret-resolver", () => {
   });
 
   it("returns undefined for undefined input", () => {
-    expect(resolveSecretValue(undefined)).toBeUndefined();
+    expect(resolveSecretValue()).toBeUndefined();
   });
 
   it("returns plain string unchanged", () => {
@@ -64,7 +64,7 @@ describe("secret-resolver", () => {
     writeFileSync(filePath, "secret", "utf-8");
     chmodSync(filePath, 0o644);
 
-    const logSpy = vi.spyOn(logger, "log").mockImplementation(() => {});
+    const logSpy = vi.spyOn(logger, "log").mockImplementation(() => undefined);
     resolveSecretValue(`file://${filePath}`);
     expect(logSpy).toHaveBeenCalledWith(
       expect.stringContaining("Recommend chmod 600"),
