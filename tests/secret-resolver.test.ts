@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync, rmSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveSecretValue } from "../src/services/secret-resolver.js";
+import * as logger from "../src/services/logger.js";
 
 describe("secret-resolver", () => {
   const tempDirs: string[] = [];
@@ -63,10 +64,13 @@ describe("secret-resolver", () => {
     writeFileSync(filePath, "secret", "utf-8");
     chmodSync(filePath, 0o644);
 
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const logSpy = vi.spyOn(logger, "log").mockImplementation(() => {});
     resolveSecretValue(`file://${filePath}`);
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Recommend chmod 600"));
-    warnSpy.mockRestore();
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Recommend chmod 600"),
+      expect.any(Object)
+    );
+    logSpy.mockRestore();
   });
 
   it("handles file read errors gracefully", () => {
