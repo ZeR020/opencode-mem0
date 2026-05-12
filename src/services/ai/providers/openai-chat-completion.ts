@@ -62,7 +62,9 @@ function hasNonEmptyChoices(data: unknown): data is ToolCallResponse {
   if (typeof first.message !== "object" || first.message === null) return false;
 
   const { content, tool_calls } = first.message as { content?: unknown; tool_calls?: unknown };
-  if (content !== undefined && content !== null && typeof content !== "string") return false;
+  const hasInvalidContent =
+    content !== undefined && content !== null && typeof content !== "string";
+  if (hasInvalidContent) return false;
   if (tool_calls !== undefined && !Array.isArray(tool_calls)) return false;
 
   return true;

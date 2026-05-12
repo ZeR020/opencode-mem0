@@ -325,6 +325,28 @@
       </div>
     </div>
 
+    <div id="confirm-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 data-i18n="modal-confirm-title">Confirm</h3>
+          <button class="modal-close" id="confirm-modal-close">
+            <i data-lucide="x" class="icon"></i>
+          </button>
+        </div>
+        <div class="form-group">
+          <p id="confirm-modal-message"></p>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" id="confirm-modal-cancel">
+            <i data-lucide="x" class="icon"></i> Cancel
+          </button>
+          <button type="button" class="btn-primary" id="confirm-modal-ok">
+            <i data-lucide="check" class="icon"></i> OK
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script src="/app.js"></script>
   </body>
 </html>

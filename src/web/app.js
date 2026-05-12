@@ -464,7 +464,7 @@ async function loadMemories() {
 // skipcq: JS-0128 — Used in HTML template literal: onclick="deleteMemoryWithLink(...)"
 async function deleteMemoryWithLink(id, isLinked) {
   const message = isLinked ? t("confirm-delete-pair") : t("confirm-delete");
-  if (!confirm(message)) return;
+  if (!(await showConfirm(message))) return;
 
   const result = await fetchAPI(`/api/memories/${id}?cascade=true`, {
     method: "DELETE",
@@ -484,7 +484,7 @@ async function deleteMemoryWithLink(id, isLinked) {
 // skipcq: JS-0128 — Used in HTML template literal: onclick="deletePromptWithLink(...)"
 async function deletePromptWithLink(id, isLinked) {
   const message = isLinked ? t("confirm-delete-prompt") : t("confirm-delete");
-  if (!confirm(message)) return;
+  if (!(await showConfirm(message))) return;
 
   const result = await fetchAPI(`/api/prompts/${id}?cascade=true`, {
     method: "DELETE",
@@ -505,7 +505,7 @@ async function bulkDelete() {
   if (state.selectedMemories.size === 0) return;
 
   const message = t("confirm-bulk-delete", { count: state.selectedMemories.size });
-  if (!confirm(message)) return;
+  if (!(await showConfirm(message))) return;
 
   const ids = Array.from(state.selectedMemories);
 
@@ -671,6 +671,27 @@ function showError(message) {
   container.innerHTML = `<div class="error-state">Error: ${escapeHtml(message)}</div>`;
 }
 
+let confirmResolve = null;
+
+function showConfirm(message) {
+  return new Promise((resolve) => {
+    confirmResolve = resolve;
+    const modal = document.getElementById("confirm-modal");
+    const msgEl = document.getElementById("confirm-modal-message");
+    msgEl.textContent = message;
+    modal.classList.remove("hidden");
+    lucide.createIcons();
+  });
+}
+
+function closeConfirmModal(result) {
+  if (confirmResolve) {
+    confirmResolve(result);
+    confirmResolve = null;
+  }
+  document.getElementById("confirm-modal").classList.add("hidden");
+}
+
 function showRefreshIndicator(show) {
   const indicator = document.getElementById("refresh-indicator");
   if (show) {
@@ -717,7 +738,7 @@ async function unpinMemory(id) {
 }
 
 async function runCleanup() {
-  if (!confirm(t("confirm-cleanup"))) return;
+  if (!(await showConfirm(t("confirm-cleanup")))) return;
 
   showToast(t("status-cleanup"), "info");
   const result = await fetchAPI("/api/cleanup", { method: "POST" });
@@ -732,7 +753,7 @@ async function runCleanup() {
 }
 
 async function runDeduplication() {
-  if (!confirm(t("confirm-dedup"))) return;
+  if (!(await showConfirm(t("confirm-dedup")))) return;
 
   showToast(t("status-dedup"), "info");
   const result = await fetchAPI("/api/deduplicate", { method: "POST" });
@@ -873,11 +894,8 @@ async function runMigration(strategy) {
   const strategyName =
     strategy === "fresh-start" ? "Fresh Start (Delete All)" : "Re-embed (Preserve Data)";
 
-  if (
-    !confirm(
-      `Run ${strategyName} migration?\n\nThis operation is IRREVERSIBLE and will:\n${strategy === "fresh-start" ? "- DELETE all existing memories\n- Remove all shards" : "- Re-embed all memories with new model\n- This may take several minutes"}\n\nContinue?`
-    )
-  ) {
+  const migrationConfirmMessage = `Run ${strategyName} migration?\n\nThis operation is IRREVERSIBLE and will:\n${strategy === "fresh-start" ? "- DELETE all existing memories\n- Remove all shards" : "- Re-embed all memories with new model\n- This may take several minutes"}\n\nContinue?`;
+  if (!(await showConfirm(migrationConfirmMessage))) {
     return;
   }
 
@@ -1409,6 +1427,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("cancel-merge")?.addEventListener("click", closeMergeModal);
   document.getElementById("merge-modal")?.addEventListener("click", (e) => {
     if (e.target.id === "merge-modal") closeMergeModal();
+  });
+
+  document
+    .getElementById("confirm-modal-ok")
+    ?.addEventListener("click", () => closeConfirmModal(true));
+  document
+    .getElementById("confirm-modal-cancel")
+    ?.addEventListener("click", () => closeConfirmModal(false));
+  document
+    .getElementById("confirm-modal-close")
+    ?.addEventListener("click", () => closeConfirmModal(false));
+  document.getElementById("confirm-modal")?.addEventListener("click", (e) => {
+    if (e.target.id === "confirm-modal") closeConfirmModal(false);
   });
 
   await loadTags();
