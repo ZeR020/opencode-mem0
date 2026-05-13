@@ -127,18 +127,12 @@ select {
 .search-group {
   flex: 1;
   min-width: 300px;
-}
-
-.search-group input {
-  width: 100%;
-}
-
-.search-group {
   flex-direction: row;
   align-items: stretch;
 }
 
 .search-group input {
+  width: 100%;
   flex: 1;
   border-right: none;
 }
@@ -447,6 +441,7 @@ button:disabled {
   background: #0a0a0a;
   transition: border-color 0.2s;
   position: relative;
+  border-left: 3px solid #00ff00;
 }
 
 .memory-card:hover {
@@ -796,7 +791,7 @@ textarea {
   padding: 15px 20px;
   font-size: 13px;
   z-index: 2000;
-  animation: slideIn 0.3s ease;
+  animation: slideInBounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
   max-width: 400px;
 }
 
@@ -1088,10 +1083,6 @@ button:only-child .icon,
   white-space: nowrap;
 }
 
-.memory-card {
-  border-left: 3px solid #00ff00;
-}
-
 .markdown-content {
   line-height: 1.8;
   color: #e0e0e0;
@@ -1250,10 +1241,6 @@ textarea:focus-visible {
 
 .prompt-card:hover::before {
   left: 100%;
-}
-
-.toast {
-  animation: slideInBounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
 @keyframes slideInBounce {
