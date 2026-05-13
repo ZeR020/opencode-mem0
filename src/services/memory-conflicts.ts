@@ -685,5 +685,5 @@ export function getAllUnresolvedConflicts(
     allConflicts.push(...conflicts);
   }
 
-  return allConflicts.sort((a, b) => b.detectedAt - a.detectedAt).slice(0, limit);
+  return allConflicts.toSorted((a, b) => b.detectedAt - a.detectedAt).slice(0, limit);
 }

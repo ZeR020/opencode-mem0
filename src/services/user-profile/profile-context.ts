@@ -19,7 +19,7 @@ export function getUserProfileContext(userId: string): string | null {
   if (Array.isArray(profileData.preferences) && profileData.preferences.length > 0) {
     parts.push("User Preferences:");
     profileData.preferences
-      .sort((a, b) => b.confidence - a.confidence)
+      .toSorted((a, b) => b.confidence - a.confidence)
       .slice(0, 5)
       .forEach((pref) => {
         parts.push(`- [${pref.category}] ${pref.description}`);
@@ -29,7 +29,7 @@ export function getUserProfileContext(userId: string): string | null {
   if (Array.isArray(profileData.patterns) && profileData.patterns.length > 0) {
     parts.push("\nUser Patterns:");
     profileData.patterns
-      .sort((a, b) => b.frequency - a.frequency)
+      .toSorted((a, b) => b.frequency - a.frequency)
       .slice(0, 5)
       .forEach((pattern) => {
         parts.push(`- [${pattern.category}] ${pattern.description}`);
@@ -39,7 +39,7 @@ export function getUserProfileContext(userId: string): string | null {
   if (Array.isArray(profileData.workflows) && profileData.workflows.length > 0) {
     parts.push("\nUser Workflows:");
     profileData.workflows
-      .sort((a, b) => b.frequency - a.frequency)
+      .toSorted((a, b) => b.frequency - a.frequency)
       .slice(0, 3)
       .forEach((workflow) => {
         parts.push(`- ${workflow.description}`);
