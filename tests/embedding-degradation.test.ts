@@ -211,16 +211,15 @@ describe("VectorSearch FTS5 fallback when embedding unavailable", () => {
     };
 
     // With similarityThreshold=0.6 and degraded=true, the result should still come through
-    const results = await vectorSearch.searchAcrossShards(
-      [shard],
-      null,
-      "",
-      10,
-      0.6, // high threshold
-      "query",
-      undefined,
-      true // degraded
-    );
+    const results = await vectorSearch.searchAcrossShards({
+      shards: [shard],
+      queryVector: null,
+      containerTag: "",
+      limit: 10,
+      similarityThreshold: 0.6, // high threshold
+      queryText: "query",
+      embeddingDegraded: true, // degraded
+    });
 
     expect(results.length).toBe(1);
     expect(results[0].id).toBe("m1");

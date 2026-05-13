@@ -129,16 +129,16 @@ export class LocalMemoryClient {
           }
         : undefined;
 
-      const results = await vectorSearch.searchAcrossShards(
+      const results = await vectorSearch.searchAcrossShards({
         shards,
         queryVector,
-        scope === "all-projects" ? "" : containerTag,
-        CONFIG.maxMemories,
-        CONFIG.similarityThreshold,
-        query,
-        retrievalContext,
-        degraded
-      );
+        containerTag: scope === "all-projects" ? "" : containerTag,
+        limit: CONFIG.maxMemories,
+        similarityThreshold: CONFIG.similarityThreshold,
+        queryText: query,
+        context: retrievalContext,
+        embeddingDegraded: degraded,
+      });
 
       return { success: true as const, results, total: results.length, timing: 0, degraded };
     } catch (error) {

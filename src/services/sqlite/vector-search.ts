@@ -14,6 +14,28 @@ import {
 
 type DatabaseType = Database;
 
+interface SearchWithMultiplierOptions {
+  shard: ShardInfo;
+  queryVector: Float32Array | null;
+  containerTag: string;
+  limit: number;
+  overFetchMultiplier: number;
+  queryText?: string;
+  context?: RetrievalContext;
+  providedDb?: DatabaseType;
+}
+
+interface SearchAcrossShardsOptions {
+  shards: ShardInfo[];
+  queryVector: Float32Array | null;
+  containerTag: string;
+  limit: number;
+  similarityThreshold: number;
+  queryText?: string;
+  context?: RetrievalContext;
+  embeddingDegraded?: boolean;
+}
+
 function toBlob(vector?: Float32Array): Uint8Array | null {
   return vector ? new Uint8Array(vector.buffer, vector.byteOffset, vector.byteLength) : null;
 }
@@ -417,16 +439,17 @@ export class VectorSearch {
     }
   }
 
-  async searchWithMultiplier(
-    shard: ShardInfo,
-    queryVector: Float32Array | null,
-    containerTag: string,
-    limit: number,
-    overFetchMultiplier: number,
-    queryText?: string,
-    context?: RetrievalContext,
-    providedDb?: DatabaseType
-  ): Promise<SearchResult[]> {
+  async searchWithMultiplier(options: SearchWithMultiplierOptions): Promise<SearchResult[]> {
+    const {
+      shard,
+      queryVector,
+      containerTag,
+      limit,
+      overFetchMultiplier,
+      queryText,
+      context,
+      providedDb,
+    } = options;
     const db = providedDb || connectionManager.getConnection(shard.dbPath);
     const backend = await this.getBackend();
     let contentResults: { id: string; distance: number }[] = [];
@@ -579,15 +602,15 @@ export class VectorSearch {
     queryText?: string,
     context?: RetrievalContext
   ): Promise<SearchResult[]> {
-    let finalResults = await this.searchWithMultiplier(
+    let finalResults = await this.searchWithMultiplier({
       shard,
       queryVector,
       containerTag,
       limit,
-      VectorSearch.BASE_MULTIPLIER,
+      overFetchMultiplier: VectorSearch.BASE_MULTIPLIER,
       queryText,
-      context
-    );
+      context,
+    });
 
     // Retry with larger multiplier if fill ratio is below target and embedding is available
     if (finalResults.length < limit * VectorSearch.TARGET_FILL_RATIO && queryVector !== null) {
@@ -595,15 +618,15 @@ export class VectorSearch {
         VectorSearch.MAX_OVER_FETCH,
         VectorSearch.BASE_MULTIPLIER * 2.0
       );
-      finalResults = await this.searchWithMultiplier(
+      finalResults = await this.searchWithMultiplier({
         shard,
         queryVector,
         containerTag,
         limit,
-        retryMultiplier,
+        overFetchMultiplier: retryMultiplier,
         queryText,
-        context
-      );
+        context,
+      });
     }
 
     return finalResults;
@@ -623,16 +646,17 @@ export class VectorSearch {
    * @param context - Optional retrieval context for boosting
    * @returns Globally ranked and deduplicated search results
    */
-  async searchAcrossShards(
-    shards: ShardInfo[],
-    queryVector: Float32Array | null,
-    containerTag: string,
-    limit: number,
-    similarityThreshold: number,
-    queryText?: string,
-    context?: RetrievalContext,
-    embeddingDegraded: boolean = false
-  ): Promise<SearchResult[]> {
+  async searchAcrossShards(options: SearchAcrossShardsOptions): Promise<SearchResult[]> {
+    const {
+      shards,
+      queryVector,
+      containerTag,
+      limit,
+      similarityThreshold,
+      queryText,
+      context,
+      embeddingDegraded = false,
+    } = options;
     const maxSearchMs = 30000;
     const deadline = Date.now() + maxSearchMs;
     const shardPromises = shards.map(async (shard) => {

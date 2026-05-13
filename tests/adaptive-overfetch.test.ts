@@ -103,16 +103,15 @@ describe("VectorSearch adaptive over-fetch", () => {
       createdAt: Date.now(),
     };
 
-    await (search as any).searchWithMultiplier(
+    await (search as any).searchWithMultiplier({
       shard,
-      new Float32Array([1, 0, 0]),
-      "",
-      5,
-      1.5,
-      "test",
-      undefined,
-      db
-    );
+      queryVector: new Float32Array([1, 0, 0]),
+      containerTag: "",
+      limit: 5,
+      overFetchMultiplier: 1.5,
+      queryText: "test",
+      providedDb: db,
+    });
 
     // Verify backend.search was called with limit = 5 * 1.5 = 7.5 ≈ 7 or 8
     const call = mockBackend.search.mock.calls[0];
@@ -141,16 +140,15 @@ describe("VectorSearch adaptive over-fetch", () => {
       createdAt: Date.now(),
     };
 
-    await (search as any).searchWithMultiplier(
+    await (search as any).searchWithMultiplier({
       shard,
-      new Float32Array([1, 0, 0]),
-      "",
-      5,
-      8.0,
-      "test",
-      undefined,
-      db
-    );
+      queryVector: new Float32Array([1, 0, 0]),
+      containerTag: "",
+      limit: 5,
+      overFetchMultiplier: 8.0,
+      queryText: "test",
+      providedDb: db,
+    });
 
     const call = mockBackend.search.mock.calls[0];
     expect(call[0].limit).toBe(5 * 8);
