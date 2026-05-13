@@ -53,7 +53,7 @@
 
       <div class="controls">
         <div class="filter-group">
-          <label data-i18n="label-tag">Tag:</label>
+          <label for="tag-filter" data-i18n="label-tag">Tag:</label>
           <select id="tag-filter">
             <option value="" data-i18n="opt-all-tags">All Tags</option>
           </select>
@@ -183,14 +183,14 @@
         <form id="add-form">
           <div class="form-row">
             <div class="form-group">
-              <label data-i18n="label-tag">Tag:</label>
+              <label for="add-tag" data-i18n="label-tag">Tag:</label>
               <select id="add-tag" required>
                 <option value="" data-i18n="opt-select-tag">Select tag</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label data-i18n="label-type">Type:</label>
+              <label for="add-type" data-i18n="label-type">Type:</label>
               <select id="add-type">
                 <option value="" data-i18n="opt-other">other</option>
                 <option value="feature" data-i18n="opt-feature">feature</option>
@@ -206,7 +206,7 @@
             </div>
 
             <div class="form-group">
-              <label data-i18n="label-tags">Tags:</label>
+              <label for="add-tags" data-i18n="label-tags">Tags:</label>
               <input
                 type="text"
                 id="add-tags"
@@ -217,7 +217,7 @@
           </div>
 
           <div class="form-group">
-            <label data-i18n="label-content">Content:</label>
+            <label for="add-content" data-i18n="label-content">Content:</label>
             <textarea
               id="add-content"
               rows="4"
@@ -243,7 +243,7 @@
         <form id="edit-form">
           <input type="hidden" id="edit-id" />
           <div class="form-group">
-            <label data-i18n="label-content">Content:</label>
+            <label for="edit-content" data-i18n="label-content">Content:</label>
             <textarea id="edit-content" rows="6" required></textarea>
           </div>
           <div class="modal-actions">
@@ -310,7 +310,7 @@
         <form id="merge-form">
           <input type="hidden" id="merge-conflict-id" />
           <div class="form-group">
-            <label>Merged Content:</label>
+            <label for="merge-content">Merged Content:</label>
             <textarea id="merge-content" rows="8" required></textarea>
           </div>
           <div class="modal-actions">
