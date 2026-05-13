@@ -80,6 +80,164 @@ const OAUTH_TOKEN_URL = "https://console.anthropic.com/v1/oauth/token";
 const OAUTH_REQUIRED_BETAS = ["oauth-2025-04-20", "interleaved-thinking-2025-05-14"];
 const MCP_TOOL_PREFIX = "mcp_";
 
+async function refreshOAuthToken(auth: OAuthAuth): Promise<OAuthAuth> {
+  const refreshResponse = await fetch(OAUTH_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      grant_type: "refresh_token",
+      refresh_token: auth.refresh,
+      client_id: OAUTH_CLIENT_ID,
+    }),
+  });
+  if (!refreshResponse.ok) {
+    throw new Error(`OAuth token refresh failed: ${refreshResponse.status}`);
+  }
+  const json = (await refreshResponse.json()) as {
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+  };
+  return {
+    type: "oauth",
+    refresh: json.refresh_token,
+    access: json.access_token,
+    expires: Date.now() + json.expires_in * 1000,
+  };
+}
+
+function persistRefreshedAuth(auth: OAuthAuth, statePath: string, providerName: string): void {
+  const authPath = findAuthJsonPath(statePath);
+  if (authPath) {
+    try {
+      const allAuth = JSON.parse(readFileSync(authPath, "utf-8")) as Record<string, Auth>;
+      allAuth[providerName] = auth;
+      writeFileSync(authPath, JSON.stringify(allAuth));
+      try {
+        chmodSync(authPath, 0o600);
+      } catch (error) {
+        log("Failed to set auth file permissions", { authPath, error: String(error) });
+      }
+    } catch (error) {
+      log("Failed to persist refreshed OAuth token", { authPath, error: String(error) });
+    }
+  }
+}
+
+function mergeRequestHeaders(
+  input: string | Request | URL,
+  init: RequestInit | undefined,
+  requestHeaders: Headers
+): void {
+  if (input instanceof Request) {
+    input.headers.forEach((value, key) => requestHeaders.set(key, value));
+  }
+  if (init?.headers) {
+    if (init.headers instanceof Headers) {
+      init.headers.forEach((value, key) => requestHeaders.set(key, value));
+    } else if (Array.isArray(init.headers)) {
+      for (const pair of init.headers) {
+        const [key, value] = pair;
+        if (typeof key === "string" && typeof value === "string") {
+          requestHeaders.set(key, value);
+        }
+      }
+    } else {
+      for (const [key, value] of Object.entries(init.headers as Record<string, string>)) {
+        if (typeof value !== "undefined") requestHeaders.set(key, String(value));
+      }
+    }
+  }
+}
+
+function prefixToolNamesInBody(body: string): string {
+  try {
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+    if (parsed.tools && Array.isArray(parsed.tools)) {
+      parsed.tools = (parsed.tools as Array<Record<string, unknown>>).map((tool) => ({
+        ...tool,
+        name: tool.name ? `${MCP_TOOL_PREFIX}${tool.name as string}` : tool.name,
+      }));
+    }
+    if (parsed.messages && Array.isArray(parsed.messages)) {
+      parsed.messages = (parsed.messages as Array<Record<string, unknown>>).map((msg) => {
+        if (msg.content && Array.isArray(msg.content)) {
+          msg.content = (msg.content as Array<Record<string, unknown>>).map((block) => {
+            if (block.type === "tool_use" && block.name) {
+              return { ...block, name: `${MCP_TOOL_PREFIX}${block.name as string}` };
+            }
+            return block;
+          });
+        }
+        return msg;
+      });
+    }
+    return JSON.stringify(parsed);
+  } catch (error) {
+    log("Failed to mutate request body for tool name prefixing", { error: String(error) });
+    return body;
+  }
+}
+
+function mutateRequestUrl(input: string | Request | URL): string | Request | URL {
+  try {
+    let requestUrl: URL | null = null;
+    if (typeof input === "string" || input instanceof URL) {
+      requestUrl = new URL(input.toString());
+    } else if (input instanceof Request) {
+      requestUrl = new URL(input.url);
+    }
+    if (requestUrl?.pathname === "/v1/messages" && !requestUrl.searchParams.has("beta")) {
+      requestUrl.searchParams.set("beta", "true");
+      return input instanceof Request ? new Request(requestUrl.toString(), input) : requestUrl;
+    }
+  } catch (error) {
+    log("Failed to mutate request URL for beta parameter", { error: String(error) });
+  }
+  return input;
+}
+
+function createStrippingStreamResponse(response: Response): Response {
+  const MCP_NAME_REGEX = /"name"\s*:\s*"mcp_([^"]+)"/g;
+  function stripMcpPrefix(text: string): string {
+    return text.replace(MCP_NAME_REGEX, '"name": "$1"');
+  }
+
+  if (!response.body) return response;
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  let buffer = "";
+  const stream = new ReadableStream({
+    async pull(controller) {
+      const { done, value } = await reader.read();
+      if (done) {
+        if (buffer) {
+          buffer = stripMcpPrefix(buffer);
+          controller.enqueue(encoder.encode(buffer));
+        }
+        controller.close();
+        return;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      if (lines.length > 0) {
+        let textToEmit = `${lines.join("\n")}\n`;
+        textToEmit = stripMcpPrefix(textToEmit);
+        controller.enqueue(encoder.encode(textToEmit));
+      }
+    },
+  });
+  return new Response(stream, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}
+
 export function createOAuthFetch(
   statePath: string,
   providerName: string
@@ -87,73 +245,15 @@ export function createOAuthFetch(
   return async (input: string | Request | URL, init?: RequestInit): Promise<Response> => {
     let auth = readOpencodeAuth(statePath, providerName) as OAuthAuth;
 
-    // Refresh token if expired
     if (!auth.access || auth.expires < Date.now()) {
-      const refreshResponse = await fetch(OAUTH_TOKEN_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          grant_type: "refresh_token",
-          refresh_token: auth.refresh,
-          client_id: OAUTH_CLIENT_ID,
-        }),
-      });
-      if (!refreshResponse.ok) {
-        throw new Error(`OAuth token refresh failed: ${refreshResponse.status}`);
-      }
-      const json = (await refreshResponse.json()) as {
-        access_token: string;
-        refresh_token: string;
-        expires_in: number;
-      };
-      auth = {
-        type: "oauth",
-        refresh: json.refresh_token,
-        access: json.access_token,
-        expires: Date.now() + json.expires_in * 1000,
-      };
-
-      const authPath = findAuthJsonPath(statePath);
-      if (authPath) {
-        try {
-          const allAuth = JSON.parse(readFileSync(authPath, "utf-8")) as Record<string, Auth>;
-          allAuth[providerName] = auth;
-          writeFileSync(authPath, JSON.stringify(allAuth));
-          try {
-            chmodSync(authPath, 0o600);
-          } catch (error) {
-            log("Failed to set auth file permissions", { authPath, error: String(error) });
-          }
-        } catch (error) {
-          log("Failed to persist refreshed OAuth token", { authPath, error: String(error) });
-        }
-      }
+      auth = await refreshOAuthToken(auth);
+      persistRefreshedAuth(auth, statePath, providerName);
     }
 
-    // Build headers
     const requestInit = init ?? {};
     const requestHeaders = new Headers();
-    if (input instanceof Request) {
-      input.headers.forEach((value, key) => requestHeaders.set(key, value));
-    }
-    if (requestInit.headers) {
-      if (requestInit.headers instanceof Headers) {
-        requestInit.headers.forEach((value, key) => requestHeaders.set(key, value));
-      } else if (Array.isArray(requestInit.headers)) {
-        for (const pair of requestInit.headers) {
-          const [key, value] = pair;
-          if (typeof key === "string" && typeof value === "string") {
-            requestHeaders.set(key, value);
-          }
-        }
-      } else {
-        for (const [key, value] of Object.entries(requestInit.headers as Record<string, string>)) {
-          if (typeof value !== "undefined") requestHeaders.set(key, String(value));
-        }
-      }
-    }
+    mergeRequestHeaders(input, init, requestHeaders);
 
-    // Merge beta headers
     const incomingBeta = requestHeaders.get("anthropic-beta") ?? "";
     const incomingBetas = incomingBeta
       .split(",")
@@ -166,97 +266,15 @@ export function createOAuthFetch(
     requestHeaders.set("user-agent", "claude-cli/2.1.2 (external, cli)");
     requestHeaders.delete("x-api-key");
 
-    // Prefix tool names in request body
     let body = requestInit.body;
     if (body && typeof body === "string") {
-      try {
-        const parsed = JSON.parse(body) as Record<string, unknown>;
-        if (parsed.tools && Array.isArray(parsed.tools)) {
-          parsed.tools = (parsed.tools as Array<Record<string, unknown>>).map((tool) => ({
-            ...tool,
-            name: tool.name ? `${MCP_TOOL_PREFIX}${tool.name as string}` : tool.name,
-          }));
-        }
-        if (parsed.messages && Array.isArray(parsed.messages)) {
-          parsed.messages = (parsed.messages as Array<Record<string, unknown>>).map((msg) => {
-            if (msg.content && Array.isArray(msg.content)) {
-              msg.content = (msg.content as Array<Record<string, unknown>>).map((block) => {
-                if (block.type === "tool_use" && block.name) {
-                  return { ...block, name: `${MCP_TOOL_PREFIX}${block.name as string}` };
-                }
-                return block;
-              });
-            }
-            return msg;
-          });
-        }
-        body = JSON.stringify(parsed);
-      } catch (error) {
-        log("Failed to mutate request body for tool name prefixing", { error: String(error) });
-      }
+      body = prefixToolNamesInBody(body);
     }
 
-    // Modify URL: add ?beta=true to /v1/messages
-    let requestInput: string | Request | URL = input;
-    try {
-      let requestUrl: URL | null = null;
-      if (typeof input === "string" || input instanceof URL) {
-        requestUrl = new URL(input.toString());
-      } else if (input instanceof Request) {
-        requestUrl = new URL(input.url);
-      }
-      if (requestUrl?.pathname === "/v1/messages" && !requestUrl.searchParams.has("beta")) {
-        requestUrl.searchParams.set("beta", "true");
-        requestInput =
-          input instanceof Request ? new Request(requestUrl.toString(), input) : requestUrl;
-      }
-    } catch (error) {
-      log("Failed to mutate request URL for beta parameter", { error: String(error) });
-    }
-
+    const requestInput = mutateRequestUrl(input);
     const response = await fetch(requestInput, { ...requestInit, body, headers: requestHeaders });
 
-    const MCP_NAME_REGEX = /"name"\s*:\s*"mcp_([^"]+)"/g;
-    function stripMcpPrefix(text: string): string {
-      return text.replace(MCP_NAME_REGEX, '"name": "$1"');
-    }
-
-    // Strip mcp_ prefix from tool names in streaming response
-    if (response.body) {
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      const encoder = new TextEncoder();
-      let buffer = "";
-      const stream = new ReadableStream({
-        async pull(controller) {
-          const { done, value } = await reader.read();
-          if (done) {
-            if (buffer) {
-              buffer = stripMcpPrefix(buffer);
-              controller.enqueue(encoder.encode(buffer));
-            }
-            controller.close();
-            return;
-          }
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          if (lines.length > 0) {
-            let textToEmit = `${lines.join("\n")}\n`;
-            textToEmit = stripMcpPrefix(textToEmit);
-            controller.enqueue(encoder.encode(textToEmit));
-          }
-        },
-      });
-      return new Response(stream, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-      });
-    }
-
-    return response;
+    return createStrippingStreamResponse(response);
   };
 }
 

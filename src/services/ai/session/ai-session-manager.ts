@@ -18,21 +18,21 @@ type DatabaseType = Database;
 const AI_SESSIONS_DB_NAME = "ai-sessions.db";
 
 export class AISessionManager {
-  private db: DatabaseType;
+  private readonly db: DatabaseType;
   private readonly dbPath: string;
   private readonly sessionRetentionMs: number;
-  private getSessionStmt: any;
-  private getMessagesStmt: any;
-  private getLastSequenceStmt: any;
-  private cleanupExpiredStmt: any;
-  private deleteSessionStmt: any;
-  private getMessagesByRoleStmt: any;
-  private addMessageStmt: any;
-  private getNextSeqStmt: any;
-  private clearMessagesStmt: any;
-  private updateConversationIdStmt: any;
-  private updateMetadataStmt: any;
-  private updateBothStmt: any;
+  private readonly getSessionStmt: any;
+  private readonly getMessagesStmt: any;
+  private readonly getLastSequenceStmt: any;
+  private readonly cleanupExpiredStmt: any;
+  private readonly deleteSessionStmt: any;
+  private readonly getMessagesByRoleStmt: any;
+  private readonly addMessageStmt: any;
+  private readonly getNextSeqStmt: any;
+  private readonly clearMessagesStmt: any;
+  private readonly updateConversationIdStmt: any;
+  private readonly updateMetadataStmt: any;
+  private readonly updateBothStmt: any;
 
   constructor(opts?: { dbPath?: string }) {
     this.dbPath = opts?.dbPath ?? join(CONFIG.storagePath, AI_SESSIONS_DB_NAME);

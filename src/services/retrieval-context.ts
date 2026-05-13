@@ -225,10 +225,10 @@ const MAX_SCOPES = 100;
 
 // Simple context tracker scoped by directory to prevent cross-project leakage
 class ContextTracker {
-  private contexts = new Map<string, { recentQueries: string[]; recentFiles: string[] }>();
+  private readonly contexts = new Map<string, { recentQueries: string[]; recentFiles: string[] }>();
   private scopeAccessOrder: string[] = [];
-  private maxHistory = 10;
-  private maxScopeHistory = 100;
+  private readonly maxHistory = 10;
+  private readonly maxScopeHistory = 100;
 
   private getOrCreate(scope: string) {
     if (!this.contexts.has(scope)) {

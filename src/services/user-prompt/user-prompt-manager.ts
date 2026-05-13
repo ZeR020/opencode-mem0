@@ -25,7 +25,7 @@ export interface UserPrompt {
 }
 
 export class UserPromptManager {
-  private db: DatabaseType;
+  private readonly db: DatabaseType;
   private readonly dbPath: string;
   private readonly stmts: {
     savePrompt: ReturnType<DatabaseType["prepare"]>;

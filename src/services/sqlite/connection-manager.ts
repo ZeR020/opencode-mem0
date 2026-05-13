@@ -10,12 +10,12 @@ const MAX_CONNECTIONS = 20;
 const MAX_BATCH_SIZE = 50;
 
 export class ConnectionManager {
-  private connections: Map<string, Database> = new Map();
+  private readonly connections: Map<string, Database> = new Map();
   private accessOrder: string[] = [];
-  private creating: Set<string> = new Set();
+  private readonly creating: Set<string> = new Set();
   private isClosing = false;
-  private batches: Map<string, Array<{ sql: string; params: any[] }>> = new Map();
-  private stmtCache = new WeakMap<Database, Map<string, any>>();
+  private readonly batches: Map<string, Array<{ sql: string; params: any[] }>> = new Map();
+  private readonly stmtCache = new WeakMap<Database, Map<string, any>>();
 
   private getStmt(db: Database, sql: string): any {
     let dbCache = this.stmtCache.get(db);

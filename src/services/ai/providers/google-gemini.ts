@@ -9,7 +9,7 @@ import { UserProfileValidator } from "../validators/user-profile-validator.js";
  * Supports Google's Gemini models (e.g. gemini-1.5-flash) via Google AI Studio API.
  */
 export class GoogleGeminiProvider extends BaseAIProvider {
-  private aiSessionManager: AISessionManager;
+  private readonly aiSessionManager: AISessionManager;
 
   constructor(config: any, aiSessionManager: AISessionManager) {
     super(config);

@@ -43,7 +43,7 @@ export class EmbeddingService {
   private initPromise: Promise<void> | null = null;
   public isWarmedUp: boolean = false;
   public embeddingAvailable: boolean = true;
-  private cache = new Map<string, Float32Array>();
+  private readonly cache = new Map<string, Float32Array>();
   private cachedModelName: string | null = null;
   private cacheHits = 0;
   private cacheMisses = 0;

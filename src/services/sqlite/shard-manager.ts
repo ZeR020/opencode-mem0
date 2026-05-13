@@ -13,12 +13,12 @@ type DatabaseType = Database;
 const METADATA_DB_NAME = "metadata.db";
 
 export class ShardManager {
-  private metadataDb: DatabaseType;
-  private metadataPath: string;
-  private activeShardStmt: any;
-  private allShardsStmt: any;
-  private scopedShardsStmt: any;
-  private createShardStmt: any;
+  private readonly metadataDb: DatabaseType;
+  private readonly metadataPath: string;
+  private readonly activeShardStmt: any;
+  private readonly allShardsStmt: any;
+  private readonly scopedShardsStmt: any;
+  private readonly createShardStmt: any;
 
   constructor() {
     this.metadataPath = join(CONFIG.storagePath, METADATA_DB_NAME);

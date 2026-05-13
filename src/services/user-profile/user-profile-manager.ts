@@ -17,7 +17,7 @@ function safeArray<T>(val: T[] | undefined | null): T[] {
 const USER_PROFILES_DB_NAME = "user-profiles.db";
 
 export class UserProfileManager {
-  private db: DatabaseType;
+  private readonly db: DatabaseType;
   private readonly dbPath: string;
 
   constructor() {

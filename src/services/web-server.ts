@@ -56,7 +56,7 @@ interface WebServerConfig {
 
 export class WebServer {
   private server: PlatformServer | null = null;
-  private config: WebServerConfig;
+  private readonly config: WebServerConfig;
   private isOwner: boolean = false;
   private startPromise: Promise<void> | null = null;
   private healthCheckInterval: NodeJS.Timeout | null = null;

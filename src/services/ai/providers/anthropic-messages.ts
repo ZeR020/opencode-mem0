@@ -29,7 +29,7 @@ interface AnthropicResponse {
 }
 
 export class AnthropicMessagesProvider extends BaseAIProvider {
-  private aiSessionManager: AISessionManager;
+  private readonly aiSessionManager: AISessionManager;
 
   constructor(config: any, aiSessionManager: AISessionManager) {
     super(config);
