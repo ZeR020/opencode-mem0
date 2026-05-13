@@ -227,7 +227,7 @@ function t(key, params = {}) {
   let text = translations[lang]?.[key] || translations.en[key] || key;
 
   for (const [k, v] of Object.entries(params)) {
-    text = text.replace(new RegExp(`\\{${k}\\}`, "g"), v);
+    text = text.replace(new RegExp(String.raw`\{${k}\}`, "g"), v);
   }
 
   return text;
@@ -235,7 +235,7 @@ function t(key, params = {}) {
 
 function applyLanguage() {
   document.querySelectorAll("[data-i18n]").forEach((el) => {
-    const key = el.getAttribute("data-i18n");
+    const key = el.dataset.i18n;
     const translated = t(key);
 
     // If element has child nodes (like icons), we need to replace only the text nodes
@@ -256,12 +256,12 @@ function applyLanguage() {
   });
 
   document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
-    const key = el.getAttribute("data-i18n-placeholder");
+    const key = el.dataset.i18nPlaceholder;
     el.setAttribute("placeholder", t(key));
   });
 }
 
-window.t = t;
-window.getLanguage = getLanguage;
-window.setLanguage = setLanguage;
-window.applyLanguage = applyLanguage;
+globalThis.t = t;
+globalThis.getLanguage = getLanguage;
+globalThis.setLanguage = setLanguage;
+globalThis.applyLanguage = applyLanguage;

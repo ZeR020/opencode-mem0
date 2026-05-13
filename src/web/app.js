@@ -151,9 +151,9 @@ function renderCombinedCard(pair) {
   const isSelected = state.selectedMemories.has(memory.id);
   const isPinned = memory.isPinned || false;
   const similarityHtml =
-    memory.similarity !== undefined
-      ? `<span class="similarity-score">${Math.round(memory.similarity * 100)}%</span>`
-      : "";
+    memory.similarity === undefined
+      ? ""
+      : `<span class="similarity-score">${Math.round(memory.similarity * 100)}%</span>`;
 
   const tagsHtml =
     memory.tags && memory.tags.length > 0
@@ -245,12 +245,14 @@ function renderPromptCard(prompt) {
 }
 
 function getMemoryDisplayInfo(memory) {
-  if (!memory.projectPath) return memory.displayName || memory.id;
-  const pathParts = memory.projectPath
-    .replace(/\\/g, "/")
-    .split("/")
-    .filter((p) => p);
-  return pathParts[pathParts.length - 1] || memory.projectPath;
+  if (memory.projectPath) {
+    const pathParts = memory.projectPath
+      .replaceAll("\\", "/")
+      .split("/")
+      .filter((p) => p);
+    return pathParts[pathParts.length - 1] || memory.projectPath;
+  }
+  return memory.displayName || memory.id;
 }
 
 function getMemorySubtitle(memory) {
@@ -298,9 +300,9 @@ function renderMemoryCard(memory) {
   const isPinned = memory.isPinned || false;
   const isLinked = Boolean(memory.linkedPromptId);
   const similarityHtml =
-    memory.similarity !== undefined
-      ? `<span class="similarity-score">${memory.similarity}%</span>`
-      : "";
+    memory.similarity === undefined
+      ? ""
+      : `<span class="similarity-score">${memory.similarity}%</span>`;
 
   const displayInfo = getMemoryDisplayInfo(memory);
   const subtitle = getMemorySubtitle(memory);
@@ -426,7 +428,7 @@ async function addMemory(e) {
     ? tagsStr
         .split(",")
         .map((t) => t.trim())
-        .filter((t) => t)
+        .filter(Boolean)
     : [];
 
   if (!content || !containerTag) {
@@ -1008,40 +1010,14 @@ function renderUserProfile() {
   const patterns = parseField(data.patterns);
   const workflows = parseField(data.workflows);
 
-  container.innerHTML = `
-    <div class="profile-header">
-      <div class="profile-info">
-        <h3>${escapeHtml(profile.displayName || profile.userId)}</h3>
-        <div class="profile-stats">
-          <div class="stat-pill">
-            <span class="label">${t("profile-version")}</span>
-            <span class="value">${profile.version}</span>
-          </div>
-          <div class="stat-pill">
-            <span class="label">${t("profile-prompts")}</span>
-            <span class="value">${profile.totalPromptsAnalyzed}</span>
-          </div>
-          <div class="stat-pill">
-            <span class="label">${t("profile-updated")}</span>
-            <span class="value">${formatDate(profile.lastAnalyzedAt)}</span>
-          </div>
-        </div>
-      </div>
-      <button id="view-changelog-btn" class="btn-secondary compact">
-        <i data-lucide="history" class="icon"></i> History
-      </button>
-    </div>
-
-    <div class="dashboard-grid">
-      <div class="dashboard-section preferences-section">
-        <h4><i data-lucide="heart" class="icon"></i> ${t("profile-preferences")} <span class="count">${preferences.length}</span></h4>
-        ${
-          preferences.length === 0
-            ? `<p class="empty-text">${t("empty-preferences")}</p>`
-            : `
+  let preferencesHtml;
+  if (preferences.length === 0) {
+    preferencesHtml = `<p class="empty-text">${t("empty-preferences")}</p>`;
+  } else {
+    preferencesHtml = `
           <div class="cards-grid">
             ${preferences
-              .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
+              .toSorted((a, b) => (b.confidence || 0) - (a.confidence || 0))
               .map(
                 (p) => `
               <div class="compact-card preference-card">
@@ -1069,16 +1045,14 @@ function renderUserProfile() {
               )
               .join("")}
           </div>
-        `
-        }
-      </div>
+        `;
+  }
 
-      <div class="dashboard-section patterns-section">
-        <h4><i data-lucide="activity" class="icon"></i> ${t("profile-patterns")} <span class="count">${patterns.length}</span></h4>
-        ${
-          patterns.length === 0
-            ? `<p class="empty-text">${t("empty-patterns")}</p>`
-            : `
+  let patternsHtml;
+  if (patterns.length === 0) {
+    patternsHtml = `<p class="empty-text">${t("empty-patterns")}</p>`;
+  } else {
+    patternsHtml = `
           <div class="cards-grid">
             ${patterns
               .map(
@@ -1095,16 +1069,14 @@ function renderUserProfile() {
               )
               .join("")}
           </div>
-        `
-        }
-      </div>
+        `;
+  }
 
-      <div class="dashboard-section workflows-section full-width">
-        <h4><i data-lucide="workflow" class="icon"></i> ${t("profile-workflows")} <span class="count">${workflows.length}</span></h4>
-        ${
-          workflows.length === 0
-            ? `<p class="empty-text">${t("empty-workflows")}</p>`
-            : `
+  let workflowsHtml;
+  if (workflows.length === 0) {
+    workflowsHtml = `<p class="empty-text">${t("empty-workflows")}</p>`;
+  } else {
+    workflowsHtml = `
           <div class="workflows-grid">
             ${workflows
               .map(
@@ -1129,8 +1101,47 @@ function renderUserProfile() {
               )
               .join("")}
           </div>
-        `
-        }
+        `;
+  }
+
+  container.innerHTML = `
+    <div class="profile-header">
+      <div class="profile-info">
+        <h3>${escapeHtml(profile.displayName || profile.userId)}</h3>
+        <div class="profile-stats">
+          <div class="stat-pill">
+            <span class="label">${t("profile-version")}</span>
+            <span class="value">${profile.version}</span>
+          </div>
+          <div class="stat-pill">
+            <span class="label">${t("profile-prompts")}</span>
+            <span class="value">${profile.totalPromptsAnalyzed}</span>
+          </div>
+          <div class="stat-pill">
+            <span class="label">${t("profile-updated")}</span>
+            <span class="value">${formatDate(profile.lastAnalyzedAt)}</span>
+          </div>
+        </div>
+      </div>
+      <button id="view-changelog-btn" class="btn-secondary compact">
+        <i data-lucide="history" class="icon"></i> History
+      </button>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="dashboard-section preferences-section">
+        <h4><i data-lucide="heart" class="icon"></i> ${t("profile-preferences")} <span class="count">${preferences.length}</span></h4>
+        ${preferencesHtml}
+      </div>
+
+      <div class="dashboard-section patterns-section">
+        <h4><i data-lucide="activity" class="icon"></i> ${t("profile-patterns")} <span class="count">${patterns.length}</span></h4>
+        ${patternsHtml}
+      </div>
+
+      <div class="dashboard-section workflows-section full-width">
+        <h4><i data-lucide="workflow" class="icon"></i> ${t("profile-workflows")} <span class="count">${workflows.length}</span></h4>
+        ${workflowsHtml}
       </div>
     </div>
   `;
