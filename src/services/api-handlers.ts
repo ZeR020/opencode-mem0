@@ -84,6 +84,164 @@ function getProjectPathFromTag(tag: string): string | undefined {
   return undefined;
 }
 
+function sanitizeListParams(
+  page: number,
+  pageSize: number
+): { safePage: number; safePageSize: number } {
+  const safePage = Number.isFinite(page) && page > 0 ? Math.min(Math.floor(page), 10000) : 1;
+  const safePageSize =
+    Number.isFinite(pageSize) && pageSize > 0 && pageSize <= 100 ? Math.floor(pageSize) : 20;
+  return { safePage, safePageSize };
+}
+
+function fetchMemoriesForList(tag: string | undefined, perShardLimit: number): any[] {
+  let allMemories: any[] = [];
+  if (tag) {
+    const { scope: tagScope, hash } = extractScopeFromTag(tag);
+    const shards = shardManager.getAllShards(tagScope, hash);
+    for (const shard of shards) {
+      const db = connectionManager.getConnection(shard.dbPath);
+      const memories = vectorSearch.listMemories(db, tag, perShardLimit);
+      allMemories.push(...memories);
+    }
+  } else {
+    const shards = shardManager.getAllShards("project", "");
+    for (const shard of shards) {
+      const db = connectionManager.getConnection(shard.dbPath);
+      const memories = vectorSearch.listMemories(db, "", perShardLimit);
+      allMemories.push(...memories.filter((m: any) => m.container_tag?.includes("_project_")));
+    }
+  }
+  const MAX_LIST_MEMORIES = 2000;
+  if (allMemories.length > MAX_LIST_MEMORIES) {
+    allMemories = allMemories.slice(0, MAX_LIST_MEMORIES);
+  }
+  return allMemories;
+}
+
+function mapRawMemoryToTyped(r: any): any {
+  const metadata = safeJSONParse(r.metadata);
+  return {
+    type: "memory",
+    id: r.id,
+    content: r.content,
+    memoryType: r.type,
+    tags: r.tags ? r.tags.split(",").map((t: string) => t.trim()) : [],
+    createdAt: Number(r.created_at),
+    updatedAt: r.updated_at ? Number(r.updated_at) : undefined,
+    metadata,
+    linkedPromptId: (metadata as Record<string, unknown>)?.promptId,
+    displayName: r.display_name,
+    userName: r.user_name,
+    userEmail: r.user_email,
+    projectPath: r.project_path,
+    projectName: r.project_name,
+    gitRepoUrl: r.git_repo_url,
+    isPinned: r.is_pinned === 1,
+  };
+}
+
+function buildPaginatedTimeline(
+  memoriesWithType: any[],
+  includePrompts: boolean,
+  tag: string | undefined,
+  safePage: number,
+  safePageSize: number
+): { items: any[]; total: number; totalPages: number } {
+  let timeline: any[] = memoriesWithType;
+  if (includePrompts) {
+    const projectPath = tag ? getProjectPathFromTag(tag) : undefined;
+    const prompts = userPromptManager.getCapturedPrompts(projectPath);
+    const promptsWithType = prompts.map((p) => ({
+      type: "prompt",
+      id: p.id,
+      sessionId: p.sessionId,
+      content: p.content,
+      createdAt: p.createdAt,
+      projectPath: p.projectPath,
+      linkedMemoryId: p.linkedMemoryId,
+    }));
+    timeline = [...memoriesWithType, ...promptsWithType];
+  }
+
+  const MAX_TIMELINE_ITEMS = 2500;
+  if (timeline.length > MAX_TIMELINE_ITEMS) {
+    timeline = timeline.slice(0, MAX_TIMELINE_ITEMS);
+  }
+
+  const linkedPairs = new Map<string, { memory: any; prompt: any }>();
+  const standalone: any[] = [];
+  for (const item of timeline) {
+    if (item.type === "memory" && item.linkedPromptId) {
+      if (!linkedPairs.has(item.linkedPromptId)) {
+        linkedPairs.set(item.linkedPromptId, { memory: item, prompt: null });
+      } else {
+        const pair = linkedPairs.get(item.linkedPromptId);
+        if (pair) pair.memory = item;
+      }
+    } else if (item.type === "prompt" && item.linkedMemoryId) {
+      if (!linkedPairs.has(item.id)) {
+        linkedPairs.set(item.id, { memory: null, prompt: item });
+      } else {
+        const pair = linkedPairs.get(item.id);
+        if (pair) pair.prompt = item;
+      }
+    } else {
+      standalone.push(item);
+    }
+  }
+
+  const sortedTimeline: any[] = [];
+  const pairs = Array.from(linkedPairs.values())
+    .filter((p) => p.memory && p.prompt)
+    .sort((a, b) => b.memory.createdAt - a.memory.createdAt);
+  for (const pair of pairs) {
+    sortedTimeline.push(pair.memory);
+    sortedTimeline.push(pair.prompt);
+  }
+  standalone.sort((a, b) => b.createdAt - a.createdAt);
+  sortedTimeline.push(...standalone);
+
+  const total = sortedTimeline.length;
+  const totalPages = Math.ceil(total / safePageSize);
+  const offset = (safePage - 1) * safePageSize;
+  const paginatedResults = sortedTimeline.slice(offset, offset + safePageSize);
+
+  return { items: paginatedResults, total, totalPages };
+}
+
+function formatTimelineItem(item: any): any {
+  if (item.type === "memory") {
+    return {
+      type: "memory",
+      id: item.id,
+      content: item.content,
+      memoryType: item.memoryType,
+      tags: item.tags,
+      createdAt: safeToISOString(item.createdAt),
+      updatedAt: item.updatedAt ? safeToISOString(item.updatedAt) : undefined,
+      metadata: item.metadata,
+      linkedPromptId: item.linkedPromptId,
+      displayName: item.displayName,
+      userName: item.userName,
+      userEmail: item.userEmail,
+      projectPath: item.projectPath,
+      projectName: item.projectName,
+      gitRepoUrl: item.gitRepoUrl,
+      isPinned: item.isPinned,
+    };
+  }
+  return {
+    type: "prompt",
+    id: item.id,
+    sessionId: item.sessionId,
+    content: item.content,
+    createdAt: safeToISOString(item.createdAt),
+    projectPath: item.projectPath,
+    linkedMemoryId: item.linkedMemoryId,
+  };
+}
+
 export async function handleListTags(): Promise<ApiResponse<{ project: TagInfo[] }>> {
   try {
     await embeddingService.warmup();
@@ -126,150 +284,17 @@ export async function handleListMemories(
   includePrompts: boolean = true
 ): Promise<ApiResponse<PaginatedResponse<Memory | any>>> {
   try {
-    const safePage = Number.isFinite(page) && page > 0 ? Math.min(Math.floor(page), 10000) : 1;
-    const safePageSize =
-      Number.isFinite(pageSize) && pageSize > 0 && pageSize <= 100 ? Math.floor(pageSize) : 20;
+    const { safePage, safePageSize } = sanitizeListParams(page, pageSize);
     await embeddingService.warmup();
-    let allMemories: any[] = [];
-    if (tag) {
-      const { scope: tagScope, hash } = extractScopeFromTag(tag);
-      const shards = shardManager.getAllShards(tagScope, hash);
-      const perShardLimit = Math.min(safePageSize * 2, 500); // Cap per-shard fetch to avoid over-allocation
-      for (const shard of shards) {
-        const db = connectionManager.getConnection(shard.dbPath);
-        const memories = vectorSearch.listMemories(db, tag, perShardLimit);
-        allMemories.push(...memories);
-      }
-    } else {
-      const shards = shardManager.getAllShards("project", "");
-      const perShardLimit = Math.min(safePageSize * 2, 500);
-      for (const shard of shards) {
-        const db = connectionManager.getConnection(shard.dbPath);
-        const memories = vectorSearch.listMemories(db, "", perShardLimit);
-        allMemories.push(...memories.filter((m: any) => m.container_tag?.includes("_project_")));
-      }
-    }
-    // Cap total to prevent unbounded memory growth
-    const MAX_LIST_MEMORIES = 2000;
-    if (allMemories.length > MAX_LIST_MEMORIES) {
-      allMemories = allMemories.slice(0, MAX_LIST_MEMORIES);
-    }
-
-    const memoriesWithType = allMemories.map((r: any) => {
-      const metadata = safeJSONParse(r.metadata);
-      return {
-        type: "memory",
-        id: r.id,
-        content: r.content,
-        memoryType: r.type,
-        tags: r.tags ? r.tags.split(",").map((t: string) => t.trim()) : [],
-        createdAt: Number(r.created_at),
-        updatedAt: r.updated_at ? Number(r.updated_at) : undefined,
-        metadata,
-        linkedPromptId: (metadata as Record<string, unknown>)?.promptId,
-        displayName: r.display_name,
-        userName: r.user_name,
-        userEmail: r.user_email,
-        projectPath: r.project_path,
-        projectName: r.project_name,
-        gitRepoUrl: r.git_repo_url,
-        isPinned: r.is_pinned === 1,
-      };
-    });
-
-    let timeline: any[] = memoriesWithType;
-    if (includePrompts) {
-      const projectPath = tag ? getProjectPathFromTag(tag) : undefined;
-      const prompts = userPromptManager.getCapturedPrompts(projectPath);
-      const promptsWithType = prompts.map((p) => ({
-        type: "prompt",
-        id: p.id,
-        sessionId: p.sessionId,
-        content: p.content,
-        createdAt: p.createdAt,
-        projectPath: p.projectPath,
-        linkedMemoryId: p.linkedMemoryId,
-      }));
-      timeline = [...memoriesWithType, ...promptsWithType];
-    }
-
-    // Cap timeline to prevent unbounded memory growth
-    const MAX_TIMELINE_ITEMS = 2500;
-    if (timeline.length > MAX_TIMELINE_ITEMS) {
-      timeline = timeline.slice(0, MAX_TIMELINE_ITEMS);
-    }
-
-    const linkedPairs = new Map<string, { memory: any; prompt: any }>();
-    const standalone: any[] = [];
-    for (const item of timeline) {
-      if (item.type === "memory" && item.linkedPromptId) {
-        if (!linkedPairs.has(item.linkedPromptId)) {
-          linkedPairs.set(item.linkedPromptId, { memory: item, prompt: null });
-        } else {
-          const pair = linkedPairs.get(item.linkedPromptId);
-          if (pair) pair.memory = item;
-        }
-      } else if (item.type === "prompt" && item.linkedMemoryId) {
-        if (!linkedPairs.has(item.id)) {
-          linkedPairs.set(item.id, { memory: null, prompt: item });
-        } else {
-          const pair = linkedPairs.get(item.id);
-          if (pair) pair.prompt = item;
-        }
-      } else {
-        standalone.push(item);
-      }
-    }
-
-    const sortedTimeline: any[] = [];
-    const pairs = Array.from(linkedPairs.values())
-      .filter((p) => p.memory && p.prompt)
-      .sort((a, b) => b.memory.createdAt - a.memory.createdAt);
-    for (const pair of pairs) {
-      sortedTimeline.push(pair.memory);
-      sortedTimeline.push(pair.prompt);
-    }
-    standalone.sort((a, b) => b.createdAt - a.createdAt);
-    sortedTimeline.push(...standalone);
-    timeline = sortedTimeline;
-
-    const total = timeline.length;
-    const totalPages = Math.ceil(total / safePageSize);
-    const offset = (safePage - 1) * safePageSize;
-    const paginatedResults = timeline.slice(offset, offset + safePageSize);
-
-    const items = paginatedResults.map((item: any) => {
-      if (item.type === "memory") {
-        return {
-          type: "memory",
-          id: item.id,
-          content: item.content,
-          memoryType: item.memoryType,
-          tags: item.tags,
-          createdAt: safeToISOString(item.createdAt),
-          updatedAt: item.updatedAt ? safeToISOString(item.updatedAt) : undefined,
-          metadata: item.metadata,
-          linkedPromptId: item.linkedPromptId,
-          displayName: item.displayName,
-          userName: item.userName,
-          userEmail: item.userEmail,
-          projectPath: item.projectPath,
-          projectName: item.projectName,
-          gitRepoUrl: item.gitRepoUrl,
-          isPinned: item.isPinned,
-        };
-      } else {
-        return {
-          type: "prompt",
-          id: item.id,
-          sessionId: item.sessionId,
-          content: item.content,
-          createdAt: safeToISOString(item.createdAt),
-          projectPath: item.projectPath,
-          linkedMemoryId: item.linkedMemoryId,
-        };
-      }
-    });
+    const perShardLimit = Math.min(safePageSize * 2, 500);
+    const allMemories = fetchMemoriesForList(tag, perShardLimit);
+    const memoriesWithType = allMemories.map(mapRawMemoryToTyped);
+    const {
+      items: paginatedResults,
+      total,
+      totalPages,
+    } = buildPaginatedTimeline(memoriesWithType, includePrompts, tag, safePage, safePageSize);
+    const items = paginatedResults.map(formatTimelineItem);
 
     return {
       success: true,
@@ -486,6 +511,202 @@ interface FormattedMemory {
 
 type SearchResultItem = FormattedPrompt | FormattedMemory;
 
+async function buildSearchQueryVector(query: string): Promise<Float32Array | null> {
+  await embeddingService.warmup();
+  try {
+    return await embeddingService.embedWithTimeout(query);
+  } catch (error) {
+    if (!embeddingService.embeddingAvailable) {
+      log("Embedding unavailable — falling back to text-only search", {
+        query,
+        error: String(error),
+      });
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function searchMemoriesByTag(
+  queryVector: Float32Array | null,
+  tag: string,
+  pageSize: number,
+  query: string
+): Promise<{ memoryResults: any[]; promptResults: any[] }> {
+  const { scope, hash } = extractScopeFromTag(tag);
+  const shards = shardManager.getAllShards(scope, hash);
+  let memoryResults: any[] = [];
+  for (const shard of shards) {
+    try {
+      const results = await vectorSearch.searchInShard(
+        shard,
+        queryVector,
+        tag,
+        pageSize * 2,
+        query
+      );
+      memoryResults.push(...results);
+    } catch (error) {
+      log("Shard search error", { shardId: shard.id, error: String(error) });
+    }
+  }
+  const MAX_SEARCH_RESULTS = 2000;
+  if (memoryResults.length > MAX_SEARCH_RESULTS) {
+    memoryResults = memoryResults.slice(0, MAX_SEARCH_RESULTS);
+  }
+  const projectPath = getProjectPathFromTag(tag);
+  const promptResults = userPromptManager.searchPrompts(query, projectPath, pageSize * 2);
+  return { memoryResults, promptResults };
+}
+
+async function searchMemoriesGlobal(
+  queryVector: Float32Array | null,
+  page: number,
+  pageSize: number,
+  query: string
+): Promise<{ memoryResults: any[]; promptResults: any[] }> {
+  const userShards = shardManager.getAllShards("user", "");
+  const projectShards = shardManager.getAllShards("project", "");
+  let memoryResults: any[] = [];
+  const searchedPaths = new Set<string>();
+  for (const shard of [...userShards, ...projectShards]) {
+    if (searchedPaths.has(shard.dbPath)) continue;
+    searchedPaths.add(shard.dbPath);
+    try {
+      const perShardLimit = Math.min(page * pageSize, 500);
+      const results = await vectorSearch.searchInShard(
+        shard,
+        queryVector,
+        "",
+        perShardLimit,
+        query
+      );
+      memoryResults.push(...results);
+    } catch (error) {
+      log("Shard search error", { shardId: shard.id, error: String(error) });
+    }
+  }
+  const MAX_SEARCH_RESULTS = 2000;
+  if (memoryResults.length > MAX_SEARCH_RESULTS) {
+    memoryResults = memoryResults.slice(0, MAX_SEARCH_RESULTS);
+  }
+  const promptResults = userPromptManager.searchPrompts(query, undefined, pageSize * 2);
+  return { memoryResults, promptResults };
+}
+
+function formatSearchPrompt(p: any): FormattedPrompt {
+  return {
+    type: "prompt",
+    id: p.id,
+    sessionId: p.sessionId,
+    content: p.content,
+    createdAt: safeToISOString(p.createdAt),
+    projectPath: p.projectPath,
+    linkedMemoryId: p.linkedMemoryId,
+    similarity: 1.0,
+  };
+}
+
+function formatSearchMemory(r: any): FormattedMemory {
+  return {
+    type: "memory",
+    id: r.id,
+    content: r.memory,
+    memoryType: r.type,
+    tags: r.tags,
+    createdAt: safeToISOString(r.createdAt),
+    updatedAt: r.updatedAt ? safeToISOString(r.updatedAt) : undefined,
+    similarity: r.similarity,
+    metadata: r.metadata,
+    displayName: r.displayName,
+    userName: r.userName,
+    userEmail: r.userEmail,
+    projectPath: r.projectPath,
+    projectName: r.projectName,
+    gitRepoUrl: r.gitRepoUrl,
+    isPinned: r.isPinned === 1,
+    linkedPromptId: (r.metadata as Record<string, unknown>)?.promptId as string | undefined,
+  };
+}
+
+function paginateSearchResults(
+  results: SearchResultItem[],
+  page: number,
+  pageSize: number
+): { paginated: SearchResultItem[]; total: number; totalPages: number } {
+  const total = results.length;
+  const totalPages = Math.ceil(total / pageSize);
+  const offset = (page - 1) * pageSize;
+  return { paginated: results.slice(offset, offset + pageSize), total, totalPages };
+}
+
+function fetchMissingLinkedItems(results: SearchResultItem[]): SearchResultItem[] {
+  const missingPromptIds = new Set<string>();
+  const missingMemoryIds = new Set<string>();
+  const existingIds = new Set(results.map((r) => r.id));
+  for (const item of results) {
+    if (item.type === "memory" && item.linkedPromptId) {
+      if (!existingIds.has(item.linkedPromptId)) missingPromptIds.add(item.linkedPromptId);
+    } else if (item.type === "prompt" && item.linkedMemoryId) {
+      if (!existingIds.has(item.linkedMemoryId)) missingMemoryIds.add(item.linkedMemoryId);
+    }
+  }
+
+  if (missingPromptIds.size > 0) {
+    const extraPrompts = userPromptManager.getPromptsByIds(Array.from(missingPromptIds));
+    for (const p of extraPrompts) {
+      results.push({
+        type: "prompt",
+        id: p.id,
+        sessionId: p.sessionId,
+        content: p.content,
+        createdAt: safeToISOString(p.createdAt),
+        projectPath: p.projectPath,
+        linkedMemoryId: p.linkedMemoryId,
+        similarity: 0,
+        isContext: true,
+      });
+    }
+  }
+
+  if (missingMemoryIds.size > 0) {
+    const projectShards = shardManager.getAllShards("project", "");
+    for (const shard of projectShards) {
+      const db = connectionManager.getConnection(shard.dbPath);
+      for (const mid of missingMemoryIds) {
+        const memory = vectorSearch.getMemoryById(db, mid);
+        if (memory && !existingIds.has(memory.id)) {
+          const parsedMetadata = safeJSONParse(memory.metadata) as
+            | Record<string, unknown>
+            | undefined;
+          results.push({
+            type: "memory",
+            id: memory.id,
+            content: memory.content,
+            memoryType: memory.type,
+            tags: memory.tags ? memory.tags.split(",").map((t: string) => t.trim()) : [],
+            createdAt: safeToISOString(memory.created_at),
+            updatedAt: memory.updated_at ? safeToISOString(memory.updated_at) : undefined,
+            similarity: 0,
+            metadata: parsedMetadata,
+            displayName: memory.display_name,
+            userName: memory.user_name,
+            userEmail: memory.user_email,
+            projectPath: memory.project_path,
+            projectName: memory.project_name,
+            gitRepoUrl: memory.git_repo_url,
+            isPinned: memory.is_pinned === 1,
+            linkedPromptId: parsedMetadata?.promptId as string | undefined,
+            isContext: true,
+          });
+        }
+      }
+    }
+  }
+
+  return results;
+}
+
 export async function handleSearch(
   query: string,
   tag?: string,
@@ -497,183 +718,35 @@ export async function handleSearch(
     const safePage = Number.isFinite(page) && page > 0 ? Math.min(Math.floor(page), 10000) : 1;
     const safePageSize =
       Number.isFinite(pageSize) && pageSize > 0 && pageSize <= 100 ? Math.floor(pageSize) : 20;
-    await embeddingService.warmup();
 
-    let queryVector: Float32Array | null = null;
-    try {
-      queryVector = await embeddingService.embedWithTimeout(query);
-    } catch (error) {
-      if (!embeddingService.embeddingAvailable) {
-        log("Embedding unavailable — falling back to text-only search", {
-          query,
-          error: String(error),
-        });
-      } else {
-        throw error;
-      }
-    }
+    const queryVector = await buildSearchQueryVector(query);
 
-    let memoryResults: any[] = [];
-    let promptResults: any[] = [];
+    let memoryResults: any[];
+    let promptResults: any[];
     if (tag) {
-      const { scope, hash } = extractScopeFromTag(tag);
-      const shards = shardManager.getAllShards(scope, hash);
-      for (const shard of shards) {
-        try {
-          const results = await vectorSearch.searchInShard(
-            shard,
-            queryVector,
-            tag,
-            safePageSize * 2,
-            query
-          );
-          memoryResults.push(...results);
-        } catch (error) {
-          log("Shard search error", { shardId: shard.id, error: String(error) });
-        }
-      }
-      // Cap total to prevent unbounded memory growth
-      const MAX_SEARCH_RESULTS = 2000;
-      if (memoryResults.length > MAX_SEARCH_RESULTS) {
-        memoryResults = memoryResults.slice(0, MAX_SEARCH_RESULTS);
-      }
-      const projectPath = getProjectPathFromTag(tag);
-      promptResults = userPromptManager.searchPrompts(query, projectPath, safePageSize * 2);
+      const results = await searchMemoriesByTag(queryVector, tag, safePageSize, query);
+      memoryResults = results.memoryResults;
+      promptResults = results.promptResults;
     } else {
-      const userShards = shardManager.getAllShards("user", "");
-      const projectShards = shardManager.getAllShards("project", "");
-      const searchedPaths = new Set<string>();
-      for (const shard of [...userShards, ...projectShards]) {
-        if (searchedPaths.has(shard.dbPath)) continue;
-        searchedPaths.add(shard.dbPath);
-        try {
-          const perShardLimit = Math.min(safePage * safePageSize, 500);
-          const results = await vectorSearch.searchInShard(
-            shard,
-            queryVector,
-            "",
-            perShardLimit,
-            query
-          );
-          memoryResults.push(...results);
-        } catch (error) {
-          log("Shard search error", { shardId: shard.id, error: String(error) });
-        }
-      }
-      // Cap total to prevent unbounded memory growth
-      const MAX_SEARCH_RESULTS = 2000;
-      if (memoryResults.length > MAX_SEARCH_RESULTS) {
-        memoryResults = memoryResults.slice(0, MAX_SEARCH_RESULTS);
-      }
-      promptResults = userPromptManager.searchPrompts(query, undefined, safePageSize * 2);
+      const results = await searchMemoriesGlobal(queryVector, safePage, safePageSize, query);
+      memoryResults = results.memoryResults;
+      promptResults = results.promptResults;
     }
 
-    const formattedPrompts: FormattedPrompt[] = promptResults.map((p) => ({
-      type: "prompt",
-      id: p.id,
-      sessionId: p.sessionId,
-      content: p.content,
-      createdAt: safeToISOString(p.createdAt),
-      projectPath: p.projectPath,
-      linkedMemoryId: p.linkedMemoryId,
-      similarity: 1.0,
-    }));
-
-    const formattedMemories: FormattedMemory[] = memoryResults.map((r: any) => ({
-      type: "memory",
-      id: r.id,
-      content: r.memory,
-      memoryType: r.type,
-      tags: r.tags,
-      createdAt: safeToISOString(r.createdAt),
-      updatedAt: r.updatedAt ? safeToISOString(r.updatedAt) : undefined,
-      similarity: r.similarity,
-      metadata: r.metadata,
-      displayName: r.displayName,
-      userName: r.userName,
-      userEmail: r.userEmail,
-      projectPath: r.projectPath,
-      projectName: r.projectName,
-      gitRepoUrl: r.gitRepoUrl,
-      isPinned: r.isPinned === 1,
-      linkedPromptId: (r.metadata as Record<string, unknown>)?.promptId as string | undefined,
-    }));
+    const formattedPrompts = promptResults.map(formatSearchPrompt);
+    const formattedMemories = memoryResults.map(formatSearchMemory);
 
     const combinedResults = [...formattedMemories, ...formattedPrompts].sort(
       (a: any, b: any) =>
         (b.similarity || 0) - (a.similarity || 0) || b.createdAt.localeCompare(a.createdAt)
     );
 
-    const total = combinedResults.length;
-    const totalPages = Math.ceil(total / safePageSize);
-    const offset = (safePage - 1) * safePageSize;
-    const paginatedResults: SearchResultItem[] = combinedResults.slice(
-      offset,
-      offset + safePageSize
-    );
-
-    const missingPromptIds = new Set<string>();
-    const missingMemoryIds = new Set<string>();
-    const existingIds = new Set(paginatedResults.map((r) => r.id));
-    for (const item of paginatedResults) {
-      if (item.type === "memory" && item.linkedPromptId) {
-        if (!existingIds.has(item.linkedPromptId)) missingPromptIds.add(item.linkedPromptId);
-      } else if (item.type === "prompt" && item.linkedMemoryId) {
-        if (!existingIds.has(item.linkedMemoryId)) missingMemoryIds.add(item.linkedMemoryId);
-      }
-    }
-
-    if (missingPromptIds.size > 0) {
-      const extraPrompts = userPromptManager.getPromptsByIds(Array.from(missingPromptIds));
-      for (const p of extraPrompts) {
-        paginatedResults.push({
-          type: "prompt",
-          id: p.id,
-          sessionId: p.sessionId,
-          content: p.content,
-          createdAt: safeToISOString(p.createdAt),
-          projectPath: p.projectPath,
-          linkedMemoryId: p.linkedMemoryId,
-          similarity: 0,
-          isContext: true,
-        });
-      }
-    }
-
-    if (missingMemoryIds.size > 0) {
-      const projectShards = shardManager.getAllShards("project", "");
-      for (const shard of projectShards) {
-        const db = connectionManager.getConnection(shard.dbPath);
-        for (const mid of missingMemoryIds) {
-          const memory = vectorSearch.getMemoryById(db, mid);
-          if (memory && !existingIds.has(memory.id)) {
-            const parsedMetadata = safeJSONParse(memory.metadata) as
-              | Record<string, unknown>
-              | undefined;
-            paginatedResults.push({
-              type: "memory",
-              id: memory.id,
-              content: memory.content,
-              memoryType: memory.type,
-              tags: memory.tags ? memory.tags.split(",").map((t: string) => t.trim()) : [],
-              createdAt: safeToISOString(memory.created_at),
-              updatedAt: memory.updated_at ? safeToISOString(memory.updated_at) : undefined,
-              similarity: 0,
-              metadata: parsedMetadata,
-              displayName: memory.display_name,
-              userName: memory.user_name,
-              userEmail: memory.user_email,
-              projectPath: memory.project_path,
-              projectName: memory.project_name,
-              gitRepoUrl: memory.git_repo_url,
-              isPinned: memory.is_pinned === 1,
-              linkedPromptId: parsedMetadata?.promptId as string | undefined,
-              isContext: true,
-            });
-          }
-        }
-      }
-    }
+    let {
+      paginated: paginatedResults,
+      total,
+      totalPages,
+    } = paginateSearchResults(combinedResults, safePage, safePageSize);
+    paginatedResults = fetchMissingLinkedItems(paginatedResults);
 
     return {
       success: true,
@@ -1059,6 +1132,68 @@ export function handleGetTagMigrationProgress(): ApiResponse<
   return { success: true, data: migrationProgress.toJSON() };
 }
 
+function loadAllMemoriesWithShards(): { memory: any; shard: any }[] {
+  const projectShards = shardManager.getAllShards("project", "");
+  const allMemories: { memory: any; shard: any }[] = [];
+  for (const shard of projectShards) {
+    const db = connectionManager.getConnection(shard.dbPath);
+    const memories = db.prepare("SELECT * FROM memories").all() as any[];
+    for (const m of memories) {
+      allMemories.push({ memory: m, shard });
+    }
+  }
+  return allMemories;
+}
+
+async function processSingleTagMigration(m: any, shard: any, provider: any): Promise<void> {
+  const db = connectionManager.getConnection(shard.dbPath);
+
+  let currentTags = m.tags
+    ? m.tags
+        .split(",")
+        .map((t: string) => t.trim().toLowerCase())
+        .filter((t: string) => t)
+    : [];
+
+  if (currentTags.length === 0) {
+    const prompt = `Generate 2-4 short technical tags for this memory content:\n\n${m.content}\n\nReturn ONLY a comma-separated list of tags.`;
+    const result = await provider.executeToolCall(
+      "You are a technical tagger.",
+      prompt,
+      {
+        type: "function",
+        function: {
+          name: "save_tags",
+          description: "Save generated tags",
+          parameters: {
+            type: "object",
+            properties: { tags: { type: "array", items: { type: "string" } } },
+            required: ["tags"],
+          },
+        },
+      },
+      `migration_${m.id}`
+    );
+    if (result.success && result.data?.tags) {
+      currentTags = result.data.tags;
+      db.prepare("UPDATE memories SET tags = ? WHERE id = ?").run(currentTags.join(","), m.id);
+    }
+  }
+
+  const vector = await embeddingService.embedWithTimeout(m.content);
+  const tagsVector = currentTags.length
+    ? await embeddingService.embedWithTimeout(currentTags.join(", "))
+    : undefined;
+  const vectorBuffer = new Uint8Array(vector.buffer);
+  db.prepare("UPDATE memories SET vector = ?, updated_at = ? WHERE id = ?").run(
+    vectorBuffer,
+    Date.now(),
+    m.id
+  );
+
+  await vectorSearch.updateVector(db, m.id, vector, shard, tagsVector);
+}
+
 export async function handleRunTagMigrationBatch(
   batchSize: number = 5
 ): Promise<ApiResponse<{ processed: number; total: number; hasMore: boolean }>> {
@@ -1070,17 +1205,8 @@ export async function handleRunTagMigrationBatch(
       iterationTimeout: 30000,
     });
     const provider = AIProviderFactory.createProvider(CONFIG.memoryProvider, providerConfig);
-    const projectShards = shardManager.getAllShards("project", "");
 
-    const allMemories: { memory: any; shard: any }[] = [];
-
-    for (const shard of projectShards) {
-      const db = connectionManager.getConnection(shard.dbPath);
-      const memories = db.prepare("SELECT * FROM memories").all() as any[];
-      for (const m of memories) {
-        allMemories.push({ memory: m, shard });
-      }
-    }
+    const allMemories = loadAllMemoriesWithShards();
 
     if (migrationProgress.total === 0) {
       migrationProgress.total = allMemories.length;
@@ -1094,63 +1220,13 @@ export async function handleRunTagMigrationBatch(
     for (let i = startIdx; i < endIdx; i++) {
       const item = allMemories[i];
       if (!item) continue;
-      const { memory: m, shard } = item;
-      const db = connectionManager.getConnection(shard.dbPath);
-
       try {
-        let currentTags = m.tags
-          ? m.tags
-              .split(",")
-              .map((t: string) => t.trim().toLowerCase())
-              .filter((t: string) => t)
-          : [];
-
-        if (currentTags.length === 0) {
-          const prompt = `Generate 2-4 short technical tags for this memory content:\n\n${m.content}\n\nReturn ONLY a comma-separated list of tags.`;
-          const result = await provider.executeToolCall(
-            "You are a technical tagger.",
-            prompt,
-            {
-              type: "function",
-              function: {
-                name: "save_tags",
-                description: "Save generated tags",
-                parameters: {
-                  type: "object",
-                  properties: { tags: { type: "array", items: { type: "string" } } },
-                  required: ["tags"],
-                },
-              },
-            },
-            `migration_${m.id}`
-          );
-          if (result.success && result.data?.tags) {
-            currentTags = result.data.tags;
-            db.prepare("UPDATE memories SET tags = ? WHERE id = ?").run(
-              currentTags.join(","),
-              m.id
-            );
-          }
-        }
-
-        const vector = await embeddingService.embedWithTimeout(m.content);
-        const tagsVector = currentTags.length
-          ? await embeddingService.embedWithTimeout(currentTags.join(", "))
-          : undefined;
-        const vectorBuffer = new Uint8Array(vector.buffer);
-        db.prepare("UPDATE memories SET vector = ?, updated_at = ? WHERE id = ?").run(
-          vectorBuffer,
-          Date.now(),
-          m.id
-        );
-
-        await vectorSearch.updateVector(db, m.id, vector, shard, tagsVector);
-
+        await processSingleTagMigration(item.memory, item.shard, provider);
         migrationProgress.processed++;
       } catch (e) {
         const errorMsg = String(e);
         migrationProgress.errors.push(errorMsg);
-        log("Migration error for memory", { id: m.id, error: errorMsg });
+        log("Migration error for memory", { id: item.memory.id, error: errorMsg });
       }
     }
 
