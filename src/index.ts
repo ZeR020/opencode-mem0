@@ -240,7 +240,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
       stopLifecycleJob();
       AIProviderFactory.stopCleanupSchedule();
       if (webServer) {
-        await webServer.stop();
+        webServer.stop();
       }
       memoryClient.close();
       // Do not call process.exit(); let the host decide.
@@ -602,8 +602,8 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
             if (webServer?.isServerOwner()) {
               await performUserProfileLearning(ctx, directory);
               const { cleanupService } = await import("./services/cleanup-service.js");
-              if (await cleanupService.shouldRunCleanup()) await cleanupService.runCleanup();
-              await cleanupOldTranscripts();
+              if (cleanupService.shouldRunCleanup()) await cleanupService.runCleanup();
+              cleanupOldTranscripts();
               const { connectionManager } = await import("./services/sqlite/connection-manager.js");
               connectionManager.checkpointAll();
             }

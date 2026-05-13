@@ -821,7 +821,7 @@ export async function handleDetectMigration(): Promise<
 > {
   try {
     const { migrationService } = await import("./migration-service.js");
-    const result = await migrationService.detectDimensionMismatch();
+    const result = migrationService.detectDimensionMismatch();
     return { success: true, data: result };
   } catch (error) {
     log("handleDetectMigration: error", { error: String(error) });

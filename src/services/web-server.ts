@@ -335,24 +335,24 @@ export class WebServer {
       }
 
       if (path === "/api/stats" && method === "GET") {
-        const result = await handleStats();
+        const result = handleStats();
         return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/embedding-cache" && method === "GET") {
-        const result = await handleEmbeddingCacheStats();
+        const result = handleEmbeddingCacheStats();
         return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/conflicts" && method === "GET") {
         const resolved = url.searchParams.get("resolved") === "true";
         const limit = parseInt(url.searchParams.get("limit") || "100");
-        const result = await handleListConflicts(resolved, limit);
+        const result = handleListConflicts(resolved, limit);
         return this.jsonResponse(result, 200, !isLocal);
       }
 
       if (path === "/api/conflicts/stats" && method === "GET") {
-        const result = await handleConflictStats();
+        const result = handleConflictStats();
         return this.jsonResponse(result, 200, !isLocal);
       }
 
@@ -372,7 +372,7 @@ export class WebServer {
         if (!id) {
           return this.jsonResponse({ success: false, error: "Invalid ID" });
         }
-        const result = await handlePinMemory(id);
+        const result = handlePinMemory(id);
         return this.jsonResponse(result, 200, !isLocal);
       }
 
@@ -381,7 +381,7 @@ export class WebServer {
         if (!id) {
           return this.jsonResponse({ success: false, error: "Invalid ID" });
         }
-        const result = await handleUnpinMemory(id);
+        const result = handleUnpinMemory(id);
         return this.jsonResponse(result, 200, !isLocal);
       }
 
@@ -401,7 +401,7 @@ export class WebServer {
       }
 
       if (path === "/api/migration/tags/detect" && method === "GET") {
-        const result = await handleDetectTagMigration();
+        const result = handleDetectTagMigration();
         return this.jsonResponse(result, 200, !isLocal);
       }
 
@@ -413,7 +413,7 @@ export class WebServer {
       }
 
       if (path === "/api/migration/tags/progress" && method === "GET") {
-        const result = await handleGetTagMigrationProgress();
+        const result = handleGetTagMigrationProgress();
         return this.jsonResponse(result, 200, !isLocal);
       }
 

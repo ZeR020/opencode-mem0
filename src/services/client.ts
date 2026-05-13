@@ -183,7 +183,7 @@ export class LocalMemoryClient {
       const shard = shardManager.getWriteShard(scope, hash);
 
       // Check for near-duplicate at ingest time
-      const dedupResult = await deduplicationService.checkDuplicateAtIngest(
+      const dedupResult = deduplicationService.checkDuplicateAtIngest(
         content,
         containerTag,
         vector,

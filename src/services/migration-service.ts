@@ -106,7 +106,7 @@ export class MigrationService {
     const startTime = Date.now();
 
     try {
-      const mismatch = await this.detectDimensionMismatch();
+      const mismatch = this.detectDimensionMismatch();
 
       if (!mismatch.needsMigration) {
         return {
