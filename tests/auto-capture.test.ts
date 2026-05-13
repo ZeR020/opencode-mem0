@@ -134,4 +134,436 @@ describe("auto-capture helpers", () => {
     await performAutoCapture(ctx, "sess-1", "/test");
     expect(mockMemoryClient.addMemory).not.toHaveBeenCalled();
   });
+
+  it("returns early when AI messages contain only empty text", async () => {
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "test prompt",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+    const ctx = {
+      client: {
+        session: {
+          messages: () => ({
+            data: [
+              { info: { id: "m1" } },
+              {
+                info: { id: "a1", role: "assistant" },
+                parts: [{ type: "text", text: "" }],
+              },
+            ],
+          }),
+        },
+      },
+    } as any;
+    mockMemoryClient.listMemories.mockResolvedValue({ success: false, memories: [] });
+    mockGetTags.mockReturnValue({
+      project: {
+        tag: "mem_project_test",
+        displayName: "Test",
+        userName: null,
+        userEmail: null,
+        projectPath: "/test",
+        projectName: "test",
+        gitRepoUrl: null,
+      },
+    });
+    await performAutoCapture(ctx, "sess-1", "/test");
+  });
+
+  it("returns early when session messages fail", async () => {
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "test",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+    const ctx = {
+      client: {
+        session: { messages: () => ({ data: undefined }) },
+      },
+    } as any;
+    await performAutoCapture(ctx, "sess-1", "/test");
+    expect(mockMemoryClient.addMemory).not.toHaveBeenCalled();
+  });
+
+  it("returns early when AI response has only tool calls with no text", async () => {
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "test",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+    const ctx = {
+      client: {
+        session: {
+          messages: () => ({
+            data: [
+              { info: { id: "m1" } },
+              {
+                info: { id: "a1", role: "assistant" },
+                parts: [{ type: "tool", tool: "read", state: { input: "file.ts" } }],
+              },
+            ],
+          }),
+        },
+      },
+    } as any;
+    mockMemoryClient.listMemories.mockResolvedValue({ success: false, memories: [] });
+    mockGetTags.mockReturnValue({
+      project: {
+        tag: "mem_project_test",
+        displayName: "Test",
+        userName: null,
+        userEmail: null,
+        projectPath: "/test",
+        projectName: "test",
+        gitRepoUrl: null,
+      },
+    });
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
+      "External API not configured for auto-capture"
+    );
+  });
+
+  it("processes through when all data is valid (falls through to generateSummary error)", async () => {
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "fix the bug in auth",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+    const ctx = {
+      client: {
+        session: {
+          messages: () => ({
+            data: [
+              { info: { id: "m1" } },
+              {
+                info: { id: "a1", role: "assistant" },
+                parts: [{ type: "text", text: "Fixed the authentication bug in login.ts" }],
+              },
+            ],
+          }),
+        },
+      },
+    } as any;
+    mockMemoryClient.listMemories.mockResolvedValue({ success: false, memories: [] });
+    mockGetTags.mockReturnValue({
+      project: {
+        tag: "mem_project_test",
+        displayName: "Test",
+        userName: null,
+        userEmail: null,
+        projectPath: "/test",
+        projectName: "test",
+        gitRepoUrl: null,
+      },
+    });
+    // generateSummary will fail because no API configured — error is caught by finally
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
+      "External API not configured for auto-capture"
+    );
+  });
+
+  it("includes latest memory context when available", async () => {
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "add login feature",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+    const ctx = {
+      client: {
+        session: {
+          messages: () => ({
+            data: [
+              { info: { id: "m1" } },
+              {
+                info: { id: "a1", role: "assistant" },
+                parts: [{ type: "text", text: "Added login page component" }],
+              },
+            ],
+          }),
+        },
+      },
+    } as any;
+    mockMemoryClient.listMemories.mockResolvedValue({
+      success: true,
+      memories: [{ summary: "Previous: added auth middleware" }],
+    });
+    mockGetTags.mockReturnValue({
+      project: {
+        tag: "mem_project_test",
+        displayName: "Test",
+        userName: null,
+        userEmail: null,
+        projectPath: "/test",
+        projectName: "test",
+        gitRepoUrl: null,
+      },
+    });
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
+      "External API not configured for auto-capture"
+    );
+  });
+
+  it("truncates long latest memory content", async () => {
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "test",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+    const longContent = "x".repeat(1000);
+    const ctx = {
+      client: {
+        session: {
+          messages: () => ({
+            data: [
+              { info: { id: "m1" } },
+              {
+                info: { id: "a1", role: "assistant" },
+                parts: [{ type: "text", text: "Done" }],
+              },
+            ],
+          }),
+        },
+      },
+    } as any;
+    mockMemoryClient.listMemories.mockResolvedValue({
+      success: true,
+      memories: [{ summary: longContent }],
+    });
+    mockGetTags.mockReturnValue({
+      project: {
+        tag: "mem_project_test",
+        displayName: "Test",
+        userName: null,
+        userEmail: null,
+        projectPath: "/test",
+        projectName: "test",
+        gitRepoUrl: null,
+      },
+    });
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
+      "External API not configured for auto-capture"
+    );
+  });
+
+  it("extracts tool call input from object state", async () => {
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "test with tools",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+    const ctx = {
+      client: {
+        session: {
+          messages: () => ({
+            data: [
+              { info: { id: "m1" } },
+              {
+                info: { id: "a1", role: "assistant" },
+                parts: [
+                  { type: "text", text: "Used tool" },
+                  {
+                    type: "tool",
+                    tool: "write",
+                    state: { input: { filePath: "/a/b.ts", content: "code" } },
+                  },
+                ],
+              },
+            ],
+          }),
+        },
+      },
+    } as any;
+    mockMemoryClient.listMemories.mockResolvedValue({ success: false, memories: [] });
+    mockGetTags.mockReturnValue({
+      project: {
+        tag: "mem_project_test",
+        displayName: "Test",
+        userName: null,
+        userEmail: null,
+        projectPath: "/test",
+        projectName: "test",
+        gitRepoUrl: null,
+      },
+    });
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
+      "External API not configured for auto-capture"
+    );
+  });
+
+  it("extracts tool call input from string parameter", async () => {
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "test",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+    const ctx = {
+      client: {
+        session: {
+          messages: () => ({
+            data: [
+              { info: { id: "m1" } },
+              {
+                info: { id: "a1", role: "assistant" },
+                parts: [
+                  { type: "text", text: "done" },
+                  {
+                    type: "tool",
+                    tool: "bash",
+                    state: { input: "npm install" },
+                  },
+                ],
+              },
+            ],
+          }),
+        },
+      },
+    } as any;
+    mockMemoryClient.listMemories.mockResolvedValue({ success: false, memories: [] });
+    mockGetTags.mockReturnValue({
+      project: {
+        tag: "mem_project_test",
+        displayName: "Test",
+        userName: null,
+        userEmail: null,
+        projectPath: "/test",
+        projectName: "test",
+        gitRepoUrl: null,
+      },
+    });
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
+      "External API not configured for auto-capture"
+    );
+  });
+
+  it("handles non-assistant role messages gracefully", async () => {
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "test",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+    const ctx = {
+      client: {
+        session: {
+          messages: () => ({
+            data: [
+              { info: { id: "m1" } },
+              { info: { id: "a1", role: "system" }, parts: [{ type: "text", text: "system msg" }] },
+              {
+                info: { id: "a2", role: "assistant" },
+                parts: [{ type: "text", text: "assistant reply" }],
+              },
+            ],
+          }),
+        },
+      },
+    } as any;
+    mockMemoryClient.listMemories.mockResolvedValue({ success: false, memories: [] });
+    mockGetTags.mockReturnValue({
+      project: {
+        tag: "mem_project_test",
+        displayName: "Test",
+        userName: null,
+        userEmail: null,
+        projectPath: "/test",
+        projectName: "test",
+        gitRepoUrl: null,
+      },
+    });
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
+      "External API not configured for auto-capture"
+    );
+  });
+
+  it("handles messages without parts array", async () => {
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "test",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+    const ctx = {
+      client: {
+        session: {
+          messages: () => ({
+            data: [
+              { info: { id: "m1" } },
+              {
+                info: { id: "a1", role: "assistant" },
+                parts: [{ type: "text", text: "reply" }],
+              },
+              { info: { id: "a2", role: "assistant" } },
+            ],
+          }),
+        },
+      },
+    } as any;
+    mockMemoryClient.listMemories.mockResolvedValue({ success: false, memories: [] });
+    mockGetTags.mockReturnValue({
+      project: {
+        tag: "mem_project_test",
+        displayName: "Test",
+        userName: null,
+        userEmail: null,
+        projectPath: "/test",
+        projectName: "test",
+        gitRepoUrl: null,
+      },
+    });
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
+      "External API not configured for auto-capture"
+    );
+  });
+
+  it("truncates long tool input", async () => {
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "test",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+    const longInput = "x".repeat(200);
+    const ctx = {
+      client: {
+        session: {
+          messages: () => ({
+            data: [
+              { info: { id: "m1" } },
+              {
+                info: { id: "a1", role: "assistant" },
+                parts: [
+                  { type: "text", text: "done" },
+                  { type: "tool", tool: "write", state: { input: longInput } },
+                ],
+              },
+            ],
+          }),
+        },
+      },
+    } as any;
+    mockMemoryClient.listMemories.mockResolvedValue({ success: false, memories: [] });
+    mockGetTags.mockReturnValue({
+      project: {
+        tag: "mem_project_test",
+        displayName: "Test",
+        userName: null,
+        userEmail: null,
+        projectPath: "/test",
+        projectName: "test",
+        gitRepoUrl: null,
+      },
+    });
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
+      "External API not configured for auto-capture"
+    );
+  });
 });
