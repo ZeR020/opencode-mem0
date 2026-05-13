@@ -1,3 +1,4 @@
+/** Semantic type for memory classification (e.g., "decision", "preference", "bug") */
 export type MemoryType = string;
 
 export interface MemoryMetadata {

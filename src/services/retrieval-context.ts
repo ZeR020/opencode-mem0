@@ -191,16 +191,10 @@ export function scoreMemoryRelevance(memory: ScorableMemory, intent: QueryIntent
 
   // Type-intent alignment boost
   const memoryType = (memory.type || "").toLowerCase();
-  if (intent.intent === "troubleshooting" && (memoryType === "bug" || memoryType === "error")) {
-    score *= 1.3;
-  } else if (
-    intent.intent === "recall" &&
-    (memoryType === "decision" || memoryType === "preference")
-  ) {
-    score *= 1.3;
-  } else if (
-    intent.intent === "implementation" &&
-    (memoryType === "guide" || memoryType === "tutorial")
+  if (
+    (intent.intent === "troubleshooting" && (memoryType === "bug" || memoryType === "error")) ||
+    (intent.intent === "recall" && (memoryType === "decision" || memoryType === "preference")) ||
+    (intent.intent === "implementation" && (memoryType === "guide" || memoryType === "tutorial"))
   ) {
     score *= 1.3;
   }

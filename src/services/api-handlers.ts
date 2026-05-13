@@ -1054,11 +1054,6 @@ export async function handleRefreshProfile(userId?: string): Promise<ApiResponse
   try {
     const { getTags } = await import("./tags.js");
     const { userPromptManager } = await import("./user-prompt/user-prompt-manager.js");
-    let targetUserId = userId;
-    if (!targetUserId) {
-      const tags = getTags(process.cwd());
-      targetUserId = tags.user.userEmail || "unknown";
-    }
     const unanalyzedCount = userPromptManager.countUnanalyzedForUserLearning();
     return {
       success: true,

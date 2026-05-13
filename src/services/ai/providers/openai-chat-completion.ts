@@ -310,56 +310,55 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     toolSchema: ChatCompletionTool,
     iterations: number
   ): ToolCallResult {
-    for (const toolCall of toolCalls) {
-      const toolCallId = toolCall.id;
+    const toolCall = toolCalls[0];
+    if (!toolCall) return null as any;
 
-      if (toolCall.function.name === toolSchema.function.name) {
-        try {
-          const parsed = JSON.parse(toolCall.function.arguments);
-          const result = UserProfileValidator.validate(parsed);
-          if (!result.valid) {
-            throw new Error(result.errors.join(", "));
-          }
+    const toolCallId = toolCall.id;
 
-          this.addToolResponse(session.id, messages, toolCallId, JSON.stringify({ success: true }));
-
-          return { success: true, data: result.data, iterations };
-        } catch (validationError) {
-          const errorStack = validationError instanceof Error ? validationError.stack : undefined;
-          log("OpenAI tool response validation failed", {
-            error: String(validationError),
-            stack: errorStack,
-            errorType:
-              validationError instanceof Error
-                ? validationError.constructor.name
-                : typeof validationError,
-            toolName: toolSchema.function.name,
-            iteration: iterations,
-            rawArgumentsSize: toolCall.function.arguments.length,
-          });
-
-          const errorMessage = `Validation failed: ${String(validationError)}`;
-          this.addToolResponse(
-            session.id,
-            messages,
-            toolCallId,
-            JSON.stringify({ success: false, error: errorMessage })
-          );
-
-          return { success: false, error: errorMessage, iterations };
+    if (toolCall.function.name === toolSchema.function.name) {
+      try {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        const result = UserProfileValidator.validate(parsed);
+        if (!result.valid) {
+          throw new Error(result.errors.join(", "));
         }
+
+        this.addToolResponse(session.id, messages, toolCallId, JSON.stringify({ success: true }));
+
+        return { success: true, data: result.data, iterations };
+      } catch (validationError) {
+        const errorStack = validationError instanceof Error ? validationError.stack : undefined;
+        log("OpenAI tool response validation failed", {
+          error: String(validationError),
+          stack: errorStack,
+          errorType:
+            validationError instanceof Error
+              ? validationError.constructor.name
+              : typeof validationError,
+          toolName: toolSchema.function.name,
+          iteration: iterations,
+          rawArgumentsSize: toolCall.function.arguments.length,
+        });
+
+        const errorMessage = `Validation failed: ${String(validationError)}`;
+        this.addToolResponse(
+          session.id,
+          messages,
+          toolCallId,
+          JSON.stringify({ success: false, error: errorMessage })
+        );
+
+        return { success: false, error: errorMessage, iterations };
       }
-
-      const wrongToolMessage = `Wrong tool called. Please use ${toolSchema.function.name} instead.`;
-      this.addToolResponse(
-        session.id,
-        messages,
-        toolCallId,
-        JSON.stringify({ success: false, error: wrongToolMessage })
-      );
-
-      break;
     }
+
+    const wrongToolMessage = `Wrong tool called. Please use ${toolSchema.function.name} instead.`;
+    this.addToolResponse(
+      session.id,
+      messages,
+      toolCallId,
+      JSON.stringify({ success: false, error: wrongToolMessage })
+    );
 
     return null as any;
   }

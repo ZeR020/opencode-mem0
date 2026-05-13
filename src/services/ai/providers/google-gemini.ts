@@ -171,7 +171,7 @@ export class GoogleGeminiProvider extends BaseAIProvider {
     iterations: number
   ): ToolCallResult | null {
     const candidate = data.candidates?.[0];
-    if (!candidate || !candidate.content) {
+    if (!candidate?.content) {
       return { success: false, error: "Invalid Gemini API response format", iterations };
     }
 
