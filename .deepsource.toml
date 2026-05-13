@@ -6,7 +6,7 @@ enabled = true
 
   [analyzers.meta]
   plugins = ["react"]
-  environment = ["nodejs"]
+  environment = ["nodejs", "bun"]
   module_system = "es-modules"
   dialect = "typescript"
 
@@ -18,8 +18,19 @@ enabled = true
 name = "shell"
 enabled = true
 
+test_patterns = [
+  "tests/**",
+  "**/*.test.ts",
+  "**/*.spec.ts"
+]
+
 exclude_patterns = [
   "examples/**",
+  "dist/**",
+  "node_modules/**",
+  "scripts/**",
+  "**/*.config.ts",
+  "**/*.config.js",
   "**/*.test.ts",
   "tests/**"
 ]
