@@ -281,7 +281,7 @@ class ContextTracker {
       projectName,
       recentFiles: [...ctx.recentFiles],
       recentQueries: [...ctx.recentQueries],
-      currentQuery: ctx.recentQueries[ctx.recentQueries.length - 1],
+      currentQuery: ctx.recentQueries.at(-1),
     };
   }
 

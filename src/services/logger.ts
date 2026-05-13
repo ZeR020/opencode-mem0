@@ -1,7 +1,7 @@
-import { writeFileSync, existsSync, mkdirSync, statSync, renameSync, unlinkSync } from "fs";
-import { appendFile } from "fs/promises";
-import { homedir } from "os";
-import { join, dirname } from "path";
+import { writeFileSync, existsSync, mkdirSync, statSync, renameSync, unlinkSync } from "node:fs";
+import { appendFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join, dirname } from "node:path";
 
 function getLogFilePath(): string {
   return (

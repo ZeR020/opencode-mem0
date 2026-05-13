@@ -246,11 +246,8 @@ function renderPromptCard(prompt) {
 
 function getMemoryDisplayInfo(memory) {
   if (memory.projectPath) {
-    const pathParts = memory.projectPath
-      .replaceAll("\\", "/")
-      .split("/")
-      .filter((p) => p);
-    return pathParts[pathParts.length - 1] || memory.projectPath;
+    const pathParts = memory.projectPath.replaceAll("\\", "/").split("/").filter(Boolean);
+    return pathParts.at(-1) || memory.projectPath;
   }
   return memory.displayName || memory.id;
 }

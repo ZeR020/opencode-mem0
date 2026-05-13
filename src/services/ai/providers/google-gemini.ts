@@ -118,7 +118,7 @@ export class GoogleGeminiProvider extends BaseAIProvider {
       contents.push({ role, parts });
     }
 
-    if (contents.length === 0 || contents[contents.length - 1].role !== "user") {
+    if (contents.length === 0 || contents.at(-1).role !== "user") {
       this.aiSessionManager.addMessageAtomic({
         aiSessionId: sessionId,
         role: "user",

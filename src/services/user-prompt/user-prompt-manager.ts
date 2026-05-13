@@ -238,7 +238,7 @@ export class UserPromptManager {
 
   deleteOldPrompts(cutoffTime: number): { deleted: number; linkedMemoryIds: string[] } {
     const linkedRows = this.stmts.getLinkedMemoryIds.all(cutoffTime) as any[];
-    const linkedMemoryIds = linkedRows.map((row) => row.linked_memory_id).filter((id) => id);
+    const linkedMemoryIds = linkedRows.map((row) => row.linked_memory_id).filter(Boolean);
     const result = this.stmts.deleteOldPrompts.run(cutoffTime);
     return {
       deleted: result.changes,

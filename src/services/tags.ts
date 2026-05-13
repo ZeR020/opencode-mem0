@@ -138,7 +138,7 @@ export function getProjectIdentity(directory: string): string {
 }
 
 export function getProjectName(directory: string): string {
-  const parts = directory.split(/[\\/]+/).filter((p) => p);
+  const parts = directory.split(/[\\/]+/).filter(Boolean);
   return parts.at(-1) || directory;
 }
 
