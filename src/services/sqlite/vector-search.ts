@@ -46,6 +46,9 @@ export class VectorSearch {
   private readonly MAX_WORDSET_CACHE = 1000;
 
   constructor(backend?: VectorBackend, fallbackBackend: VectorBackend = new ExactScanBackend()) {
+    // NOSONAR S7059: Async backend initialization is stored as a Promise and awaited
+    // in every public method via getBackend(). Refactoring to a static factory would
+    // break the module-level singleton export used across 10+ call sites.
     this.backendPromise = backend
       ? Promise.resolve(backend)
       : createVectorBackend({ vectorBackend: CONFIG.vectorBackend });
