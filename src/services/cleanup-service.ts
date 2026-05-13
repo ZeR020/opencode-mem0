@@ -24,6 +24,67 @@ export class CleanupService {
     return CONFIG.autoCleanupEnabled && !this.isRunning && now - this.lastCleanupTime >= oneDayMs;
   }
 
+  private _collectPinnedMemoryIds(allShards: any[]): Set<string> {
+    const pinnedMemoryIds = new Set<string>();
+    for (const shard of allShards) {
+      const db = connectionManager.getConnection(shard.dbPath);
+      const pinned = db.prepare("SELECT id FROM memories WHERE is_pinned = 1").all() as any[];
+      pinned.forEach((row) => pinnedMemoryIds.add(row.id));
+    }
+    return pinnedMemoryIds;
+  }
+
+  private async _cleanupShard(
+    shard: any,
+    cutoffTime: number,
+    protectedMemoryIds: Set<string>
+  ): Promise<{
+    totalDeleted: number;
+    userDeleted: number;
+    projectDeleted: number;
+    linkedMemoriesProtected: number;
+    pinnedSkipped: number;
+  }> {
+    const db = connectionManager.getConnection(shard.dbPath);
+    const oldMemories = db
+      .prepare("SELECT id, container_tag, is_pinned FROM memories WHERE updated_at < ?")
+      .all(cutoffTime) as any[];
+
+    let totalDeleted = 0;
+    let userDeleted = 0;
+    let projectDeleted = 0;
+    let linkedMemoriesProtected = 0;
+    let pinnedSkipped = 0;
+
+    for (const memory of oldMemories) {
+      try {
+        if (memory.is_pinned === 1) {
+          pinnedSkipped++;
+          continue;
+        }
+
+        if (protectedMemoryIds.has(memory.id)) {
+          linkedMemoriesProtected++;
+          continue;
+        }
+
+        await vectorSearch.deleteVector(db, memory.id, shard);
+        shardManager.decrementVectorCount(shard.id);
+        totalDeleted++;
+
+        if (memory.container_tag?.includes("_user_")) {
+          userDeleted++;
+        } else if (memory.container_tag?.includes("_project_")) {
+          projectDeleted++;
+        }
+      } catch (error) {
+        log("Cleanup: delete error", { memoryId: memory.id, error: String(error) });
+      }
+    }
+
+    return { totalDeleted, userDeleted, projectDeleted, linkedMemoriesProtected, pinnedSkipped };
+  }
+
   async runCleanup(): Promise<CleanupResult> {
     if (this.isRunning) {
       throw new Error("Cleanup already running");
@@ -38,16 +99,9 @@ export class CleanupService {
       const projectShards = shardManager.getAllShards("project", "");
       const allShards = [...userShards, ...projectShards];
 
-      const pinnedMemoryIds = new Set<string>();
-      for (const shard of allShards) {
-        const db = connectionManager.getConnection(shard.dbPath);
-        const pinned = db.prepare("SELECT id FROM memories WHERE is_pinned = 1").all() as any[];
-        pinned.forEach((row) => pinnedMemoryIds.add(row.id));
-      }
-
+      const pinnedMemoryIds = this._collectPinnedMemoryIds(allShards);
       const promptCleanupResult = userPromptManager.deleteOldPrompts(cutoffTime);
       const linkedMemoryIds = new Set(promptCleanupResult.linkedMemoryIds);
-
       const protectedMemoryIds = new Set([...pinnedMemoryIds, ...linkedMemoryIds]);
 
       let totalDeleted = 0;
@@ -57,42 +111,12 @@ export class CleanupService {
       let pinnedSkipped = 0;
 
       for (const shard of allShards) {
-        const db = connectionManager.getConnection(shard.dbPath);
-
-        const oldMemories = db
-          .prepare(
-            `
-          SELECT id, container_tag, is_pinned FROM memories 
-          WHERE updated_at < ?
-        `
-          )
-          .all(cutoffTime) as any[];
-
-        for (const memory of oldMemories) {
-          try {
-            if (memory.is_pinned === 1) {
-              pinnedSkipped++;
-              continue;
-            }
-
-            if (protectedMemoryIds.has(memory.id)) {
-              linkedMemoriesProtected++;
-              continue;
-            }
-
-            await vectorSearch.deleteVector(db, memory.id, shard);
-            shardManager.decrementVectorCount(shard.id);
-            totalDeleted++;
-
-            if (memory.container_tag?.includes("_user_")) {
-              userDeleted++;
-            } else if (memory.container_tag?.includes("_project_")) {
-              projectDeleted++;
-            }
-          } catch (error) {
-            log("Cleanup: delete error", { memoryId: memory.id, error: String(error) });
-          }
-        }
+        const result = await this._cleanupShard(shard, cutoffTime, protectedMemoryIds);
+        totalDeleted += result.totalDeleted;
+        userDeleted += result.userDeleted;
+        projectDeleted += result.projectDeleted;
+        linkedMemoriesProtected += result.linkedMemoriesProtected;
+        pinnedSkipped += result.pinnedSkipped;
       }
 
       const promptsDeleted = promptCleanupResult.deleted - linkedMemoryIds.size;

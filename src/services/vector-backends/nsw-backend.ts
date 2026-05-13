@@ -225,6 +225,8 @@ export class NSWBackend implements VectorBackend {
    * Uses a candidate pool (ef) to balance exploration vs exploitation.
    * Returns the k nearest distinct nodes sorted by ascending distance.
    */
+  // NOSONAR S3776: KNN graph search algorithm with candidate pool exploration is inherently
+  // complex — this is a core NSW graph traversal with priority queues and visited set tracking.
   private searchKNN(
     graph: Map<string, NSWNode>,
     queryVector: Float32Array,

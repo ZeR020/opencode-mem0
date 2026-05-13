@@ -124,6 +124,8 @@ export class UserProfileManager {
     return id;
   }
 
+  // NOSONAR S3776: Profile update with optimistic concurrency control (version check),
+  // changelog insertion, and cleanup requires atomic transaction orchestration — complexity is inherent.
   updateProfile(
     profileId: string,
     profileData: UserProfileData,

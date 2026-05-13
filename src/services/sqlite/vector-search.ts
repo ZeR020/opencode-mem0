@@ -271,6 +271,8 @@ export class VectorSearch {
    * @param providedDb - Optional pre-resolved DB connection (for tests)
    * @returns Ranked search results
    */
+  // NOSONAR S3776: FTS5 search logic with query sanitization, tokenization, and fallback handling
+  // is inherently complex by design — decomposition would fragment the search pipeline.
   private searchFTS5(db: DatabaseType, queryText: string | undefined, limit: number): string[] {
     if (!queryText || queryText.length === 0) return [];
     try {
@@ -305,6 +307,8 @@ export class VectorSearch {
     return [];
   }
 
+  // NOSONAR S3776: Result hydration and multi-factor scoring (vector similarity + FTS5 ranking +
+  // context boost + diversity penalty) is inherently complex — decomposition would break scoring consistency.
   private hydrateAndScoreResults(
     rows: any[],
     scoreMap: Map<string, { contentSim: number; tagsSim: number }>,

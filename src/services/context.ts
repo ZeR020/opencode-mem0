@@ -63,37 +63,34 @@ export function formatMemoryEntry(
   }
 }
 
-export function formatContextForPrompt(
-  userId: string | null,
-  projectMemories: MemoriesResponseMinimal,
-  options?: FormatOptions
-): string {
-  const tokenBudget = options?.tokenBudget ?? (CONFIG as any).injection?.tokenBudget ?? 4000;
-  const format = options?.format ?? (CONFIG as any).injection?.format ?? "plain";
-  const query = options?.query;
-
-  // 1. Analyze query if provided
-  let scoredMemories: Array<{ result: MemoryResultMinimal; relevance: number }> = [];
-  if (query) {
-    const intent = analyzeQueryIntent(query);
-    scoredMemories = (projectMemories.results || []).map((m) => ({
-      result: m,
-      relevance: scoreMemoryRelevance(m, intent),
-    }));
-    scoredMemories.sort((a, b) => b.relevance - a.relevance);
-    // Filter below threshold
-    const threshold = (CONFIG as any).injection?.relevanceThreshold ?? 0.3;
-    scoredMemories = scoredMemories.filter((m) => m.relevance >= threshold);
-  } else {
-    scoredMemories = (projectMemories.results || []).map((m) => ({
-      result: m,
-      relevance: m.similarity || 0,
-    }));
+function scoreMemoriesForQuery(
+  memories: MemoryResultMinimal[],
+  query: string | undefined
+): Array<{ result: MemoryResultMinimal; relevance: number }> {
+  if (!query) {
+    return memories.map((m) => ({ result: m, relevance: m.similarity || 0 }));
   }
 
-  // 2. Build output with token budget
-  let usedTokens = 0;
+  const intent = analyzeQueryIntent(query);
+  const scored = memories.map((m) => ({
+    result: m,
+    relevance: scoreMemoryRelevance(m, intent),
+  }));
+  scored.sort((a, b) => b.relevance - a.relevance);
+
+  const threshold = (CONFIG as any).injection?.relevanceThreshold ?? 0.3;
+  return scored.filter((m) => m.relevance >= threshold);
+}
+
+function buildContextParts(
+  scoredMemories: Array<{ result: MemoryResultMinimal; relevance: number }>,
+  userId: string | null,
+  format: "plain" | "xml" | "yaml",
+  tokenBudget: number
+): string[] {
   const parts: string[] = [];
+  let usedTokens = 0;
+
   const header = "[MEMORY]";
   usedTokens += estimateTokens(header);
   parts.push(header);
@@ -116,10 +113,9 @@ export function formatContextForPrompt(
   for (const { result, relevance } of scoredMemories) {
     const formatted = formatMemoryEntry(result, relevance, format);
     const entryTokens = estimateTokens(formatted);
-    // Account for section header cost on first memory addition
     const overhead = sectionAdded ? 0 : sectionTokens;
     if (tokenBudget !== 0 && usedTokens + overhead + entryTokens > tokenBudget) {
-      continue; // Skip this memory — would exceed budget
+      continue;
     }
     if (!sectionAdded) {
       usedTokens += sectionTokens;
@@ -129,6 +125,22 @@ export function formatContextForPrompt(
     usedTokens += entryTokens;
     parts.push(formatted);
   }
+
+  return parts;
+}
+
+export function formatContextForPrompt(
+  userId: string | null,
+  projectMemories: MemoriesResponseMinimal,
+  options?: FormatOptions
+): string {
+  const tokenBudget = options?.tokenBudget ?? (CONFIG as any).injection?.tokenBudget ?? 4000;
+  const format = options?.format ?? (CONFIG as any).injection?.format ?? "plain";
+  const query = options?.query;
+
+  const memories = projectMemories.results || [];
+  const scoredMemories = scoreMemoriesForQuery(memories, query);
+  const parts = buildContextParts(scoredMemories, userId, format, tokenBudget);
 
   if (parts.length === 1) {
     return "";

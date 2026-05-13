@@ -167,6 +167,8 @@ interface ScorableMemory {
  * @param intent - Analyzed query intent
  * @returns Relevance score in [0, 1]
  */
+// NOSONAR S3776: Multi-factor relevance scoring (topic overlap, type-intent alignment,
+// technical/code mismatch penalties) is inherently complex — each factor is domain-specific.
 export function scoreMemoryRelevance(memory: ScorableMemory, intent: QueryIntent): number {
   const base = memory.finalScore ?? memory.similarity ?? 0.5;
   let score = base;

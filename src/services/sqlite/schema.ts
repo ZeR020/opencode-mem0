@@ -45,6 +45,16 @@ export function runMigrations(
   const columns = db.prepare("PRAGMA table_info(memories)").all() as any[];
   const columnNames = new Set(columns.map((c) => c.name));
 
+  function shouldSkipMigration(sql: string, columnNames: Set<string>, db: Database): boolean {
+    const alterMatch = sql.match(/ALTER TABLE (\w+)/i);
+    if (alterMatch?.[1] && !tableExists(db, alterMatch[1])) return true;
+
+    const addColMatch = sql.match(/ADD COLUMN (\w+)/i);
+    if (addColMatch?.[1] && columnNames.has(addColMatch[1])) return true;
+
+    return false;
+  }
+
   for (let v = existingVersion + 1; v <= targetVersion; v++) {
     const versionMigrations = migrations[v];
     if (!versionMigrations) continue;
@@ -52,18 +62,7 @@ export function runMigrations(
     db.run("BEGIN IMMEDIATE");
     try {
       for (const sql of versionMigrations) {
-        // Skip ALTER TABLE on non-existent tables
-        const alterMatch = sql.match(/ALTER TABLE (\w+)/i);
-        if (alterMatch?.[1]) {
-          if (!tableExists(db, alterMatch[1])) continue;
-        }
-
-        // Skip ADD COLUMN if column already exists
-        const addColMatch = sql.match(/ADD COLUMN (\w+)/i);
-        if (addColMatch?.[1]) {
-          if (columnNames.has(addColMatch[1])) continue;
-        }
-
+        if (shouldSkipMigration(sql, columnNames, db)) continue;
         db.run(sql);
       }
 

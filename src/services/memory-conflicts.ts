@@ -180,6 +180,8 @@ function checkContradictionHeuristic(a: string, b: string): boolean {
  * @param sessionID - Optional session ID for provider routing
  * @returns Array of detected conflicts (may be empty)
  */
+// NOSONAR S3776: Conflict detection involves similarity search, LLM-based contradiction checking,
+// heuristic fallback, and database persistence — natural decomposition would fragment the detection pipeline.
 export async function detectConflicts(
   newMemoryId: string,
   newMemoryContent: string,
@@ -469,6 +471,8 @@ function saveConflict(db: DatabaseType, conflict: MemoryConflict): void {
  * @param mergedContent - Required when using the `merge` strategy
  * @returns Object indicating success and optionally the merged memory ID
  */
+// NOSONAR S3776: Conflict resolution requires strategy-specific branching (keep_newer, keep_both,
+// merge, manual), database transactions, and vector index updates — complexity is inherent to the domain.
 export async function resolveConflict(
   conflictId: string,
   strategy: "keep_newer" | "keep_both" | "merge" | "manual",
