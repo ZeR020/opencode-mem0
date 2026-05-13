@@ -9,6 +9,7 @@ import type { ZodType } from "zod";
 type OAuthAuth = { type: "oauth"; refresh: string; access: string; expires: number };
 type ApiAuth = { type: "api"; key: string };
 type Auth = OAuthAuth | ApiAuth;
+type FetchInput = string | Request | URL;
 
 // --- State (set from plugin init in index.ts, Task 4) ---
 let _statePath: string | null = null;
@@ -125,7 +126,7 @@ function persistRefreshedAuth(auth: OAuthAuth, statePath: string, providerName: 
 }
 
 function mergeRequestHeaders(
-  input: string | Request | URL,
+  input: FetchInput,
   init: RequestInit | undefined,
   requestHeaders: Headers
 ): void {
@@ -179,7 +180,7 @@ function prefixToolNamesInBody(body: string): string {
   }
 }
 
-function mutateRequestUrl(input: string | Request | URL): string | Request | URL {
+function mutateRequestUrl(input: FetchInput): FetchInput {
   try {
     let requestUrl: URL | null = null;
     if (typeof input === "string" || input instanceof URL) {
@@ -241,8 +242,8 @@ function createStrippingStreamResponse(response: Response): Response {
 export function createOAuthFetch(
   statePath: string,
   providerName: string
-): (input: string | Request | URL, init?: RequestInit) => Promise<Response> {
-  return async (input: string | Request | URL, init?: RequestInit): Promise<Response> => {
+): (input: FetchInput, init?: RequestInit) => Promise<Response> {
+  return async (input: FetchInput, init?: RequestInit): Promise<Response> => {
     let auth = readOpencodeAuth(statePath, providerName) as OAuthAuth;
 
     if (!auth.access || auth.expires < Date.now()) {

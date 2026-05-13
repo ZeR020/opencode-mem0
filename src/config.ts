@@ -5,6 +5,7 @@ import { stripJsoncComments } from "./services/jsonc.js";
 import { resolveSecretValue } from "./services/secret-resolver.js";
 import { log, setLogLevel } from "./services/logger.js";
 import { z } from "zod";
+import { type AIProviderType } from "./types/index.js";
 
 const CONFIG_DIR = join(homedir(), ".config", "opencode");
 const DATA_DIR = join(homedir(), ".opencode-mem0");
@@ -35,6 +36,8 @@ if (!existsSync(DATA_DIR)) {
   mkdirSync(DATA_DIR, { recursive: true });
 }
 
+export type VectorBackendConfig = "usearch-first" | "usearch" | "exact-scan";
+
 interface OpenCodeMemConfig {
   storagePath?: string;
   userEmailOverride?: string;
@@ -55,7 +58,7 @@ interface OpenCodeMemConfig {
   autoCaptureMaxIterations?: number;
   autoCaptureIterationTimeout?: number;
   autoCaptureLanguage?: string;
-  memoryProvider?: "openai-chat" | "openai-responses" | "anthropic" | "google-gemini";
+  memoryProvider?: AIProviderType;
   memoryModel?: string;
   memoryApiUrl?: string;
   memoryApiKey?: string;
@@ -63,7 +66,7 @@ interface OpenCodeMemConfig {
   memoryExtraParams?: Record<string, unknown>;
   opencodeProvider?: string;
   opencodeModel?: string;
-  vectorBackend?: "usearch-first" | "usearch" | "exact-scan";
+  vectorBackend?: VectorBackendConfig;
   aiSessionRetentionDays?: number;
   webServerEnabled?: boolean;
   webServerPort?: number;
@@ -281,12 +284,12 @@ const DEFAULTS: Required<
   memoryModel?: string;
   memoryApiUrl?: string;
   memoryApiKey?: string;
-  memoryProvider?: "openai-chat" | "openai-responses" | "anthropic" | "google-gemini";
+  memoryProvider?: AIProviderType;
   memoryTemperature?: number | false;
   memoryExtraParams?: Record<string, unknown>;
   opencodeProvider?: string;
   opencodeModel?: string;
-  vectorBackend?: "usearch-first" | "usearch" | "exact-scan";
+  vectorBackend?: VectorBackendConfig;
   autoCaptureLanguage?: string;
   memory?: {
     defaultScope?: "project" | "all-projects";
