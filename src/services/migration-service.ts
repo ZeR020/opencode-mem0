@@ -60,7 +60,7 @@ export class MigrationService {
 
         const metadata = Object.fromEntries(metadataResult.map((row) => [row.key, row.value]));
 
-        const storedDimensions = parseInt(metadata.embedding_dimensions || "0");
+        const storedDimensions = Number.parseInt(metadata.embedding_dimensions || "0");
         const storedModel = metadata.embedding_model || "unknown";
 
         if (

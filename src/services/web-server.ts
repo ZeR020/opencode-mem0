@@ -361,8 +361,8 @@ export class WebServer {
 
   private async _apiListMemories(url: URL, isLocal: boolean): Promise<Response> {
     const tag = url.searchParams.get("tag") || undefined;
-    const rawPage = parseInt(url.searchParams.get("page") || "1");
-    const rawPageSize = parseInt(url.searchParams.get("pageSize") || "20");
+    const rawPage = Number.parseInt(url.searchParams.get("page") || "1");
+    const rawPageSize = Number.parseInt(url.searchParams.get("pageSize") || "20");
     const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
     const pageSize =
       Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
@@ -409,8 +409,8 @@ export class WebServer {
   private async _apiSearch(url: URL, isLocal: boolean): Promise<Response> {
     const query = url.searchParams.get("q");
     const tag = url.searchParams.get("tag") || undefined;
-    const rawPage = parseInt(url.searchParams.get("page") || "1");
-    const rawPageSize = parseInt(url.searchParams.get("pageSize") || "20");
+    const rawPage = Number.parseInt(url.searchParams.get("page") || "1");
+    const rawPageSize = Number.parseInt(url.searchParams.get("pageSize") || "20");
     const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
     const pageSize =
       Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
@@ -435,7 +435,7 @@ export class WebServer {
 
   private async _apiListConflicts(url: URL, isLocal: boolean): Promise<Response> {
     const resolved = url.searchParams.get("resolved") === "true";
-    const limit = parseInt(url.searchParams.get("limit") || "100");
+    const limit = Number.parseInt(url.searchParams.get("limit") || "100");
     const result = handleListConflicts(resolved, limit);
     return this.jsonResponse(result, 200, !isLocal);
   }
@@ -546,7 +546,7 @@ export class WebServer {
 
   private async _apiGetProfileChangelog(url: URL, isLocal: boolean): Promise<Response> {
     const profileId = url.searchParams.get("profileId");
-    const limit = parseInt(url.searchParams.get("limit") || "5");
+    const limit = Number.parseInt(url.searchParams.get("limit") || "5");
     if (!profileId) {
       return this.jsonResponse({ success: false, error: "profileId parameter required" });
     }
