@@ -957,7 +957,7 @@ button:only-child .icon,
   background: #0a0a0a;
   border: none;
   border-right: 1px solid #333;
-  color: #666;
+  color: #999;
   font-size: 13px;
   font-weight: bold;
   display: flex;
@@ -1389,7 +1389,7 @@ textarea:focus-visible {
 .category-tag {
   font-size: 9px;
   text-transform: uppercase;
-  color: #666;
+  color: #999;
   background: #161616;
   padding: 2px 6px;
   border-radius: 2px;
@@ -1470,7 +1470,7 @@ textarea:focus-visible {
 .step-idx {
   font-size: 9px;
   background: #222;
-  color: #888;
+  color: #999;
   width: 16px;
   height: 16px;
   display: flex;
@@ -1619,7 +1619,7 @@ textarea:focus-visible {
 
 /* Conflict styles */
 .tab-badge {
-  background: #ff4444;
+  background: #d32f2f;
   color: #fff;
   border-radius: 10px;
   padding: 2px 8px;
@@ -1683,7 +1683,7 @@ textarea:focus-visible {
 }
 
 .badge-conflict {
-  background: #ff4444;
+  background: #d32f2f;
   color: #fff;
   padding: 4px 10px;
   font-size: 11px;
