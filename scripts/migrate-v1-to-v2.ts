@@ -7,6 +7,10 @@ import { log } from "../src/services/logger.ts";
 const Database = getDatabase();
 type DatabaseType = typeof Database.prototype;
 
+interface ColumnInfo {
+  name: string;
+}
+
 interface MigrationResult {
   databases: number;
   columnsAdded: number;
@@ -21,7 +25,7 @@ interface MigrationResult {
  * of key v2 columns (e.g., `store_type`, `strength`).
  */
 function isV1Schema(db: DatabaseType): boolean {
-  const columns = db.prepare("PRAGMA table_info(memories)").all() as any[];
+  const columns = db.prepare("PRAGMA table_info(memories)").all() as ColumnInfo[];
   const columnNames = new Set(columns.map((c) => c.name));
   // If store_type or strength is missing, it's v1
   return !columnNames.has("store_type") || !columnNames.has("strength");
@@ -32,7 +36,7 @@ function isV1Schema(db: DatabaseType): boolean {
  * Uses safe `ALTER TABLE ADD COLUMN` with IF NOT EXISTS semantics.
  */
 function addV2Columns(db: DatabaseType): number {
-  const columns = db.prepare("PRAGMA table_info(memories)").all() as any[];
+  const columns = db.prepare("PRAGMA table_info(memories)").all() as ColumnInfo[];
   const columnNames = new Set(columns.map((c) => c.name));
   let added = 0;
 
@@ -130,7 +134,7 @@ function createConflictsTable(db: DatabaseType): boolean {
   try {
     const exists = db
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='memory_conflicts'")
-      .get() as any;
+      .get() as { name: string } | undefined;
     if (exists) return false;
 
     db.run(`
@@ -335,7 +339,7 @@ function migrate(storagePath: string): MigrationResult {
       db = new Database(dbPath);
       const hasMemories = db
         .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='memories'")
-        .get() as any;
+        .get() as { name: string } | undefined;
 
       if (!hasMemories) {
         db.run("PRAGMA wal_checkpoint(TRUNCATE)");
@@ -383,27 +387,26 @@ function migrate(storagePath: string): MigrationResult {
   return result;
 }
 
-// CLI entry point
-const storagePath = process.argv[2] || join(homedir(), ".opencode-mem", "data");
+const print = (msg: string): void => process.stdout.write(`${msg}\n`);
+const printerr = (msg: string): void => process.stderr.write(`${msg}\n`);
 
 // CLI entry point
+const storagePath = process.argv[2] || join(homedir(), ".opencode-mem", "data");
 try {
   const result = await migrate(storagePath);
-  console.log("\n=== Migration Results ===");
-  console.log(`Databases processed:     ${result.databases}`);
-  console.log(`Columns added:           ${result.columnsAdded}`);
-  console.log(`Memories backfilled:     ${result.memoriesUpdated}`);
-  console.log(`Conflicts tables created: ${result.conflictsTableCreated}`);
-  console.log(
-    `Transcripts DB created:   ${result.transcriptsDbCreated ? "yes" : "no (already exists)"}`
-  );
+  print("\n=== Migration Results ===");
+  print(`Databases processed:     ${result.databases}`);
+  print(`Columns added:           ${result.columnsAdded}`);
+  print(`Memories backfilled:     ${result.memoriesUpdated}`);
+  print(`Conflicts tables created: ${result.conflictsTableCreated}`);
+  print(`Transcripts DB created:   ${result.transcriptsDbCreated ? "yes" : "no (already exists)"}`);
   if (result.errors.length > 0) {
-    console.log(`\nErrors (${result.errors.length}):`);
-    result.errors.forEach((e) => console.log(`  - ${e}`));
+    print(`\nErrors (${result.errors.length}):`);
+    result.errors.forEach((e) => print(`  - ${e}`));
     process.exit(1);
   }
-  console.log("\nMigration completed successfully!");
+  print("\nMigration completed successfully!");
 } catch (error) {
-  console.error("Migration failed:", error);
+  printerr("Migration failed:", error);
   process.exit(1);
 }
