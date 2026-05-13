@@ -226,27 +226,17 @@ function buildMarkdownContext(
   const sections: string[] = [];
 
   if (latestMemory) {
-    sections.push("## Previous Memory Context");
-    sections.push("---");
-    sections.push(latestMemory);
-    sections.push("---\n");
+    sections.push("## Previous Memory Context", "---", latestMemory, "---\n");
   }
 
-  sections.push("## User Request");
-  sections.push("---");
-  sections.push(userPrompt);
-  sections.push("---\n");
+  sections.push("## User Request", "---", userPrompt, "---\n");
 
   if (textResponses.length > 0) {
-    sections.push("## AI Response");
-    sections.push("---");
-    sections.push(textResponses.join("\n\n"));
-    sections.push("---\n");
+    sections.push("## AI Response", "---", textResponses.join("\n\n"), "---\n");
   }
 
   if (toolCalls.length > 0) {
-    sections.push("## Tools Used");
-    sections.push("---");
+    sections.push("## Tools Used", "---");
     for (const tool of toolCalls) {
       if (tool.input) {
         sections.push(`- ${tool.name}(${tool.input})`);

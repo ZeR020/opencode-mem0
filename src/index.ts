@@ -703,8 +703,7 @@ function formatMemoriesForCompaction(memories: any[]): string {
 
   for (let i = 0; i < memories.length; i++) {
     const m = memories[i];
-    sections.push(`### Memory ${i + 1}`);
-    sections.push(m.memory);
+    sections.push(`### Memory ${i + 1}`, m.memory);
     if (m.tags && m.tags.length > 0) {
       sections.push(`Tags: ${m.tags.join(", ")}`);
     }
