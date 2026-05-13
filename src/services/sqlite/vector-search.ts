@@ -941,10 +941,10 @@ export class VectorSearch {
       return rows.map((row: any) => this.mapRowToResult(row));
     } catch {
       // Fallback: LIKE with structural JSON pattern to reduce false positives
-      const likeEscaped = sessionID.replace(/[\\%_]/g, "\\$&");
-      const stmt = db.prepare(`
+      const likeEscaped = sessionID.replace(/[\\%_]/g, String.raw`\$&`);
+      const stmt = db.prepare(String.raw`
         SELECT * FROM memories
-        WHERE metadata LIKE ? ESCAPE '\\' AND is_deprecated = 0
+        WHERE metadata LIKE ? ESCAPE '\' AND is_deprecated = 0
         ORDER BY created_at DESC
       `);
       const rows = stmt.all(`%"sessionID":"${likeEscaped}"%`) as any[];

@@ -9,7 +9,7 @@ type DatabaseType = Database;
 const USER_PROMPTS_DB_NAME = "user-prompts.db";
 
 function escapeLikePattern(value: string): string {
-  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+  return value.replace(/[\\%_]/g, (char) => String.raw`\${char}`);
 }
 
 export interface UserPrompt {
@@ -114,10 +114,10 @@ export class UserPromptManager {
         "SELECT * FROM user_prompts WHERE captured = 1 AND project_path = ? ORDER BY created_at DESC"
       ),
       searchPrompts: this.db.prepare(
-        "SELECT * FROM user_prompts WHERE content LIKE ? ESCAPE '\\' AND captured = 1 ORDER BY created_at DESC LIMIT ?"
+        String.raw`SELECT * FROM user_prompts WHERE content LIKE ? ESCAPE '\' AND captured = 1 ORDER BY created_at DESC LIMIT ?`
       ),
       searchPromptsByProject: this.db.prepare(
-        "SELECT * FROM user_prompts WHERE content LIKE ? ESCAPE '\\' AND captured = 1 AND project_path = ? ORDER BY created_at DESC LIMIT ?"
+        String.raw`SELECT * FROM user_prompts WHERE content LIKE ? ESCAPE '\' AND captured = 1 AND project_path = ? ORDER BY created_at DESC LIMIT ?`
       ),
       getByIds: this.db.prepare("SELECT * FROM user_prompts WHERE id = ?"),
     };

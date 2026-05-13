@@ -200,7 +200,7 @@ const TECHNICAL_KEYWORDS = [
 
 // Pre-compile a single regex for all technical keywords to avoid 200+ individual regex compiles per call
 const TECHNICAL_KEYWORDS_RE = new RegExp(
-  `\\b(${TECHNICAL_KEYWORDS.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`,
+  String.raw`\b(${TECHNICAL_KEYWORDS.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)).join("|")})\b`,
   "gi"
 );
 const WORD_SPLIT_RE = /\s+/;
