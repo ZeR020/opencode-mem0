@@ -136,12 +136,12 @@ export class VectorSearch {
         record.projectName || null,
         record.gitRepoUrl || null,
         record.recencyScore ?? 0.5,
-        record.frequencyScore ?? 0.0,
+        record.frequencyScore ?? 0,
         record.importanceScore ?? 0.5,
         record.utilityScore ?? 0.3,
         record.noveltyScore ?? 0.5,
         record.confidenceScore ?? 0.7,
-        record.interferencePenalty ?? 0.0,
+        record.interferencePenalty ?? 0,
         record.strength ?? 0.5,
         record.accessCount ?? 0,
         record.lastAccessed || null,
@@ -214,12 +214,12 @@ export class VectorSearch {
         record.projectName || null,
         record.gitRepoUrl || null,
         record.recencyScore ?? 0.5,
-        record.frequencyScore ?? 0.0,
+        record.frequencyScore ?? 0,
         record.importanceScore ?? 0.5,
         record.utilityScore ?? 0.3,
         record.noveltyScore ?? 0.5,
         record.confidenceScore ?? 0.7,
-        record.interferencePenalty ?? 0.0,
+        record.interferencePenalty ?? 0,
         record.strength ?? 0.5,
         record.accessCount ?? 0,
         record.lastAccessed || null,
@@ -274,9 +274,9 @@ export class VectorSearch {
    * @returns Ranked search results with score breakdowns
    */
   private static readonly MIN_OVER_FETCH = 1.5;
-  private static readonly MAX_OVER_FETCH = 8.0;
+  private static readonly MAX_OVER_FETCH = 8;
   private static readonly TARGET_FILL_RATIO = 0.85;
-  private static readonly BASE_MULTIPLIER = 2.0;
+  private static readonly BASE_MULTIPLIER = 2;
 
   /**
    * Execute vector search with a specific over-fetch multiplier.
@@ -374,7 +374,7 @@ export class VectorSearch {
       const vectorWeight = vectorSimilarity * 0.3;
       const similarity = strengthWeight + recencyWeight + vectorWeight;
 
-      let contextBoost = 1.0;
+      let contextBoost = 1;
       if (context) {
         contextBoost = calculateContextBoost(
           {
@@ -616,7 +616,7 @@ export class VectorSearch {
     if (finalResults.length < limit * VectorSearch.TARGET_FILL_RATIO && queryVector !== null) {
       const retryMultiplier = Math.min(
         VectorSearch.MAX_OVER_FETCH,
-        VectorSearch.BASE_MULTIPLIER * 2.0
+        VectorSearch.BASE_MULTIPLIER * 2
       );
       finalResults = await this.searchWithMultiplier({
         shard,
@@ -839,12 +839,12 @@ export class VectorSearch {
         record.projectName || null,
         record.gitRepoUrl || null,
         record.recencyScore ?? 0.5,
-        record.frequencyScore ?? 0.0,
+        record.frequencyScore ?? 0,
         record.importanceScore ?? 0.5,
         record.utilityScore ?? 0.3,
         record.noveltyScore ?? 0.5,
         record.confidenceScore ?? 0.7,
-        record.interferencePenalty ?? 0.0,
+        record.interferencePenalty ?? 0,
         record.strength ?? 0.5,
         record.accessCount ?? 0,
         record.lastAccessed || null,

@@ -62,7 +62,7 @@ async function checkContradictionWithLLM(
             "You are a precise contradiction detector. Analyze two statements and answer ONLY YES or NO. Be strict: only answer YES if the statements are logically incompatible.",
           userPrompt: prompt,
           schema,
-          temperature: 0.0,
+          temperature: 0,
         });
 
         return result.contradicts === "YES";

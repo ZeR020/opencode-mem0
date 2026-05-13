@@ -603,7 +603,7 @@ function formatSearchPrompt(p: any): FormattedPrompt {
     createdAt: safeToISOString(p.createdAt),
     projectPath: p.projectPath,
     linkedMemoryId: p.linkedMemoryId,
-    similarity: 1.0,
+    similarity: 1,
   };
 }
 

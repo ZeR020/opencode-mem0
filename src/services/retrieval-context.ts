@@ -316,7 +316,7 @@ export function calculateContextBoost(
   context: RetrievalContext
 ): number {
   const boost = CONFIG.retrieval.contextBoost || 1.5;
-  let score = 1.0;
+  let score = 1;
 
   // Project path match
   if (context.projectPath && result.projectPath) {

@@ -75,7 +75,7 @@ function recalculateSingleMemory(
   let importance = Number(memory.importance_score ?? 0.5);
   let novelty = Number(memory.novelty_score ?? 0.5);
   let confidence = Number(memory.confidence_score ?? 0.7);
-  let interference = Number(memory.interference_penalty ?? 0.0);
+  let interference = Number(memory.interference_penalty ?? 0);
 
   if (recalculateNoveltyAndInterference) {
     importance = calculateImportance(content, type);

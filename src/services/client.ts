@@ -427,7 +427,7 @@ export class LocalMemoryClient {
       const results = allMemories.slice(0, limit).map((row: any) => ({
         id: row.id,
         memory: row.content,
-        similarity: 1.0,
+        similarity: 1,
         tags: row.tags || [],
         metadata: row.metadata || {},
         containerTag: row.container_tag,

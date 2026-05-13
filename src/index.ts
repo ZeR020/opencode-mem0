@@ -313,7 +313,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         if (memories.length === 0) return;
 
         const projectMemories = {
-          results: memories.map((m: any) => ({ similarity: 1.0, memory: m.summary })),
+          results: memories.map((m: any) => ({ similarity: 1, memory: m.summary })),
           total: memories.length,
           timing: 0,
         };
@@ -481,7 +481,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
               const newPreference = {
                 category: "explicit",
                 description: sanitizedContent,
-                confidence: 1.0,
+                confidence: 1,
                 evidence: ["manual-write"],
                 lastUpdated: Date.now(),
               };

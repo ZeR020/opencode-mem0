@@ -180,7 +180,7 @@ export class DeduplicationService {
         }
 
         const similarity = this.cosineSimilarity(vector1, vector2);
-        if (similarity >= CONFIG.deduplicationSimilarityThreshold && similarity < 1.0) {
+        if (similarity >= CONFIG.deduplicationSimilarityThreshold && similarity < 1) {
           similarGroup.duplicates.push({
             id: mem2.id,
             content: mem2.content,

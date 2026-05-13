@@ -256,7 +256,7 @@ export function calculateRecency(createdAt: number, halfLifeDays: number = 7): n
   const ageMs = now - createdAt;
   const ageDays = ageMs / (24 * 60 * 60 * 1000);
 
-  if (ageDays < 0) return 1.0;
+  if (ageDays < 0) return 1;
 
   const lambda = Math.log(2) / halfLifeDays;
   const score = Math.exp(-lambda * ageDays);
@@ -349,7 +349,7 @@ export function calculateUtility(
   const ageMs = now - lastAccessed;
   const ageDays = ageMs / (24 * 60 * 60 * 1000);
 
-  if (ageDays < 0) return 1.0;
+  if (ageDays < 0) return 1;
 
   const lambda = Math.log(2) / halfLifeDays;
   let score = Math.exp(-lambda * ageDays);
@@ -393,7 +393,7 @@ export function calculateUtility(
  * Lower overlap = higher novelty.
  */
 export function calculateNovelty(content: string, existingContents: string[]): number {
-  if (existingContents.length === 0) return 1.0; // First memory is fully novel
+  if (existingContents.length === 0) return 1; // First memory is fully novel
 
   const contentWords = new Set(
     content
@@ -449,7 +449,7 @@ export function calculateConfidence(source?: string, type?: string): number {
   } else if (source === "api") {
     score += 0.1;
   } else if (source === "import") {
-    score += 0.0;
+    score += 0;
   }
 
   // Type-based confidence adjustments

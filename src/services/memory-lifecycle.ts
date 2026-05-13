@@ -97,7 +97,7 @@ export function classifyMemory(memoryType?: string): {
   const type = (memoryType || "").toLowerCase().trim();
 
   if (LTM_TYPES.has(type)) {
-    return { storeType: "ltm", decayRate: 0.0 };
+    return { storeType: "ltm", decayRate: 0 };
   }
 
   if (SLOW_DECAY_LTM_TYPES.has(type)) {
@@ -132,7 +132,7 @@ export function calculateContextualDecayRate(
 ): number {
   // Pinned memories never decay
   if (isPinned) {
-    return 0.0;
+    return 0;
   }
 
   // Fall back to static classification when contextual decay is disabled
@@ -142,8 +142,8 @@ export function calculateContextualDecayRate(
 
   // Hard LTM types (preference, decision, etc.) have static decayRate 0.0
   const staticRate = classifyMemory(memoryType).decayRate;
-  if (staticRate === 0.0) {
-    return 0.0;
+  if (staticRate === 0) {
+    return 0;
   }
 
   const config = CONFIG.contextualDecay;
