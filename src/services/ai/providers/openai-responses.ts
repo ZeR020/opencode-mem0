@@ -260,7 +260,7 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
 
   private validateResponse(data: any): any {
     if (!data || typeof data !== "object") {
-      throw new Error("Response is not an object");
+      throw new TypeError("Response is not an object");
     }
 
     if (Array.isArray(data)) {

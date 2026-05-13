@@ -176,10 +176,10 @@ export function scoreMemoryRelevance(memory: ScorableMemory, intent: QueryIntent
   // Topic match boost: 1.2x per matching topic, capped at 1.5x total
   if (intent.topics.length > 0) {
     const contentLower = (memory.memory || memory.chunk || "").toLowerCase();
-    const tagsLower = (memory.tags || []).map((t) => t.toLowerCase());
+    const tagsSet = new Set((memory.tags || []).map((t) => t.toLowerCase()));
     let matchCount = 0;
     for (const topic of intent.topics) {
-      if (contentLower.includes(topic) || tagsLower.includes(topic)) {
+      if (contentLower.includes(topic) || tagsSet.has(topic)) {
         matchCount++;
       }
     }

@@ -46,10 +46,10 @@ export function runMigrations(
   const columnNames = new Set(columns.map((c) => c.name));
 
   function shouldSkipMigration(sql: string, columnNames: Set<string>, db: Database): boolean {
-    const alterMatch = sql.match(/ALTER TABLE (\w+)/i);
+    const alterMatch = /ALTER TABLE (\w+)/i.exec(sql);
     if (alterMatch?.[1] && !tableExists(db, alterMatch[1])) return true;
 
-    const addColMatch = sql.match(/ADD COLUMN (\w+)/i);
+    const addColMatch = /ADD COLUMN (\w+)/i.exec(sql);
     if (addColMatch?.[1] && columnNames.has(addColMatch[1])) return true;
 
     return false;

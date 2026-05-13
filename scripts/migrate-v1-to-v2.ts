@@ -386,24 +386,24 @@ function migrate(storagePath: string): MigrationResult {
 // CLI entry point
 const storagePath = process.argv[2] || join(homedir(), ".opencode-mem", "data");
 
-migrate(storagePath)
-  .then((result) => {
-    console.log("\n=== Migration Results ===");
-    console.log(`Databases processed:     ${result.databases}`);
-    console.log(`Columns added:           ${result.columnsAdded}`);
-    console.log(`Memories backfilled:     ${result.memoriesUpdated}`);
-    console.log(`Conflicts tables created: ${result.conflictsTableCreated}`);
-    console.log(
-      `Transcripts DB created:   ${result.transcriptsDbCreated ? "yes" : "no (already exists)"}`
-    );
-    if (result.errors.length > 0) {
-      console.log(`\nErrors (${result.errors.length}):`);
-      result.errors.forEach((e) => console.log(`  - ${e}`));
-      process.exit(1);
-    }
-    console.log("\nMigration completed successfully!");
-  })
-  .catch((error) => {
-    console.error("Migration failed:", error);
+// CLI entry point
+try {
+  const result = await migrate(storagePath);
+  console.log("\n=== Migration Results ===");
+  console.log(`Databases processed:     ${result.databases}`);
+  console.log(`Columns added:           ${result.columnsAdded}`);
+  console.log(`Memories backfilled:     ${result.memoriesUpdated}`);
+  console.log(`Conflicts tables created: ${result.conflictsTableCreated}`);
+  console.log(
+    `Transcripts DB created:   ${result.transcriptsDbCreated ? "yes" : "no (already exists)"}`
+  );
+  if (result.errors.length > 0) {
+    console.log(`\nErrors (${result.errors.length}):`);
+    result.errors.forEach((e) => console.log(`  - ${e}`));
     process.exit(1);
-  });
+  }
+  console.log("\nMigration completed successfully!");
+} catch (error) {
+  console.error("Migration failed:", error);
+  process.exit(1);
+}
