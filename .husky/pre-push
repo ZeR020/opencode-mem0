@@ -1,0 +1,13 @@
+#!/bin/sh
+# Pre-push hook: run DeepSource-equivalent checks before pushing
+# This prevents DeepSource failures by catching common issues locally
+#
+# To bypass: git push --no-verify
+
+set -e
+
+echo "🔍 Running pre-push DeepSource checks..."
+
+bash scripts/lint-deepsource.sh
+
+echo "✅ Pre-push checks passed — pushing..."
