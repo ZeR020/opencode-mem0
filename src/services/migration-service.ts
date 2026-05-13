@@ -185,6 +185,95 @@ export class MigrationService {
     };
   }
 
+  private _backupMemories(memories: any[]): Array<{
+    id: string;
+    content: string;
+    containerTag: string;
+    type: string | null;
+    createdAt: number;
+    updatedAt: number;
+    metadata: string | null;
+    displayName: string | null;
+    userName: string | null;
+    userEmail: string | null;
+    projectPath: string | null;
+    projectName: string | null;
+    gitRepoUrl: string | null;
+    isPinned: number;
+  }> {
+    return memories.map((memory) => ({
+      id: memory.id,
+      content: memory.content,
+      containerTag: memory.container_tag,
+      type: memory.type,
+      createdAt: memory.created_at,
+      updatedAt: memory.updated_at,
+      metadata: memory.metadata,
+      displayName: memory.display_name,
+      userName: memory.user_name,
+      userEmail: memory.user_email,
+      projectPath: memory.project_path,
+      projectName: memory.project_name,
+      gitRepoUrl: memory.git_repo_url,
+      isPinned: memory.is_pinned || 0,
+    }));
+  }
+
+  private async _reEmbedSingleMemory(
+    memory: any,
+    processedCount: number,
+    totalMemories: number,
+    shardId: string
+  ): Promise<{ success: boolean; processedCount: number }> {
+    try {
+      const vector = await embeddingService.embedWithTimeout(memory.content);
+      const scope = memory.containerTag.includes("_user_") ? "user" : "project";
+      const hash = memory.containerTag.split("_").slice(2).join("_");
+      const newShard = shardManager.getWriteShard(scope, hash);
+      const newDb = connectionManager.getConnection(newShard.dbPath);
+
+      await vectorSearch.insertVector(
+        newDb,
+        {
+          id: memory.id,
+          content: memory.content,
+          vector,
+          containerTag: memory.containerTag,
+          type: memory.type || undefined,
+          createdAt: memory.createdAt,
+          updatedAt: memory.updatedAt,
+          metadata: memory.metadata || undefined,
+          displayName: memory.displayName || undefined,
+          userName: memory.userName || undefined,
+          userEmail: memory.userEmail || undefined,
+          projectPath: memory.projectPath || undefined,
+          projectName: memory.projectName || undefined,
+          gitRepoUrl: memory.gitRepoUrl || undefined,
+        },
+        newShard
+      );
+
+      if (memory.isPinned === 1) {
+        vectorSearch.pinMemory(newDb, memory.id);
+      }
+
+      shardManager.incrementVectorCount(newShard.id);
+      const nextCount = processedCount + 1;
+
+      this.reportProgress({
+        phase: "re-embedding",
+        processed: nextCount,
+        total: totalMemories,
+        currentShard: shardId,
+      });
+
+      return { success: true, processedCount: nextCount };
+    } catch (error) {
+      log("Migration: error re-embedding memory", { memoryId: memory.id, error: String(error) });
+      return { success: false, processedCount: processedCount + 1 };
+    }
+  }
+
   private async reEmbedMigration(
     mismatch: DimensionMismatch,
     startTime: number
@@ -215,96 +304,21 @@ export class MigrationService {
       try {
         const db = connectionManager.getConnection(shardInfo.dbPath);
         const memories = vectorSearch.getAllMemories(db);
-
-        const tempMemories: Array<{
-          id: string;
-          content: string;
-          containerTag: string;
-          type: string | null;
-          createdAt: number;
-          updatedAt: number;
-          metadata: string | null;
-          displayName: string | null;
-          userName: string | null;
-          userEmail: string | null;
-          projectPath: string | null;
-          projectName: string | null;
-          gitRepoUrl: string | null;
-          isPinned: number;
-        }> = [];
-
-        for (const memory of memories) {
-          tempMemories.push({
-            id: memory.id,
-            content: memory.content,
-            containerTag: memory.container_tag,
-            type: memory.type,
-            createdAt: memory.created_at,
-            updatedAt: memory.updated_at,
-            metadata: memory.metadata,
-            displayName: memory.display_name,
-            userName: memory.user_name,
-            userEmail: memory.user_email,
-            projectPath: memory.project_path,
-            projectName: memory.project_name,
-            gitRepoUrl: memory.git_repo_url,
-            isPinned: memory.is_pinned || 0,
-          });
-        }
-
+        const tempMemories = this._backupMemories(memories);
         let shardHadFailures = false;
 
         for (const memory of tempMemories) {
-          try {
-            const vector = await embeddingService.embedWithTimeout(memory.content);
-
-            const scope = memory.containerTag.includes("_user_") ? "user" : "project";
-            const hash = memory.containerTag.split("_").slice(2).join("_");
-            const newShard = shardManager.getWriteShard(scope, hash);
-            const newDb = connectionManager.getConnection(newShard.dbPath);
-
-            await vectorSearch.insertVector(
-              newDb,
-              {
-                id: memory.id,
-                content: memory.content,
-                vector,
-                containerTag: memory.containerTag,
-                type: memory.type || undefined,
-                createdAt: memory.createdAt,
-                updatedAt: memory.updatedAt,
-                metadata: memory.metadata || undefined,
-                displayName: memory.displayName || undefined,
-                userName: memory.userName || undefined,
-                userEmail: memory.userEmail || undefined,
-                projectPath: memory.projectPath || undefined,
-                projectName: memory.projectName || undefined,
-                gitRepoUrl: memory.gitRepoUrl || undefined,
-              },
-              newShard
-            );
-
-            if (memory.isPinned === 1) {
-              vectorSearch.pinMemory(newDb, memory.id);
-            }
-
-            shardManager.incrementVectorCount(newShard.id);
+          const result = await this._reEmbedSingleMemory(
+            memory,
+            processedCount,
+            totalMemories,
+            String(shardInfo.shardId)
+          );
+          processedCount = result.processedCount;
+          if (result.success) {
             reEmbeddedCount++;
-            processedCount++;
-
-            this.reportProgress({
-              phase: "re-embedding",
-              processed: processedCount,
-              total: totalMemories,
-              currentShard: String(shardInfo.shardId),
-            });
-          } catch (error) {
+          } else {
             shardHadFailures = true;
-            log("Migration: error re-embedding memory", {
-              memoryId: memory.id,
-              error: String(error),
-            });
-            processedCount++;
           }
         }
 

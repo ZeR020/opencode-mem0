@@ -244,6 +244,55 @@ function renderPromptCard(prompt) {
   `;
 }
 
+function getMemoryDisplayInfo(memory) {
+  if (!memory.projectPath) return memory.displayName || memory.id;
+  const pathParts = memory.projectPath
+    .replace(/\\/g, "/")
+    .split("/")
+    .filter((p) => p);
+  return pathParts[pathParts.length - 1] || memory.projectPath;
+}
+
+function getMemorySubtitle(memory) {
+  return memory.projectPath
+    ? `<span class="memory-subtitle">${escapeHtml(memory.projectPath)}</span>`
+    : "";
+}
+
+function getPinButton(memory, isPinned) {
+  return isPinned
+    ? `<button class="btn-pin pinned" onclick="unpinMemory('${escapeJsString(memory.id)}')" title="Unpin"><i data-lucide="pin" class="icon icon-filled"></i></button>`
+    : `<button class="btn-pin" onclick="pinMemory('${escapeJsString(memory.id)}')" title="Pin"><i data-lucide="pin" class="icon"></i></button>`;
+}
+
+function getMemoryDateInfo(memory) {
+  const createdDate = formatDate(memory.createdAt);
+  const updatedDate =
+    memory.updatedAt && memory.updatedAt !== memory.createdAt ? formatDate(memory.updatedAt) : null;
+  return updatedDate
+    ? `<span>${t("date-created")} ${createdDate}</span><span>${t("date-updated")} ${updatedDate}</span>`
+    : `<span>${t("date-created")} ${createdDate}</span>`;
+}
+
+function getMemoryTagsHtml(memory) {
+  return memory.tags && memory.tags.length > 0
+    ? `<div class="tags-list">${memory.tags.map((t) => `<span class="tag-badge">${escapeHtml(t)}</span>`).join("")}</div>`
+    : "";
+}
+
+function getMemoryBadges(memory, similarityHtml, isPinned, isLinked) {
+  const badges = [];
+  if (memory.memoryType)
+    badges.push(`<span class="badge badge-type">${escapeHtml(memory.memoryType)}</span>`);
+  if (isLinked)
+    badges.push(
+      `<span class="badge badge-linked"><i data-lucide="link" class="icon-sm"></i> ${t("badge-linked")}</span>`
+    );
+  if (similarityHtml) badges.push(similarityHtml);
+  if (isPinned) badges.push(`<span class="badge badge-pinned">${t("badge-pinned")}</span>`);
+  return badges.join("");
+}
+
 function renderMemoryCard(memory) {
   const isSelected = state.selectedMemories.has(memory.id);
   const isPinned = memory.isPinned || false;
@@ -253,45 +302,19 @@ function renderMemoryCard(memory) {
       ? `<span class="similarity-score">${memory.similarity}%</span>`
       : "";
 
-  let displayInfo = memory.displayName || memory.id;
-  if (memory.projectPath) {
-    const pathParts = memory.projectPath
-      .replace(/\\/g, "/")
-      .split("/")
-      .filter((p) => p);
-    displayInfo = pathParts[pathParts.length - 1] || memory.projectPath;
-  }
-
-  let subtitle = "";
-  if (memory.projectPath) {
-    subtitle = `<span class="memory-subtitle">${escapeHtml(memory.projectPath)}</span>`;
-  }
-
-  const pinButton = isPinned
-    ? `<button class="btn-pin pinned" onclick="unpinMemory('${escapeJsString(memory.id)}')" title="Unpin"><i data-lucide="pin" class="icon icon-filled"></i></button>`
-    : `<button class="btn-pin" onclick="pinMemory('${escapeJsString(memory.id)}')" title="Pin"><i data-lucide="pin" class="icon"></i></button>`;
-
-  const createdDate = formatDate(memory.createdAt);
-  const updatedDate =
-    memory.updatedAt && memory.updatedAt !== memory.createdAt ? formatDate(memory.updatedAt) : null;
-
-  const dateInfo = updatedDate
-    ? `<span>${t("date-created")} ${createdDate}</span><span>${t("date-updated")} ${updatedDate}</span>`
-    : `<span>${t("date-created")} ${createdDate}</span>`;
-  const tagsHtml =
-    memory.tags && memory.tags.length > 0
-      ? `<div class="tags-list">${memory.tags.map((t) => `<span class="tag-badge">${escapeHtml(t)}</span>`).join("")}</div>`
-      : "";
+  const displayInfo = getMemoryDisplayInfo(memory);
+  const subtitle = getMemorySubtitle(memory);
+  const pinButton = getPinButton(memory, isPinned);
+  const dateInfo = getMemoryDateInfo(memory);
+  const tagsHtml = getMemoryTagsHtml(memory);
+  const badges = getMemoryBadges(memory, similarityHtml, isPinned, isLinked);
 
   return `
     <div class="memory-card ${isSelected ? "selected" : ""} ${isPinned ? "pinned" : ""}" data-id="${memory.id}">
       <div class="memory-header">
         <div class="meta">
           <input type="checkbox" class="memory-checkbox" data-id="${memory.id}" ${isSelected ? "checked" : ""} />
-          ${memory.memoryType ? `<span class="badge badge-type">${escapeHtml(memory.memoryType)}</span>` : ""}
-          ${isLinked ? `<span class="badge badge-linked"><i data-lucide="link" class="icon-sm"></i> ${t("badge-linked")}</span>` : ""}
-          ${similarityHtml}
-          ${isPinned ? `<span class="badge badge-pinned">${t("badge-pinned")}</span>` : ""}
+          ${badges}
           <span class="memory-display-name">${escapeHtml(displayInfo)}</span>
           ${subtitle}
         </div>

@@ -260,7 +260,6 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         const textParts = output.parts.filter(
           (p): p is Part & { type: "text"; text: string } => p.type === "text"
         );
-
         if (textParts.length === 0) return;
         const userMessage = textParts.map((p) => p.text).join("\n");
         if (!userMessage.trim()) return;
@@ -307,19 +306,14 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         if (CONFIG.chatMessage.excludeCurrentSession) {
           memories = memories.filter((m: any) => m.metadata?.sessionID !== input.sessionID);
         }
-
         if (CONFIG.chatMessage.maxAgeDays) {
           const cutoffDate = Date.now() - CONFIG.chatMessage.maxAgeDays * 86400000;
           memories = memories.filter((m: any) => new Date(m.createdAt).getTime() > cutoffDate);
         }
-
         if (memories.length === 0) return;
 
         const projectMemories = {
-          results: memories.map((m: any) => ({
-            similarity: 1.0,
-            memory: m.summary,
-          })),
+          results: memories.map((m: any) => ({ similarity: 1.0, memory: m.summary })),
           total: memories.length,
           timing: 0,
         };
@@ -399,182 +393,179 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
           const mode = args.mode || "help";
           const langName = getLanguageName(CONFIG.autoCaptureLanguage || "en");
 
+          async function handleAdd(): Promise<string> {
+            if (!args.content) return JSON.stringify({ success: false, error: "content required" });
+            const sanitizedContent = stripPrivateContent(args.content);
+            if (isFullyPrivate(args.content))
+              return JSON.stringify({ success: false, error: "Private content blocked" });
+            const tagInfo = tags.project;
+            const parsedTags = args.tags
+              ? args.tags.split(",").map((t) => t.trim().toLowerCase())
+              : undefined;
+            const result = await memoryClient.addMemory(sanitizedContent, tagInfo.tag, {
+              type: args.type,
+              tags: parsedTags,
+              displayName: tagInfo.displayName,
+              userName: tagInfo.userName,
+              userEmail: tagInfo.userEmail,
+              projectPath: tagInfo.projectPath,
+              projectName: tagInfo.projectName,
+              gitRepoUrl: tagInfo.gitRepoUrl,
+            });
+            return JSON.stringify({
+              success: result.success,
+              message: "Memory added",
+              id: result.id,
+              tags: parsedTags,
+            });
+          }
+
+          async function handleSearch(): Promise<string> {
+            if (!args.query) return JSON.stringify({ success: false, error: "query required" });
+            const searchRes = await memoryClient.searchMemories(
+              args.query,
+              tags.project.tag,
+              args.scope ?? CONFIG.memory.defaultScope
+            );
+            if (!searchRes.success)
+              return JSON.stringify({ success: false, error: searchRes.error });
+            if (searchRes.degraded && ctx.client?.tui && CONFIG.showErrorToasts) {
+              await ctx.client.tui
+                .showToast({
+                  body: {
+                    title: "Memory Search Degraded",
+                    message:
+                      "Embedding model unavailable — using text-only search. Results may be less accurate.",
+                    variant: "warning",
+                    duration: 5000,
+                  },
+                })
+                .catch((err) => log("Toast display failed", { error: String(err) }));
+            }
+            return formatSearchResults(args.query, searchRes, args.limit);
+          }
+
+          async function handleProfile(): Promise<string> {
+            if (args.query) {
+              return JSON.stringify({
+                success: false,
+                error:
+                  "query is not valid for profile mode. Use content to write a preference or omit all args to read.",
+              });
+            }
+
+            const { userProfileManager } =
+              await import("./services/user-profile/user-profile-manager.js");
+            const userId = tags.user.userEmail || "unknown";
+
+            if (args.content !== undefined) {
+              const trimmed = args.content.trim();
+              if (!trimmed) {
+                return JSON.stringify({ success: false, error: "content must not be blank" });
+              }
+              if (!tags.user.userEmail) {
+                return JSON.stringify({
+                  success: false,
+                  error:
+                    "Cannot save profile preference because no user email could be resolved. Configure userEmailOverride or git user.email.",
+                });
+              }
+
+              const sanitizedContent = stripPrivateContent(trimmed);
+              const hasNonPrivateContent =
+                sanitizedContent.replace(/\[REDACTED\]/g, "").trim().length > 0;
+              if (isFullyPrivate(trimmed) || !hasNonPrivateContent) {
+                return JSON.stringify({ success: false, error: "Private content blocked" });
+              }
+
+              const newPreference = {
+                category: "explicit",
+                description: sanitizedContent,
+                confidence: 1.0,
+                evidence: ["manual-write"],
+                lastUpdated: Date.now(),
+              };
+
+              const existingProfile = userProfileManager.getActiveProfile(userId);
+              if (existingProfile) {
+                const existingData = safeJSONParse(existingProfile.profileData) as any;
+                const mergedData = userProfileManager.mergeProfileData(existingData, {
+                  preferences: [newPreference],
+                });
+                userProfileManager.updateProfile(
+                  existingProfile.id,
+                  mergedData,
+                  0,
+                  `Explicit preference added: ${sanitizedContent.slice(0, 80)}`
+                );
+                return JSON.stringify({
+                  success: true,
+                  message: "Preference saved to profile",
+                });
+              }
+
+              userProfileManager.createProfile(
+                userId,
+                tags.user.displayName || userId,
+                tags.user.userName || userId,
+                tags.user.userEmail || userId,
+                { preferences: [newPreference], patterns: [], workflows: [] },
+                0
+              );
+              return JSON.stringify({
+                success: true,
+                message: "Profile created with preference",
+              });
+            }
+
+            const profile = userProfileManager.getActiveProfile(userId);
+            if (!profile) return JSON.stringify({ success: true, profile: null });
+            const pData = safeJSONParse(profile.profileData) as any;
+            return JSON.stringify({
+              success: true,
+              profile: { ...pData, version: profile.version, lastAnalyzed: profile.lastAnalyzedAt },
+            });
+          }
+
+          async function handleList(): Promise<string> {
+            const listRes = await memoryClient.listMemories(
+              tags.project.tag,
+              args.limit || 20,
+              args.scope ?? CONFIG.memory.defaultScope
+            );
+            if (!listRes.success) return JSON.stringify({ success: false, error: listRes.error });
+            return JSON.stringify({
+              success: true,
+              count: listRes.memories?.length,
+              memories: listRes.memories?.map((m: any) => ({
+                id: m.id,
+                content: m.summary,
+                createdAt: m.createdAt,
+              })),
+            });
+          }
+
+          async function handleForget(): Promise<string> {
+            if (!args.memoryId)
+              return JSON.stringify({ success: false, error: "memoryId required" });
+            const delRes = await memoryClient.deleteMemory(args.memoryId);
+            return JSON.stringify({ success: delRes.success, message: "Memory removed" });
+          }
+
           try {
             switch (mode) {
               case "help":
                 return getHelpResponse(langName);
-
-              case "add": {
-                if (!args.content)
-                  return JSON.stringify({ success: false, error: "content required" });
-                const sanitizedContent = stripPrivateContent(args.content);
-                if (isFullyPrivate(args.content))
-                  return JSON.stringify({ success: false, error: "Private content blocked" });
-                const tagInfo = tags.project;
-                const parsedTags = args.tags
-                  ? args.tags.split(",").map((t) => t.trim().toLowerCase())
-                  : undefined;
-                const result = await memoryClient.addMemory(sanitizedContent, tagInfo.tag, {
-                  type: args.type,
-                  tags: parsedTags,
-                  displayName: tagInfo.displayName,
-                  userName: tagInfo.userName,
-                  userEmail: tagInfo.userEmail,
-                  projectPath: tagInfo.projectPath,
-                  projectName: tagInfo.projectName,
-                  gitRepoUrl: tagInfo.gitRepoUrl,
-                });
-                return JSON.stringify({
-                  success: result.success,
-                  message: "Memory added",
-                  id: result.id,
-                  tags: parsedTags,
-                });
-              }
-
-              case "search": {
-                if (!args.query) return JSON.stringify({ success: false, error: "query required" });
-                const searchRes = await memoryClient.searchMemories(
-                  args.query,
-                  tags.project.tag,
-                  args.scope ?? CONFIG.memory.defaultScope
-                );
-                if (!searchRes.success)
-                  return JSON.stringify({ success: false, error: searchRes.error });
-                if (searchRes.degraded && ctx.client?.tui && CONFIG.showErrorToasts) {
-                  await ctx.client.tui
-                    .showToast({
-                      body: {
-                        title: "Memory Search Degraded",
-                        message:
-                          "Embedding model unavailable — using text-only search. Results may be less accurate.",
-                        variant: "warning",
-                        duration: 5000,
-                      },
-                    })
-                    .catch((err) => log("Toast display failed", { error: String(err) }));
-                }
-                return formatSearchResults(args.query, searchRes, args.limit);
-              }
-
-              case "profile": {
-                if (args.query) {
-                  return JSON.stringify({
-                    success: false,
-                    error:
-                      "query is not valid for profile mode. Use content to write a preference or omit all args to read.",
-                  });
-                }
-
-                const { userProfileManager } =
-                  await import("./services/user-profile/user-profile-manager.js");
-
-                const userId = tags.user.userEmail || "unknown";
-
-                // --- WRITE: explicit preference ---
-                if (args.content !== undefined) {
-                  const trimmed = args.content.trim();
-                  if (!trimmed) {
-                    return JSON.stringify({ success: false, error: "content must not be blank" });
-                  }
-
-                  if (!tags.user.userEmail) {
-                    return JSON.stringify({
-                      success: false,
-                      error:
-                        "Cannot save profile preference because no user email could be resolved. Configure userEmailOverride or git user.email.",
-                    });
-                  }
-
-                  const sanitizedContent = stripPrivateContent(trimmed);
-                  const hasNonPrivateContent =
-                    sanitizedContent.replace(/\[REDACTED\]/g, "").trim().length > 0;
-
-                  if (isFullyPrivate(trimmed) || !hasNonPrivateContent) {
-                    return JSON.stringify({ success: false, error: "Private content blocked" });
-                  }
-
-                  const newPreference = {
-                    category: "explicit",
-                    description: sanitizedContent,
-                    confidence: 1.0,
-                    evidence: ["manual-write"],
-                    lastUpdated: Date.now(),
-                  };
-
-                  const existingProfile = userProfileManager.getActiveProfile(userId);
-
-                  if (existingProfile) {
-                    const existingData = safeJSONParse(existingProfile.profileData) as any;
-                    const mergedData = userProfileManager.mergeProfileData(existingData, {
-                      preferences: [newPreference],
-                    });
-                    userProfileManager.updateProfile(
-                      existingProfile.id,
-                      mergedData,
-                      0,
-                      `Explicit preference added: ${sanitizedContent.slice(0, 80)}`
-                    );
-                    return JSON.stringify({
-                      success: true,
-                      message: "Preference saved to profile",
-                    });
-                  } else {
-                    userProfileManager.createProfile(
-                      userId,
-                      tags.user.displayName || userId,
-                      tags.user.userName || userId,
-                      tags.user.userEmail || userId,
-                      { preferences: [newPreference], patterns: [], workflows: [] },
-                      0
-                    );
-                    return JSON.stringify({
-                      success: true,
-                      message: "Profile created with preference",
-                    });
-                  }
-                }
-
-                // --- READ: no content provided ---
-                const profile = userProfileManager.getActiveProfile(userId);
-                if (!profile) return JSON.stringify({ success: true, profile: null });
-                const pData = safeJSONParse(profile.profileData) as any;
-                return JSON.stringify({
-                  success: true,
-                  profile: {
-                    ...pData,
-                    version: profile.version,
-                    lastAnalyzed: profile.lastAnalyzedAt,
-                  },
-                });
-              }
-
-              case "list": {
-                const listRes = await memoryClient.listMemories(
-                  tags.project.tag,
-                  args.limit || 20,
-                  args.scope ?? CONFIG.memory.defaultScope
-                );
-                if (!listRes.success)
-                  return JSON.stringify({ success: false, error: listRes.error });
-                return JSON.stringify({
-                  success: true,
-                  count: listRes.memories?.length,
-                  memories: listRes.memories?.map((m: any) => ({
-                    id: m.id,
-                    content: m.summary,
-                    createdAt: m.createdAt,
-                  })),
-                });
-              }
-
-              case "forget": {
-                if (!args.memoryId)
-                  return JSON.stringify({ success: false, error: "memoryId required" });
-                const delRes = await memoryClient.deleteMemory(args.memoryId);
-                return JSON.stringify({ success: delRes.success, message: "Memory removed" });
-              }
-
+              case "add":
+                return await handleAdd();
+              case "search":
+                return await handleSearch();
+              case "profile":
+                return await handleProfile();
+              case "list":
+                return await handleList();
+              case "forget":
+                return await handleForget();
               default:
                 return JSON.stringify({ success: false, error: `Unknown mode: ${mode}` });
             }
@@ -587,88 +578,106 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
 
     event: async (input: { event: { type: string; properties?: any } }) => {
       const event = input.event;
+
       if (event.type === "session.idle") {
-        if (!isConfigured() || !CONFIG.autoCaptureEnabled) return;
-        const sessionID = event.properties?.sessionID;
-        if (!sessionID) return;
-
-        const existing = sessionIdleTimers.get(sessionID);
-        if (existing) clearTimeout(existing);
-
-        const timer = setTimeout(async () => {
-          try {
-            await performAutoCapture(ctx, sessionID, directory);
-
-            if (webServer?.isServerOwner()) {
-              await performUserProfileLearning(ctx, directory);
-              const { cleanupService } = await import("./services/cleanup-service.js");
-              if (cleanupService.shouldRunCleanup()) await cleanupService.runCleanup();
-              cleanupOldTranscripts();
-              const { connectionManager } = await import("./services/sqlite/connection-manager.js");
-              connectionManager.checkpointAll();
-            }
-          } catch (error) {
-            log("Idle processing error", { error: String(error) });
-          } finally {
-            sessionIdleTimers.delete(sessionID);
-          }
-        }, 10000);
-        sessionIdleTimers.set(sessionID, timer);
+        await handleSessionIdle(event, ctx, directory, sessionIdleTimers, webServer);
       }
 
       if (event.type === "session.compacted") {
-        if (!isConfigured() || !CONFIG.compaction.enabled) return;
-
-        const sessionID = event.properties?.sessionID;
-        if (!sessionID) return;
-
-        try {
-          const tags = getTags(directory);
-
-          const memoriesResult = await memoryClient.searchMemoriesBySessionID(
-            sessionID,
-            tags.project.tag,
-            CONFIG.compaction.memoryLimit
-          );
-
-          if (!memoriesResult.success || memoriesResult.results.length === 0) {
-            return;
-          }
-
-          const memoryContext = formatMemoriesForCompaction(memoriesResult.results);
-
-          await ctx.client.session.prompt({
-            path: { id: sessionID },
-            body: {
-              parts: [{ id: `prt-compaction-${Date.now()}`, type: "text", text: memoryContext }],
-              noReply: true,
-            },
-          });
-
-          if (ctx.client?.tui) {
-            await ctx.client.tui
-              .showToast({
-                body: {
-                  title: "Memory Restored",
-                  message: `${memoriesResult.results.length} memories injected after compaction`,
-                  variant: "success",
-                  duration: 3000,
-                },
-              })
-              .catch((err) => log("Toast display failed", { error: String(err) }));
-          }
-
-          log("Compaction memory injected", {
-            sessionID,
-            count: memoriesResult.results.length,
-          });
-        } catch (error) {
-          log("Compaction handler error", { error: String(error) });
-        }
+        await handleSessionCompacted(event, ctx, directory);
       }
     },
   };
 };
+
+async function handleSessionIdle(
+  event: { properties?: any },
+  ctx: PluginInput,
+  directory: string,
+  sessionIdleTimers: Map<string, NodeJS.Timeout>,
+  webServer: WebServer | null
+): Promise<void> {
+  if (!isConfigured() || !CONFIG.autoCaptureEnabled) return;
+  const sessionID = event.properties?.sessionID;
+  if (!sessionID) return;
+
+  const existing = sessionIdleTimers.get(sessionID);
+  if (existing) clearTimeout(existing);
+
+  const timer = setTimeout(async () => {
+    try {
+      await performAutoCapture(ctx, sessionID, directory);
+
+      if (webServer?.isServerOwner()) {
+        await performUserProfileLearning(ctx, directory);
+        const { cleanupService } = await import("./services/cleanup-service.js");
+        if (cleanupService.shouldRunCleanup()) await cleanupService.runCleanup();
+        cleanupOldTranscripts();
+        const { connectionManager } = await import("./services/sqlite/connection-manager.js");
+        connectionManager.checkpointAll();
+      }
+    } catch (error) {
+      log("Idle processing error", { error: String(error) });
+    } finally {
+      sessionIdleTimers.delete(sessionID);
+    }
+  }, 10000);
+  sessionIdleTimers.set(sessionID, timer);
+}
+
+async function handleSessionCompacted(
+  event: { properties?: any },
+  ctx: PluginInput,
+  directory: string
+): Promise<void> {
+  if (!isConfigured() || !CONFIG.compaction.enabled) return;
+
+  const sessionID = event.properties?.sessionID;
+  if (!sessionID) return;
+
+  try {
+    const tags = getTags(directory);
+    const memoriesResult = await memoryClient.searchMemoriesBySessionID(
+      sessionID,
+      tags.project.tag,
+      CONFIG.compaction.memoryLimit
+    );
+
+    if (!memoriesResult.success || memoriesResult.results.length === 0) {
+      return;
+    }
+
+    const memoryContext = formatMemoriesForCompaction(memoriesResult.results);
+
+    await ctx.client.session.prompt({
+      path: { id: sessionID },
+      body: {
+        parts: [{ id: `prt-compaction-${Date.now()}`, type: "text", text: memoryContext }],
+        noReply: true,
+      },
+    });
+
+    if (ctx.client?.tui) {
+      await ctx.client.tui
+        .showToast({
+          body: {
+            title: "Memory Restored",
+            message: `${memoriesResult.results.length} memories injected after compaction`,
+            variant: "success",
+            duration: 3000,
+          },
+        })
+        .catch((err: any) => log("Toast display failed", { error: String(err) }));
+    }
+
+    log("Compaction memory injected", {
+      sessionID,
+      count: memoriesResult.results.length,
+    });
+  } catch (error) {
+    log("Compaction handler error", { error: String(error) });
+  }
+}
 
 function formatSearchResults(query: string, results: any, limit?: number): string {
   const memoryResults = results.results || [];
