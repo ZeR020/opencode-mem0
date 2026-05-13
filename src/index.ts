@@ -473,7 +473,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
 
               const sanitizedContent = stripPrivateContent(trimmed);
               const hasNonPrivateContent =
-                sanitizedContent.replace(/\[REDACTED\]/g, "").trim().length > 0;
+                sanitizedContent.replaceAll("[REDACTED]", "").trim().length > 0;
               if (isFullyPrivate(trimmed) || !hasNonPrivateContent) {
                 return JSON.stringify({ success: false, error: "Private content blocked" });
               }

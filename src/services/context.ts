@@ -44,10 +44,10 @@ export function formatMemoryEntry(
   switch (format) {
     case "xml": {
       const safeContent = content
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
       return `<memory similarity="${(result.similarity || 0).toFixed(2)}" relevance="${relevance.toFixed(2)}" type="${result.type || "note"}">${safeContent}</memory>`;
     }
     case "yaml": {

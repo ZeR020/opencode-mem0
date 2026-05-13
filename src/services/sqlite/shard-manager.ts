@@ -110,7 +110,7 @@ export class ShardManager {
 
   createShard(scope: "user" | "project", scopeHash: string, shardIndex: number): ShardInfo {
     const fullPath = this.getShardPath(scope, scopeHash, shardIndex);
-    const storedPath = join(`${scope}s`, basename(fullPath)).replace(/\\/g, "/");
+    const storedPath = join(`${scope}s`, basename(fullPath)).replaceAll("\\", "/");
     const now = Date.now();
 
     const result = this.createShardStmt.run(scope, scopeHash, shardIndex, storedPath, now);

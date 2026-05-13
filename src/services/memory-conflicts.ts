@@ -324,7 +324,7 @@ function findSimilarMemories(
       .map((w) => {
         // Strip FTS5 metacharacters and reserved words to prevent injection
         const clean = w.replace(/[*^:\-+?()]/g, "").replace(/\b(NEAR|AND|OR|NOT)\b/gi, "");
-        return clean ? `"${clean.replace(/"/g, '""')}"` : "";
+        return clean ? `"${clean.replaceAll('"', '""')}"` : "";
       })
       .filter(Boolean)
       .join(" OR ");
