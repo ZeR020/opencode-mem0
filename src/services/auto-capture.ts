@@ -40,6 +40,64 @@ Analyze this conversation. If it contains technical work (code, bugs, features, 
 
 let isCaptureRunning = false;
 
+function findPromptMessages(messages: any[], promptMessageId: string): any[] {
+  const promptIndex = messages.findIndex((m: any) => m.info?.id === promptMessageId);
+  if (promptIndex === -1) return [];
+  return messages.slice(promptIndex + 1);
+}
+
+async function processCaptureResult(
+  prompt: any,
+  summaryResult: { summary: string; type: string; tags: string[] } | null,
+  ctx: PluginInput,
+  directory: string,
+  sessionID: string,
+  claimedPromptId: string | null
+): Promise<string | null> {
+  if (!summaryResult || summaryResult.type === "skip") {
+    userPromptManager.deletePrompt(prompt.id);
+    return claimedPromptId;
+  }
+
+  const tags = getTags(directory);
+  const result = await memoryClient.addMemory(summaryResult.summary, tags.project.tag, {
+    source: "auto-capture" as any,
+    type: summaryResult.type as any,
+    tags: summaryResult.tags,
+    sessionID,
+    promptId: prompt.id,
+    captureTimestamp: Date.now(),
+    displayName: tags.project.displayName,
+    userName: tags.project.userName,
+    userEmail: tags.project.userEmail,
+    projectPath: tags.project.projectPath,
+    projectName: tags.project.projectName,
+    gitRepoUrl: tags.project.gitRepoUrl,
+  });
+
+  if (!result.success) return claimedPromptId;
+
+  userPromptManager.linkMemoryToPrompt(prompt.id, result.id);
+  userPromptManager.markAsCaptured(prompt.id);
+
+  if (CONFIG.showAutoCaptureToasts) {
+    await ctx.client?.tui
+      .showToast({
+        body: {
+          title: "Memory Captured",
+          message: "Project memory saved from conversation",
+          variant: "success",
+          duration: 3000,
+        },
+      })
+      .catch(() => {
+        // Notification errors are non-critical
+      });
+  }
+
+  return null;
+}
+
 export async function performAutoCapture(
   ctx: PluginInput,
   sessionID: string,
@@ -50,93 +108,34 @@ export async function performAutoCapture(
   let claimedPromptId: string | null = null;
   try {
     const prompt = userPromptManager.getLastUncapturedPrompt(sessionID);
-    if (!prompt) {
-      return;
-    }
-
-    if (!userPromptManager.claimPrompt(prompt.id)) {
-      return;
-    }
+    if (!prompt) return;
+    if (!userPromptManager.claimPrompt(prompt.id)) return;
     claimedPromptId = prompt.id;
 
-    if (!ctx.client) {
-      throw new Error("Client not available");
-    }
+    if (!ctx.client) throw new Error("Client not available");
 
-    const response = await ctx.client.session.messages({
-      path: { id: sessionID },
-    });
+    const response = await ctx.client.session.messages({ path: { id: sessionID } });
+    if (!response.data) return;
 
-    if (!response.data) {
-      return;
-    }
-
-    const messages = response.data;
-
-    const promptIndex = messages.findIndex((m: any) => m.info?.id === prompt.messageId);
-    if (promptIndex === -1) {
-      return;
-    }
-
-    const aiMessages = messages.slice(promptIndex + 1);
-
-    if (aiMessages.length === 0) {
-      return;
-    }
+    const aiMessages = findPromptMessages(response.data, prompt.messageId);
+    if (aiMessages.length === 0) return;
 
     const { textResponses, toolCalls } = extractAIContent(aiMessages);
-
-    if (textResponses.length === 0 && toolCalls.length === 0) {
-      return;
-    }
+    if (textResponses.length === 0 && toolCalls.length === 0) return;
 
     const tags = getTags(directory);
     const latestMemory = await getLatestProjectMemory(tags.project.tag);
-
     const context = buildMarkdownContext(prompt.content, textResponses, toolCalls, latestMemory);
-
     const summaryResult = await generateSummary(context, sessionID, prompt.content);
 
-    if (!summaryResult || summaryResult.type === "skip") {
-      userPromptManager.deletePrompt(prompt.id);
-      return;
-    }
-
-    const result = await memoryClient.addMemory(summaryResult.summary, tags.project.tag, {
-      source: "auto-capture" as any,
-      type: summaryResult.type as any,
-      tags: summaryResult.tags,
+    claimedPromptId = await processCaptureResult(
+      prompt,
+      summaryResult,
+      ctx,
+      directory,
       sessionID,
-      promptId: prompt.id,
-      captureTimestamp: Date.now(),
-      displayName: tags.project.displayName,
-      userName: tags.project.userName,
-      userEmail: tags.project.userEmail,
-      projectPath: tags.project.projectPath,
-      projectName: tags.project.projectName,
-      gitRepoUrl: tags.project.gitRepoUrl,
-    });
-
-    if (result.success) {
-      userPromptManager.linkMemoryToPrompt(prompt.id, result.id);
-      userPromptManager.markAsCaptured(prompt.id);
-      claimedPromptId = null; // successfully captured — no need to reset claim
-
-      if (CONFIG.showAutoCaptureToasts) {
-        await ctx.client?.tui
-          .showToast({
-            body: {
-              title: "Memory Captured",
-              message: "Project memory saved from conversation",
-              variant: "success",
-              duration: 3000,
-            },
-          })
-          .catch(() => {
-            // Notification errors are non-critical
-          });
-      }
-    }
+      claimedPromptId
+    );
   } finally {
     if (claimedPromptId) {
       userPromptManager.resetPromptClaim(claimedPromptId);
@@ -261,77 +260,72 @@ function buildMarkdownContext(
   return sections.join("\n");
 }
 
-async function generateSummary(
-  context: string,
-  sessionID: string,
-  userPrompt: string
-): Promise<{ summary: string; type: string; tags: string[] } | null> {
-  // Opencode provider path (when opencodeProvider + opencodeModel configured)
-  if (CONFIG.opencodeProvider && CONFIG.opencodeModel) {
-    if (CONFIG.memoryModel) {
-      log("opencodeProvider takes precedence over memoryModel for auto-capture");
-    }
-
-    const { isProviderConnected, getStatePath, generateStructuredOutput } =
-      await import("./ai/opencode-provider.js");
-
-    if (!isProviderConnected(CONFIG.opencodeProvider)) {
-      throw new Error(
-        `opencode provider '${CONFIG.opencodeProvider}' is not connected. Check your opencode provider configuration.`
-      );
-    }
-
-    const { detectLanguage, getLanguageName } = await import("./language-detector.js");
-    const targetLang =
-      CONFIG.autoCaptureLanguage === "auto" || !CONFIG.autoCaptureLanguage
-        ? detectLanguage(userPrompt)
-        : CONFIG.autoCaptureLanguage;
-    const langName = getLanguageName(targetLang);
-
-    const { z } = await import("zod");
-    const schema = z.object({
-      summary: z.string(),
-      type: z.string(),
-      tags: z.array(z.string()),
-    });
-
-    const result = await generateStructuredOutput({
-      providerName: CONFIG.opencodeProvider,
-      modelId: CONFIG.opencodeModel,
-      statePath: getStatePath(),
-      systemPrompt: AUTO_CAPTURE_SYSTEM_PROMPT_TEMPLATE(langName),
-      userPrompt: AUTO_CAPTURE_ANALYSIS_PROMPT(context),
-      schema,
-      temperature:
-        CONFIG.memoryTemperature === false ? undefined : (CONFIG.memoryTemperature ?? 0.3),
-    });
-
-    return {
-      summary: result.summary,
-      type: result.type,
-      tags: (result.tags || []).map((t: string) => t.toLowerCase().trim()),
-    };
-  }
-
-  // Existing manual config path
-  if (!CONFIG.memoryModel || !CONFIG.memoryApiUrl) {
-    throw new Error("External API not configured for auto-capture");
-  }
-
-  const { AIProviderFactory } = await import("./ai/ai-provider-factory.js");
-  const { buildMemoryProviderConfig } = await import("./ai/provider-config.js");
+async function detectTargetLanguage(userPrompt: string): Promise<{ lang: string; name: string }> {
   const { detectLanguage, getLanguageName } = await import("./language-detector.js");
-
-  const providerConfig = buildMemoryProviderConfig(CONFIG);
-
-  const provider = AIProviderFactory.createProvider(CONFIG.memoryProvider, providerConfig);
-
   const targetLang =
     CONFIG.autoCaptureLanguage === "auto" || !CONFIG.autoCaptureLanguage
       ? detectLanguage(userPrompt)
       : CONFIG.autoCaptureLanguage;
+  return { lang: targetLang, name: getLanguageName(targetLang) };
+}
 
-  const langName = getLanguageName(targetLang);
+async function generateSummaryViaOpencode(
+  context: string,
+  userPrompt: string
+): Promise<{ summary: string; type: string; tags: string[] }> {
+  if (CONFIG.memoryModel) {
+    log("opencodeProvider takes precedence over memoryModel for auto-capture");
+  }
+
+  const providerName = CONFIG.opencodeProvider!;
+  const modelId = CONFIG.opencodeModel!;
+
+  const { isProviderConnected, getStatePath, generateStructuredOutput } =
+    await import("./ai/opencode-provider.js");
+
+  if (!isProviderConnected(providerName)) {
+    throw new Error(
+      `opencode provider '${providerName}' is not connected. Check your opencode provider configuration.`
+    );
+  }
+
+  const { name: langName } = await detectTargetLanguage(userPrompt);
+
+  const { z } = await import("zod");
+  const schema = z.object({
+    summary: z.string(),
+    type: z.string(),
+    tags: z.array(z.string()),
+  });
+
+  const result = await generateStructuredOutput({
+    providerName,
+    modelId,
+    statePath: getStatePath(),
+    systemPrompt: AUTO_CAPTURE_SYSTEM_PROMPT_TEMPLATE(langName),
+    userPrompt: AUTO_CAPTURE_ANALYSIS_PROMPT(context),
+    schema,
+    temperature: CONFIG.memoryTemperature === false ? undefined : (CONFIG.memoryTemperature ?? 0.3),
+  });
+
+  return {
+    summary: result.summary,
+    type: result.type,
+    tags: (result.tags || []).map((t: string) => t.toLowerCase().trim()),
+  };
+}
+
+async function generateSummaryViaProvider(
+  context: string,
+  sessionID: string,
+  userPrompt: string
+): Promise<{ summary: string; type: string; tags: string[] }> {
+  const { AIProviderFactory } = await import("./ai/ai-provider-factory.js");
+  const { buildMemoryProviderConfig } = await import("./ai/provider-config.js");
+
+  const providerConfig = buildMemoryProviderConfig(CONFIG);
+  const provider = AIProviderFactory.createProvider(CONFIG.memoryProvider, providerConfig);
+  const { name: langName } = await detectTargetLanguage(userPrompt);
 
   const toolSchema = {
     type: "function" as const,
@@ -377,4 +371,20 @@ async function generateSummary(
     type: result.data.type,
     tags: (result.data.tags || []).map((t: string) => t.toLowerCase().trim()),
   };
+}
+
+async function generateSummary(
+  context: string,
+  sessionID: string,
+  userPrompt: string
+): Promise<{ summary: string; type: string; tags: string[] } | null> {
+  if (CONFIG.opencodeProvider && CONFIG.opencodeModel) {
+    return generateSummaryViaOpencode(context, userPrompt);
+  }
+
+  if (!CONFIG.memoryModel || !CONFIG.memoryApiUrl) {
+    throw new Error("External API not configured for auto-capture");
+  }
+
+  return generateSummaryViaProvider(context, sessionID, userPrompt);
 }

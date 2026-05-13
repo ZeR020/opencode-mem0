@@ -227,6 +227,89 @@ export function promoteToLTM(memoryId: string): { success: boolean; promoted: bo
  * STM decay_rate = 0.05 (fast), LTM with decay = 0.01 (slow).
  * LTM with decay_rate = 0 is never decayed.
  */
+function getDecayUpdateStmt(db: any, contextualDecayEnabled: boolean): any {
+  return db.prepare(
+    contextualDecayEnabled
+      ? "UPDATE memories SET strength = ?, recency_score = ?, last_decay_at = ?, decay_rate = ? WHERE id = ?"
+      : "UPDATE memories SET strength = ?, recency_score = ?, last_decay_at = ? WHERE id = ?"
+  );
+}
+
+function shouldArchiveMemory(
+  clampedStrength: number,
+  archiveThreshold: number,
+  createdAt: number,
+  now: number,
+  archiveAfterMs: number
+): boolean {
+  const ageMs = now - createdAt;
+  return clampedStrength < archiveThreshold && ageMs > archiveAfterMs;
+}
+
+function processSingleMemoryDecay(
+  memory: any,
+  now: number,
+  updateStmt: any,
+  contextualDecayEnabled: boolean,
+  archiveThreshold: number,
+  archiveAfterMs: number
+): { updated: boolean; decayed: boolean; archived: boolean } {
+  const createdAt = Number(memory.created_at);
+  const lastDecayAt = memory.last_decay_at ? Number(memory.last_decay_at) : createdAt;
+
+  if (lastDecayAt >= now) return { updated: false, decayed: false, archived: false };
+
+  const deltaMs = now - lastDecayAt;
+  const deltaDays = deltaMs / (24 * 60 * 60 * 1000);
+  const currentStrength = Number(memory.strength || 0.5);
+  const storedDecayRate = Number(memory.decay_rate || 0.05);
+
+  let decayRate = storedDecayRate;
+  if (contextualDecayEnabled) {
+    const contextualRate = calculateContextualDecayRate(
+      memory.type,
+      currentStrength,
+      Number(memory.access_count || 0),
+      memory.is_pinned === 1
+    );
+    if (contextualRate !== storedDecayRate) {
+      log("Contextual decay rate applied", {
+        memoryId: memory.id,
+        oldRate: storedDecayRate,
+        newRate: contextualRate,
+        strength: currentStrength,
+        accessCount: memory.access_count,
+      });
+    }
+    decayRate = contextualRate;
+  }
+
+  if (decayRate <= 0) return { updated: false, decayed: false, archived: false };
+
+  const newStrength = currentStrength * Math.exp(-decayRate * deltaDays);
+  const clampedStrength = Math.max(0, Math.min(1, newStrength));
+  const recencyScore = calculateRecency(createdAt);
+
+  if (contextualDecayEnabled) {
+    updateStmt.run(clampedStrength, recencyScore, now, decayRate, memory.id);
+  } else {
+    updateStmt.run(clampedStrength, recencyScore, now, memory.id);
+  }
+
+  const archived = shouldArchiveMemory(
+    clampedStrength,
+    archiveThreshold,
+    createdAt,
+    now,
+    archiveAfterMs
+  );
+  return {
+    updated: true,
+    decayed: clampedStrength < currentStrength,
+    archived,
+  };
+}
+
 export async function applyDecay(): Promise<{
   updated: number;
   decayed: number;
@@ -247,6 +330,7 @@ export async function applyDecay(): Promise<{
     const archiveThreshold = CONFIG.memoryLifecycle?.archiveThreshold ?? 0.2;
     const archiveAfterDays = CONFIG.memoryLifecycle?.archiveAfterDays ?? 30;
     const archiveAfterMs = archiveAfterDays * 24 * 60 * 60 * 1000;
+    const contextualDecayEnabled = CONFIG.contextualDecay?.enabled ?? false;
 
     for (const shard of allShards) {
       let db: any = null;
@@ -254,8 +338,6 @@ export async function applyDecay(): Promise<{
       const toArchive: Array<{ id: string; shard: any }> = [];
       try {
         db = connectionManager.getConnection(shard.dbPath);
-
-        // Get all STM memories and LTM memories with non-zero decay, excluding pinned
         const memories = db
           .prepare(
             `SELECT id, strength, decay_rate, created_at, last_decay_at, store_type, access_count, type, is_pinned
@@ -266,84 +348,33 @@ export async function applyDecay(): Promise<{
 
         if (memories.length === 0) continue;
 
-        const contextualDecayEnabled = CONFIG.contextualDecay?.enabled ?? false;
-
-        const updateStmt = db.prepare(
-          contextualDecayEnabled
-            ? "UPDATE memories SET strength = ?, recency_score = ?, last_decay_at = ?, decay_rate = ? WHERE id = ?"
-            : "UPDATE memories SET strength = ?, recency_score = ?, last_decay_at = ? WHERE id = ?"
-        );
-
+        const updateStmt = getDecayUpdateStmt(db, contextualDecayEnabled);
         db.run("BEGIN IMMEDIATE");
         inTxn = true;
 
         for (const memory of memories) {
-          const createdAt = Number(memory.created_at);
-          const lastDecayAt = memory.last_decay_at ? Number(memory.last_decay_at) : createdAt;
-
-          // Skip rows already decayed by a concurrent writer in this time window
-          if (lastDecayAt >= now) continue;
-
-          const deltaMs = now - lastDecayAt;
-          const deltaDays = deltaMs / (24 * 60 * 60 * 1000);
-          const currentStrength = Number(memory.strength || 0.5);
-          const storedDecayRate = Number(memory.decay_rate || 0.05);
-
-          let decayRate = storedDecayRate;
-
-          if (contextualDecayEnabled) {
-            const contextualRate = calculateContextualDecayRate(
-              memory.type,
-              currentStrength,
-              Number(memory.access_count || 0),
-              memory.is_pinned === 1
-            );
-
-            if (contextualRate !== storedDecayRate) {
-              log("Contextual decay rate applied", {
-                memoryId: memory.id,
-                oldRate: storedDecayRate,
-                newRate: contextualRate,
-                strength: currentStrength,
-                accessCount: memory.access_count,
-              });
+          const result = processSingleMemoryDecay(
+            memory,
+            now,
+            updateStmt,
+            contextualDecayEnabled,
+            archiveThreshold,
+            archiveAfterMs
+          );
+          if (result.updated) {
+            totalUpdated++;
+            if (result.decayed) totalDecayed++;
+            if (result.archived) {
+              archiveMemory(db, memory.id, shard);
+              toArchive.push({ id: memory.id, shard });
+              totalArchived++;
             }
-
-            decayRate = contextualRate;
-          }
-
-          if (decayRate <= 0) continue; // LTM with zero decay rate — skip
-
-          // Incremental Ebbinghaus decay since last maintenance
-          const newStrength = currentStrength * Math.exp(-decayRate * deltaDays);
-          const clampedStrength = Math.max(0, Math.min(1, newStrength));
-          const recencyScore = calculateRecency(createdAt);
-
-          // Update strength, recency_score, last_decay_at, and optionally decay_rate
-          if (contextualDecayEnabled) {
-            updateStmt.run(clampedStrength, recencyScore, now, decayRate, memory.id);
-          } else {
-            updateStmt.run(clampedStrength, recencyScore, now, memory.id);
-          }
-          totalUpdated++;
-
-          if (clampedStrength < currentStrength) {
-            totalDecayed++;
-          }
-
-          // Archive check: if strength < threshold AND older than archiveAfterDays
-          const ageMs = now - createdAt;
-          if (clampedStrength < archiveThreshold && ageMs > archiveAfterMs) {
-            archiveMemory(db, memory.id, shard);
-            toArchive.push({ id: memory.id, shard });
-            totalArchived++;
           }
         }
 
         db.run("COMMIT");
         inTxn = false;
 
-        // Delete vectors after transaction commits to avoid fire-and-forget desync
         for (const item of toArchive) {
           try {
             await vectorSearch.deleteVector(db, item.id, item.shard);
@@ -449,6 +480,15 @@ async function archiveMemory(db: any, memoryId: string, shard: any): Promise<voi
 /**
  * Get count of archived memories.
  */
+function getShardArchivedCount(db: any): number {
+  try {
+    const result = db.prepare("SELECT COUNT(*) as count FROM memories_archive").get() as any;
+    return result?.count || 0;
+  } catch {
+    return 0;
+  }
+}
+
 export function getArchivedCount(): number {
   let count = 0;
 
@@ -458,13 +498,8 @@ export function getArchivedCount(): number {
     const allShards = [...userShards, ...projectShards];
 
     for (const shard of allShards) {
-      try {
-        const db = connectionManager.getConnection(shard.dbPath);
-        const result = db.prepare("SELECT COUNT(*) as count FROM memories_archive").get() as any;
-        count += result?.count || 0;
-      } catch {
-        // Archive table may not exist
-      }
+      const db = connectionManager.getConnection(shard.dbPath);
+      count += getShardArchivedCount(db);
     }
   } catch (error) {
     log("getArchivedCount error", { error: String(error) });

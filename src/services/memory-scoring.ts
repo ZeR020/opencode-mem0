@@ -279,42 +279,44 @@ export function calculateFrequency(accessCount: number): number {
  * Calculate importance based on content analysis.
  * Factors: code blocks, technical keywords, length, type.
  */
+function scoreCodeBlocks(content: string): number {
+  const codeBlockCount = (content.match(/```/g) || []).length / 2;
+  return Math.min(codeBlockCount * 0.15, 0.3);
+}
+
+function scoreTechnicalKeywords(content: string): number {
+  const keywordMatches = content.toLowerCase().match(TECHNICAL_KEYWORDS_RE)?.length ?? 0;
+  return Math.min(keywordMatches * 0.02, 0.2);
+}
+
+function scoreLength(wordCount: number): number {
+  if (wordCount < 10) return -0.1;
+  if (wordCount > 500) return 0.05;
+  if (wordCount > 50 && wordCount < 300) return 0.1;
+  return 0;
+}
+
+function scoreType(type: string): number {
+  const lowerType = type.toLowerCase();
+  if (hasTypeMatch(HIGH_IMPORTANCE_TYPES, lowerType)) return 0.15;
+  if (hasTypeMatch(MEDIUM_IMPORTANCE_TYPES, lowerType)) return 0.05;
+  if (hasTypeMatch(LOW_IMPORTANCE_TYPES, lowerType)) return -0.1;
+  return 0;
+}
+
 export function calculateImportance(content: string, type?: string): number {
   let score = 0.5; // Base score
 
-  const lowerContent = content.toLowerCase();
+  score += scoreCodeBlocks(content);
+  score += scoreTechnicalKeywords(content);
 
-  // Code blocks boost importance
-  const codeBlockCount = (content.match(/```/g) || []).length / 2;
-  score += Math.min(codeBlockCount * 0.15, 0.3);
-
-  // Technical keywords boost importance (single pre-compiled regex vs 200+ individual regex compiles)
-  const keywordMatches = lowerContent.match(TECHNICAL_KEYWORDS_RE)?.length ?? 0;
-  score += Math.min(keywordMatches * 0.02, 0.2);
-
-  // Length factor: moderate length preferred
   const wordCount = countWords(content);
-  if (wordCount < 10) {
-    score -= 0.1; // Too short
-  } else if (wordCount > 500) {
-    score += 0.05; // Comprehensive
-  } else if (wordCount > 50 && wordCount < 300) {
-    score += 0.1; // Sweet spot
-  }
+  score += scoreLength(wordCount);
 
-  // Type-based importance (substring matching preserves custom type variants)
   if (type) {
-    const lowerType = type.toLowerCase();
-    if (hasTypeMatch(HIGH_IMPORTANCE_TYPES, lowerType)) {
-      score += 0.15;
-    } else if (hasTypeMatch(MEDIUM_IMPORTANCE_TYPES, lowerType)) {
-      score += 0.05;
-    } else if (hasTypeMatch(LOW_IMPORTANCE_TYPES, lowerType)) {
-      score -= 0.1;
-    }
+    score += scoreType(type);
   }
 
-  // File paths and specific identifiers indicate high importance
   const hasFilePaths = /[\w-]+\.[a-zA-Z]{2,5}/.test(content);
   if (hasFilePaths) score += 0.05;
 
@@ -467,108 +469,110 @@ export function calculateConfidence(source?: string, type?: string): number {
  * Calculate interference penalty based on contradictions with other memories.
  * Detects negation patterns and conflicting action descriptions.
  */
+function hasNegationPatterns(content: string): boolean {
+  const lower = content.toLowerCase();
+  for (const pattern of NEGATION_PATTERNS) {
+    if (pattern.test(lower)) return true;
+  }
+  return false;
+}
+
+function hasActionPatterns(content: string): boolean {
+  const lower = content.toLowerCase();
+  for (const pattern of ACTION_PATTERNS) {
+    if (pattern.test(lower)) return true;
+  }
+  return false;
+}
+
+function checkDirectContradiction(content: string, conflicting: string): number {
+  const contentHasAdd = /\b(added|created|implemented|enabled|turned on)\b/i.test(content);
+  const contentHasRemove = /\b(removed|deleted|disabled|turned off|reverted)\b/i.test(content);
+  const conflictingHasAdd = /\b(added|created|implemented|enabled|turned on)\b/i.test(conflicting);
+  const conflictingHasRemove = /\b(removed|deleted|disabled|turned off|reverted)\b/i.test(
+    conflicting
+  );
+
+  if ((contentHasAdd && conflictingHasRemove) || (contentHasRemove && conflictingHasAdd)) {
+    return 0.3;
+  }
+  return 0;
+}
+
+function checkNegationOverlap(content: string, conflicting: string): number {
+  const negationPattern =
+    /\b(not|no|never|none|don't|doesn't|didn't|won't|shouldn't|couldn't|can't|removed|deleted|disabled)\b/gi;
+  const contentCore = content.replace(negationPattern, "").trim();
+  const conflictingCore = conflicting.replace(negationPattern, "").trim();
+
+  const contentWords = new Set(
+    contentCore
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 4)
+  );
+  const conflictingWords = new Set(
+    conflictingCore
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 4)
+  );
+
+  if (contentWords.size === 0 || conflictingWords.size === 0) return 0;
+
+  const intersection = new Set([...contentWords].filter((w) => conflictingWords.has(w)));
+  const overlapRatio = intersection.size / Math.min(contentWords.size, conflictingWords.size);
+
+  return overlapRatio > 0.3 ? 0.2 : 0;
+}
+
+function checkOppositeActions(content: string, conflicting: string): number {
+  const contentActions =
+    content
+      .toLowerCase()
+      .match(/\b(added|created|implemented|built|fixed|resolved|enabled|configured)\b/g) || [];
+  const conflictingActions =
+    conflicting
+      .toLowerCase()
+      .match(/\b(added|created|implemented|built|fixed|resolved|enabled|configured)\b/g) || [];
+
+  const commonActions = contentActions.filter((a) =>
+    conflictingActions.some((ca) => ca.toLowerCase() === a.toLowerCase())
+  );
+
+  return commonActions.length > 0 ? 0.15 : 0;
+}
+
+function calculateSingleConflict(
+  content: string,
+  conflicting: string,
+  hasNegation: boolean,
+  hasAction: boolean
+): number {
+  let score = 0;
+  score += checkDirectContradiction(content, conflicting);
+
+  if (hasNegation) {
+    score += checkNegationOverlap(content, conflicting);
+  }
+
+  if (hasAction && hasNegation) {
+    score += checkOppositeActions(content, conflicting);
+  }
+
+  return score;
+}
+
 export function calculateInterference(content: string, conflictingMemories: string[]): number {
   if (conflictingMemories.length === 0) return 0;
 
-  const lowerContent = content.toLowerCase();
-
-  // Check if this memory contains negation patterns
-  let hasNegation = false;
-  for (const pattern of NEGATION_PATTERNS) {
-    if (pattern.test(lowerContent)) {
-      hasNegation = true;
-      break;
-    }
-  }
-
-  // Check if this memory contains action patterns
-  let hasAction = false;
-  for (const pattern of ACTION_PATTERNS) {
-    if (pattern.test(lowerContent)) {
-      hasAction = true;
-      break;
-    }
-  }
+  const hasNegation = hasNegationPatterns(content);
+  const hasAction = hasActionPatterns(content);
 
   let conflictScore = 0;
 
   for (const conflicting of conflictingMemories.slice(0, 10)) {
-    // Sample at most 10 conflicts for performance
-    const lowerConflicting = conflicting.toLowerCase();
-
-    // Check for direct contradiction patterns
-    // One says "added X" and another says "removed X" or "don't use X"
-    const contentHasAdd = /\b(added|created|implemented|enabled|turned on)\b/i.test(content);
-    const contentHasRemove = /\b(removed|deleted|disabled|turned off|reverted)\b/i.test(content);
-    const conflictingHasAdd = /\b(added|created|implemented|enabled|turned on)\b/i.test(
-      conflicting
-    );
-    const conflictingHasRemove = /\b(removed|deleted|disabled|turned off|reverted)\b/i.test(
-      conflicting
-    );
-
-    if ((contentHasAdd && conflictingHasRemove) || (contentHasRemove && conflictingHasAdd)) {
-      conflictScore += 0.3;
-    }
-
-    // Check for negation of the same topic
-    if (hasNegation) {
-      const contentCore = content
-        .replace(
-          /\b(not|no|never|none|don't|doesn't|didn't|won't|shouldn't|couldn't|can't|removed|deleted|disabled)\b/gi,
-          ""
-        )
-        .trim();
-      const conflictingCore = conflicting
-        .replace(
-          /\b(not|no|never|none|don't|doesn't|didn't|won't|shouldn't|couldn't|can't|removed|deleted|disabled)\b/gi,
-          ""
-        )
-        .trim();
-
-      // Simple overlap check
-      const contentWords = new Set(
-        contentCore
-          .toLowerCase()
-          .split(/\s+/)
-          .filter((w) => w.length > 4)
-      );
-      const conflictingWords = new Set(
-        conflictingCore
-          .toLowerCase()
-          .split(/\s+/)
-          .filter((w) => w.length > 4)
-      );
-
-      if (contentWords.size > 0 && conflictingWords.size > 0) {
-        const intersection = new Set([...contentWords].filter((w) => conflictingWords.has(w)));
-        const overlapRatio = intersection.size / Math.min(contentWords.size, conflictingWords.size);
-
-        if (overlapRatio > 0.3) {
-          conflictScore += 0.2;
-        }
-      }
-    }
-
-    // Similar content but opposite sentiment
-    if (hasAction && hasNegation) {
-      const contentActionWords =
-        lowerContent.match(
-          /\b(added|created|implemented|built|fixed|resolved|enabled|configured)\b/g
-        ) || [];
-      const conflictingActionWords =
-        lowerConflicting.match(
-          /\b(added|created|implemented|built|fixed|resolved|enabled|configured)\b/g
-        ) || [];
-
-      const commonActions = contentActionWords.filter((a) =>
-        conflictingActionWords.some((ca) => ca.toLowerCase() === a.toLowerCase())
-      );
-
-      if (commonActions.length > 0) {
-        conflictScore += 0.15;
-      }
-    }
+    conflictScore += calculateSingleConflict(content, conflicting, hasNegation, hasAction);
   }
 
   return Math.min(1, conflictScore);

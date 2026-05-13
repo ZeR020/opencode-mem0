@@ -21,6 +21,85 @@ let isRunning = false;
  * Updates recency, utility, and strength in-place.
  * Optionally recalculates novelty and interference (expensive).
  */
+function parseMemoryMetadata(memory: any): any {
+  try {
+    if (memory.metadata) {
+      return JSON.parse(memory.metadata);
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return {};
+}
+
+function findConflictingMemories(content: string, allContents: string[]): string[] {
+  const otherContents = allContents.filter((c) => c !== content);
+  return otherContents
+    .filter((existing: string) => {
+      const words = content
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w: string) => w.length > 4);
+      return words.some((w: string) => existing.toLowerCase().includes(w));
+    })
+    .slice(0, 10);
+}
+
+function recalculateSingleMemory(
+  memory: any,
+  allContents: string[],
+  recalculateNoveltyAndInterference: boolean
+): {
+  recency: number;
+  frequency: number;
+  importance: number;
+  utility: number;
+  novelty: number;
+  confidence: number;
+  interference: number;
+  strength: number;
+} {
+  const content = memory.content || "";
+  const createdAt = Number(memory.created_at);
+  const accessCount = Number(memory.access_count || 0);
+  const lastAccessed = memory.last_accessed ? Number(memory.last_accessed) : null;
+  const type = memory.type || undefined;
+
+  const metadata = parseMemoryMetadata(memory);
+  const source = metadata.source || undefined;
+
+  const recency = calculateRecency(createdAt, CONFIG.memoryScoring.recencyHalfLifeDays);
+  const frequency = calculateFrequency(accessCount);
+  const utility = calculateUtility(lastAccessed, CONFIG.memoryScoring.utilityHalfLifeDays);
+
+  let importance = Number(memory.importance_score ?? 0.5);
+  let novelty = Number(memory.novelty_score ?? 0.5);
+  let confidence = Number(memory.confidence_score ?? 0.7);
+  let interference = Number(memory.interference_penalty ?? 0.0);
+
+  if (recalculateNoveltyAndInterference) {
+    importance = calculateImportance(content, type);
+    novelty = calculateNovelty(
+      content,
+      allContents.filter((c) => c !== content)
+    );
+    confidence = calculateConfidence(source, type);
+    interference = calculateInterference(content, findConflictingMemories(content, allContents));
+  }
+
+  const strength = computeStrength({
+    recency,
+    frequency,
+    importance,
+    utility,
+    novelty,
+    confidence,
+    interference,
+  });
+
+  return { recency, frequency, importance, utility, novelty, confidence, interference, strength };
+}
+
 export function recalculateAllScores(recalculateNoveltyAndInterference: boolean = false): {
   updated: number;
   shards: number;
@@ -40,8 +119,6 @@ export function recalculateAllScores(recalculateNoveltyAndInterference: boolean 
       let inTxn = false;
       try {
         db = connectionManager.getConnection(shard.dbPath);
-
-        // Get all memories in this shard
         const memories = db
           .prepare(
             `SELECT id, content, type, created_at, access_count, last_accessed,
@@ -54,10 +131,7 @@ export function recalculateAllScores(recalculateNoveltyAndInterference: boolean 
 
         if (memories.length === 0) continue;
 
-        // Get all contents for novelty calculation
         const allContents = memories.map((m) => m.content || "");
-
-        // Batch update statement
         const updateStmt = db.prepare(`
           UPDATE memories
           SET recency_score = ?,
@@ -75,77 +149,21 @@ export function recalculateAllScores(recalculateNoveltyAndInterference: boolean 
         inTxn = true;
 
         for (const memory of memories) {
-          const content = memory.content || "";
-          const createdAt = Number(memory.created_at);
-          const accessCount = Number(memory.access_count || 0);
-          const lastAccessed = memory.last_accessed ? Number(memory.last_accessed) : null;
-          const type = memory.type || undefined;
-
-          let metadata: any = {};
-          try {
-            if (memory.metadata) {
-              metadata = JSON.parse(memory.metadata);
-            }
-          } catch {
-            // ignore parse errors
-          }
-
-          const source = metadata.source || undefined;
-
-          // Recalculate dynamic scores
-          const recency = calculateRecency(createdAt, CONFIG.memoryScoring.recencyHalfLifeDays);
-          const frequency = calculateFrequency(accessCount);
-          const utility = calculateUtility(lastAccessed, CONFIG.memoryScoring.utilityHalfLifeDays);
-
-          // Static scores (can optionally recalculate)
-          let importance = Number(memory.importance_score ?? 0.5);
-          let novelty = Number(memory.novelty_score ?? 0.5);
-          let confidence = Number(memory.confidence_score ?? 0.7);
-          let interference = Number(memory.interference_penalty ?? 0.0);
-
-          if (recalculateNoveltyAndInterference) {
-            importance = calculateImportance(content, type);
-            novelty = calculateNovelty(
-              content,
-              allContents.filter((c) => c !== content)
-            );
-            confidence = calculateConfidence(source, type);
-
-            // Find potential conflicts
-            const otherContents = allContents.filter((c) => c !== content);
-            const conflictingMemories = otherContents
-              .filter((existing: string) => {
-                const words = content
-                  .toLowerCase()
-                  .split(/\s+/)
-                  .filter((w: string) => w.length > 4);
-                return words.some((w: string) => existing.toLowerCase().includes(w));
-              })
-              .slice(0, 10);
-
-            interference = calculateInterference(content, conflictingMemories);
-          }
-
-          // Compute final strength
-          const strength = computeStrength({
-            recency,
-            frequency,
-            importance,
-            utility,
-            novelty,
-            confidence,
-            interference,
-          });
+          const scores = recalculateSingleMemory(
+            memory,
+            allContents,
+            recalculateNoveltyAndInterference
+          );
 
           updateStmt.run(
-            recency,
-            frequency,
-            importance,
-            utility,
-            novelty,
-            confidence,
-            interference,
-            strength,
+            scores.recency,
+            scores.frequency,
+            scores.importance,
+            scores.utility,
+            scores.novelty,
+            scores.confidence,
+            scores.interference,
+            scores.strength,
             memory.id
           );
 
