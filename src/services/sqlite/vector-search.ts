@@ -910,7 +910,7 @@ export class VectorSearch {
    * @param memoryId - Memory ID to look up
    * @returns The memory row, or null if not found
    */
-  getMemoryById(db: DatabaseType, memoryId: string): any | null {
+  getMemoryById(db: DatabaseType, memoryId: string): any {
     return this.getStmt(db, "SELECT * FROM memories WHERE id = ?").get(memoryId);
   }
 

@@ -234,7 +234,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
     };
   }
 
-  private extractToolUse(data: AnthropicResponse, expectedToolName: string): any | null {
+  private extractToolUse(data: AnthropicResponse, expectedToolName: string): any {
     if (!data.content || !Array.isArray(data.content)) {
       return null;
     }

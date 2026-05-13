@@ -211,7 +211,7 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
     };
   }
 
-  private extractToolCall(data: ResponsesAPIOutput, expectedToolName: string): any | null {
+  private extractToolCall(data: ResponsesAPIOutput, expectedToolName: string): any {
     if (!data.output || !Array.isArray(data.output)) {
       return null;
     }

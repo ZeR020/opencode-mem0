@@ -282,7 +282,7 @@ export async function handleListMemories(
   page: number = 1,
   pageSize: number = 20,
   includePrompts: boolean = true
-): Promise<ApiResponse<PaginatedResponse<Memory | any>>> {
+): Promise<ApiResponse<PaginatedResponse<Memory>>> {
   try {
     const { safePage, safePageSize } = sanitizeListParams(page, pageSize);
     await embeddingService.warmup();
