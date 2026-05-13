@@ -1,6 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const dbByPath = new Map<string, any>();
+interface MockDatabase {
+  prepare: (sql: string) => {
+    all: (...args: unknown[]) => unknown;
+    get: (...args: unknown[]) => unknown;
+    run: (...args: unknown[]) => { changes?: number };
+  };
+  exec: (sql: string) => void;
+  run: (sql: string, ...args: unknown[]) => { changes?: number };
+  close: () => void;
+}
+
+const dbByPath = new Map<string, MockDatabase>();
 
 vi.mock("../src/services/logger.js", () => ({
   log: () => {},

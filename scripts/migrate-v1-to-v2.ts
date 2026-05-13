@@ -393,7 +393,7 @@ const printerr = (msg: string): void => process.stderr.write(`${msg}\n`);
 // CLI entry point
 const storagePath = process.argv[2] || join(homedir(), ".opencode-mem", "data");
 try {
-  const result = await migrate(storagePath);
+  const result = migrate(storagePath);
   print("\n=== Migration Results ===");
   print(`Databases processed:     ${result.databases}`);
   print(`Columns added:           ${result.columnsAdded}`);
@@ -407,6 +407,6 @@ try {
   }
   print("\nMigration completed successfully!");
 } catch (error) {
-  printerr("Migration failed:", error);
+  printerr(`Migration failed: ${String(error)}`);
   process.exit(1);
 }
