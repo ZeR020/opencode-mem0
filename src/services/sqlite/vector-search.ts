@@ -887,7 +887,7 @@ export class VectorSearch {
    * @returns The memory row, or null if not found
    */
   getMemoryById(db: DatabaseType, memoryId: string): any | null {
-    return this.getStmt(db, "SELECT * FROM memories WHERE id = ?").get(memoryId) as any;
+    return this.getStmt(db, "SELECT * FROM memories WHERE id = ?").get(memoryId);
   }
 
   /**
@@ -939,7 +939,7 @@ export class VectorSearch {
     const result = this.getStmt(
       db,
       "SELECT COUNT(*) as count FROM memories WHERE container_tag = ? AND is_deprecated = 0"
-    ).get(containerTag) as any;
+    ).get(containerTag);
     return result.count;
   }
 

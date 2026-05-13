@@ -75,7 +75,7 @@ export class ShardManager {
   }
 
   getActiveShard(scope: "user" | "project", scopeHash: string): ShardInfo | null {
-    const row = this.activeShardStmt.get(scope, scopeHash) as any;
+    const row = this.activeShardStmt.get(scope, scopeHash);
     if (!row) return null;
 
     return {

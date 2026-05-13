@@ -143,7 +143,7 @@ function mergeRequestHeaders(
         }
       }
     } else {
-      for (const [key, value] of Object.entries(init.headers as Record<string, string>)) {
+      for (const [key, value] of Object.entries(init.headers)) {
         if (typeof value !== "undefined") requestHeaders.set(key, String(value));
       }
     }

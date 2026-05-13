@@ -150,7 +150,7 @@ export class AISessionManager {
   }
 
   getSession(sessionId: string, provider: AIProviderType): AISession | null {
-    const row = this.getSessionStmt.get(sessionId, provider, Date.now()) as any;
+    const row = this.getSessionStmt.get(sessionId, provider, Date.now());
     if (!row) return null;
     return this.rowToSession(row);
   }
@@ -229,7 +229,7 @@ export class AISessionManager {
 
   getLastSequence(aiSessionId: string): number {
     // skipcq: JS-0323 — SQLite raw row, strict typing would require schema duplication
-    const row = this.getLastSequenceStmt.get(aiSessionId) as any;
+    const row = this.getLastSequenceStmt.get(aiSessionId);
     return row?.max_seq ?? -1;
   }
 
