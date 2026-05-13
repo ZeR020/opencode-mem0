@@ -233,252 +233,18 @@ export class WebServer {
     const method = req.method;
 
     try {
-      // Enforce API key auth whenever an apiKey is configured
       const requiresAuth = Boolean(this.config.apiKey);
-
       const remoteIp = this.server?.requestIP(req)?.address;
       const isLocal = remoteIp ? LOCAL_HOSTS.has(remoteIp) : false;
 
-      if (requiresAuth) {
-        const apiKey = req.headers.get("x-opencode-mem-key");
-        if (apiKey !== this.config.apiKey) {
-          return this.jsonResponse({ success: false, error: "Unauthorized" }, 401);
-        }
+      if (requiresAuth && req.headers.get("x-opencode-mem-key") !== this.config.apiKey) {
+        return this.jsonResponse({ success: false, error: "Unauthorized" }, 401);
       }
 
-      if (path === "/" || path === "/index.html") {
-        return this.serveStaticFile("index.html", "text/html");
-      }
+      const staticResponse = this._tryServeStatic(path);
+      if (staticResponse) return staticResponse;
 
-      if (path === "/styles.css") {
-        return this.serveStaticFile("styles.css", "text/css");
-      }
-
-      if (path === "/app.js") {
-        return this.serveStaticFile("app.js", "application/javascript");
-      }
-
-      if (path === "/i18n.js") {
-        return this.serveStaticFile("i18n.js", "application/javascript");
-      }
-
-      if (path === "/favicon.ico") {
-        return this.serveStaticFile("favicon.ico", "image/x-icon");
-      }
-
-      if (path === "/api/tags" && method === "GET") {
-        const result = await handleListTags();
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/memories" && method === "GET") {
-        const tag = url.searchParams.get("tag") || undefined;
-        const rawPage = parseInt(url.searchParams.get("page") || "1");
-        const rawPageSize = parseInt(url.searchParams.get("pageSize") || "20");
-        const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
-        const pageSize =
-          Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
-        const includePrompts = url.searchParams.get("includePrompts") !== "false";
-        const result = await handleListMemories(tag, page, pageSize, includePrompts);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/memories" && method === "POST") {
-        const body = (await req.json()) as any;
-        const result = await handleAddMemory(body);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path.startsWith("/api/memories/") && method === "DELETE") {
-        const parts = path.split("/");
-        const id = parts[3];
-        if (!id || id === "bulk-delete") {
-          return this.jsonResponse({ success: false, error: "Invalid ID" });
-        }
-        const cascade = url.searchParams.get("cascade") === "true";
-        const result = await handleDeleteMemory(id, cascade);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path.startsWith("/api/memories/") && method === "PUT") {
-        const putParts = path.split("/");
-        if (putParts.length !== 4 || !putParts[3]) {
-          return this.jsonResponse({ success: false, error: "Invalid ID" });
-        }
-        const id = putParts[3];
-        const body = (await req.json()) as any;
-        const result = await handleUpdateMemory(id, body);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/memories/bulk-delete" && method === "POST") {
-        const body = (await req.json()) as any;
-        const cascade = body.cascade !== false;
-        const result = await handleBulkDelete(body.ids || [], cascade);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/search" && method === "GET") {
-        const query = url.searchParams.get("q");
-        const tag = url.searchParams.get("tag") || undefined;
-        const rawPage = parseInt(url.searchParams.get("page") || "1");
-        const rawPageSize = parseInt(url.searchParams.get("pageSize") || "20");
-        const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
-        const pageSize =
-          Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
-
-        if (!query) {
-          return this.jsonResponse({ success: false, error: "query parameter required" });
-        }
-
-        const result = await handleSearch(query, tag, page, pageSize);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/stats" && method === "GET") {
-        const result = handleStats();
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/embedding-cache" && method === "GET") {
-        const result = handleEmbeddingCacheStats();
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/conflicts" && method === "GET") {
-        const resolved = url.searchParams.get("resolved") === "true";
-        const limit = parseInt(url.searchParams.get("limit") || "100");
-        const result = handleListConflicts(resolved, limit);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/conflicts/stats" && method === "GET") {
-        const result = handleConflictStats();
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path.startsWith("/api/conflicts/") && method === "POST") {
-        const parts = path.split("/");
-        const conflictId = parts[3];
-        if (!conflictId || conflictId === "stats") {
-          return this.jsonResponse({ success: false, error: "Invalid conflict ID" });
-        }
-        const body = (await req.json().catch(() => ({}))) as any;
-        const result = await handleResolveConflict(conflictId, body.strategy, body.mergedContent);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (/^\/api\/memories\/[^/]+\/pin$/.exec(path) && method === "POST") {
-        const id = path.split("/")[3];
-        if (!id) {
-          return this.jsonResponse({ success: false, error: "Invalid ID" });
-        }
-        const result = handlePinMemory(id);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (/^\/api\/memories\/[^/]+\/unpin$/.exec(path) && method === "POST") {
-        const id = path.split("/")[3];
-        if (!id) {
-          return this.jsonResponse({ success: false, error: "Invalid ID" });
-        }
-        const result = handleUnpinMemory(id);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/cleanup" && method === "POST") {
-        const result = await handleRunCleanup();
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/deduplicate" && method === "POST") {
-        const result = await handleRunDeduplication();
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/migration/detect" && method === "GET") {
-        const result = await handleDetectMigration();
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/migration/tags/detect" && method === "GET") {
-        const result = handleDetectTagMigration();
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/migration/tags/run-batch" && method === "POST") {
-        const body = (await req.json()) as any;
-        const batchSize = body?.batchSize || 5;
-        const result = await handleRunTagMigrationBatch(batchSize);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/migration/tags/progress" && method === "GET") {
-        const result = handleGetTagMigrationProgress();
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/migration/run" && method === "POST") {
-        const body = (await req.json()) as any;
-        const strategy = body.strategy || "fresh-start";
-        if (strategy !== "fresh-start" && strategy !== "re-embed") {
-          return this.jsonResponse({ success: false, error: "Invalid strategy" });
-        }
-        const result = await handleRunMigration(strategy);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path.startsWith("/api/prompts/") && method === "DELETE") {
-        const parts = path.split("/");
-        const id = parts[3];
-        if (!id || id === "bulk-delete") {
-          return this.jsonResponse({ success: false, error: "Invalid ID" });
-        }
-        const cascade = url.searchParams.get("cascade") === "true";
-        const result = await handleDeletePrompt(id, cascade);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/prompts/bulk-delete" && method === "POST") {
-        const body = (await req.json()) as any;
-        const cascade = body.cascade !== false;
-        const result = await handleBulkDeletePrompts(body.ids || [], cascade);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/user-profile" && method === "GET") {
-        const userId = url.searchParams.get("userId") || undefined;
-        const result = await handleGetUserProfile(userId);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/user-profile/changelog" && method === "GET") {
-        const profileId = url.searchParams.get("profileId");
-        const limit = parseInt(url.searchParams.get("limit") || "5");
-        if (!profileId) {
-          return this.jsonResponse({ success: false, error: "profileId parameter required" });
-        }
-        const result = await handleGetProfileChangelog(profileId, limit);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/user-profile/snapshot" && method === "GET") {
-        const changelogId = url.searchParams.get("changelogId") ?? url.searchParams.get("chlogId");
-        if (!changelogId) {
-          return this.jsonResponse({ success: false, error: "changelogId parameter required" });
-        }
-        const result = await handleGetProfileSnapshot(changelogId);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      if (path === "/api/user-profile/refresh" && method === "POST") {
-        const body = (await req.json().catch(() => ({}))) as any;
-        const userId = body.userId || undefined;
-        const result = await handleRefreshProfile(userId);
-        return this.jsonResponse(result, 200, !isLocal);
-      }
-
-      return new Response("Not Found", { status: 404 });
+      return await this._dispatchApiRoute(req, url, path, method, isLocal);
     } catch (error) {
       log("Web server request error", {
         path: url.pathname,
@@ -493,6 +259,315 @@ export class WebServer {
         500
       );
     }
+  }
+
+  private _tryServeStatic(path: string): Response | null {
+    const staticMap: Record<string, [string, string]> = {
+      "/": ["index.html", "text/html"],
+      "/index.html": ["index.html", "text/html"],
+      "/styles.css": ["styles.css", "text/css"],
+      "/app.js": ["app.js", "application/javascript"],
+      "/i18n.js": ["i18n.js", "application/javascript"],
+      "/favicon.ico": ["favicon.ico", "image/x-icon"],
+    };
+    const entry = staticMap[path];
+    if (entry) {
+      return this.serveStaticFile(entry[0], entry[1]);
+    }
+    return null;
+  }
+
+  private async _dispatchApiRoute(
+    req: Request,
+    url: URL,
+    path: string,
+    method: string,
+    isLocal: boolean
+  ): Promise<Response> {
+    const route = `${method} ${path}`;
+
+    switch (route) {
+      case "GET /api/tags":
+        return await this._apiListTags(isLocal);
+      case "GET /api/memories":
+        return await this._apiListMemories(url, isLocal);
+      case "POST /api/memories":
+        return await this._apiAddMemory(req, isLocal);
+      case "POST /api/memories/bulk-delete":
+        return await this._apiBulkDeleteMemories(req, isLocal);
+      case "GET /api/search":
+        return await this._apiSearch(url, isLocal);
+      case "GET /api/stats":
+        return await this._apiStats(isLocal);
+      case "GET /api/embedding-cache":
+        return await this._apiEmbeddingCacheStats(isLocal);
+      case "GET /api/conflicts":
+        return await this._apiListConflicts(url, isLocal);
+      case "GET /api/conflicts/stats":
+        return await this._apiConflictStats(isLocal);
+      case "POST /api/cleanup":
+        return await this._apiCleanup(isLocal);
+      case "POST /api/deduplicate":
+        return await this._apiDeduplicate(isLocal);
+      case "GET /api/migration/detect":
+        return await this._apiDetectMigration(isLocal);
+      case "GET /api/migration/tags/detect":
+        return await this._apiDetectTagMigration(isLocal);
+      case "POST /api/migration/tags/run-batch":
+        return await this._apiRunTagMigration(req, isLocal);
+      case "GET /api/migration/tags/progress":
+        return await this._apiTagMigrationProgress(isLocal);
+      case "POST /api/migration/run":
+        return await this._apiRunMigration(req, isLocal);
+      case "GET /api/user-profile":
+        return await this._apiGetUserProfile(url, isLocal);
+      case "GET /api/user-profile/changelog":
+        return await this._apiGetProfileChangelog(url, isLocal);
+      case "GET /api/user-profile/snapshot":
+        return await this._apiGetProfileSnapshot(url, isLocal);
+      case "POST /api/user-profile/refresh":
+        return await this._apiRefreshProfile(req, isLocal);
+      case "POST /api/prompts/bulk-delete":
+        return await this._apiBulkDeletePrompts(req, isLocal);
+    }
+
+    // Parameterized routes
+    if (method === "DELETE" && path.startsWith("/api/memories/")) {
+      return await this._apiDeleteMemory(url, path, isLocal);
+    }
+    if (method === "PUT" && path.startsWith("/api/memories/")) {
+      return await this._apiUpdateMemory(req, path, isLocal);
+    }
+    if (method === "POST" && /^\/api\/memories\/[^/]+\/pin$/.test(path)) {
+      return await this._apiPinMemory(path, isLocal);
+    }
+    if (method === "POST" && /^\/api\/memories\/[^/]+\/unpin$/.test(path)) {
+      return await this._apiUnpinMemory(path, isLocal);
+    }
+    if (method === "POST" && path.startsWith("/api/conflicts/")) {
+      return await this._apiResolveConflict(req, path, isLocal);
+    }
+    if (method === "DELETE" && path.startsWith("/api/prompts/")) {
+      return await this._apiDeletePrompt(url, path, isLocal);
+    }
+
+    return new Response("Not Found", { status: 404 });
+  }
+
+  private async _apiListTags(isLocal: boolean): Promise<Response> {
+    const result = await handleListTags();
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiListMemories(url: URL, isLocal: boolean): Promise<Response> {
+    const tag = url.searchParams.get("tag") || undefined;
+    const rawPage = parseInt(url.searchParams.get("page") || "1");
+    const rawPageSize = parseInt(url.searchParams.get("pageSize") || "20");
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
+    const pageSize =
+      Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
+    const includePrompts = url.searchParams.get("includePrompts") !== "false";
+    const result = await handleListMemories(tag, page, pageSize, includePrompts);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiAddMemory(req: Request, isLocal: boolean): Promise<Response> {
+    const body = (await req.json()) as any;
+    const result = await handleAddMemory(body);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiDeleteMemory(url: URL, path: string, isLocal: boolean): Promise<Response> {
+    const parts = path.split("/");
+    const id = parts[3];
+    if (!id || id === "bulk-delete") {
+      return this.jsonResponse({ success: false, error: "Invalid ID" });
+    }
+    const cascade = url.searchParams.get("cascade") === "true";
+    const result = await handleDeleteMemory(id, cascade);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiUpdateMemory(req: Request, path: string, isLocal: boolean): Promise<Response> {
+    const putParts = path.split("/");
+    if (putParts.length !== 4 || !putParts[3]) {
+      return this.jsonResponse({ success: false, error: "Invalid ID" });
+    }
+    const id = putParts[3];
+    const body = (await req.json()) as any;
+    const result = await handleUpdateMemory(id, body);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiBulkDeleteMemories(req: Request, isLocal: boolean): Promise<Response> {
+    const body = (await req.json()) as any;
+    const cascade = body.cascade !== false;
+    const result = await handleBulkDelete(body.ids || [], cascade);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiSearch(url: URL, isLocal: boolean): Promise<Response> {
+    const query = url.searchParams.get("q");
+    const tag = url.searchParams.get("tag") || undefined;
+    const rawPage = parseInt(url.searchParams.get("page") || "1");
+    const rawPageSize = parseInt(url.searchParams.get("pageSize") || "20");
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
+    const pageSize =
+      Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
+
+    if (!query) {
+      return this.jsonResponse({ success: false, error: "query parameter required" });
+    }
+
+    const result = await handleSearch(query, tag, page, pageSize);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiStats(isLocal: boolean): Promise<Response> {
+    const result = handleStats();
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiEmbeddingCacheStats(isLocal: boolean): Promise<Response> {
+    const result = handleEmbeddingCacheStats();
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiListConflicts(url: URL, isLocal: boolean): Promise<Response> {
+    const resolved = url.searchParams.get("resolved") === "true";
+    const limit = parseInt(url.searchParams.get("limit") || "100");
+    const result = handleListConflicts(resolved, limit);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiConflictStats(isLocal: boolean): Promise<Response> {
+    const result = handleConflictStats();
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiResolveConflict(
+    req: Request,
+    path: string,
+    isLocal: boolean
+  ): Promise<Response> {
+    const parts = path.split("/");
+    const conflictId = parts[3];
+    if (!conflictId || conflictId === "stats") {
+      return this.jsonResponse({ success: false, error: "Invalid conflict ID" });
+    }
+    const body = (await req.json().catch(() => ({}))) as any;
+    const result = await handleResolveConflict(conflictId, body.strategy, body.mergedContent);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiPinMemory(path: string, isLocal: boolean): Promise<Response> {
+    const id = path.split("/")[3];
+    if (!id) {
+      return this.jsonResponse({ success: false, error: "Invalid ID" });
+    }
+    const result = handlePinMemory(id);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiUnpinMemory(path: string, isLocal: boolean): Promise<Response> {
+    const id = path.split("/")[3];
+    if (!id) {
+      return this.jsonResponse({ success: false, error: "Invalid ID" });
+    }
+    const result = handleUnpinMemory(id);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiCleanup(isLocal: boolean): Promise<Response> {
+    const result = await handleRunCleanup();
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiDeduplicate(isLocal: boolean): Promise<Response> {
+    const result = await handleRunDeduplication();
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiDetectMigration(isLocal: boolean): Promise<Response> {
+    const result = await handleDetectMigration();
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiDetectTagMigration(isLocal: boolean): Promise<Response> {
+    const result = handleDetectTagMigration();
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiRunTagMigration(req: Request, isLocal: boolean): Promise<Response> {
+    const body = (await req.json()) as any;
+    const batchSize = body?.batchSize || 5;
+    const result = await handleRunTagMigrationBatch(batchSize);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiTagMigrationProgress(isLocal: boolean): Promise<Response> {
+    const result = handleGetTagMigrationProgress();
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiRunMigration(req: Request, isLocal: boolean): Promise<Response> {
+    const body = (await req.json()) as any;
+    const strategy = body.strategy || "fresh-start";
+    if (strategy !== "fresh-start" && strategy !== "re-embed") {
+      return this.jsonResponse({ success: false, error: "Invalid strategy" });
+    }
+    const result = await handleRunMigration(strategy);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiDeletePrompt(url: URL, path: string, isLocal: boolean): Promise<Response> {
+    const parts = path.split("/");
+    const id = parts[3];
+    if (!id || id === "bulk-delete") {
+      return this.jsonResponse({ success: false, error: "Invalid ID" });
+    }
+    const cascade = url.searchParams.get("cascade") === "true";
+    const result = await handleDeletePrompt(id, cascade);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiBulkDeletePrompts(req: Request, isLocal: boolean): Promise<Response> {
+    const body = (await req.json()) as any;
+    const cascade = body.cascade !== false;
+    const result = await handleBulkDeletePrompts(body.ids || [], cascade);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiGetUserProfile(url: URL, isLocal: boolean): Promise<Response> {
+    const userId = url.searchParams.get("userId") || undefined;
+    const result = await handleGetUserProfile(userId);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiGetProfileChangelog(url: URL, isLocal: boolean): Promise<Response> {
+    const profileId = url.searchParams.get("profileId");
+    const limit = parseInt(url.searchParams.get("limit") || "5");
+    if (!profileId) {
+      return this.jsonResponse({ success: false, error: "profileId parameter required" });
+    }
+    const result = await handleGetProfileChangelog(profileId, limit);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiGetProfileSnapshot(url: URL, isLocal: boolean): Promise<Response> {
+    const changelogId = url.searchParams.get("changelogId") ?? url.searchParams.get("chlogId");
+    if (!changelogId) {
+      return this.jsonResponse({ success: false, error: "changelogId parameter required" });
+    }
+    const result = await handleGetProfileSnapshot(changelogId);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiRefreshProfile(req: Request, isLocal: boolean): Promise<Response> {
+    const body = (await req.json().catch(() => ({}))) as any;
+    const userId = body.userId || undefined;
+    const result = await handleRefreshProfile(userId);
+    return this.jsonResponse(result, 200, !isLocal);
   }
 
   private serveStaticFile(filename: string, contentType: string): Response {
