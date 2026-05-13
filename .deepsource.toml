@@ -18,11 +18,7 @@ enabled = true
 name = "shell"
 enabled = true
 
-test_patterns = [
-  "tests/**",
-  "**/*.test.ts",
-  "**/*.spec.ts"
-]
+test_patterns = []
 
 exclude_patterns = [
   "examples/**",
