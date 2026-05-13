@@ -637,6 +637,7 @@ export class VectorSearch {
         return [];
       }
       try {
+        // skipcq: await required for try/catch error handling in loop
         return await this.searchInShard(
           shard,
           queryVector,

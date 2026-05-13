@@ -187,6 +187,7 @@ export class EmbeddingService {
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => abortController.abort(), TIMEOUT_MS);
     try {
+      // skipcq: await required for try/catch error handling
       return await withTimeout(
         this.embed(text, abortController.signal),
         TIMEOUT_MS,
