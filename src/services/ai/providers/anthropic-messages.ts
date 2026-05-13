@@ -44,6 +44,85 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
     return true;
   }
 
+  private _buildAnthropicMessages(
+    session: any,
+    systemPrompt: string,
+    userPrompt: string
+  ): AnthropicMessage[] {
+    const storedMessages = this.aiSessionManager.getMessages(session.id);
+    const messages: AnthropicMessage[] = [];
+
+    for (const msg of storedMessages) {
+      if (msg.role === "system") continue;
+      messages.push({
+        role: msg.role as "user" | "assistant",
+        content: msg.contentBlocks || msg.content,
+      });
+    }
+
+    this.aiSessionManager.addMessageAtomic({
+      aiSessionId: session.id,
+      role: "user",
+      content: userPrompt,
+    });
+    messages.push({ role: "user", content: userPrompt });
+
+    return messages;
+  }
+
+  private _handleAnthropicResponse(
+    data: AnthropicResponse,
+    session: any,
+    messages: AnthropicMessage[],
+    toolSchema: ChatCompletionTool,
+    iterations: number
+  ): ToolCallResult | null {
+    this.aiSessionManager.addMessageAtomic({
+      aiSessionId: session.id,
+      role: "assistant",
+      content: JSON.stringify(data.content),
+      contentBlocks: data.content,
+    });
+
+    messages.push({ role: "assistant", content: data.content });
+
+    const toolUse = this.extractToolUse(data, toolSchema.function.name);
+    if (!toolUse) return null;
+
+    try {
+      const result = UserProfileValidator.validate(toolUse);
+      if (!result.valid) {
+        throw new Error(result.errors.join(", "));
+      }
+      return { success: true, data: result.data, iterations };
+    } catch (validationError) {
+      const errorStack = validationError instanceof Error ? validationError.stack : undefined;
+      log("Anthropic tool response validation failed", {
+        error: String(validationError),
+        stack: errorStack,
+        errorType:
+          validationError instanceof Error
+            ? validationError.constructor.name
+            : typeof validationError,
+        toolName: toolSchema.function.name,
+        iteration: iterations,
+        rawData: "[REDACTED]",
+      });
+      return { success: false, error: `Validation failed: ${String(validationError)}`, iterations };
+    }
+  }
+
+  private _appendRetryMessage(session: any, messages: AnthropicMessage[]): void {
+    const retryPrompt =
+      "Please use the save_memories tool to extract and save the memories from the conversation as instructed.";
+    this.aiSessionManager.addMessageAtomic({
+      aiSessionId: session.id,
+      role: "user",
+      content: retryPrompt,
+    });
+    messages.push({ role: "user", content: retryPrompt });
+  }
+
   async executeToolCall(
     systemPrompt: string,
     userPrompt: string,
@@ -60,28 +139,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
       });
     }
 
-    const storedMessages = this.aiSessionManager.getMessages(session.id);
-    const messages: AnthropicMessage[] = [];
-
-    for (const msg of storedMessages) {
-      if (msg.role === "system") continue;
-
-      const anthropicMsg: AnthropicMessage = {
-        role: msg.role as "user" | "assistant",
-        content: msg.contentBlocks || msg.content,
-      };
-
-      messages.push(anthropicMsg);
-    }
-
-    this.aiSessionManager.addMessageAtomic({
-      aiSessionId: session.id,
-      role: "user",
-      content: userPrompt,
-    });
-
-    messages.push({ role: "user", content: userPrompt });
-
+    const messages = this._buildAnthropicMessages(session, systemPrompt, userPrompt);
     let iterations = 0;
     const maxIterations = this.config.maxIterations ?? 5;
     const iterationTimeout = this.config.iterationTimeout ?? 30000;
@@ -138,64 +196,17 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
         }
 
         const data = (await response.json()) as AnthropicResponse;
-
-        this.aiSessionManager.addMessageAtomic({
-          aiSessionId: session.id,
-          role: "assistant",
-          content: JSON.stringify(data.content),
-          contentBlocks: data.content,
-        });
-
-        messages.push({
-          role: "assistant",
-          content: data.content,
-        });
-
-        const toolUse = this.extractToolUse(data, toolSchema.function.name);
-
-        if (toolUse) {
-          try {
-            const result = UserProfileValidator.validate(toolUse);
-            if (!result.valid) {
-              throw new Error(result.errors.join(", "));
-            }
-            return {
-              success: true,
-              data: result.data,
-              iterations,
-            };
-          } catch (validationError) {
-            const errorStack = validationError instanceof Error ? validationError.stack : undefined;
-            log("Anthropic tool response validation failed", {
-              error: String(validationError),
-              stack: errorStack,
-              errorType:
-                validationError instanceof Error
-                  ? validationError.constructor.name
-                  : typeof validationError,
-              toolName: toolSchema.function.name,
-              iteration: iterations,
-              rawData: "[REDACTED]",
-            });
-            return {
-              success: false,
-              error: `Validation failed: ${String(validationError)}`,
-              iterations,
-            };
-          }
-        }
+        const result = this._handleAnthropicResponse(
+          data,
+          session,
+          messages,
+          toolSchema,
+          iterations
+        );
+        if (result) return result;
 
         if (data.stop_reason === "end_turn") {
-          const retryPrompt =
-            "Please use the save_memories tool to extract and save the memories from the conversation as instructed.";
-
-          this.aiSessionManager.addMessageAtomic({
-            aiSessionId: session.id,
-            role: "user",
-            content: retryPrompt,
-          });
-
-          messages.push({ role: "user", content: retryPrompt });
+          this._appendRetryMessage(session, messages);
         } else {
           break;
         }

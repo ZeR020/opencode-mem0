@@ -38,6 +38,74 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
     return true;
   }
 
+  private _buildResponsesRequestBody(
+    currentPrompt: string,
+    conversationId: string | undefined,
+    systemPrompt: string,
+    tool: any
+  ): any {
+    const requestBody: any = {
+      model: this.config.model,
+      input: currentPrompt,
+      tools: [tool],
+    };
+
+    if (conversationId) {
+      requestBody.conversation = conversationId;
+    } else {
+      requestBody.instructions = systemPrompt;
+    }
+
+    if (this.config.extraParams) {
+      applySafeExtraParams(requestBody, this.config.extraParams);
+    }
+
+    return requestBody;
+  }
+
+  private _handleResponsesResponse(
+    data: ResponsesAPIOutput,
+    session: any,
+    sessionId: string,
+    toolSchema: ChatCompletionTool,
+    iterations: number,
+    userPrompt: string
+  ): { result: ToolCallResult | null; conversationId: string; retryPrompt: string } {
+    let conversationId = data.conversation || session.conversationId;
+
+    if (iterations === 1) {
+      this.aiSessionManager.addMessageAtomic({
+        aiSessionId: session.id,
+        role: "user",
+        content: userPrompt,
+      });
+    }
+
+    const toolCall = this.extractToolCall(data, toolSchema.function.name);
+
+    if (toolCall) {
+      this.aiSessionManager.updateSession(sessionId, "openai-responses", {
+        conversationId,
+      });
+
+      return {
+        result: {
+          success: true,
+          data: this.validateResponse(toolCall),
+          iterations,
+        },
+        conversationId,
+        retryPrompt: "",
+      };
+    }
+
+    return {
+      result: null,
+      conversationId,
+      retryPrompt: this.buildRetryPrompt(data),
+    };
+  }
+
   async executeToolCall(
     systemPrompt: string,
     userPrompt: string,
@@ -67,22 +135,12 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
 
       try {
         const tool = ToolSchemaConverter.toResponsesAPI(toolSchema);
-
-        const requestBody: any = {
-          model: this.config.model,
-          input: currentPrompt,
-          tools: [tool],
-        };
-
-        if (conversationId) {
-          requestBody.conversation = conversationId;
-        } else {
-          requestBody.instructions = systemPrompt;
-        }
-
-        if (this.config.extraParams) {
-          applySafeExtraParams(requestBody, this.config.extraParams);
-        }
+        const requestBody = this._buildResponsesRequestBody(
+          currentPrompt,
+          conversationId,
+          systemPrompt,
+          tool
+        );
 
         const response = await fetch(`${this.config.apiUrl}/responses`, {
           method: "POST",
@@ -113,32 +171,22 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
         }
 
         const data = (await response.json()) as ResponsesAPIOutput;
+        const {
+          result,
+          conversationId: nextConversationId,
+          retryPrompt,
+        } = this._handleResponsesResponse(
+          data,
+          session,
+          sessionId,
+          toolSchema,
+          iterations,
+          userPrompt
+        );
 
-        conversationId = data.conversation || conversationId;
-
-        if (iterations === 1) {
-          this.aiSessionManager.addMessageAtomic({
-            aiSessionId: session.id,
-            role: "user",
-            content: userPrompt,
-          });
-        }
-
-        const toolCall = this.extractToolCall(data, toolSchema.function.name);
-
-        if (toolCall) {
-          this.aiSessionManager.updateSession(sessionId, "openai-responses", {
-            conversationId,
-          });
-
-          return {
-            success: true,
-            data: this.validateResponse(toolCall),
-            iterations,
-          };
-        }
-
-        currentPrompt = this.buildRetryPrompt(data);
+        if (result) return result;
+        conversationId = nextConversationId;
+        currentPrompt = retryPrompt;
       } catch (error) {
         clearTimeout(timeout);
         if (error instanceof Error && error.name === "AbortError") {

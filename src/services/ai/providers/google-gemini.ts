@@ -57,32 +57,14 @@ export class GoogleGeminiProvider extends BaseAIProvider {
     });
   }
 
-  async executeToolCall(
-    systemPrompt: string,
+  private _buildGeminiContents(
+    existingMessages: any[],
     userPrompt: string,
-    toolSchema: ChatCompletionTool,
     sessionId: string
-  ): Promise<ToolCallResult> {
-    let session = this.aiSessionManager.getSession(sessionId, "google-gemini");
-
-    if (!session) {
-      session = this.aiSessionManager.createSession({
-        provider: "google-gemini",
-        sessionId,
-      });
-    }
-
-    const existingMessages = this.aiSessionManager.getMessages(session.id);
+  ): any[] {
     const contents: any[] = [];
-
-    // System instruction is separate in Gemini API
-    const geminiSystemInstruction = {
-      parts: [{ text: systemPrompt }],
-    };
-
-    // Convert existing messages to Gemini format
     for (const msg of existingMessages) {
-      if (msg.role === "system") continue; // Skip system as it's passed separately
+      if (msg.role === "system") continue;
 
       const role = msg.role === "assistant" ? "model" : "user";
       const parts: any[] = [];
@@ -138,29 +120,139 @@ export class GoogleGeminiProvider extends BaseAIProvider {
 
     if (contents.length === 0 || contents[contents.length - 1].role !== "user") {
       this.aiSessionManager.addMessageAtomic({
-        aiSessionId: session.id,
+        aiSessionId: sessionId,
         role: "user",
         content: userPrompt,
       });
       contents.push({ role: "user", parts: [{ text: userPrompt }] });
     }
 
+    return contents;
+  }
+
+  private _buildGeminiRequestBody(
+    contents: any[],
+    systemPrompt: string,
+    toolSchema: ChatCompletionTool
+  ): any {
+    return {
+      contents,
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      tools: [
+        {
+          functionDeclarations: [
+            {
+              name: toolSchema.function.name,
+              description: toolSchema.function.description,
+              parameters: toolSchema.function.parameters,
+            },
+          ],
+        },
+      ],
+      toolConfig: {
+        functionCallingConfig: {
+          mode: "ANY",
+          allowedFunctionNames: [toolSchema.function.name],
+        },
+      },
+      generationConfig: {
+        ...(this.config.memoryTemperature !== false
+          ? { temperature: this.config.memoryTemperature ?? 0.3 }
+          : {}),
+      },
+    };
+  }
+
+  private _handleGeminiResponse(
+    data: any,
+    session: any,
+    contents: any[],
+    toolSchema: ChatCompletionTool,
+    iterations: number
+  ): ToolCallResult | null {
+    const candidate = data.candidates?.[0];
+    if (!candidate || !candidate.content) {
+      return { success: false, error: "Invalid Gemini API response format", iterations };
+    }
+
+    const modelMsg = candidate.content;
+    const assistantMsg: any = {
+      aiSessionId: session.id,
+      role: "assistant",
+      content: "",
+      toolCalls: [],
+    };
+
+    for (const part of modelMsg.parts) {
+      if (part.text) assistantMsg.content += part.text;
+      if (part.functionCall) {
+        assistantMsg.toolCalls.push({
+          id: `${part.functionCall.name}:${Date.now()}`,
+          type: "function",
+          function: {
+            name: part.functionCall.name,
+            arguments: JSON.stringify(part.functionCall.args),
+          },
+        });
+      }
+    }
+
+    this.aiSessionManager.addMessageAtomic(assistantMsg);
+    contents.push(modelMsg);
+
+    if (assistantMsg.toolCalls.length > 0) {
+      for (const toolCall of assistantMsg.toolCalls) {
+        if (toolCall.function.name === toolSchema.function.name) {
+          try {
+            const parsed = JSON.parse(toolCall.function.arguments);
+            const result = UserProfileValidator.validate(parsed);
+            if (!result.valid) throw new Error(result.errors.join(", "));
+
+            this.addToolResponse(
+              session.id,
+              contents,
+              toolCall.id,
+              JSON.stringify({ success: true })
+            );
+            return { success: true, data: result.data, iterations };
+          } catch (validationError) {
+            const errorMessage = `Validation failed: ${String(validationError)}`;
+            this.addToolResponse(
+              session.id,
+              contents,
+              toolCall.id,
+              JSON.stringify({ success: false, error: errorMessage })
+            );
+            return { success: false, error: errorMessage, iterations };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  async executeToolCall(
+    systemPrompt: string,
+    userPrompt: string,
+    toolSchema: ChatCompletionTool,
+    sessionId: string
+  ): Promise<ToolCallResult> {
+    let session = this.aiSessionManager.getSession(sessionId, "google-gemini");
+
+    if (!session) {
+      session = this.aiSessionManager.createSession({
+        provider: "google-gemini",
+        sessionId,
+      });
+    }
+
+    const existingMessages = this.aiSessionManager.getMessages(session.id);
+    const contents = this._buildGeminiContents(existingMessages, userPrompt, session.id);
+
     let iterations = 0;
     const maxIterations = this.config.maxIterations ?? 5;
     const iterationTimeout = this.config.iterationTimeout ?? 30000;
-
-    // Gemini API expects the tool name as a function declaration
-    const tools = [
-      {
-        functionDeclarations: [
-          {
-            name: toolSchema.function.name,
-            description: toolSchema.function.description,
-            parameters: toolSchema.function.parameters,
-          },
-        ],
-      },
-    ];
 
     while (iterations < maxIterations) {
       iterations++;
@@ -171,23 +263,7 @@ export class GoogleGeminiProvider extends BaseAIProvider {
       try {
         const baseUrl = this.config.apiUrl || "https://generativelanguage.googleapis.com/v1beta";
         const url = `${baseUrl}/models/${this.config.model}:generateContent`;
-
-        const requestBody: any = {
-          contents,
-          systemInstruction: geminiSystemInstruction,
-          tools,
-          toolConfig: {
-            functionCallingConfig: {
-              mode: "ANY", // Force function calling
-              allowedFunctionNames: [toolSchema.function.name],
-            },
-          },
-          generationConfig: {
-            ...(this.config.memoryTemperature !== false
-              ? { temperature: this.config.memoryTemperature ?? 0.3 }
-              : {}),
-          },
-        };
+        const requestBody = this._buildGeminiRequestBody(contents, systemPrompt, toolSchema);
 
         const response = await fetch(url, {
           method: "POST",
@@ -218,70 +294,11 @@ export class GoogleGeminiProvider extends BaseAIProvider {
         }
 
         const data = (await response.json()) as any;
-        const candidate = data.candidates?.[0];
+        const result = this._handleGeminiResponse(data, session, contents, toolSchema, iterations);
+        if (result) return result;
 
-        if (!candidate || !candidate.content) {
-          return { success: false, error: "Invalid Gemini API response format", iterations };
-        }
-
-        const modelMsg = candidate.content;
-        // Map Gemini response back to our internal message format
-        const assistantMsg: any = {
-          aiSessionId: session.id,
-          role: "assistant",
-          content: "",
-          toolCalls: [],
-        };
-
-        for (const part of modelMsg.parts) {
-          if (part.text) assistantMsg.content += part.text;
-          if (part.functionCall) {
-            assistantMsg.toolCalls.push({
-              id: `${part.functionCall.name}:${Date.now()}`,
-              type: "function",
-              function: {
-                name: part.functionCall.name,
-                arguments: JSON.stringify(part.functionCall.args),
-              },
-            });
-          }
-        }
-
-        const _assistantSequence = this.aiSessionManager.addMessageAtomic(assistantMsg);
-        contents.push(modelMsg);
-
-        if (assistantMsg.toolCalls.length > 0) {
-          for (const toolCall of assistantMsg.toolCalls) {
-            if (toolCall.function.name === toolSchema.function.name) {
-              try {
-                const parsed = JSON.parse(toolCall.function.arguments);
-                const result = UserProfileValidator.validate(parsed);
-                if (!result.valid) throw new Error(result.errors.join(", "));
-
-                this.addToolResponse(
-                  session.id,
-                  contents,
-                  toolCall.id,
-                  JSON.stringify({ success: true })
-                );
-                return { success: true, data: result.data, iterations };
-              } catch (validationError) {
-                const errorMessage = `Validation failed: ${String(validationError)}`;
-                this.addToolResponse(
-                  session.id,
-                  contents,
-                  toolCall.id,
-                  JSON.stringify({ success: false, error: errorMessage })
-                );
-                return { success: false, error: errorMessage, iterations };
-              }
-            }
-          }
-        }
-
-        // Retry if no tool call was made
         const retryPrompt = "Please use the save_memories tool as instructed.";
-        const _retrySequence = this.aiSessionManager.addMessageAtomic({
+        this.aiSessionManager.addMessageAtomic({
           aiSessionId: session.id,
           role: "user",
           content: retryPrompt,

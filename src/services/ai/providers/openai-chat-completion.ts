@@ -108,34 +108,51 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     });
   }
 
+  private _consumeToolCallSequence(
+    messages: AIMessage[],
+    startIndex: number
+  ): { complete: boolean; nextIndex: number; consumedMessages: AIMessage[] } {
+    const msg = messages[startIndex];
+    if (!msg || msg.role !== "assistant" || !msg.toolCalls) {
+      return { complete: false, nextIndex: startIndex, consumedMessages: [] };
+    }
+
+    const toolCallIds = new Set(msg.toolCalls.map((tc) => tc.id));
+    const consumedMessages: AIMessage[] = [msg];
+    let j = startIndex + 1;
+
+    while (j < messages.length && messages[j]?.role === "tool") {
+      const toolMessage = messages[j];
+      if (toolMessage?.toolCallId && toolCallIds.has(toolMessage.toolCallId)) {
+        consumedMessages.push(toolMessage);
+        toolCallIds.delete(toolMessage.toolCallId);
+      }
+      j++;
+    }
+
+    if (toolCallIds.size === 0) {
+      return { complete: true, nextIndex: j, consumedMessages };
+    }
+
+    return { complete: false, nextIndex: startIndex, consumedMessages: [] };
+  }
+
   protected filterIncompleteToolCallSequences(messages: AIMessage[]): AIMessage[] {
     const result: AIMessage[] = [];
     let i = 0;
 
     while (i < messages.length) {
       const msg = messages[i];
-      if (!msg) {
-        break;
-      }
+      if (!msg) break;
 
       if (msg.role === "assistant" && msg.toolCalls && msg.toolCalls.length > 0) {
-        const toolCallIds = new Set(msg.toolCalls.map((tc) => tc.id));
-        const toolResponses: AIMessage[] = [];
-        let j = i + 1;
-
-        while (j < messages.length && messages[j]?.role === "tool") {
-          const toolMessage = messages[j];
-          if (toolMessage?.toolCallId && toolCallIds.has(toolMessage.toolCallId)) {
-            toolResponses.push(toolMessage);
-            toolCallIds.delete(toolMessage.toolCallId);
-          }
-          j++;
-        }
-
-        if (toolCallIds.size === 0) {
-          result.push(msg);
-          toolResponses.forEach((tr) => result.push(tr));
-          i = j;
+        const { complete, nextIndex, consumedMessages } = this._consumeToolCallSequence(
+          messages,
+          i
+        );
+        if (complete) {
+          consumedMessages.forEach((m) => result.push(m));
+          i = nextIndex;
         } else {
           break;
         }
@@ -146,6 +163,205 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     }
 
     return result;
+  }
+
+  private _buildChatMessages(session: any, systemPrompt: string, userPrompt: string): APIMessage[] {
+    const existingMessages = this.aiSessionManager.getMessages(session.id);
+    const validatedMessages = this.filterIncompleteToolCallSequences(existingMessages);
+    const messages: APIMessage[] = [];
+
+    for (const msg of validatedMessages) {
+      const apiMsg: APIMessage = { role: msg.role, content: msg.content };
+      if (msg.toolCalls) apiMsg.tool_calls = msg.toolCalls;
+      if (msg.toolCallId) apiMsg.tool_call_id = msg.toolCallId;
+      messages.push(apiMsg);
+    }
+
+    if (messages.length === 0) {
+      this.aiSessionManager.addMessageAtomic({
+        aiSessionId: session.id,
+        role: "system",
+        content: systemPrompt,
+      });
+      messages.push({ role: "system", content: systemPrompt });
+    }
+
+    this.aiSessionManager.addMessageAtomic({
+      aiSessionId: session.id,
+      role: "user",
+      content: userPrompt,
+    });
+    messages.push({ role: "user", content: userPrompt });
+
+    return messages;
+  }
+
+  private _buildChatRequestBody(toolSchema: ChatCompletionTool): RequestBody {
+    const requestBody: RequestBody = {
+      model: this.config.model,
+      messages: [],
+      tools: [toolSchema],
+      tool_choice: "auto",
+    };
+
+    if (this.config.memoryTemperature !== false) {
+      requestBody.temperature = this.config.memoryTemperature ?? 0.3;
+    }
+
+    if (this.config.extraParams) {
+      applySafeExtraParams(requestBody, this.config.extraParams);
+    }
+
+    return requestBody;
+  }
+
+  private _processChatResponse(
+    response: Response,
+    session: any,
+    messages: APIMessage[],
+    toolSchema: ChatCompletionTool,
+    iterations: number
+  ): Promise<ToolCallResult> {
+    return this._processChatResponseAsync(response, session, messages, toolSchema, iterations);
+  }
+
+  private async _processChatResponseAsync(
+    response: Response,
+    session: any,
+    messages: APIMessage[],
+    toolSchema: ChatCompletionTool,
+    iterations: number
+  ): Promise<ToolCallResult> {
+    const data: unknown = await response.json();
+
+    if (isErrorResponseBody(data)) {
+      log("API returned error in response body", {
+        provider: this.getProviderName(),
+        model: this.config.model,
+        status: data.status,
+        msg: data.msg,
+      });
+      return {
+        success: false,
+        error: `API error: ${data.status} - ${data.msg}`,
+        iterations,
+      };
+    }
+
+    if (!hasNonEmptyChoices(data)) {
+      const choices =
+        typeof data === "object" && data !== null
+          ? (data as { choices?: unknown }).choices
+          : undefined;
+
+      log("Invalid API response format", {
+        provider: this.getProviderName(),
+        model: this.config.model,
+        response: JSON.stringify(data).slice(0, 1000),
+        hasChoices: Array.isArray(choices),
+        choicesLength: Array.isArray(choices) ? choices.length : undefined,
+      });
+      return {
+        success: false,
+        error: "Invalid API response format",
+        iterations,
+      };
+    }
+
+    const choice = data.choices[0];
+    if (!choice) {
+      return { success: false, error: "Invalid API response format", iterations };
+    }
+
+    const assistantMsg: AssistantSessionMessage = {
+      aiSessionId: session.id,
+      role: "assistant",
+      content: choice.message.content ?? "",
+    };
+
+    if (choice.message.tool_calls) {
+      assistantMsg.toolCalls = choice.message.tool_calls;
+    }
+
+    this.aiSessionManager.addMessageAtomic(assistantMsg);
+    messages.push({
+      role: "assistant",
+      content: choice.message.content ?? null,
+      tool_calls: choice.message.tool_calls,
+    });
+
+    if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
+      return this._handleToolCalls(
+        choice.message.tool_calls,
+        session,
+        messages,
+        toolSchema,
+        iterations
+      );
+    }
+
+    return null as any;
+  }
+
+  private _handleToolCalls(
+    toolCalls: any[],
+    session: any,
+    messages: APIMessage[],
+    toolSchema: ChatCompletionTool,
+    iterations: number
+  ): ToolCallResult {
+    for (const toolCall of toolCalls) {
+      const toolCallId = toolCall.id;
+
+      if (toolCall.function.name === toolSchema.function.name) {
+        try {
+          const parsed = JSON.parse(toolCall.function.arguments);
+          const result = UserProfileValidator.validate(parsed);
+          if (!result.valid) {
+            throw new Error(result.errors.join(", "));
+          }
+
+          this.addToolResponse(session.id, messages, toolCallId, JSON.stringify({ success: true }));
+
+          return { success: true, data: result.data, iterations };
+        } catch (validationError) {
+          const errorStack = validationError instanceof Error ? validationError.stack : undefined;
+          log("OpenAI tool response validation failed", {
+            error: String(validationError),
+            stack: errorStack,
+            errorType:
+              validationError instanceof Error
+                ? validationError.constructor.name
+                : typeof validationError,
+            toolName: toolSchema.function.name,
+            iteration: iterations,
+            rawArgumentsSize: toolCall.function.arguments.length,
+          });
+
+          const errorMessage = `Validation failed: ${String(validationError)}`;
+          this.addToolResponse(
+            session.id,
+            messages,
+            toolCallId,
+            JSON.stringify({ success: false, error: errorMessage })
+          );
+
+          return { success: false, error: errorMessage, iterations };
+        }
+      }
+
+      const wrongToolMessage = `Wrong tool called. Please use ${toolSchema.function.name} instead.`;
+      this.addToolResponse(
+        session.id,
+        messages,
+        toolCallId,
+        JSON.stringify({ success: false, error: wrongToolMessage })
+      );
+
+      break;
+    }
+
+    return null as any;
   }
 
   async executeToolCall(
@@ -163,46 +379,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
       });
     }
 
-    const existingMessages = this.aiSessionManager.getMessages(session.id);
-    const messages: APIMessage[] = [];
-
-    const validatedMessages = this.filterIncompleteToolCallSequences(existingMessages);
-
-    for (const msg of validatedMessages) {
-      const apiMsg: APIMessage = {
-        role: msg.role,
-        content: msg.content,
-      };
-
-      if (msg.toolCalls) {
-        apiMsg.tool_calls = msg.toolCalls;
-      }
-
-      if (msg.toolCallId) {
-        apiMsg.tool_call_id = msg.toolCallId;
-      }
-
-      messages.push(apiMsg);
-    }
-
-    if (messages.length === 0) {
-      const _sequence = this.aiSessionManager.addMessageAtomic({
-        aiSessionId: session.id,
-        role: "system",
-        content: systemPrompt,
-      });
-
-      messages.push({ role: "system", content: systemPrompt });
-    }
-
-    const _userSequence = this.aiSessionManager.addMessageAtomic({
-      aiSessionId: session.id,
-      role: "user",
-      content: userPrompt,
-    });
-
-    messages.push({ role: "user", content: userPrompt });
-
+    const messages = this._buildChatMessages(session, systemPrompt, userPrompt);
     let iterations = 0;
     const maxIterations = this.config.maxIterations ?? 5;
     const iterationTimeout = this.config.iterationTimeout ?? 30000;
@@ -214,20 +391,8 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
       const timeout = setTimeout(() => controller.abort(), iterationTimeout);
 
       try {
-        const requestBody: RequestBody = {
-          model: this.config.model,
-          messages,
-          tools: [toolSchema],
-          tool_choice: "auto",
-        };
-
-        if (this.config.memoryTemperature !== false) {
-          requestBody.temperature = this.config.memoryTemperature ?? 0.3;
-        }
-
-        if (this.config.extraParams) {
-          applySafeExtraParams(requestBody, this.config.extraParams);
-        }
+        const requestBody = this._buildChatRequestBody(toolSchema);
+        requestBody.messages = messages;
 
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
@@ -274,133 +439,15 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
           };
         }
 
-        const data: unknown = await response.json();
-
-        if (isErrorResponseBody(data)) {
-          log("API returned error in response body", {
-            provider: this.getProviderName(),
-            model: this.config.model,
-            status: data.status,
-            msg: data.msg,
-          });
-          return {
-            success: false,
-            error: `API error: ${data.status} - ${data.msg}`,
-            iterations,
-          };
-        }
-
-        if (!hasNonEmptyChoices(data)) {
-          const choices =
-            typeof data === "object" && data !== null
-              ? (data as { choices?: unknown }).choices
-              : undefined;
-
-          log("Invalid API response format", {
-            provider: this.getProviderName(),
-            model: this.config.model,
-            response: JSON.stringify(data).slice(0, 1000),
-            hasChoices: Array.isArray(choices),
-            choicesLength: Array.isArray(choices) ? choices.length : undefined,
-          });
-          return {
-            success: false,
-            error: "Invalid API response format",
-            iterations,
-          };
-        }
-
-        const choice = data.choices[0];
-        if (!choice) {
-          return {
-            success: false,
-            error: "Invalid API response format",
-            iterations,
-          };
-        }
-
-        const assistantMsg: AssistantSessionMessage = {
-          aiSessionId: session.id,
-          role: "assistant",
-          content: choice.message.content ?? "",
-        };
-
-        if (choice.message.tool_calls) {
-          assistantMsg.toolCalls = choice.message.tool_calls;
-        }
-
-        this.aiSessionManager.addMessageAtomic(assistantMsg);
-        messages.push({
-          role: "assistant",
-          content: choice.message.content ?? null,
-          tool_calls: choice.message.tool_calls,
-        });
-
-        if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
-          for (const toolCall of choice.message.tool_calls) {
-            const toolCallId = toolCall.id;
-
-            if (toolCall.function.name === toolSchema.function.name) {
-              try {
-                const parsed = JSON.parse(toolCall.function.arguments);
-                const result = UserProfileValidator.validate(parsed);
-                if (!result.valid) {
-                  throw new Error(result.errors.join(", "));
-                }
-
-                this.addToolResponse(
-                  session.id,
-                  messages,
-                  toolCallId,
-                  JSON.stringify({ success: true })
-                );
-
-                return {
-                  success: true,
-                  data: result.data,
-                  iterations,
-                };
-              } catch (validationError) {
-                const errorStack =
-                  validationError instanceof Error ? validationError.stack : undefined;
-                log("OpenAI tool response validation failed", {
-                  error: String(validationError),
-                  stack: errorStack,
-                  errorType:
-                    validationError instanceof Error
-                      ? validationError.constructor.name
-                      : typeof validationError,
-                  toolName: toolSchema.function.name,
-                  iteration: iterations,
-                  rawArgumentsSize: toolCall.function.arguments.length,
-                });
-
-                const errorMessage = `Validation failed: ${String(validationError)}`;
-                this.addToolResponse(
-                  session.id,
-                  messages,
-                  toolCallId,
-                  JSON.stringify({ success: false, error: errorMessage })
-                );
-
-                return {
-                  success: false,
-                  error: errorMessage,
-                  iterations,
-                };
-              }
-            }
-
-            const wrongToolMessage = `Wrong tool called. Please use ${toolSchema.function.name} instead.`;
-            this.addToolResponse(
-              session.id,
-              messages,
-              toolCallId,
-              JSON.stringify({ success: false, error: wrongToolMessage })
-            );
-
-            break;
-          }
+        const result = await this._processChatResponse(
+          response,
+          session,
+          messages,
+          toolSchema,
+          iterations
+        );
+        if (result !== null && result !== undefined) {
+          return result;
         }
 
         const retryPrompt =
