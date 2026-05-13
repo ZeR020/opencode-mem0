@@ -159,7 +159,8 @@ export class WebServer {
           }
         }
       }
-    } catch (_error) {
+    } catch (error) {
+      log("Web server startup error", { error: String(error) });
       this.startHealthCheckLoop();
     }
   }
@@ -495,10 +496,9 @@ export class WebServer {
   }
 
   private serveStaticFile(filename: string, contentType: string): Response {
+    const webDir = join(__dirname, "..", "web");
+    const filePath = join(webDir, filename);
     try {
-      const webDir = join(__dirname, "..", "web");
-      const filePath = join(webDir, filename);
-
       if (contentType.startsWith("image/")) {
         const content = readFileSync(filePath);
         return new Response(content, {
@@ -517,7 +517,8 @@ export class WebServer {
           "Cache-Control": "no-cache",
         },
       });
-    } catch (_error) {
+    } catch (error) {
+      log("Static file serve error", { path: filePath, error: String(error) });
       return new Response("File not found", { status: 404 });
     }
   }

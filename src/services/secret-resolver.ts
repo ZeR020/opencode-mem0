@@ -29,8 +29,11 @@ function checkFilePermissions(filePath: string): void {
         { level: "warn" }
       );
     }
-  } catch (_error) {
-    log(`Warning: Could not check file permissions for ${filePath}`, { level: "warn" });
+  } catch (error) {
+    log(`Warning: Could not check file permissions for ${filePath}`, {
+      level: "warn",
+      error: String(error),
+    });
   }
 }
 
