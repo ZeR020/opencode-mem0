@@ -71,6 +71,7 @@ describe("auto-capture helpers", () => {
   it.skip("returns early when capture is already running", async () => {
     // Skipped: race condition in isCaptureRunning flag makes this test unreliable
     // The finally block in performAutoCapture resets the flag before we can test concurrent calls
+    expect(performAutoCapture).toBeDefined();
   });
 
   it("returns early when no uncaptured prompt", async () => {
