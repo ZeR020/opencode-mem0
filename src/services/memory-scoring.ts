@@ -304,6 +304,12 @@ function scoreType(type: string): number {
   return 0;
 }
 
+const FILE_TOKEN_PATTERN = /(?:^|[\s/\\])[-\w]{1,120}\.[A-Za-z]{2,8}(?=$|[\s,;:;)\]}])/;
+
+function containsFileLikeToken(content: string): boolean {
+  return FILE_TOKEN_PATTERN.test(content.slice(0, 20_000));
+}
+
 export function calculateImportance(content: string, type?: string): number {
   let score = 0.5; // Base score
 
@@ -317,7 +323,7 @@ export function calculateImportance(content: string, type?: string): number {
     score += scoreType(type);
   }
 
-  const hasFilePaths = /[\w-]+\.[a-zA-Z]{2,5}/.test(content);
+  const hasFilePaths = containsFileLikeToken(content);
   if (hasFilePaths) score += 0.05;
 
   const hasSpecificIdentifiers = /\b[A-Z_]+\b/.test(content);

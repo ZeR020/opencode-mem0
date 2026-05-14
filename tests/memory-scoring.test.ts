@@ -80,6 +80,21 @@ describe("memory-scoring", () => {
       const normal = calculateImportance("test", "note");
       expect(critical).toBeGreaterThanOrEqual(normal);
     });
+
+    it("boosts file path content", () => {
+      const base = calculateImportance("hello world");
+      const withPath = calculateImportance("src/services/web-server.ts");
+      expect(withPath).toBeGreaterThan(base);
+    });
+
+    it("does not hang on long strings without file tokens", () => {
+      const longText = "a ".repeat(50_000);
+      const start = performance.now();
+      const score = calculateImportance(longText);
+      const elapsed = performance.now() - start;
+      expect(elapsed).toBeLessThan(50); // Should complete in <50ms
+      expect(score).toBeGreaterThanOrEqual(0.5); // No file-path bonus
+    });
   });
 
   describe("calculateUtility", () => {
