@@ -20,15 +20,22 @@ if (!existsSync(CONFIG_DIR)) {
 
 // Migrate data from old opencode-mem directory if present
 const OLD_DATA_DIR = join(homedir(), ".opencode-mem");
-if (existsSync(OLD_DATA_DIR) && !existsSync(DATA_DIR)) {
+const MIGRATION_SENTINEL = join(DATA_DIR, ".migrated");
+if (existsSync(OLD_DATA_DIR) && !existsSync(MIGRATION_SENTINEL)) {
   try {
+    if (!existsSync(DATA_DIR)) {
+      mkdirSync(DATA_DIR, { recursive: true });
+    }
     cpSync(OLD_DATA_DIR, DATA_DIR, { recursive: true });
+    writeFileSync(MIGRATION_SENTINEL, String(Date.now()));
     log(`
 ✓ Migrated data from ${OLD_DATA_DIR} to ${DATA_DIR}`);
     log("  Your existing memories and settings have been preserved.\n");
   } catch {
     // If migration fails, just create the new directory
-    mkdirSync(DATA_DIR, { recursive: true });
+    if (!existsSync(DATA_DIR)) {
+      mkdirSync(DATA_DIR, { recursive: true });
+    }
   }
 }
 
