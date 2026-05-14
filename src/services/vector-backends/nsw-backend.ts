@@ -219,6 +219,19 @@ export class NSWBackend implements VectorBackend {
     }
   }
 
+  private selectEntryPoint(nodes: NSWNode[], queryVector: Float32Array): NSWNode | undefined {
+    if (nodes.length === 0) return undefined;
+
+    let hash = 2166136261;
+    const limit = Math.min(queryVector.length, 16);
+    for (let i = 0; i < limit; i += 1) {
+      hash ^= Math.trunc(Math.abs(queryVector[i] ?? 0) * 1_000_000);
+      hash = Math.imul(hash, 16777619);
+    }
+
+    return nodes[Math.abs(hash) % nodes.length];
+  }
+
   /**
    * Greedy best-first search for k nearest neighbors.
    *
@@ -235,9 +248,9 @@ export class NSWBackend implements VectorBackend {
   ): Array<{ id: string; distance: number }> {
     if (graph.size === 0) return [];
 
-    // Pick a random entry point
+    // Deterministic entry point derived from query vector (avoids Math.random)
     const nodes = Array.from(graph.values());
-    const entryPoint = nodes[Math.floor(Math.random() * nodes.length)];
+    const entryPoint = this.selectEntryPoint(nodes, queryVector);
     if (!entryPoint) return [];
 
     const visited = new Set<string>();
