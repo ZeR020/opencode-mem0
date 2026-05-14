@@ -14,10 +14,6 @@ enabled = true
 name = "secrets"
 enabled = true
 
-[[analyzers]]
-name = "shell"
-enabled = true
-
 test_patterns = []
 
 exclude_patterns = [
