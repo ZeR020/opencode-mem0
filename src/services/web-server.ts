@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { randomInt } from "node:crypto";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
@@ -135,7 +136,7 @@ export class WebServer {
 
   private async attemptTakeover(): Promise<void> {
     // prevent thundering herd: multiple non-owners racing to bind port
-    const jitterMs = 500 + Math.random() * 1000;
+    const jitterMs = randomInt(500, 1501);
     await new Promise((resolve) => setTimeout(resolve, jitterMs));
 
     if (await this.checkServerAvailable()) {
