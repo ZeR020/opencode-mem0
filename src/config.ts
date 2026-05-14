@@ -939,92 +939,104 @@ function buildDecayConfig(f: OpenCodeMemConfig) {
 
 // skipcq: JS-0067
 function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
-  const f = fileConfig;
-  const d = DEFAULTS;
+  const cfg = fileConfig;
+  const defaults = DEFAULTS;
   return {
-    storagePath: expandPath(coalesce(f.storagePath, d.storagePath)),
-    userEmailOverride: f.userEmailOverride,
-    userNameOverride: f.userNameOverride,
-    embeddingModel: coalesce(f.embeddingModel, d.embeddingModel),
+    storagePath: expandPath(coalesce(cfg.storagePath, defaults.storagePath)),
+    userEmailOverride: cfg.userEmailOverride,
+    userNameOverride: cfg.userNameOverride,
+    embeddingModel: coalesce(cfg.embeddingModel, defaults.embeddingModel),
     embeddingDimensions: coalesce(
-      f.embeddingDimensions,
-      getEmbeddingDimensions(coalesce(f.embeddingModel, d.embeddingModel))
+      cfg.embeddingDimensions,
+      getEmbeddingDimensions(coalesce(cfg.embeddingModel, defaults.embeddingModel))
     ),
-    embeddingApiUrl: f.embeddingApiUrl,
-    embeddingApiKey: f.embeddingApiUrl
-      ? resolveSecretValue(coalesce(f.embeddingApiKey, process.env.OPENAI_API_KEY))
+    embeddingApiUrl: cfg.embeddingApiUrl,
+    embeddingApiKey: cfg.embeddingApiUrl
+      ? resolveSecretValue(coalesce(cfg.embeddingApiKey, process.env.OPENAI_API_KEY))
       : undefined,
-    similarityThreshold: coalesce(f.similarityThreshold, d.similarityThreshold),
-    maxMemories: coalesce(f.maxMemories, d.maxMemories),
-    maxProfileItems: coalesce(f.maxProfileItems, d.maxProfileItems),
-    injectProfile: coalesce(f.injectProfile, d.injectProfile),
-    containerTagPrefix: coalesce(f.containerTagPrefix, d.containerTagPrefix),
-    autoCaptureEnabled: coalesce(f.autoCaptureEnabled, d.autoCaptureEnabled),
-    autoCaptureMaxIterations: coalesce(f.autoCaptureMaxIterations, d.autoCaptureMaxIterations),
-    autoCaptureIterationTimeout: coalesce(
-      f.autoCaptureIterationTimeout,
-      d.autoCaptureIterationTimeout
+    similarityThreshold: coalesce(cfg.similarityThreshold, defaults.similarityThreshold),
+    maxMemories: coalesce(cfg.maxMemories, defaults.maxMemories),
+    maxProfileItems: coalesce(cfg.maxProfileItems, defaults.maxProfileItems),
+    injectProfile: coalesce(cfg.injectProfile, defaults.injectProfile),
+    containerTagPrefix: coalesce(cfg.containerTagPrefix, defaults.containerTagPrefix),
+    autoCaptureEnabled: coalesce(cfg.autoCaptureEnabled, defaults.autoCaptureEnabled),
+    autoCaptureMaxIterations: coalesce(
+      cfg.autoCaptureMaxIterations,
+      defaults.autoCaptureMaxIterations
     ),
-    autoCaptureLanguage: f.autoCaptureLanguage,
-    memoryProvider: coalesce(f.memoryProvider, "openai-chat") as
+    autoCaptureIterationTimeout: coalesce(
+      cfg.autoCaptureIterationTimeout,
+      defaults.autoCaptureIterationTimeout
+    ),
+    autoCaptureLanguage: cfg.autoCaptureLanguage,
+    memoryProvider: coalesce(cfg.memoryProvider, "openai-chat") as
       | "openai-chat"
       | "openai-responses"
       | "anthropic"
       | "google-gemini",
-    memoryModel: f.memoryModel,
-    memoryApiUrl: f.memoryApiUrl,
-    memoryApiKey: resolveSecretValue(f.memoryApiKey),
-    memoryTemperature: f.memoryTemperature,
-    memoryExtraParams: f.memoryExtraParams,
-    opencodeProvider: f.opencodeProvider,
-    opencodeModel: f.opencodeModel,
-    vectorBackend: coalesce(f.vectorBackend, "usearch-first") as
+    memoryModel: cfg.memoryModel,
+    memoryApiUrl: cfg.memoryApiUrl,
+    memoryApiKey: resolveSecretValue(cfg.memoryApiKey),
+    memoryTemperature: cfg.memoryTemperature,
+    memoryExtraParams: cfg.memoryExtraParams,
+    opencodeProvider: cfg.opencodeProvider,
+    opencodeModel: cfg.opencodeModel,
+    vectorBackend: coalesce(cfg.vectorBackend, "usearch-first") as
       | "usearch-first"
       | "usearch"
       | "exact-scan",
-    aiSessionRetentionDays: coalesce(f.aiSessionRetentionDays, d.aiSessionRetentionDays),
-    webServerEnabled: coalesce(f.webServerEnabled, d.webServerEnabled),
-    webServerPort: coalesce(f.webServerPort, d.webServerPort),
-    webServerHost: coalesce(f.webServerHost, d.webServerHost),
-    webServerApiKey: f.webServerApiKey,
-    maxVectorsPerShard: coalesce(f.maxVectorsPerShard, d.maxVectorsPerShard),
-    autoCleanupEnabled: coalesce(f.autoCleanupEnabled, d.autoCleanupEnabled),
-    autoCleanupRetentionDays: coalesce(f.autoCleanupRetentionDays, d.autoCleanupRetentionDays),
-    deduplicationEnabled: coalesce(f.deduplicationEnabled, d.deduplicationEnabled),
+    aiSessionRetentionDays: coalesce(cfg.aiSessionRetentionDays, defaults.aiSessionRetentionDays),
+    webServerEnabled: coalesce(cfg.webServerEnabled, defaults.webServerEnabled),
+    webServerPort: coalesce(cfg.webServerPort, defaults.webServerPort),
+    webServerHost: coalesce(cfg.webServerHost, defaults.webServerHost),
+    webServerApiKey: cfg.webServerApiKey,
+    maxVectorsPerShard: coalesce(cfg.maxVectorsPerShard, defaults.maxVectorsPerShard),
+    autoCleanupEnabled: coalesce(cfg.autoCleanupEnabled, defaults.autoCleanupEnabled),
+    autoCleanupRetentionDays: coalesce(
+      cfg.autoCleanupRetentionDays,
+      defaults.autoCleanupRetentionDays
+    ),
+    deduplicationEnabled: coalesce(cfg.deduplicationEnabled, defaults.deduplicationEnabled),
     deduplicationSimilarityThreshold: coalesce(
-      f.deduplicationSimilarityThreshold,
-      d.deduplicationSimilarityThreshold
+      cfg.deduplicationSimilarityThreshold,
+      defaults.deduplicationSimilarityThreshold
     ),
-    deduplicationIngestEnabled: coalesce(f.deduplicationIngestEnabled, true),
+    deduplicationIngestEnabled: coalesce(cfg.deduplicationIngestEnabled, true),
     userProfileAnalysisInterval: coalesce(
-      f.userProfileAnalysisInterval,
-      d.userProfileAnalysisInterval
+      cfg.userProfileAnalysisInterval,
+      defaults.userProfileAnalysisInterval
     ),
-    userProfileMaxPreferences: coalesce(f.userProfileMaxPreferences, d.userProfileMaxPreferences),
-    userProfileMaxPatterns: coalesce(f.userProfileMaxPatterns, d.userProfileMaxPatterns),
-    userProfileMaxWorkflows: coalesce(f.userProfileMaxWorkflows, d.userProfileMaxWorkflows),
+    userProfileMaxPreferences: coalesce(
+      cfg.userProfileMaxPreferences,
+      defaults.userProfileMaxPreferences
+    ),
+    userProfileMaxPatterns: coalesce(cfg.userProfileMaxPatterns, defaults.userProfileMaxPatterns),
+    userProfileMaxWorkflows: coalesce(
+      cfg.userProfileMaxWorkflows,
+      defaults.userProfileMaxWorkflows
+    ),
     userProfileConfidenceDecayDays: coalesce(
-      f.userProfileConfidenceDecayDays,
-      d.userProfileConfidenceDecayDays
+      cfg.userProfileConfidenceDecayDays,
+      defaults.userProfileConfidenceDecayDays
     ),
     userProfileChangelogRetentionCount: coalesce(
-      f.userProfileChangelogRetentionCount,
-      d.userProfileChangelogRetentionCount
+      cfg.userProfileChangelogRetentionCount,
+      defaults.userProfileChangelogRetentionCount
     ),
-    showAutoCaptureToasts: coalesce(f.showAutoCaptureToasts, d.showAutoCaptureToasts),
-    showUserProfileToasts: coalesce(f.showUserProfileToasts, d.showUserProfileToasts),
-    showErrorToasts: coalesce(f.showErrorToasts, d.showErrorToasts),
-    memory: buildMemoryConfig(f),
-    compaction: buildCompactionConfig(f),
-    transcriptStorage: buildTranscriptConfig(f),
-    memoryScoring: buildScoringConfig(f),
-    memoryLifecycle: buildLifecycleConfig(f),
-    chatMessage: buildChatConfig(f),
-    retrieval: buildRetrievalConfig(f),
-    injection: buildInjectionConfig(f),
-    contextualDecay: buildDecayConfig(f),
-    logLevel: coalesce(f.logLevel, d.logLevel),
-    warmupTimeoutMs: coalesce(f.warmupTimeoutMs, d.warmupTimeoutMs),
+    showAutoCaptureToasts: coalesce(cfg.showAutoCaptureToasts, defaults.showAutoCaptureToasts),
+    showUserProfileToasts: coalesce(cfg.showUserProfileToasts, defaults.showUserProfileToasts),
+    showErrorToasts: coalesce(cfg.showErrorToasts, defaults.showErrorToasts),
+    memory: buildMemoryConfig(cfg),
+    compaction: buildCompactionConfig(cfg),
+    transcriptStorage: buildTranscriptConfig(cfg),
+    memoryScoring: buildScoringConfig(cfg),
+    memoryLifecycle: buildLifecycleConfig(cfg),
+    chatMessage: buildChatConfig(cfg),
+    retrieval: buildRetrievalConfig(cfg),
+    injection: buildInjectionConfig(cfg),
+    contextualDecay: buildDecayConfig(cfg),
+    logLevel: coalesce(cfg.logLevel, defaults.logLevel),
+    warmupTimeoutMs: coalesce(cfg.warmupTimeoutMs, defaults.warmupTimeoutMs),
   };
 }
 

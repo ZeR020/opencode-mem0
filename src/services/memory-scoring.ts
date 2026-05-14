@@ -251,7 +251,7 @@ function hasTypeMatch(types: Set<string>, lowerType: string): boolean {
  * Score = exp(-λ * age_in_days)
  * λ = ln(2) / half_life_days (default half-life = 7 days)
  */
-export function calculateRecency(createdAt: number, halfLifeDays: number = 7): number {
+export function calculateRecency(createdAt: number, halfLifeDays: number = 7) {
   const now = Date.now();
   const ageMs = now - createdAt;
   const ageDays = ageMs / (24 * 60 * 60 * 1000);
@@ -306,6 +306,7 @@ function scoreType(type: string): number {
 
 const FILE_TOKEN_PATTERN = /(?:^|[\s/\\])[-\w]{1,120}\.[A-Za-z]{2,8}(?=$|[\s,;:;)\]}])/;
 
+// skipcq: JS-0067
 function containsFileLikeToken(content: string): boolean {
   return FILE_TOKEN_PATTERN.test(content.slice(0, 20_000));
 }

@@ -19,6 +19,7 @@ const gitTopLevelCache = new Map<string, string | null>();
 const TRUSTED_GIT_PATHS = ["/usr/bin/git", "/bin/git", "/usr/local/bin/git"];
 let resolvedGitPath: string | null | undefined;
 
+// skipcq: JS-0067
 function getGitExecutable(): string | null {
   if (resolvedGitPath !== undefined) return resolvedGitPath;
   resolvedGitPath = TRUSTED_GIT_PATHS.find((path) => existsSync(path)) ?? null;
