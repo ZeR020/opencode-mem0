@@ -1,4 +1,4 @@
-import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../src/services/sqlite/shard-manager.js", () => ({
   shardManager: {
@@ -65,7 +65,6 @@ import {
 import { shardManager } from "../src/services/sqlite/shard-manager.js";
 import { connectionManager } from "../src/services/sqlite/connection-manager.js";
 import { vectorSearch } from "../src/services/sqlite/vector-search.js";
-import { embeddingService } from "../src/services/embedding.js";
 
 function makeMockDb(
   options: {
@@ -96,7 +95,7 @@ function makeMockDb(
         };
       }
       return {
-        all: vi.fn().mockImplementation((...args: any[]) => {
+        all: vi.fn().mockImplementation(() => {
           if (sql.includes("memories_fts MATCH")) return ftsMemories;
           if (sql.includes("content LIKE") || sql.includes("AND id !=")) return likeMemories;
           if (sql.includes("memory_conflicts") && sql.includes("LEFT JOIN")) return conflictRows;

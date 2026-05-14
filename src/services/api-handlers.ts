@@ -1050,9 +1050,8 @@ export async function handleGetProfileSnapshot(changelogId: string): Promise<Api
   }
 }
 
-export async function handleRefreshProfile(userId?: string): Promise<ApiResponse<any>> {
+export async function handleRefreshProfile(_userId?: string): Promise<ApiResponse<any>> {
   try {
-    const { getTags } = await import("./tags.js");
     const { userPromptManager } = await import("./user-prompt/user-prompt-manager.js");
     const unanalyzedCount = userPromptManager.countUnanalyzedForUserLearning();
     return {

@@ -70,9 +70,9 @@ describe("EmbeddingService singleton and internals", () => {
 
     it("reuses in-progress initPromise on second warmup call", () => {
       // First call sets initPromise
-      const promise1 = service.warmup();
+      service.warmup();
       // Second call returns same promise
-      const promise2 = service.warmup();
+      service.warmup();
       expect((service as any).initPromise).not.toBeNull();
       // Clean up
       (service as any).initPromise = null;
