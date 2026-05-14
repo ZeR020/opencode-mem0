@@ -116,8 +116,8 @@ describe("USearchBackend", () => {
     const baseDir = mkdtempSync(join(tmpdir(), "usearch-backend-rebuild-"));
     tempDirs.push(baseDir);
     const db = new Database(join(baseDir, "test.db"));
-    db.run(`CREATE TABLE memories (id TEXT PRIMARY KEY, vector BLOB, tags_vector BLOB)`);
-    db.prepare(`INSERT INTO memories (id, vector, tags_vector) VALUES (?, ?, ?)`).run(
+    db.run("CREATE TABLE memories (id TEXT PRIMARY KEY, vector BLOB, tags_vector BLOB)");
+    db.prepare("INSERT INTO memories (id, vector, tags_vector) VALUES (?, ?, ?)").run(
       "alpha",
       new Uint8Array(new Float32Array([1, 0, 0, 0]).buffer),
       null

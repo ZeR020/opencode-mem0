@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const searchCalls: unknown[][] = [];
 let lastListScope: string | undefined;
 
-var mockConfig: any;
-var mockClient: any;
+let mockConfig: any;
+let mockClient: any;
 
 vi.mock("../src/services/logger.js", () => ({ log: () => {} }));
 vi.mock("../src/services/tags.js", () => ({

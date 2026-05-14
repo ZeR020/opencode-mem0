@@ -52,9 +52,9 @@ describe("ExactScanBackend", () => {
     const db = new Database(join(tempDir, "test.db"));
     dbs.push(db);
 
-    db.run(`CREATE TABLE memories (id TEXT PRIMARY KEY, vector BLOB, tags_vector BLOB)`);
+    db.run("CREATE TABLE memories (id TEXT PRIMARY KEY, vector BLOB, tags_vector BLOB)");
 
-    const insert = db.prepare(`INSERT INTO memories (id, vector, tags_vector) VALUES (?, ?, ?)`);
+    const insert = db.prepare("INSERT INTO memories (id, vector, tags_vector) VALUES (?, ?, ?)");
     insert.run("a", new Uint8Array(new Float32Array([1, 0, 0, 0]).buffer), null);
     insert.run("b", new Uint8Array(new Float32Array([0, 1, 0, 0]).buffer), null);
     insert.run("c", new Uint8Array(new Float32Array([0.9, 0.1, 0, 0]).buffer), null);
@@ -87,7 +87,7 @@ describe("ExactScanBackend", () => {
     tempDirs.push(tempDir);
     const db = new Database(join(tempDir, "test.db"));
     dbs.push(db);
-    db.run(`CREATE TABLE memories (id TEXT PRIMARY KEY, vector BLOB, tags_vector BLOB)`);
+    db.run("CREATE TABLE memories (id TEXT PRIMARY KEY, vector BLOB, tags_vector BLOB)");
 
     const backend = new ExactScanBackend();
     const shard = {

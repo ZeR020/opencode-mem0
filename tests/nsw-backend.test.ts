@@ -164,7 +164,7 @@ describe("NSWBackend", () => {
     `);
 
     db.prepare(
-      `INSERT INTO memories (id, content, vector, container_tag, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`
+      "INSERT INTO memories (id, content, vector, container_tag, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
     ).run(
       "r1",
       "memory one",
@@ -174,7 +174,7 @@ describe("NSWBackend", () => {
       Date.now()
     );
     db.prepare(
-      `INSERT INTO memories (id, content, vector, container_tag, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`
+      "INSERT INTO memories (id, content, vector, container_tag, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
     ).run(
       "r2",
       "memory two",
@@ -342,7 +342,7 @@ describe("NSW backend factory integration", () => {
     `);
 
     db.prepare(
-      `INSERT INTO memories (id, content, vector, container_tag, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`
+      "INSERT INTO memories (id, content, vector, container_tag, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
     ).run(
       "f1",
       "fallback one",

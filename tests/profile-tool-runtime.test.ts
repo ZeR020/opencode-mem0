@@ -8,8 +8,8 @@ const WARMUP_KEY = Symbol.for("opencode-mem0.plugin.warmedup");
 
 let tmpDir: string;
 
-var mockClient: any;
-var currentTags: any;
+let mockClient: any;
+let currentTags: any;
 
 vi.mock("../src/services/client.js", () => ({
   memoryClient: mockClient,

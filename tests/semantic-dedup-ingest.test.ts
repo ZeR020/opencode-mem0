@@ -81,14 +81,14 @@ describe("semantic deduplication at ingest", () => {
   function getMemoryById(id: string, containerTag: string): any {
     const db = getDbForShard(containerTag);
     if (!db) return null;
-    return db.prepare(`SELECT * FROM memories WHERE id = ?`).get(id) as any;
+    return db.prepare("SELECT * FROM memories WHERE id = ?").get(id) as any;
   }
 
   function countMemories(containerTag: string): number {
     const db = getDbForShard(containerTag);
     if (!db) return 0;
     const row = db
-      .prepare(`SELECT COUNT(*) as count FROM memories WHERE container_tag = ?`)
+      .prepare("SELECT COUNT(*) as count FROM memories WHERE container_tag = ?")
       .get(containerTag) as any;
     return row?.count ?? 0;
   }

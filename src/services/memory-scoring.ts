@@ -240,10 +240,7 @@ function countWords(text: string): number {
 }
 
 function hasTypeMatch(types: Set<string>, lowerType: string): boolean {
-  for (const type of types) {
-    if (lowerType.includes(type)) return true;
-  }
-  return false;
+  return Array.from(types).some((type) => lowerType.includes(type));
 }
 
 /**
@@ -478,18 +475,12 @@ export function calculateConfidence(source?: string, type?: string): number {
  */
 function hasNegationPatterns(content: string): boolean {
   const lower = content.toLowerCase();
-  for (const pattern of NEGATION_PATTERNS) {
-    if (pattern.test(lower)) return true;
-  }
-  return false;
+  return NEGATION_PATTERNS.some((pattern) => pattern.test(lower));
 }
 
 function hasActionPatterns(content: string): boolean {
   const lower = content.toLowerCase();
-  for (const pattern of ACTION_PATTERNS) {
-    if (pattern.test(lower)) return true;
-  }
-  return false;
+  return ACTION_PATTERNS.some((pattern) => pattern.test(lower));
 }
 
 function checkDirectContradiction(content: string, conflicting: string): number {

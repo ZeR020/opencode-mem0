@@ -330,6 +330,8 @@ export class WebServer {
         return await this._apiRefreshProfile(req, isLocal);
       case "POST /api/prompts/bulk-delete":
         return await this._apiBulkDeletePrompts(req, isLocal);
+      default:
+        break;
     }
 
     // Parameterized routes

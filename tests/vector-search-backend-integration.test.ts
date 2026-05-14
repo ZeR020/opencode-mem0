@@ -187,7 +187,7 @@ describe("vector search backend integration", () => {
     const vectorSearch = new VectorSearch(createFailingBackend(), new ExactScanBackend());
 
     db.prepare(
-      `INSERT INTO memories (id, content, vector, tags_vector, container_tag, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      "INSERT INTO memories (id, content, vector, tags_vector, container_tag, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
     ).run(
       "a",
       "alpha memory",
@@ -198,7 +198,7 @@ describe("vector search backend integration", () => {
       Date.now()
     );
     db.prepare(
-      `INSERT INTO memories (id, content, vector, tags_vector, container_tag, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      "INSERT INTO memories (id, content, vector, tags_vector, container_tag, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
     ).run(
       "b",
       "beta memory",

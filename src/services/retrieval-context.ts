@@ -338,9 +338,10 @@ export function calculateContextBoost(
   }
 
   // Check metadata for file references
-  if (result.metadata && context.recentFiles && context.recentFiles.length > 0) {
+  const recentFiles = context.recentFiles;
+  if (result.metadata && recentFiles && recentFiles.length > 0) {
     const metadataStr = JSON.stringify(result.metadata).toLowerCase();
-    for (const file of context.recentFiles) {
+    for (const file of recentFiles) {
       if (metadataStr.includes(file.toLowerCase())) {
         score *= Math.sqrt(boost);
         break;
