@@ -16,6 +16,15 @@ const gitRepoUrlCache = new Map<string, string | null>();
 const gitCommonDirCache = new Map<string, string | null>();
 const gitTopLevelCache = new Map<string, string | null>();
 
+const TRUSTED_GIT_PATHS = ["/usr/bin/git", "/bin/git", "/usr/local/bin/git"];
+let resolvedGitPath: string | null | undefined;
+
+function getGitExecutable(): string | null {
+  if (resolvedGitPath !== undefined) return resolvedGitPath;
+  resolvedGitPath = TRUSTED_GIT_PATHS.find((path) => existsSync(path)) ?? null;
+  return resolvedGitPath;
+}
+
 export interface TagInfo {
   tag: string;
   displayName: string;
@@ -30,8 +39,11 @@ function execGitCommand(
   args: string[],
   options: { cwd?: string; timeout?: number } = {}
 ): string | null {
+  const gitExecutable = getGitExecutable();
+  if (!gitExecutable) return null;
+
   try {
-    const result = spawnSync("git", args, {
+    const result = spawnSync(gitExecutable, args, {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
       timeout: options.timeout ?? 1000,
