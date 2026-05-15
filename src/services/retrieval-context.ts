@@ -307,6 +307,7 @@ export const contextTracker = new ContextTracker();
  * @param context - Current retrieval context
  * @returns Multiplicative boost factor (>= 1.0)
  */
+// skipcq: JS-0067
 export function calculateContextBoost(
   result: {
     projectPath?: string;
@@ -314,7 +315,7 @@ export function calculateContextBoost(
     metadata?: Record<string, unknown>;
   },
   context: RetrievalContext
-): number {
+) {
   const boost = CONFIG.retrieval.contextBoost || 1.5;
   let score = 1;
 

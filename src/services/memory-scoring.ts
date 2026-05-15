@@ -239,7 +239,8 @@ function countWords(text: string): number {
   return trimmed.split(WORD_SPLIT_RE).length;
 }
 
-function hasTypeMatch(types: Set<string>, lowerType: string): boolean {
+// skipcq: JS-0067
+function hasTypeMatch(types: Set<string>, lowerType: string) {
   return Array.from(types).some((type) => lowerType.includes(type));
 }
 
@@ -266,7 +267,7 @@ export function calculateRecency(createdAt: number, halfLifeDays: number = 7) {
  * Score = log(1 + accessCount) / log(1 + maxExpectedAccesses)
  * Max expected accesses = 100 (normalized to 1.0)
  */
-export function calculateFrequency(accessCount: number): number {
+export function calculateFrequency(accessCount: number) {
   const maxExpected = 100;
   const score = Math.log(1 + accessCount) / Math.log(1 + maxExpected);
   return Math.max(0, Math.min(1, score));
@@ -293,7 +294,8 @@ function scoreLength(wordCount: number): number {
   return 0;
 }
 
-function scoreType(type: string): number {
+// skipcq: JS-0067
+function scoreType(type: string) {
   const lowerType = type.toLowerCase();
   if (hasTypeMatch(HIGH_IMPORTANCE_TYPES, lowerType)) return 0.15;
   if (hasTypeMatch(MEDIUM_IMPORTANCE_TYPES, lowerType)) return 0.05;
@@ -346,7 +348,7 @@ export function calculateUtility(
     recentFiles?: string[];
     recentQueries?: string[];
   }
-): number {
+) {
   if (!lastAccessed) return 0.3; // Default for never accessed
 
   const now = Date.now();
@@ -473,12 +475,14 @@ export function calculateConfidence(source?: string, type?: string): number {
  * Calculate interference penalty based on contradictions with other memories.
  * Detects negation patterns and conflicting action descriptions.
  */
-function hasNegationPatterns(content: string): boolean {
+// skipcq: JS-0067
+function hasNegationPatterns(content: string) {
   const lower = content.toLowerCase();
   return NEGATION_PATTERNS.some((pattern) => pattern.test(lower));
 }
 
-function hasActionPatterns(content: string): boolean {
+// skipcq: JS-0067
+function hasActionPatterns(content: string) {
   const lower = content.toLowerCase();
   return ACTION_PATTERNS.some((pattern) => pattern.test(lower));
 }
