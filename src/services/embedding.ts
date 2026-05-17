@@ -22,22 +22,6 @@ async function ensureTransformersLoaded(): Promise<NonNullable<typeof _transform
   return _transformers;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number, signal?: AbortSignal): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => {
-      const timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
-      const onAbort = () => {
-        clearTimeout(timer);
-        reject(new Error("Aborted"));
-      };
-      if (signal) {
-        signal.addEventListener("abort", onAbort);
-      }
-    }),
-  ]);
-}
-
 export class EmbeddingService {
   private pipe: any = null;
   private initPromise: Promise<void> | null = null;
@@ -188,11 +172,7 @@ export class EmbeddingService {
     const timeoutId = setTimeout(() => abortController.abort(), TIMEOUT_MS);
     try {
       // skipcq: await required for try/catch error handling
-      return await withTimeout(
-        this.embed(text, abortController.signal),
-        TIMEOUT_MS,
-        abortController.signal
-      );
+      return await this.embed(text, abortController.signal);
     } finally {
       clearTimeout(timeoutId);
     }

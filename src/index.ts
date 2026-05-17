@@ -108,6 +108,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
       log("Plugin warmup failed", { error: String(error) });
       if (error instanceof Error && error.message.includes("timed out")) {
         embeddingService.embeddingAvailable = false;
+        embeddingService.isWarmedUp = true;
         log(
           "Embedding model warmup timed out — marking embeddings unavailable. Searches will use text-only fallback."
         );

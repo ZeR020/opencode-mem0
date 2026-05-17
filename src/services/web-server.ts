@@ -32,6 +32,7 @@ import {
   handleResolveConflict,
   handleConflictStats,
   handleEmbeddingCacheStats,
+  handleApiStatus,
 } from "./api-handlers.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -300,6 +301,8 @@ export class WebServer {
         return await this._apiSearch(url, isLocal);
       case "GET /api/stats":
         return await this._apiStats(isLocal);
+      case "GET /api/status":
+        return await this._apiStatus(isLocal);
       case "GET /api/embedding-cache":
         return await this._apiEmbeddingCacheStats(isLocal);
       case "GET /api/conflicts":
@@ -428,6 +431,11 @@ export class WebServer {
 
   private async _apiStats(isLocal: boolean): Promise<Response> {
     const result = handleStats();
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiStatus(isLocal: boolean): Promise<Response> {
+    const result = handleApiStatus();
     return this.jsonResponse(result, 200, !isLocal);
   }
 

@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { join } from "node:path";
 import { embeddingService } from "./embedding.js";
 import { shardManager } from "./sqlite/shard-manager.js";
 import { vectorSearch } from "./sqlite/vector-search.js";
@@ -42,11 +43,31 @@ export class LocalMemoryClient {
   private initPromise: Promise<void> | null = null;
   private isInitialized: boolean = false;
 
-  private initialize(): Promise<void> {
-    if (this.isInitialized) return Promise.resolve();
+  private async initialize(): Promise<void> {
+    if (this.isInitialized) return;
     if (this.initPromise) return this.initPromise;
 
-    this.initPromise = Promise.resolve();
+    this.initPromise = (async () => {
+      const metadataPath = join(CONFIG.storagePath, "metadata.db");
+      const db = connectionManager.getConnection(metadataPath);
+      const tables = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        .all() as { name: string }[];
+      const tableNames = new Set(tables.map((t) => t.name));
+
+      if (!tableNames.has("shards")) {
+        log("SQLite verification: metadata db not initialized");
+        return;
+      }
+
+      const shardCount = db.prepare("SELECT COUNT(*) as count FROM shards").get() as {
+        count: number;
+      };
+      log("SQLite verification passed", {
+        tables: tableNames.size,
+        shards: shardCount.count,
+      });
+    })();
 
     return this.initPromise;
   }

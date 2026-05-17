@@ -38,7 +38,19 @@ const AUTO_CAPTURE_ANALYSIS_PROMPT = (context: string) => `${context}
 
 Analyze this conversation. If it contains technical work (code, bugs, features, decisions), create a concise summary and relevant tags. If it's non-technical (greetings, casual chat, incomplete requests), return type="skip" with empty summary.`;
 
-let isCaptureRunning = false;
+class CaptureMutex {
+  private locked = false;
+
+  acquire(): (() => void) | null {
+    if (this.locked) return null;
+    this.locked = true;
+    return () => {
+      this.locked = false;
+    };
+  }
+}
+
+const captureMutex = new CaptureMutex();
 
 function findPromptMessages(messages: any[], promptMessageId: string): any[] {
   const promptIndex = messages.findIndex((m: any) => m.info?.id === promptMessageId);
@@ -110,8 +122,8 @@ export async function performAutoCapture(
   sessionID: string,
   directory: string
 ): Promise<void> {
-  if (isCaptureRunning) return;
-  isCaptureRunning = true;
+  const release = captureMutex.acquire();
+  if (!release) return;
   let claimedPromptId: string | null = null;
   try {
     const prompt = userPromptManager.getLastUncapturedPrompt(sessionID);
@@ -177,7 +189,7 @@ export async function performAutoCapture(
     if (claimedPromptId) {
       userPromptManager.resetPromptClaim(claimedPromptId);
     }
-    isCaptureRunning = false;
+    release();
   }
 }
 

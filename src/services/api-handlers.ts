@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { join } from "node:path";
 import { embeddingService } from "./embedding.js";
 import { shardManager } from "./sqlite/shard-manager.js";
 import { vectorSearch } from "./sqlite/vector-search.js";
@@ -1327,6 +1328,30 @@ export function handleConflictStats(): ApiResponse<{ unresolved: number; resolve
     return { success: true, data: { unresolved: unresolved.length, resolved } };
   } catch (error) {
     log("handleConflictStats: error", { error: String(error) });
+    return { success: false, error: "Internal error" };
+  }
+}
+
+export function handleApiStatus(): ApiResponse<{
+  mode: "full" | "text-only";
+  warmedUp: boolean;
+  ready: boolean;
+}> {
+  try {
+    const mode = embeddingService.embeddingAvailable ? "full" : "text-only";
+    const warmedUp = embeddingService.isWarmedUp;
+    let ready = false;
+    try {
+      const metadataPath = join(CONFIG.storagePath, "metadata.db");
+      const db = connectionManager.getConnection(metadataPath);
+      const row = db.prepare("SELECT COUNT(*) as count FROM shards").get() as { count: number };
+      ready = row.count > 0;
+    } catch {
+      ready = false;
+    }
+    return { success: true, data: { mode, warmedUp, ready } };
+  } catch (error) {
+    log("handleApiStatus: error", { error: String(error) });
     return { success: false, error: "Internal error" };
   }
 }

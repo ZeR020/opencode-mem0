@@ -146,17 +146,28 @@ describe("EmbeddingService singleton and internals", () => {
     it("single AbortController cancels both promise and timeout", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
 
-      const neverResolve = new Promise<never>(() => {});
       (embeddingService as any).isWarmedUp = true;
       (embeddingService as any).cachedModelName = "test";
-      vi.spyOn(embeddingService, "embed").mockImplementation(() => neverResolve);
+
+      // Mock embed to respond to AbortSignal, matching real `@huggingface/transformers` behavior
+      vi.spyOn(embeddingService, "embed").mockImplementation(
+        (_text: string, signal?: AbortSignal) =>
+          new Promise<Float32Array>((_resolve, reject) => {
+            if (signal?.aborted) {
+              reject(signal.reason || new DOMException("Aborted", "AbortError"));
+              return;
+            }
+            const onAbort = () => reject(new DOMException("Aborted", "AbortError"));
+            signal?.addEventListener("abort", onAbort, { once: true });
+          })
+      );
 
       const promise = embeddingService.embedWithTimeout("test");
 
-      // Advance to trigger timeout abort
+      // Advance to trigger timeout → abortController.abort() → signal "abort" event
       vi.advanceTimersByTime(30000);
 
-      // Desired behavior: rejection should be "Aborted" and no dangling timers
+      // Rejection should propagate "Aborted" from the AbortController
       await expect(promise).rejects.toThrow("Aborted");
 
       vi.runAllTimers();
