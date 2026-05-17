@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../src/services/client.js", () => ({
   memoryClient: {
-    warmup: vi.fn().mockResolvedValue(undefined),
+    warmup: vi.fn().mockResolvedValue(undefined), // skipcq: JS-W1042
     searchMemories: vi.fn(),
     listMemories: vi.fn(),
   },
@@ -48,7 +48,7 @@ vi.mock("../src/services/web-server.js", () => ({
     isRunning: () => true,
     isServerOwner: () => true,
     setOnTakeoverCallback: vi.fn(),
-    stop: vi.fn().mockResolvedValue(undefined),
+    stop: vi.fn().mockResolvedValue(undefined), // skipcq: JS-W1042
   })),
   startWebServer: vi.fn().mockImplementation(() =>
     Promise.resolve({
@@ -56,7 +56,7 @@ vi.mock("../src/services/web-server.js", () => ({
       isRunning: () => true,
       isServerOwner: () => true,
       setOnTakeoverCallback: vi.fn(),
-      stop: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn().mockResolvedValue(undefined), // skipcq: JS-W1042
     })
   ),
 }));
@@ -80,7 +80,7 @@ vi.mock("../src/services/memory-scoring-service.js", () => ({
 vi.mock("../src/services/memory-lifecycle.js", () => ({
   startLifecycleJob: vi.fn(),
   stopLifecycleJob: vi.fn(),
-  runLifecycleMaintenance: vi.fn().mockResolvedValue(undefined),
+  runLifecycleMaintenance: vi.fn().mockResolvedValue(undefined), // skipcq: JS-W1042
 }));
 
 vi.mock("../src/services/ai/ai-provider-factory.js", () => ({
@@ -119,7 +119,7 @@ vi.mock("../src/config.js", () => ({
       maxMemories: 3,
       excludeCurrentSession: false,
       injectOn: "always" as const,
-      mode: "relevant" as "relevant" | "fast",
+      mode: "relevant" as string | undefined,
       maxAgeDays: undefined as number | undefined,
     },
     injection: {
@@ -131,7 +131,7 @@ vi.mock("../src/config.js", () => ({
     webServerEnabled: false,
     webServerPort: 4747,
     webServerHost: "127.0.0.1",
-    webServerApiKey: undefined,
+    webServerApiKey: undefined as string | undefined,
     memoryScoring: { enabled: false },
     memoryLifecycle: { enabled: false },
     transcriptStorage: { enabled: false },
@@ -148,8 +148,8 @@ const searchMemoriesSpy = memoryClient.searchMemories as ReturnType<typeof vi.fn
 const listMemoriesSpy = memoryClient.listMemories as ReturnType<typeof vi.fn>;
 const formatContextForPromptSpy = formatContextForPrompt as ReturnType<typeof vi.fn>;
 
-function makeCtx() {
-  return {
+describe("chat-message-mode", () => {
+  const makeCtx = (): Record<string, unknown> => ({
     directory: "/test",
     client: {
       session: {
@@ -165,17 +165,13 @@ function makeCtx() {
         list: vi.fn().mockResolvedValue({ data: { connected: [] } }),
       },
     },
-  };
-}
+  });
 
-function makeOutput(text: string) {
-  return {
+  const makeOutput = (text: string): Record<string, unknown> => ({
     message: { id: "msg-1" },
     parts: [{ type: "text" as const, text }],
-  };
-}
+  });
 
-describe("chat-message-mode", () => {
   beforeEach(() => {
     searchMemoriesSpy.mockReset();
     listMemoriesSpy.mockReset();
@@ -183,9 +179,8 @@ describe("chat-message-mode", () => {
   });
 
   it("uses searchMemories when mode='relevant'", async () => {
-    import("../src/config.js");
     const { CONFIG } = await import("../src/config.js");
-    (CONFIG as any).chatMessage.mode = "relevant";
+    (CONFIG as { chatMessage: { mode?: string | undefined } }).chatMessage.mode = "relevant";
     searchMemoriesSpy.mockResolvedValue({
       success: true,
       results: [],
@@ -193,11 +188,11 @@ describe("chat-message-mode", () => {
       timing: 0,
     });
 
-    const plugin = await OpenCodeMemPlugin(makeCtx() as any);
+    const plugin = await OpenCodeMemPlugin(makeCtx() as any); // skipcq: JS-0323
     const input = { sessionID: "s-1" };
     const output = makeOutput("how do I implement auth?");
 
-    await (plugin as any)["chat.message"](input, output);
+    await (plugin as any)["chat.message"](input, output); // skipcq: JS-0323
 
     expect(searchMemoriesSpy).toHaveBeenCalledTimes(1);
     expect(searchMemoriesSpy).toHaveBeenCalledWith(
@@ -211,18 +206,18 @@ describe("chat-message-mode", () => {
 
   it("uses listMemories when mode='fast'", async () => {
     const { CONFIG } = await import("../src/config.js");
-    (CONFIG as any).chatMessage.mode = "fast";
+    (CONFIG as { chatMessage: { mode?: string | undefined } }).chatMessage.mode = "fast";
     listMemoriesSpy.mockResolvedValue({
       success: true,
       memories: [],
       pagination: { currentPage: 1, totalItems: 0, totalPages: 0 },
     });
 
-    const plugin = await OpenCodeMemPlugin(makeCtx() as any);
+    const plugin = await OpenCodeMemPlugin(makeCtx() as any); // skipcq: JS-0323
     const input = { sessionID: "s-1" };
     const output = makeOutput("how do I implement auth?");
 
-    await (plugin as any)["chat.message"](input, output);
+    await (plugin as any)["chat.message"](input, output); // skipcq: JS-0323
 
     expect(listMemoriesSpy).toHaveBeenCalledTimes(1);
     expect(listMemoriesSpy).toHaveBeenCalledWith("test-project-tag", 3);
@@ -231,7 +226,7 @@ describe("chat-message-mode", () => {
 
   it("defaults to 'relevant' when mode is undefined", async () => {
     const { CONFIG } = await import("../src/config.js");
-    (CONFIG as any).chatMessage.mode = undefined;
+    (CONFIG as { chatMessage: { mode?: string | undefined } }).chatMessage.mode = undefined;
     searchMemoriesSpy.mockResolvedValue({
       success: true,
       results: [],
@@ -239,11 +234,11 @@ describe("chat-message-mode", () => {
       timing: 0,
     });
 
-    const plugin = await OpenCodeMemPlugin(makeCtx() as any);
+    const plugin = await OpenCodeMemPlugin(makeCtx() as any); // skipcq: JS-0323
     const input = { sessionID: "s-1" };
     const output = makeOutput("how do I implement auth?");
 
-    await (plugin as any)["chat.message"](input, output);
+    await (plugin as any)["chat.message"](input, output); // skipcq: JS-0323
 
     expect(searchMemoriesSpy).toHaveBeenCalledTimes(1);
     expect(searchMemoriesSpy).toHaveBeenCalledWith(
@@ -257,7 +252,7 @@ describe("chat-message-mode", () => {
 
   it("injects actual similarity scores from searchMemories in 'relevant' mode", async () => {
     const { CONFIG } = await import("../src/config.js");
-    (CONFIG as any).chatMessage.mode = "relevant";
+    (CONFIG as { chatMessage: { mode?: string | undefined } }).chatMessage.mode = "relevant";
     searchMemoriesSpy.mockResolvedValue({
       success: true,
       results: [
@@ -268,11 +263,11 @@ describe("chat-message-mode", () => {
       timing: 0,
     });
 
-    const plugin = await OpenCodeMemPlugin(makeCtx() as any);
+    const plugin = await OpenCodeMemPlugin(makeCtx() as any); // skipcq: JS-0323
     const input = { sessionID: "s-1" };
     const output = makeOutput("how do I secure login?");
 
-    await (plugin as any)["chat.message"](input, output);
+    await (plugin as any)["chat.message"](input, output); // skipcq: JS-0323
 
     expect(formatContextForPromptSpy).toHaveBeenCalledTimes(1);
     const [, projectMemories] = formatContextForPromptSpy.mock.calls[0];
