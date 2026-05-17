@@ -102,8 +102,8 @@ async function processCaptureResult(
           duration: 3000,
         },
       })
-      .catch(() => {
-        // Notification errors are non-critical
+      .catch((err) => {
+        log("Toast notification failed", { error: String(err) });
       });
   }
 
