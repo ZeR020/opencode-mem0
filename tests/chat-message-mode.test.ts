@@ -1,20 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const searchMemoriesSpy = vi.fn();
-const listMemoriesSpy = vi.fn();
-
 vi.mock("../src/services/client.js", () => ({
   memoryClient: {
     warmup: vi.fn().mockResolvedValue(undefined),
-    searchMemories: searchMemoriesSpy,
-    listMemories: listMemoriesSpy,
+    searchMemories: vi.fn(),
+    listMemories: vi.fn(),
   },
 }));
 
-const formatContextForPromptSpy = vi.fn().mockReturnValue("injected context");
-
 vi.mock("../src/services/context.js", () => ({
-  formatContextForPrompt: formatContextForPromptSpy,
+  formatContextForPrompt: vi.fn().mockReturnValue("injected context"),
 }));
 
 vi.mock("../src/services/tags.js", () => ({
@@ -116,38 +111,42 @@ vi.mock("../src/services/language-detector.js", () => ({
   getLanguageName: vi.fn().mockReturnValue("English"),
 }));
 
-const mockConfig = {
-  chatMessage: {
-    enabled: true,
-    maxMemories: 3,
-    excludeCurrentSession: false,
-    injectOn: "always" as const,
-    mode: "relevant" as "relevant" | "fast",
-    maxAgeDays: undefined as number | undefined,
-  },
-  injection: {
-    tokenBudget: 4000,
-    format: "plain" as const,
-  },
-  showErrorToasts: false,
-  warmupTimeoutMs: 30000,
-  webServerEnabled: false,
-  webServerPort: 4747,
-  webServerHost: "127.0.0.1",
-  webServerApiKey: undefined,
-  memoryScoring: { enabled: false },
-  memoryLifecycle: { enabled: false },
-  transcriptStorage: { enabled: false },
-  autoCaptureEnabled: false,
-};
-
 vi.mock("../src/config.js", () => ({
   isConfigured: () => true,
-  CONFIG: mockConfig,
+  CONFIG: {
+    chatMessage: {
+      enabled: true,
+      maxMemories: 3,
+      excludeCurrentSession: false,
+      injectOn: "always" as const,
+      mode: "relevant" as "relevant" | "fast",
+      maxAgeDays: undefined as number | undefined,
+    },
+    injection: {
+      tokenBudget: 4000,
+      format: "plain" as const,
+    },
+    showErrorToasts: false,
+    warmupTimeoutMs: 30000,
+    webServerEnabled: false,
+    webServerPort: 4747,
+    webServerHost: "127.0.0.1",
+    webServerApiKey: undefined,
+    memoryScoring: { enabled: false },
+    memoryLifecycle: { enabled: false },
+    transcriptStorage: { enabled: false },
+    autoCaptureEnabled: false,
+  },
   initConfig: vi.fn(),
 }));
 
 import { OpenCodeMemPlugin } from "../src/index.js";
+import { memoryClient } from "../src/services/client.js";
+import { formatContextForPrompt } from "../src/services/context.js";
+
+const searchMemoriesSpy = memoryClient.searchMemories as ReturnType<typeof vi.fn>;
+const listMemoriesSpy = memoryClient.listMemories as ReturnType<typeof vi.fn>;
+const formatContextForPromptSpy = formatContextForPrompt as ReturnType<typeof vi.fn>;
 
 function makeCtx() {
   return {
@@ -178,14 +177,15 @@ function makeOutput(text: string) {
 
 describe("chat-message-mode", () => {
   beforeEach(() => {
-    mockConfig.chatMessage.mode = "relevant";
     searchMemoriesSpy.mockReset();
     listMemoriesSpy.mockReset();
     formatContextForPromptSpy.mockClear();
   });
 
   it("uses searchMemories when mode='relevant'", async () => {
-    mockConfig.chatMessage.mode = "relevant";
+    import("../src/config.js");
+    const { CONFIG } = await import("../src/config.js");
+    (CONFIG as any).chatMessage.mode = "relevant";
     searchMemoriesSpy.mockResolvedValue({
       success: true,
       results: [],
@@ -210,7 +210,8 @@ describe("chat-message-mode", () => {
   });
 
   it("uses listMemories when mode='fast'", async () => {
-    mockConfig.chatMessage.mode = "fast";
+    const { CONFIG } = await import("../src/config.js");
+    (CONFIG as any).chatMessage.mode = "fast";
     listMemoriesSpy.mockResolvedValue({
       success: true,
       memories: [],
@@ -229,7 +230,8 @@ describe("chat-message-mode", () => {
   });
 
   it("defaults to 'relevant' when mode is undefined", async () => {
-    (mockConfig.chatMessage as any).mode = undefined;
+    const { CONFIG } = await import("../src/config.js");
+    (CONFIG as any).chatMessage.mode = undefined;
     searchMemoriesSpy.mockResolvedValue({
       success: true,
       results: [],
@@ -254,7 +256,8 @@ describe("chat-message-mode", () => {
   });
 
   it("injects actual similarity scores from searchMemories in 'relevant' mode", async () => {
-    mockConfig.chatMessage.mode = "relevant";
+    const { CONFIG } = await import("../src/config.js");
+    (CONFIG as any).chatMessage.mode = "relevant";
     searchMemoriesSpy.mockResolvedValue({
       success: true,
       results: [
