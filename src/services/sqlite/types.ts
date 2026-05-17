@@ -53,6 +53,7 @@ export interface MemoryConflict {
   resolutionType?: string;
   resolvedAt?: number;
   resolutionData?: string;
+  containerTag?: string;
 }
 
 export interface SearchResult {

@@ -1,7 +1,7 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import { memoryClient } from "./client.js";
 import { getTags } from "./tags.js";
-import { log } from "./logger.js";
+import { log, warn } from "./logger.js";
 import { CONFIG } from "../config.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
 
@@ -98,6 +98,13 @@ async function processCaptureResult(
   return null;
 }
 
+function isLLMConfigured(): boolean {
+  return !!(
+    (CONFIG.opencodeProvider && CONFIG.opencodeModel) ||
+    (CONFIG.memoryModel && CONFIG.memoryApiUrl)
+  );
+}
+
 export async function performAutoCapture(
   ctx: PluginInput,
   sessionID: string,
@@ -123,6 +130,13 @@ export async function performAutoCapture(
     const { textResponses, toolCalls } = extractAIContent(aiMessages);
     if (textResponses.length === 0 && toolCalls.length === 0) return;
 
+    if (!isLLMConfigured()) {
+      warn(
+        "Auto-capture skipped: LLM provider not configured. Set memoryModel/memoryApiUrl or opencodeProvider/opencodeModel."
+      );
+      return;
+    }
+
     const tags = getTags(directory);
     const latestMemory = await getLatestProjectMemory(tags.project.tag);
     const context = buildMarkdownContext(prompt.content, textResponses, toolCalls, latestMemory);
@@ -136,6 +150,29 @@ export async function performAutoCapture(
       sessionID,
       claimedPromptId
     );
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    const isConfigError =
+      err.message.includes("not configured") ||
+      err.message.includes("not available") ||
+      err.message.includes("not connected");
+
+    if (!isConfigError && CONFIG.showAutoCaptureToasts && ctx.client?.tui) {
+      await ctx.client.tui
+        .showToast({
+          body: {
+            title: "Auto-capture Error",
+            message: err.message,
+            variant: "error",
+            duration: 5000,
+          },
+        })
+        .catch(() => {
+          // Notification errors are non-critical
+        });
+    }
+
+    throw error;
   } finally {
     if (claimedPromptId) {
       userPromptManager.resetPromptClaim(claimedPromptId);

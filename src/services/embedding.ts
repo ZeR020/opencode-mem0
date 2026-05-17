@@ -193,11 +193,6 @@ export class EmbeddingService {
         TIMEOUT_MS,
         abortController.signal
       );
-    } catch (error) {
-      if (error instanceof Error && error.message === "Aborted") {
-        throw new Error(`Timeout after ${TIMEOUT_MS}ms`);
-      }
-      throw error;
     } finally {
       clearTimeout(timeoutId);
     }

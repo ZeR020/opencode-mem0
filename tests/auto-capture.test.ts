@@ -18,9 +18,10 @@ const mockMemoryClient = {
 };
 
 const mockGetTags = vi.fn();
+const mockWarn = vi.fn();
 
-vi.mock("../src/services/client.js", () => ({
-  memoryClient: mockMemoryClient,
+vi.mock("../src/services/tags.js", () => ({
+  getTags: (...args: any[]) => mockGetTags(...args),
 }));
 
 vi.mock("../src/services/tags.js", () => ({
@@ -29,6 +30,21 @@ vi.mock("../src/services/tags.js", () => ({
 
 vi.mock("../src/services/logger.js", () => ({
   log: () => {},
+  warn: (...args: any[]) => mockWarn(...args),
+}));
+
+vi.mock("../src/services/ai/ai-provider-factory.js", () => ({
+  AIProviderFactory: {
+    createProvider: () => ({
+      executeToolCall: () => {
+        throw new Error("External API not configured for auto-capture");
+      },
+    }),
+  },
+}));
+
+vi.mock("../src/services/ai/provider-config.js", () => ({
+  buildMemoryProviderConfig: () => ({}),
 }));
 
 vi.mock("../src/services/user-prompt/user-prompt-manager.js", () => ({
@@ -37,23 +53,31 @@ vi.mock("../src/services/user-prompt/user-prompt-manager.js", () => ({
 
 vi.mock("../src/config.js", () => ({
   CONFIG: {
+    storagePath: "/tmp/opencode-mem0-test",
     showAutoCaptureToasts: false,
     showUserProfileToasts: false,
     opencodeProvider: null,
     opencodeModel: null,
     memoryModel: null,
     memoryApiUrl: null,
+    memoryProvider: null,
     userProfileAnalysisInterval: 5,
     userProfileMaxPreferences: 10,
     userProfileMaxPatterns: 10,
     userProfileMaxWorkflows: 5,
     autoCaptureLanguage: "auto",
     memoryTemperature: 0.3,
+    embeddingModel: "text-embedding-3-small",
+    embeddingDimensions: 1536,
+    maxVectorsPerShard: 10000,
+    maxMemories: 10,
+    similarityThreshold: 0.7,
   },
 }));
 
 // Import after mocks
 const { performAutoCapture } = await import("../src/services/auto-capture.js");
+const { CONFIG } = await import("../src/config.js");
 
 describe("auto-capture helpers", () => {
   beforeEach(() => {
@@ -66,12 +90,96 @@ describe("auto-capture helpers", () => {
     mockMemoryClient.addMemory.mockReset();
     mockMemoryClient.listMemories.mockReset();
     mockGetTags.mockReset();
+    mockWarn.mockReset();
+    // Reset CONFIG to defaults
+    CONFIG.opencodeProvider = undefined;
+    CONFIG.opencodeModel = undefined;
+    CONFIG.memoryModel = "test-model";
+    CONFIG.memoryApiUrl = "http://test";
+    CONFIG.memoryProvider = "openai-chat";
+    CONFIG.showAutoCaptureToasts = false;
   });
 
-  it.skip("returns early when capture is already running", async () => {
-    // Skipped: race condition in isCaptureRunning flag makes this test unreliable
-    // The finally block in performAutoCapture resets the flag before we can test concurrent calls
-    expect(performAutoCapture).toBeDefined();
+  it("acquires mutex and prevents concurrent capture calls", async () => {
+    let resolveMessages: (value: any) => void = () => {};
+    const messagesPromise = new Promise((resolve) => {
+      resolveMessages = resolve;
+    });
+
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "test",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+    const ctx = {
+      client: {
+        session: {
+          messages: () => messagesPromise,
+        },
+      },
+    } as any;
+
+    // First call enters and waits on messages()
+    const firstCall = performAutoCapture(ctx, "sess-1", "/test");
+
+    // Second call should return early because isCaptureRunning is true
+    const secondCall = performAutoCapture(ctx, "sess-1", "/test");
+
+    // Second call should resolve immediately without throwing
+    await expect(secondCall).resolves.toBeUndefined();
+
+    // Clean up first call
+    resolveMessages({ data: [] });
+    await firstCall;
+  });
+
+  it("releases mutex after exception, allowing subsequent calls", async () => {
+    // First call: no client, throws "Client not available"
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "test",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+    const ctxNoClient = { client: null } as any;
+    await expect(performAutoCapture(ctxNoClient, "sess-1", "/test")).rejects.toThrow(
+      "Client not available"
+    );
+
+    // Second call: should proceed past the mutex check because it was released
+    const ctx2 = {
+      client: {
+        session: {
+          messages: () => ({
+            data: [
+              { info: { id: "m1" } },
+              { info: { id: "a1", role: "assistant" }, parts: [{ type: "text", text: "reply" }] },
+            ],
+          }),
+        },
+      },
+    } as any;
+
+    mockGetTags.mockReturnValue({
+      project: {
+        tag: "mem_project_test",
+        displayName: "Test",
+        userName: null,
+        userEmail: null,
+        projectPath: "/test",
+        projectName: "test",
+        gitRepoUrl: null,
+      },
+    });
+    mockMemoryClient.listMemories.mockResolvedValue({ success: false, memories: [] });
+
+    // This should throw "External API not configured" — proving it got past the mutex check
+    await expect(performAutoCapture(ctx2, "sess-1", "/test")).rejects.toThrow(
+      "External API not configured for auto-capture"
+    );
   });
 
   it("returns early when no uncaptured prompt", async () => {
@@ -564,6 +672,169 @@ describe("auto-capture helpers", () => {
     });
     await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
       "External API not configured for auto-capture"
+    );
+  });
+
+  it("skips capture with log warning when no LLM is configured", async () => {
+    CONFIG.opencodeProvider = undefined;
+    CONFIG.opencodeModel = undefined;
+    CONFIG.memoryModel = undefined;
+    CONFIG.memoryApiUrl = undefined;
+
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "test",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+    mockGetTags.mockReturnValue({
+      project: {
+        tag: "mem_project_test",
+        displayName: "Test",
+        userName: null,
+        userEmail: null,
+        projectPath: "/test",
+        projectName: "test",
+        gitRepoUrl: null,
+      },
+    });
+    mockMemoryClient.listMemories.mockResolvedValue({ success: false, memories: [] });
+
+    const ctx = {
+      client: {
+        session: {
+          messages: () => ({
+            data: [
+              { info: { id: "m1" } },
+              { info: { id: "a1", role: "assistant" }, parts: [{ type: "text", text: "reply" }] },
+            ],
+          }),
+        },
+      },
+    } as any;
+
+    await performAutoCapture(ctx, "sess-1", "/test");
+
+    expect(mockWarn).toHaveBeenCalledWith(expect.stringContaining("not configured"));
+  });
+
+  it("resumes capture after LLM config becomes available", async () => {
+    // First: no config
+    CONFIG.opencodeProvider = undefined;
+    CONFIG.opencodeModel = undefined;
+    CONFIG.memoryModel = undefined;
+    CONFIG.memoryApiUrl = undefined;
+
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "test",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+    mockGetTags.mockReturnValue({
+      project: {
+        tag: "mem_project_test",
+        displayName: "Test",
+        userName: null,
+        userEmail: null,
+        projectPath: "/test",
+        projectName: "test",
+        gitRepoUrl: null,
+      },
+    });
+    mockMemoryClient.listMemories.mockResolvedValue({ success: false, memories: [] });
+
+    const ctx = {
+      client: {
+        session: {
+          messages: () => ({
+            data: [
+              { info: { id: "m1" } },
+              { info: { id: "a1", role: "assistant" }, parts: [{ type: "text", text: "reply" }] },
+            ],
+          }),
+        },
+      },
+    } as any;
+
+    await performAutoCapture(ctx, "sess-1", "/test");
+    expect(mockWarn).toHaveBeenCalled();
+    mockWarn.mockClear();
+
+    // Now set config and try again
+    CONFIG.memoryModel = "gpt-4";
+    CONFIG.memoryApiUrl = "http://test";
+
+    // Should proceed and throw from generateSummary (provider path)
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow();
+    expect(mockWarn).not.toHaveBeenCalled();
+  });
+
+  it("shows TUI toast only for unexpected runtime errors, not for missing config", async () => {
+    CONFIG.showAutoCaptureToasts = true;
+
+    const showToast = vi.fn().mockResolvedValue(undefined);
+    const mockMessages = vi.fn();
+
+    const ctx = {
+      client: {
+        session: {
+          messages: mockMessages,
+        },
+        tui: { showToast },
+      },
+    } as any;
+
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "test",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+    // Scenario 1: missing config error
+    CONFIG.opencodeProvider = undefined;
+    CONFIG.opencodeModel = undefined;
+    CONFIG.memoryModel = undefined;
+    CONFIG.memoryApiUrl = undefined;
+
+    mockMessages.mockResolvedValue({
+      data: [
+        { info: { id: "m1" } },
+        { info: { id: "a1", role: "assistant" }, parts: [{ type: "text", text: "reply" }] },
+      ],
+    });
+    mockGetTags.mockReturnValue({
+      project: {
+        tag: "mem_project_test",
+        displayName: "Test",
+        userName: null,
+        userEmail: null,
+        projectPath: "/test",
+        projectName: "test",
+        gitRepoUrl: null,
+      },
+    });
+    mockMemoryClient.listMemories.mockResolvedValue({ success: false, memories: [] });
+
+    await performAutoCapture(ctx, "sess-1", "/test").catch(() => {});
+    expect(showToast).not.toHaveBeenCalled();
+
+    // Scenario 2: runtime error (network error from messages)
+    showToast.mockClear();
+    const networkError = new Error("Network timeout");
+    mockMessages.mockRejectedValue(networkError);
+
+    await performAutoCapture(ctx, "sess-1", "/test").catch(() => {});
+    expect(showToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.objectContaining({
+          title: "Auto-capture Error",
+          variant: "error",
+        }),
+      })
     );
   });
 });

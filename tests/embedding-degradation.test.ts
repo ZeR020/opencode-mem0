@@ -73,6 +73,36 @@ describe("EmbeddingService graceful degradation", () => {
     originalConfig.CONFIG.embeddingModel = originalModel;
     originalConfig.CONFIG.storagePath = originalStorage;
   });
+
+  it("enters degraded mode with isWarmedUp=true after timeout", async () => {
+    (embeddingService as any).isWarmedUp = true;
+    (embeddingService as any).initPromise = null;
+    (embeddingService as any).embeddingAvailable = true;
+
+    // Mock pipe to throw so embed()'s catch block sets embeddingAvailable=false
+    (embeddingService as any).pipe = vi.fn().mockRejectedValue(new Error("model timeout"));
+
+    await expect(embeddingService.embedWithTimeout("test")).rejects.toThrow();
+
+    expect((embeddingService as any).isWarmedUp).toBe(true);
+    expect(embeddingService.embeddingAvailable).toBe(false);
+
+    (embeddingService as any).pipe = null;
+  });
+
+  it("memoryClient.isReady() returns true in degraded mode", async () => {
+    const { memoryClient } = await import("../src/services/client.js");
+
+    (memoryClient as any).isInitialized = true;
+    (embeddingService as any).isWarmedUp = true;
+    embeddingService.embeddingAvailable = false;
+
+    expect(memoryClient.isReady()).toBe(true);
+
+    // Reset state to avoid affecting other tests
+    (memoryClient as any).isInitialized = false;
+    (memoryClient as any).initPromise = null;
+  });
 });
 
 describe("Config defaults", () => {

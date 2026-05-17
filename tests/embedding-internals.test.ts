@@ -118,4 +118,52 @@ describe("EmbeddingService singleton and internals", () => {
       expect(stats.size).toBe(0);
     });
   });
+
+  describe("timer leaks and abort handling", () => {
+    it("does not leak timers on rapid embedWithTimeout calls", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+
+      (embeddingService as any).isWarmedUp = true;
+      (embeddingService as any).cachedModelName = "test";
+      vi.spyOn(embeddingService, "embed").mockResolvedValue(new Float32Array([0.1, 0.2, 0.3]));
+
+      const promises = [];
+      for (let i = 0; i < 5; i++) {
+        promises.push(embeddingService.embedWithTimeout("test" + i));
+      }
+
+      await Promise.all(promises);
+
+      // Advance past timeout window to catch any leaked timers
+      vi.runAllTimers();
+
+      expect(vi.getTimerCount()).toBe(0);
+
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    });
+
+    it("single AbortController cancels both promise and timeout", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+
+      const neverResolve = new Promise<never>(() => {});
+      (embeddingService as any).isWarmedUp = true;
+      (embeddingService as any).cachedModelName = "test";
+      vi.spyOn(embeddingService, "embed").mockImplementation(() => neverResolve);
+
+      const promise = embeddingService.embedWithTimeout("test");
+
+      // Advance to trigger timeout abort
+      vi.advanceTimersByTime(30000);
+
+      // Desired behavior: rejection should be "Aborted" and no dangling timers
+      await expect(promise).rejects.toThrow("Aborted");
+
+      vi.runAllTimers();
+      expect(vi.getTimerCount()).toBe(0);
+
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    });
+  });
 });

@@ -206,6 +206,7 @@ export class ShardManager {
         resolution_type TEXT,
         resolved_at INTEGER,
         resolution_data TEXT,
+        container_tag TEXT,
         FOREIGN KEY (memory_id_1) REFERENCES memories(id) ON DELETE CASCADE,
         FOREIGN KEY (memory_id_2) REFERENCES memories(id) ON DELETE CASCADE
       )
@@ -219,6 +220,7 @@ export class ShardManager {
 
     // Migrate existing databases to add scoring columns
     this.migrateScoringColumns(db);
+    this.migrateConflictColumns(db);
   }
 
   private migrateScoringColumns(db: DatabaseType): void {
@@ -251,6 +253,21 @@ export class ShardManager {
             error: String(error),
           });
         }
+      }
+    }
+  }
+
+  private migrateConflictColumns(db: DatabaseType): void {
+    const columns = db.prepare("PRAGMA table_info(memory_conflicts)").all() as any[];
+    const columnNames = new Set(columns.map((c) => c.name));
+
+    if (!columnNames.has("container_tag")) {
+      try {
+        db.run("ALTER TABLE memory_conflicts ADD COLUMN container_tag TEXT");
+      } catch (error) {
+        log("Schema migration: failed to add column container_tag", {
+          error: String(error),
+        });
       }
     }
   }

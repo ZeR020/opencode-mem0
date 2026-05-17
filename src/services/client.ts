@@ -349,7 +349,7 @@ export class LocalMemoryClient {
         const memories = vectorSearch.listMemories(
           db,
           scope === "all-projects" ? "" : containerTag,
-          limit
+          limit * 2
         );
         allMemories.push(...memories);
       }

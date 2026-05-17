@@ -296,27 +296,61 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
 
         if (!shouldInject) return;
 
-        const listResult = await memoryClient.listMemories(
-          tags.project.tag,
-          CONFIG.chatMessage.maxMemories
-        );
+        const mode = (CONFIG.chatMessage as any).mode ?? "relevant";
+        let memories: any[] = [];
+        let projectMemories: { results: any[]; total: number; timing: number };
 
-        let memories = listResult.success ? listResult.memories : [];
+        if (mode === "relevant") {
+          const searchResult = await memoryClient.searchMemories(
+            userMessage,
+            tags.project.tag,
+            "project",
+            { projectPath: directory }
+          );
+          if (!searchResult.success) return;
+          memories = searchResult.results;
 
-        if (CONFIG.chatMessage.excludeCurrentSession) {
-          memories = memories.filter((m: any) => m.metadata?.sessionID !== input.sessionID);
+          if (CONFIG.chatMessage.excludeCurrentSession) {
+            memories = memories.filter((m: any) => m.metadata?.sessionID !== input.sessionID);
+          }
+          if (CONFIG.chatMessage.maxAgeDays) {
+            const cutoffDate = Date.now() - CONFIG.chatMessage.maxAgeDays * 86400000;
+            memories = memories.filter((m: any) =>
+              m.createdAt ? new Date(m.createdAt).getTime() > cutoffDate : true
+            );
+          }
+          if (memories.length === 0) return;
+
+          projectMemories = {
+            results: memories.map((m: any) => ({
+              similarity: m.similarity ?? 1,
+              memory: m.memory || m.chunk || "",
+            })),
+            total: memories.length,
+            timing: 0,
+          };
+        } else {
+          const listResult = await memoryClient.listMemories(
+            tags.project.tag,
+            CONFIG.chatMessage.maxMemories
+          );
+          memories = listResult.success ? listResult.memories : [];
+
+          if (CONFIG.chatMessage.excludeCurrentSession) {
+            memories = memories.filter((m: any) => m.metadata?.sessionID !== input.sessionID);
+          }
+          if (CONFIG.chatMessage.maxAgeDays) {
+            const cutoffDate = Date.now() - CONFIG.chatMessage.maxAgeDays * 86400000;
+            memories = memories.filter((m: any) => new Date(m.createdAt).getTime() > cutoffDate);
+          }
+          if (memories.length === 0) return;
+
+          projectMemories = {
+            results: memories.map((m: any) => ({ similarity: 1, memory: m.summary })),
+            total: memories.length,
+            timing: 0,
+          };
         }
-        if (CONFIG.chatMessage.maxAgeDays) {
-          const cutoffDate = Date.now() - CONFIG.chatMessage.maxAgeDays * 86400000;
-          memories = memories.filter((m: any) => new Date(m.createdAt).getTime() > cutoffDate);
-        }
-        if (memories.length === 0) return;
-
-        const projectMemories = {
-          results: memories.map((m: any) => ({ similarity: 1, memory: m.summary })),
-          total: memories.length,
-          timing: 0,
-        };
 
         const userId = tags.user.userEmail || null;
         const memoryContext = formatContextForPrompt(userId, projectMemories, {

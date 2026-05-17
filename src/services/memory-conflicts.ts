@@ -11,16 +11,16 @@ import type { MemoryConflict } from "./sqlite/types.js";
 type DatabaseType = Database;
 
 class ConflictCheckLock {
-  private running = false;
+  private running = new Set<string>();
 
-  acquire(): boolean {
-    if (this.running) return false;
-    this.running = true;
+  acquire(key: string): boolean {
+    if (this.running.has(key)) return false;
+    this.running.add(key);
     return true;
   }
 
-  release(): void {
-    this.running = false;
+  release(key: string): void {
+    this.running.delete(key);
   }
 }
 
@@ -188,8 +188,12 @@ export async function detectConflicts(
   containerTag: string,
   sessionID?: string
 ): Promise<MemoryConflict[]> {
-  if (!conflictCheckLock.acquire()) {
-    log("detectConflicts: skipping, another check is running");
+  const lockKey = `${newMemoryId}:${containerTag}`;
+  if (!conflictCheckLock.acquire(lockKey)) {
+    log("detectConflicts: skipping, another check is running", {
+      memoryId: newMemoryId,
+      containerTag,
+    });
     return [];
   }
 
@@ -238,6 +242,7 @@ export async function detectConflicts(
             similarityScore: candidate.similarity,
             detectedAt: Date.now(),
             resolved: 0,
+            containerTag,
           };
 
           saveConflict(db, conflict);
@@ -258,7 +263,7 @@ export async function detectConflicts(
     log("detectConflicts: error", { error: String(error) });
     return [];
   } finally {
-    conflictCheckLock.release();
+    conflictCheckLock.release(lockKey);
   }
 }
 
@@ -429,6 +434,7 @@ function findExistingConflict(
     resolutionType: row.resolution_type,
     resolvedAt: row.resolved_at,
     resolutionData: row.resolution_data,
+    containerTag: row.container_tag,
   };
 }
 
@@ -442,8 +448,8 @@ function saveConflict(db: DatabaseType, conflict: MemoryConflict): void {
   db.prepare(
     `
     INSERT INTO memory_conflicts (
-      id, memory_id_1, memory_id_2, similarity_score, detected_at, resolved, resolution_type, resolved_at, resolution_data
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      id, memory_id_1, memory_id_2, similarity_score, detected_at, resolved, resolution_type, resolved_at, resolution_data, container_tag
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
   ).run(
     conflict.id,
@@ -454,7 +460,8 @@ function saveConflict(db: DatabaseType, conflict: MemoryConflict): void {
     conflict.resolved,
     conflict.resolutionType || null,
     conflict.resolvedAt || null,
-    conflict.resolutionData || null
+    conflict.resolutionData || null,
+    conflict.containerTag || null
   );
 }
 
@@ -479,13 +486,33 @@ export async function resolveConflict(
   mergedContent?: string
 ): Promise<{ success: boolean; error?: string; mergedMemoryId?: string }> {
   try {
-    const { hash } = extractScopeFromContainerTag("mem_user_"); // We'll search all shards
-    const shards = [
+    // First, find the conflict in any shard to read its container_tag
+    let conflictRow: any = null;
+    let conflictDb: DatabaseType | null = null;
+    const searchShards = [
       ...shardManager.getAllShards("user", ""),
-      ...shardManager.getAllShards("project", hash),
+      ...shardManager.getAllShards("project", ""),
     ];
 
-    for (const shard of shards) {
+    for (const shard of searchShards) {
+      const db = connectionManager.getConnection(shard.dbPath);
+      const row = db.prepare("SELECT * FROM memory_conflicts WHERE id = ?").get(conflictId) as any;
+      if (row) {
+        conflictRow = row;
+        conflictDb = db;
+        break;
+      }
+    }
+
+    if (!conflictRow || !conflictDb) {
+      return { success: false, error: "Conflict not found" };
+    }
+
+    const containerTag = conflictRow.container_tag || "mem_user_";
+    const { scope, hash } = extractScopeFromContainerTag(containerTag);
+    const targetShards = shardManager.getAllShards(scope, hash);
+
+    for (const shard of targetShards) {
       const db = connectionManager.getConnection(shard.dbPath);
       const row = db.prepare("SELECT * FROM memory_conflicts WHERE id = ?").get(conflictId) as any;
 
@@ -501,6 +528,7 @@ export async function resolveConflict(
         resolutionType: row.resolution_type,
         resolvedAt: row.resolved_at,
         resolutionData: row.resolution_data,
+        containerTag: row.container_tag,
       };
 
       const now = Date.now();

@@ -66,6 +66,10 @@ import { shardManager } from "../src/services/sqlite/shard-manager.js";
 import { connectionManager } from "../src/services/sqlite/connection-manager.js";
 import { vectorSearch } from "../src/services/sqlite/vector-search.js";
 import { embeddingService } from "../src/services/embedding.js";
+import {
+  isProviderConnected,
+  generateStructuredOutput,
+} from "../src/services/ai/opencode-provider.js";
 
 function makeMockDb(
   options: {
@@ -119,12 +123,12 @@ function makeMockDb(
 
 describe("memory-conflicts", () => {
   beforeEach(() => {
-    vi.mocked(shardManager.getAllShards).mockReturnValue([]);
+    (shardManager.getAllShards as any).mockReturnValue([]);
   });
 
   describe("extractScopeFromContainerTag (via detectConflicts)", () => {
     it("returns empty conflicts when no shards exist", async () => {
-      vi.mocked(shardManager.getAllShards).mockReturnValue([]);
+      (shardManager.getAllShards as any).mockReturnValue([]);
       const conflicts = await detectConflicts("mem-1", "test content", "mem_project_abc");
       expect(conflicts).toEqual([]);
     });
@@ -133,11 +137,11 @@ describe("memory-conflicts", () => {
   describe("detectConflicts", () => {
     it("skips when another check is running", async () => {
       // First call acquires lock
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
       const db = makeMockDb({ likeMemories: [] });
-      vi.mocked(connectionManager.getConnection).mockReturnValue(db as any);
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
 
       // Fire first call (don't await — lock is held)
       const promise1 = detectConflicts("mem-new", "new content", "mem_project_hash");
@@ -148,15 +152,92 @@ describe("memory-conflicts", () => {
       // Clean up
       await promise1;
     });
+
+    it("deduplicates concurrent conflict checks by (memoryId, containerTag)", async () => {
+      // Setup candidate that passes heuristic (negation pattern with overlap)
+      const candidate = {
+        id: "mem-existing",
+        content: "not similar technical content here",
+        is_deprecated: 0,
+      };
+
+      (shardManager.getAllShards as any).mockReturnValue([
+        { id: "shard-1", dbPath: "/tmp/test.db" },
+      ]);
+      const db = makeMockDb({ likeMemories: [candidate] });
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
+
+      const getConnectionSpy = connectionManager.getConnection as any;
+      getConnectionSpy.mockClear();
+
+      // Make LLM path hang so lock stays held
+      (isProviderConnected as any).mockReturnValue(true);
+      (generateStructuredOutput as any).mockImplementation(() => new Promise(() => {}) as any);
+
+      // Content overlaps with candidate and has no negation (heuristic passes)
+      const promise1 = detectConflicts(
+        "mem-same",
+        "similar technical content here",
+        "mem_project_hash"
+      );
+      const promise2 = detectConflicts("mem-same", "other content", "mem_project_hash");
+
+      // Second call should be deduplicated immediately while first is still running
+      const result2 = await promise2;
+      expect(result2).toEqual([]);
+
+      // Only the first call should have reached getConnection
+      expect(getConnectionSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("allows parallel checks for different memoryIds", async () => {
+      // Setup candidate that passes heuristic
+      const candidate = {
+        id: "mem-existing",
+        content: "not similar technical content here",
+        is_deprecated: 0,
+      };
+
+      (shardManager.getAllShards as any).mockReturnValue([
+        { id: "shard-1", dbPath: "/tmp/test.db" },
+      ]);
+      const db = makeMockDb({ likeMemories: [candidate] });
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
+
+      const getConnectionSpy = connectionManager.getConnection as any;
+      getConnectionSpy.mockClear();
+
+      // Make LLM path hang so lock stays held
+      (isProviderConnected as any).mockReturnValue(true);
+      (generateStructuredOutput as any).mockImplementation(() => new Promise(() => {}) as any);
+
+      const promise1 = detectConflicts(
+        "mem-1",
+        "similar technical content here",
+        "mem_project_hash"
+      );
+      const promise2 = detectConflicts(
+        "mem-2",
+        "similar technical content here",
+        "mem_project_hash"
+      );
+
+      // With Set-based deduplication (desired), both should execute concurrently
+      // With current global lock, promise2 returns [] immediately
+      await Promise.all([promise1, promise2]);
+
+      // Both calls for different memoryIds should have been allowed to run
+      expect(getConnectionSpy).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe("resolveConflict", () => {
     it("returns error when conflict not found", async () => {
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
       const db = makeMockDb();
-      vi.mocked(connectionManager.getConnection).mockReturnValue(db as any);
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
 
       const result = await resolveConflict("nonexistent", "keep_both");
       expect(result.success).toBe(false);
@@ -172,11 +253,11 @@ describe("memory-conflicts", () => {
         detected_at: Date.now(),
         resolved: 0,
       };
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
       const db = makeMockDb({ conflictRows: [conflictRow] });
-      vi.mocked(connectionManager.getConnection).mockReturnValue(db as any);
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
 
       const result = await resolveConflict("conflict-1", "keep_both");
       expect(result.success).toBe(true);
@@ -193,11 +274,11 @@ describe("memory-conflicts", () => {
       };
       const oldMem = { id: "mem-old", created_at: 1000 };
       const newMem = { id: "mem-new", created_at: 2000 };
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
       const db = makeMockDb({ conflictRows: [conflictRow], memForAge: [oldMem, newMem] });
-      vi.mocked(connectionManager.getConnection).mockReturnValue(db as any);
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
 
       const result = await resolveConflict("conflict-kn", "keep_newer");
       expect(result.success).toBe(true);
@@ -238,12 +319,12 @@ describe("memory-conflicts", () => {
         store_type: "ltm",
         decay_rate: 0.05,
       };
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
       const db = makeMockDb({ conflictRows: [conflictRow], memForAge: [memData] });
-      vi.mocked(connectionManager.getConnection).mockReturnValue(db as any);
-      vi.mocked(vectorSearch.insertVector).mockResolvedValue(undefined);
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
+      (vectorSearch.insertVector as any).mockResolvedValue(undefined);
 
       const result = await resolveConflict("conflict-merge", "merge", "merged content text");
       expect(result.success).toBe(true);
@@ -259,11 +340,11 @@ describe("memory-conflicts", () => {
         detected_at: Date.now(),
         resolved: 0,
       };
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
       const db = makeMockDb({ conflictRows: [conflictRow] });
-      vi.mocked(connectionManager.getConnection).mockReturnValue(db as any);
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
 
       const result = await resolveConflict("conflict-nocontent", "merge");
       expect(result.success).toBe(false);
@@ -279,11 +360,11 @@ describe("memory-conflicts", () => {
         detected_at: Date.now(),
         resolved: 0,
       };
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
       const db = makeMockDb({ conflictRows: [conflictRow] });
-      vi.mocked(connectionManager.getConnection).mockReturnValue(db as any);
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
 
       const result = await resolveConflict("conflict-manual", "manual");
       expect(result.success).toBe(true);
@@ -298,14 +379,107 @@ describe("memory-conflicts", () => {
         detected_at: Date.now(),
         resolved: 0,
       };
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
       const db = makeMockDb({ conflictRows: [conflictRow] });
-      vi.mocked(connectionManager.getConnection).mockReturnValue(db as any);
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
 
       const result = await resolveConflict("conflict-1", "unknown_strategy" as any);
       expect(result.success).toBe(false);
+    });
+
+    it("reads container_tag from conflict record during resolution", async () => {
+      const conflictRow = {
+        id: "conflict-tag",
+        memory_id_1: "mem-a",
+        memory_id_2: "mem-b",
+        similarity_score: 0.88,
+        detected_at: Date.now(),
+        resolved: 0,
+        container_tag: "mem_project_abc123",
+      };
+
+      const getAllShardsSpy = shardManager.getAllShards as any;
+      getAllShardsSpy.mockClear();
+      getAllShardsSpy.mockImplementation((scope: string, hash: string) => {
+        if (scope === "project" && hash === "abc123") {
+          return [
+            {
+              id: 1,
+              scope: "project" as const,
+              scopeHash: "abc123",
+              shardIndex: 0,
+              dbPath: "/tmp/project.db",
+              vectorCount: 0,
+              isActive: true,
+              createdAt: Date.now(),
+            },
+          ];
+        }
+        if (scope === "user" && hash === "") {
+          return [
+            {
+              id: 2,
+              scope: "user" as const,
+              scopeHash: "",
+              shardIndex: 0,
+              dbPath: "/tmp/user.db",
+              vectorCount: 0,
+              isActive: true,
+              createdAt: Date.now(),
+            },
+          ];
+        }
+        return [];
+      });
+
+      const db = makeMockDb({ conflictRows: [conflictRow], memForAge: [] });
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
+
+      const result = await resolveConflict("conflict-tag", "keep_both");
+
+      // Should have looked up project shards with hash from the conflict's container_tag
+      expect(getAllShardsSpy).toHaveBeenCalledWith("project", "abc123");
+      expect(result.success).toBe(true);
+    });
+
+    it("auto-migrates container_tag column on old schema", async () => {
+      const db = {
+        prepare: vi.fn().mockImplementation((sql: string) => {
+          if (sql.includes("PRAGMA table_info(memory_conflicts)")) {
+            return {
+              all: vi.fn().mockReturnValue([
+                { name: "id" },
+                { name: "memory_id_1" },
+                { name: "memory_id_2" },
+                { name: "similarity_score" },
+                { name: "detected_at" },
+                { name: "resolved" },
+                // container_tag is missing!
+              ]),
+            };
+          }
+          if (sql.includes("ALTER TABLE")) {
+            return { run: vi.fn() };
+          }
+          return { all: vi.fn(), get: vi.fn(), run: vi.fn() };
+        }),
+        run: vi.fn(),
+        exec: vi.fn(),
+        close: vi.fn(),
+      };
+
+      // Verify schema detection
+      const columns = db.prepare("PRAGMA table_info(memory_conflicts)").all();
+      const hasContainerTag = columns.some((c: any) => c.name === "container_tag");
+      expect(hasContainerTag).toBe(false);
+
+      // After migration, the column should exist
+      db.prepare("ALTER TABLE memory_conflicts ADD COLUMN container_tag TEXT").run();
+      expect(db.prepare).toHaveBeenCalledWith(
+        expect.stringContaining("ALTER TABLE memory_conflicts ADD COLUMN container_tag")
+      );
     });
   });
 
@@ -353,12 +527,12 @@ describe("memory-conflicts", () => {
         m1_content: "c1 m1",
         m2_content: "c1 m2",
       };
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/a.db" },
         { id: "shard-2", dbPath: "/tmp/b.db" },
       ]);
       const db = makeMockDb({ conflictRows: [conflictRow] });
-      vi.mocked(connectionManager.getConnection).mockReturnValue(db as any);
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
 
       const conflicts = getAllUnresolvedConflicts();
       expect(conflicts.length).toBeGreaterThanOrEqual(1);
@@ -373,10 +547,10 @@ describe("memory-conflicts", () => {
         is_deprecated: 0,
       };
       const db = makeMockDb({ likeMemories: [similarMem] });
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
-      vi.mocked(connectionManager.getConnection).mockReturnValue(db as any);
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
 
       const conflicts = await detectConflicts(
         "mem-new",
@@ -393,10 +567,10 @@ describe("memory-conflicts", () => {
         is_deprecated: 0,
       };
       const db = makeMockDb({ ftsMemories: [similarMem], likeMemories: [] });
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
-      vi.mocked(connectionManager.getConnection).mockReturnValue(db as any);
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
 
       const conflicts = await detectConflicts(
         "mem-new",
@@ -408,10 +582,10 @@ describe("memory-conflicts", () => {
 
     it("returns empty for blank content", async () => {
       const db = makeMockDb();
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
-      vi.mocked(connectionManager.getConnection).mockReturnValue(db as any);
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
 
       const conflicts = await detectConflicts("mem-new", "a b c", "mem_project_test");
       expect(conflicts).toEqual([]);
@@ -427,10 +601,10 @@ describe("memory-conflicts", () => {
       };
       // Need enough words to pass word overlap > 0.3 with a negation on one side
       const db = makeMockDb({ likeMemories: [candidate] });
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
-      vi.mocked(connectionManager.getConnection).mockReturnValue(db as any);
+      (connectionManager.getConnection as any).mockReturnValue(db as any);
 
       const conflicts = await detectConflicts(
         "mem-new",

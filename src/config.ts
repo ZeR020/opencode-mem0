@@ -122,6 +122,7 @@ interface OpenCodeMemConfig {
     excludeCurrentSession?: boolean;
     maxAgeDays?: number;
     injectOn?: "first" | "always";
+    mode?: "relevant" | "fast";
   };
   retrieval?: {
     maxResults?: number;
@@ -370,6 +371,7 @@ const DEFAULTS: Required<
     excludeCurrentSession: true,
     injectOn: "first",
     maxAgeDays: undefined,
+    mode: "relevant",
   },
   retrieval: {
     maxResults: 20,
@@ -885,6 +887,7 @@ function buildChatConfig(f: OpenCodeMemConfig) {
     injectOn: coalesce(f.chatMessage?.injectOn, DEFAULTS.chatMessage.injectOn) as
       | "first"
       | "always",
+    mode: coalesce(f.chatMessage?.mode, DEFAULTS.chatMessage.mode) as "relevant" | "fast",
   };
 }
 
