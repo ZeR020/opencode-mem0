@@ -1,4 +1,4 @@
-import { transcriptManager } from "./sqlite/transcript-manager.js";
+import { transcriptManager, type TranscriptRecord } from "./sqlite/transcript-manager.js";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { embeddingService } from "./embedding.js";
@@ -11,6 +11,7 @@ import type { MemoryType } from "../types/index.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
 import { getAllUnresolvedConflicts, resolveConflict } from "./memory-conflicts.js";
 import { safeToISOString, safeJSONParse } from "./utils/safe-transforms.js";
+import type { UserProfileData } from "./user-profile/types.js";
 
 interface ApiResponse<T = any> {
   success: boolean;
@@ -1007,8 +1008,8 @@ export async function handleGetUserProfile(userId?: string): Promise<ApiResponse
 
 export async function handleUpdateUserProfile(
   userId: string | undefined,
-  profileData: any
-): Promise<ApiResponse<any>> {
+  profileData: UserProfileData
+): Promise<ApiResponse<{ message: string }>> {
   try {
     const targetUserId = userId || "default";
     const { userProfileManager } = await import("./user-profile/user-profile-manager.js");
@@ -1018,7 +1019,12 @@ export async function handleUpdateUserProfile(
       return { success: false, error: "No profile found to update." };
     }
 
-    userProfileManager.updateProfile(profile.id, profileData, 0, "Manual profile edit via UI");
+    await userProfileManager.updateProfile(
+      profile.id,
+      profileData,
+      0,
+      "Manual profile edit via UI"
+    );
 
     return { success: true, data: { message: "Profile updated successfully." } };
   } catch (error) {
@@ -1383,7 +1389,9 @@ export async function handleSearchTranscripts(
   query: string,
   page: number,
   pageSize: number
-): Promise<ApiResponse> {
+): Promise<
+  ApiResponse<{ transcripts: TranscriptRecord[]; total: number; page: number; totalPages: number }>
+> {
   try {
     const offset = (page - 1) * pageSize;
     const { transcripts, total } = transcriptManager.searchTranscripts(query, pageSize, offset);

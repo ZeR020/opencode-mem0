@@ -4,6 +4,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
 import { serve, type PlatformServer } from "./platform-server.js";
+import type { UserProfileData } from "./user-profile/types.js";
 import {
   handleListTags,
   handleListMemories,
@@ -574,16 +575,16 @@ export class WebServer {
   }
 
   private async _apiUpdateUserProfile(req: Request, isLocal: boolean): Promise<Response> {
-    let body;
+    let body: { userId?: string; profileData: unknown };
     try {
-      body = (await req.json()) as any;
+      body = (await req.json()) as { userId?: string; profileData: unknown };
     } catch (e) {
       return this.jsonResponse({ success: false, error: "Invalid JSON" }, 400, !isLocal);
     }
     if (!body || !body.profileData) {
       return this.jsonResponse({ success: false, error: "Invalid request body" }, 400, !isLocal);
     }
-    const result = await handleUpdateUserProfile(body.userId, body.profileData);
+    const result = await handleUpdateUserProfile(body.userId, body.profileData as UserProfileData);
     return this.jsonResponse(result, 200, !isLocal);
   }
 
