@@ -1186,11 +1186,11 @@ function renderUserProfile() {
         <div class="profile-stats">
           <div class="stat-pill">
             <span class="label">${t("profile-version")}</span>
-            <span class="value">${profile.version}</span>
+            <span class="value">${escapeHtml(String(profile.version))}</span>
           </div>
           <div class="stat-pill">
             <span class="label">${t("profile-prompts")}</span>
-            <span class="value">${profile.totalPromptsAnalyzed}</span>
+            <span class="value">${escapeHtml(String(profile.totalPromptsAnalyzed))}</span>
           </div>
           <div class="stat-pill">
             <span class="label">${t("profile-updated")}</span>
@@ -1248,9 +1248,9 @@ async function showChangelog() {
         (c) => `
       <div class="changelog-item">
         <div class="changelog-header">
-          <span class="changelog-version">v${c.version}</span>
-          <span class="changelog-type">${c.changeType}</span>
-          <span class="changelog-date">${formatDate(c.createdAt)}</span>
+          <span class="changelog-version">v${escapeHtml(String(c.version))}</span>
+          <span class="changelog-type">${escapeHtml(c.changeType)}</span>
+          <span class="changelog-date">${escapeHtml(formatDate(c.createdAt))}</span>
         </div>
         <p class="changelog-summary">${escapeHtml(c.changeSummary)}</p>
       </div>
@@ -1331,17 +1331,17 @@ async function loadConflicts() {
     stats.innerHTML = `
       <div class="conflict-stat-pill">
         <span class="label">Unresolved:</span>
-        <span class="value ${statsResult.data.unresolved > 0 ? "warning" : ""}">${statsResult.data.unresolved}</span>
+        <span class="value ${statsResult.data.unresolved > 0 ? "warning" : ""}">${escapeHtml(String(statsResult.data.unresolved))}</span>
       </div>
       <div class="conflict-stat-pill">
         <span class="label">Resolved:</span>
-        <span class="value">${statsResult.data.resolved}</span>
+        <span class="value">${escapeHtml(String(statsResult.data.resolved))}</span>
       </div>
     `;
     // Update badge
     const badge = document.getElementById("conflict-badge");
     if (statsResult.data.unresolved > 0) {
-      badge.textContent = statsResult.data.unresolved;
+      badge.textContent = String(statsResult.data.unresolved);
       badge.classList.remove("hidden");
     } else {
       badge.classList.add("hidden");
