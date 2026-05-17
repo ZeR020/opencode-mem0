@@ -1481,18 +1481,23 @@ function escapeJsString(str) {
 
 async function loadTranscripts() {
   const container = document.getElementById("transcripts-list");
+  if (!container) return;
   container.innerHTML = '<div class="loading">Loading transcripts...</div>';
 
-  const result = await fetchAPI(`/api/transcripts/search?limit=20&page=${state.transcriptsPage}`);
+  try {
+    const result = await fetchAPI(`/api/transcripts/search?limit=20&page=${state.transcriptsPage}`);
 
-  if (result.success) {
-    state.transcripts = result.data.transcripts;
-    state.transcriptsTotalItems = result.data.total;
-    state.transcriptsTotalPages = result.data.totalPages || 1;
-    renderTranscripts();
-    updateTranscriptsPagination();
-  } else {
-    container.innerHTML = `<div class="error-state">Error: ${escapeHtml(result.error || "Failed to load transcripts")}</div>`;
+    if (result.success) {
+      state.transcripts = result.data.transcripts;
+      state.transcriptsTotalItems = result.data.total;
+      state.transcriptsTotalPages = result.data.totalPages || 1;
+      renderTranscripts();
+      updateTranscriptsPagination();
+    } else {
+      container.innerHTML = `<div class="error-state">Error: ${escapeHtml(result.error || "Failed to load transcripts")}</div>`;
+    }
+  } catch (error) {
+    container.innerHTML = `<div class="error-state">Error: ${escapeHtml(String(error))}</div>`;
   }
 }
 
@@ -1554,51 +1559,56 @@ function updateTranscriptsPagination() {
 
 async function loadTimeline() {
   const container = document.getElementById("timeline-content");
+  if (!container) return;
   container.innerHTML = '<div class="loading">Loading timeline...</div>';
 
-  const result = await fetchAPI(`/api/memories?page=1&pageSize=100&includePrompts=false`);
-  if (result.success) {
-    const items = result.data.items;
-    if (items.length === 0) {
-      container.innerHTML = '<div class="empty-state">No timeline events found.</div>';
-      return;
-    }
+  try {
+    const result = await fetchAPI(`/api/memories?page=1&pageSize=100&includePrompts=false`);
+    if (result.success) {
+      const items = result.data.items;
+      if (items.length === 0) {
+        container.innerHTML = '<div class="empty-state">No timeline events found.</div>';
+        return;
+      }
 
-    // Group by day
-    const groups = {};
-    items.forEach((item) => {
-      const date = new Date(item.createdAt || item.timestamp);
-      const day = date.toLocaleDateString();
-      if (!groups[day]) groups[day] = [];
-      groups[day].push(item);
-    });
-
-    let html = '<div class="timeline-container">';
-    Object.keys(groups)
-      .sort((a, b) => new Date(b) - new Date(a))
-      .forEach((day) => {
-        html += `<div class="timeline-day">
-        <h3 class="timeline-date">${escapeHtml(day)}</h3>
-        <div class="timeline-events">`;
-        groups[day].forEach((item) => {
-          html += `
-          <div class="timeline-event">
-            <div class="timeline-time">${new Date(item.createdAt || item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
-            <div class="timeline-marker"></div>
-            <div class="timeline-detail">
-              <span class="badge badge-${item.type || "other"}">${escapeHtml(item.type || "other")}</span>
-              <p>${escapeHtml(item.content)}</p>
-            </div>
-          </div>
-        `;
-        });
-        html += `</div></div>`;
+      // Group by day
+      const groups = {};
+      items.forEach((item) => {
+        const date = new Date(item.createdAt || item.timestamp);
+        const day = date.toLocaleDateString();
+        if (!groups[day]) groups[day] = [];
+        groups[day].push(item);
       });
-    html += "</div>";
 
-    container.innerHTML = html;
-  } else {
-    container.innerHTML = `<div class="error-state">Error: ${escapeHtml(result.error || "Failed to load timeline")}</div>`;
+      let html = '<div class="timeline-container">';
+      Object.keys(groups)
+        .sort((a, b) => new Date(b) - new Date(a))
+        .forEach((day) => {
+          html += `<div class="timeline-day">
+          <h3 class="timeline-date">${escapeHtml(day)}</h3>
+          <div class="timeline-events">`;
+          groups[day].forEach((item) => {
+            html += `
+            <div class="timeline-event">
+              <div class="timeline-time">${new Date(item.createdAt || item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+              <div class="timeline-marker"></div>
+              <div class="timeline-detail">
+                <span class="badge badge-${item.type || "other"}">${escapeHtml(item.type || "other")}</span>
+                <p>${escapeHtml(item.content)}</p>
+              </div>
+            </div>
+          `;
+          });
+          html += `</div></div>`;
+        });
+      html += "</div>";
+
+      container.innerHTML = html;
+    } else {
+      container.innerHTML = `<div class="error-state">Error: ${escapeHtml(result.error || "Failed to load timeline")}</div>`;
+    }
+  } catch (error) {
+    container.innerHTML = `<div class="error-state">Error: ${escapeHtml(String(error))}</div>`;
   }
 }
 
