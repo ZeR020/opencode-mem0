@@ -28,6 +28,8 @@ import { embeddingService } from "./services/embedding.js";
 import { isConfigured, CONFIG, initConfig } from "./config.js";
 import { log } from "./services/logger.js";
 import type { MemoryType } from "./types/index.js";
+import type { UserProfileData } from "./services/user-profile/types.js";
+import type { SearchResult } from "./services/sqlite/types.js";
 import { getLanguageName } from "./services/language-detector.js";
 import type { MemoryScope } from "./services/client.js";
 
@@ -297,9 +299,12 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
 
         if (!shouldInject) return;
 
-        const mode = (CONFIG.chatMessage as any).mode ?? "relevant";
-        let memories: any[] = [];
-        let projectMemories: { results: any[]; total: number; timing: number };
+        const mode = CONFIG.chatMessage.mode ?? "relevant";
+        let projectMemories: {
+          results: Array<{ similarity: number; memory: string }>;
+          total: number;
+          timing: number;
+        };
 
         if (mode === "relevant") {
           const searchResult = await memoryClient.searchMemories(
@@ -309,23 +314,25 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
             { projectPath: directory }
           );
           if (!searchResult.success) return;
-          memories = searchResult.results;
+          let memories = searchResult.results;
 
           if (CONFIG.chatMessage.excludeCurrentSession) {
-            memories = memories.filter((m: any) => m.metadata?.sessionID !== input.sessionID);
+            memories = memories.filter(
+              (m) => (m.metadata as Record<string, unknown>)?.sessionID !== input.sessionID
+            );
           }
           if (CONFIG.chatMessage.maxAgeDays) {
             const cutoffDate = Date.now() - CONFIG.chatMessage.maxAgeDays * 86400000;
-            memories = memories.filter((m: any) =>
+            memories = memories.filter((m) =>
               m.createdAt ? new Date(m.createdAt).getTime() > cutoffDate : true
             );
           }
           if (memories.length === 0) return;
 
           projectMemories = {
-            results: memories.map((m: any) => ({
+            results: memories.map((m) => ({
               similarity: m.similarity ?? 1,
-              memory: m.memory || m.chunk || "",
+              memory: m.memory || (m as unknown as Record<string, string>).chunk || "",
             })),
             total: memories.length,
             timing: 0,
@@ -335,19 +342,30 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
             tags.project.tag,
             CONFIG.chatMessage.maxMemories
           );
-          memories = listResult.success ? listResult.memories : [];
+          let memories = listResult.success ? listResult.memories : [];
 
           if (CONFIG.chatMessage.excludeCurrentSession) {
-            memories = memories.filter((m: any) => m.metadata?.sessionID !== input.sessionID);
+            memories = memories.filter(
+              (m) =>
+                (m.metadata as Record<string, unknown> | undefined)?.sessionID !== input.sessionID
+            );
           }
           if (CONFIG.chatMessage.maxAgeDays) {
             const cutoffDate = Date.now() - CONFIG.chatMessage.maxAgeDays * 86400000;
-            memories = memories.filter((m: any) => new Date(m.createdAt).getTime() > cutoffDate);
+            memories = memories.filter((m) =>
+              (m as Record<string, string | number>).createdAt
+                ? new Date((m as Record<string, string | number>).createdAt as string).getTime() >
+                  cutoffDate
+                : true
+            );
           }
           if (memories.length === 0) return;
 
           projectMemories = {
-            results: memories.map((m: any) => ({ similarity: 1, memory: m.summary })),
+            results: memories.map((m) => ({
+              similarity: 1,
+              memory: (m as Record<string, string>).summary || "",
+            })),
             total: memories.length,
             timing: 0,
           };
@@ -368,7 +386,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
             type: "text",
             text: memoryContext,
             synthetic: true,
-          } as any;
+          };
           output.parts.unshift(contextPart);
         }
       } catch (error) {
@@ -523,7 +541,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
 
               const existingProfile = userProfileManager.getActiveProfile(userId);
               if (existingProfile) {
-                const existingData = safeJSONParse(existingProfile.profileData) as any;
+                const existingData = safeJSONParse(existingProfile.profileData) as UserProfileData;
                 const mergedData = userProfileManager.mergeProfileData(existingData, {
                   preferences: [newPreference],
                 });
@@ -555,7 +573,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
 
             const profile = userProfileManager.getActiveProfile(userId);
             if (!profile) return JSON.stringify({ success: true, profile: null });
-            const pData = safeJSONParse(profile.profileData) as any;
+            const pData = safeJSONParse(profile.profileData) as UserProfileData;
             return JSON.stringify({
               success: true,
               profile: { ...pData, version: profile.version, lastAnalyzed: profile.lastAnalyzedAt },
@@ -572,10 +590,10 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
             return JSON.stringify({
               success: true,
               count: listRes.memories?.length,
-              memories: listRes.memories?.map((m: any) => ({
-                id: m.id,
-                content: m.summary,
-                createdAt: m.createdAt,
+              memories: listRes.memories?.map((m) => ({
+                id: (m as Record<string, string>).id,
+                content: (m as Record<string, string>).summary,
+                createdAt: (m as Record<string, string>).createdAt,
               })),
             });
           }
@@ -611,7 +629,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
       }),
     },
 
-    event: async (input: { event: { type: string; properties?: any } }) => {
+    event: async (input: { event: { type: string; properties?: Record<string, unknown> } }) => {
       const event = input.event;
 
       if (event.type === "session.idle") {
@@ -626,15 +644,16 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
 };
 
 async function handleSessionIdle(
-  event: { properties?: any },
+  event: { properties?: Record<string, unknown> },
   ctx: PluginInput,
   directory: string,
   sessionIdleTimers: Map<string, NodeJS.Timeout>,
   webServer: WebServer | null
 ): Promise<void> {
   if (!isConfigured() || !CONFIG.autoCaptureEnabled) return;
-  const sessionID = event.properties?.sessionID;
-  if (!sessionID) return;
+  const rawSessionID = event.properties?.sessionID;
+  if (!rawSessionID || typeof rawSessionID !== "string") return;
+  const sessionID = rawSessionID;
 
   const existing = sessionIdleTimers.get(sessionID);
   if (existing) clearTimeout(existing);
@@ -661,14 +680,15 @@ async function handleSessionIdle(
 }
 
 async function handleSessionCompacted(
-  event: { properties?: any },
+  event: { properties?: Record<string, unknown> },
   ctx: PluginInput,
   directory: string
 ): Promise<void> {
   if (!isConfigured() || !CONFIG.compaction.enabled) return;
 
-  const sessionID = event.properties?.sessionID;
-  if (!sessionID) return;
+  const rawSessionID = event.properties?.sessionID;
+  if (!rawSessionID || typeof rawSessionID !== "string") return;
+  const sessionID = rawSessionID;
 
   try {
     const tags = getTags(directory);
@@ -702,7 +722,7 @@ async function handleSessionCompacted(
             duration: 3000,
           },
         })
-        .catch((err: any) => log("Toast display failed", { error: String(err) }));
+        .catch((err) => log("Toast display failed", { error: String(err) }));
     }
 
     log("Compaction memory injected", {
@@ -714,31 +734,36 @@ async function handleSessionCompacted(
   }
 }
 
-function formatSearchResults(query: string, results: any, limit?: number): string {
+function formatSearchResults(
+  query: string,
+  results: { results: SearchResult[] },
+  limit?: number
+): string {
   const memoryResults = results.results || [];
   return JSON.stringify({
     success: true,
     query,
     count: memoryResults.length,
-    results: memoryResults.slice(0, limit || 10).map((r: any) => {
-      let sim = Math.round(r.similarity * 100);
+    results: memoryResults.slice(0, limit || 10).map((r) => {
+      let sim = Math.round((r.similarity || 0) * 100);
       if (sim > 100) sim = 100;
       if (sim < 0) sim = 0;
       return {
         id: r.id,
-        content: r.memory || r.chunk,
+        content: r.memory || (r as unknown as Record<string, string>).chunk || "",
         similarity: sim,
       };
     }),
   });
 }
 
-function formatMemoriesForCompaction(memories: any[]): string {
+function formatMemoriesForCompaction(memories: SearchResult[]): string {
   const sections: string[] = ["## Restored Session Memory\n"];
 
   for (let i = 0; i < memories.length; i++) {
     const m = memories[i];
-    sections.push(`### Memory ${i + 1}`, m.memory);
+    if (!m) continue;
+    sections.push(`### Memory ${i + 1}`, m.memory || "");
     if (m.tags && m.tags.length > 0) {
       sections.push(`Tags: ${m.tags.join(", ")}`);
     }
