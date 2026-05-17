@@ -3,14 +3,21 @@ import { appendFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 
-function getLogFilePath(): string {
-  return (
-    process.env.OPENCODE_MEM_LOG_FILE || join(homedir(), ".opencode-mem0", "opencode-mem0.log")
-  );
+function getLogFilePath(): string | null {
+  if (process.env.OPENCODE_MEM_LOG_FILE) {
+    return process.env.OPENCODE_MEM_LOG_FILE;
+  }
+  const defaultPath = join(homedir(), ".opencode-mem0", "opencode-mem0.log");
+  // Only use default log path if the directory already exists (plugin was previously set up)
+  if (existsSync(dirname(defaultPath))) {
+    return defaultPath;
+  }
+  return null;
 }
 
-function getLogDirPath(): string {
-  return dirname(getLogFilePath());
+function getLogDirPath(): string | null {
+  const logFile = getLogFilePath();
+  return logFile ? dirname(logFile) : null;
 }
 
 const MAX_LOG_SIZE = 5 * 1024 * 1024;
@@ -19,6 +26,7 @@ const GLOBAL_LOGGER_KEY = Symbol.for("opencode-mem0.logger.initialized");
 
 function rotateLog() {
   const logFile = getLogFilePath();
+  if (!logFile) return;
   try {
     if (!existsSync(logFile)) return;
     const stats = statSync(logFile);
@@ -33,9 +41,11 @@ function rotateLog() {
 }
 
 function ensureLoggerInitialized() {
-  const logDir = getLogDirPath();
   const logFile = getLogFilePath();
-  if (!existsSync(logDir)) {
+  if (!logFile) return; // Plugin not initialized — no file logging
+
+  const logDir = getLogDirPath();
+  if (logDir && !existsSync(logDir)) {
     mkdirSync(logDir, { recursive: true });
   }
   if ((globalThis as any)[GLOBAL_LOGGER_KEY]) {
@@ -98,6 +108,8 @@ function logWithLevel(level: LogLevel, message: string, data?: unknown) {
   if (!shouldLog(level)) return;
   ensureLoggerInitialized();
   const logFile = getLogFilePath();
+  if (!logFile) return; // Skip file logging when plugin hasn't set up its directory
+
   const timestamp = new Date().toISOString();
   const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
   const line = data ? `${prefix} ${message}: ${safeStringify(data)}\n` : `${prefix} ${message}\n`;

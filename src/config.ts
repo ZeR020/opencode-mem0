@@ -14,33 +14,34 @@ const CONFIG_FILES = [
   join(CONFIG_DIR, "opencode-mem0.json"),
 ];
 
-if (!existsSync(CONFIG_DIR)) {
-  mkdirSync(CONFIG_DIR, { recursive: true });
-}
-
-// Migrate data from old opencode-mem directory if present
-const OLD_DATA_DIR = join(homedir(), ".opencode-mem");
-const MIGRATION_SENTINEL = join(DATA_DIR, ".migrated");
-if (existsSync(OLD_DATA_DIR) && !existsSync(MIGRATION_SENTINEL)) {
-  try {
-    if (!existsSync(DATA_DIR)) {
-      mkdirSync(DATA_DIR, { recursive: true });
-    }
-    cpSync(OLD_DATA_DIR, DATA_DIR, { recursive: true });
-    writeFileSync(MIGRATION_SENTINEL, String(Date.now()));
-    log(`
-✓ Migrated data from ${OLD_DATA_DIR} to ${DATA_DIR}`);
-    log("  Your existing memories and settings have been preserved.\n");
-  } catch {
-    // If migration fails, just create the new directory
-    if (!existsSync(DATA_DIR)) {
-      mkdirSync(DATA_DIR, { recursive: true });
-    }
+// Lazy directory creation — only run during explicit plugin initialization
+function ensureConfigDir(): void {
+  if (!existsSync(CONFIG_DIR)) {
+    mkdirSync(CONFIG_DIR, { recursive: true });
   }
 }
 
-if (!existsSync(DATA_DIR)) {
-  mkdirSync(DATA_DIR, { recursive: true });
+function ensureDataDir(): void {
+  if (!existsSync(DATA_DIR)) {
+    mkdirSync(DATA_DIR, { recursive: true });
+  }
+}
+
+// Auto-migration from upstream opencode-mem — opt-in only via env var
+const OLD_DATA_DIR = join(homedir(), ".opencode-mem");
+const MIGRATION_SENTINEL = join(DATA_DIR, ".migrated");
+function maybeMigrateFromUpstream(): void {
+  if (process.env.OPENCODE_MEM0_AUTO_MIGRATE !== "true") return; // disabled by default
+  if (!existsSync(OLD_DATA_DIR) || existsSync(MIGRATION_SENTINEL)) return;
+  try {
+    ensureDataDir();
+    cpSync(OLD_DATA_DIR, DATA_DIR, { recursive: true });
+    writeFileSync(MIGRATION_SENTINEL, String(Date.now()));
+    log(`\n✓ Migrated data from ${OLD_DATA_DIR} to ${DATA_DIR}`);
+    log("  Your existing memories and settings have been preserved.\n");
+  } catch {
+    ensureDataDir();
+  }
 }
 
 export type VectorBackendConfig = "usearch-first" | "usearch" | "exact-scan";
@@ -761,8 +762,6 @@ function ensureConfigExists(): void {
   }
 }
 
-ensureConfigExists();
-
 // skipcq: JS-0067
 function getEmbeddingDimensions(model: string): number {
   const dimensionMap: Record<string, number> = {
@@ -1100,6 +1099,12 @@ export function initConfig(directory: string): void {
   const projectConfig = loadConfigFromPaths(projectPaths);
   const merged = deepMerge(globalConfig, projectConfig);
   Object.assign(CONFIG, buildConfig(merged));
+
+  // Lazy initialization: only create directories/config when plugin is actually used
+  ensureConfigDir();
+  ensureDataDir();
+  maybeMigrateFromUpstream();
+  ensureConfigExists();
 }
 
 // skipcq: JS-0067
