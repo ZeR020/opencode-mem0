@@ -237,6 +237,7 @@ const OpenCodeMemConfigSchema = z.object({
       excludeCurrentSession: z.boolean().optional(),
       maxAgeDays: z.number().positive().optional(),
       injectOn: z.enum(["first", "always"]).optional(),
+      mode: z.enum(["fast", "relevant"]).optional(),
     })
     .optional(),
   retrieval: z
