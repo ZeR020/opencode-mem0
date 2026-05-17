@@ -1,3 +1,4 @@
+import { transcriptManager } from "./sqlite/transcript-manager.js";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { embeddingService } from "./embedding.js";
@@ -1004,6 +1005,28 @@ export async function handleGetUserProfile(userId?: string): Promise<ApiResponse
   }
 }
 
+export async function handleUpdateUserProfile(
+  userId: string | undefined,
+  profileData: any
+): Promise<ApiResponse<any>> {
+  try {
+    const targetUserId = userId || "default";
+    const { userProfileManager } = await import("./user-profile/user-profile-manager.js");
+    const profile = userProfileManager.getActiveProfile(targetUserId);
+
+    if (!profile) {
+      return { success: false, error: "No profile found to update." };
+    }
+
+    userProfileManager.updateProfile(profile.id, profileData, 0, "Manual profile edit via UI");
+
+    return { success: true, data: { message: "Profile updated successfully." } };
+  } catch (error) {
+    log("API error in handleUpdateUserProfile", { error: String(error) });
+    return { success: false, error: "Internal error updating profile" };
+  }
+}
+
 export async function handleGetProfileChangelog(
   profileId: string,
   limit: number = 5
@@ -1353,5 +1376,29 @@ export function handleApiStatus(): ApiResponse<{
   } catch (error) {
     log("handleApiStatus: error", { error: String(error) });
     return { success: false, error: "Internal error" };
+  }
+}
+
+export async function handleSearchTranscripts(
+  query: string,
+  page: number,
+  pageSize: number
+): Promise<ApiResponse> {
+  try {
+    const offset = (page - 1) * pageSize;
+    const { transcripts, total } = transcriptManager.searchTranscripts(query, pageSize, offset);
+
+    return {
+      success: true,
+      data: {
+        transcripts,
+        total,
+        page,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
+  } catch (error) {
+    log("API error in handleSearchTranscripts", { error: String(error) });
+    return { success: false, error: "Internal error searching transcripts" };
   }
 }

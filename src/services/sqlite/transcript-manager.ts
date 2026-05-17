@@ -194,33 +194,49 @@ export class TranscriptManager {
     }
   }
 
-  searchTranscripts(query: string): TranscriptRecord[] {
+  searchTranscripts(
+    query: string,
+    limit: number = 20,
+    offset: number = 0
+  ): { transcripts: TranscriptRecord[]; total: number } {
     if (!CONFIG.transcriptStorage.enabled) {
-      return [];
+      return { transcripts: [], total: 0 };
     }
 
     try {
       const db = this.getDb();
+
+      const countStmt = db.prepare(`
+        SELECT count(*) as total
+        FROM transcripts_fts
+        WHERE transcripts_fts MATCH ?
+      `);
+      const totalRow = countStmt.get(query) as { total: number };
+
       const stmt = db.prepare(`
         SELECT t.id, t.session_id, t.project_path, t.messages, t.created_at, t.token_count
         FROM transcripts t
         JOIN transcripts_fts fts ON fts.rowid = t.rowid
         WHERE transcripts_fts MATCH ?
         ORDER BY rank
+        LIMIT ? OFFSET ?
       `);
 
-      const rows = stmt.all(query) as any[];
-      return rows.map((row) => ({
-        id: row.id,
-        sessionId: row.session_id,
-        projectPath: row.project_path,
-        messages: row.messages,
-        createdAt: row.created_at,
-        tokenCount: row.token_count,
-      }));
+      const rows = stmt.all(query, limit, offset) as any[];
+      return {
+        transcripts: rows.map((row) => ({
+          id: row.id,
+          sessionId: row.session_id,
+          projectPath: row.project_path,
+          messages: row.messages,
+          createdAt: row.created_at,
+          tokenCount: row.token_count,
+        })),
+        total: totalRow ? totalRow.total : 0,
+      };
     } catch (error) {
       log("searchTranscripts: error", { query, error: String(error) });
-      return [];
+      return { transcripts: [], total: 0 };
     }
   }
 

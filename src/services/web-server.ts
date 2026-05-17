@@ -12,6 +12,7 @@ import {
   handleBulkDelete,
   handleUpdateMemory,
   handleSearch,
+  handleSearchTranscripts,
   handleStats,
   handlePinMemory,
   handleUnpinMemory,
@@ -25,6 +26,7 @@ import {
   handleDeletePrompt,
   handleBulkDeletePrompts,
   handleGetUserProfile,
+  handleUpdateUserProfile,
   handleGetProfileChangelog,
   handleGetProfileSnapshot,
   handleRefreshProfile,
@@ -299,6 +301,8 @@ export class WebServer {
         return await this._apiBulkDeleteMemories(req, isLocal);
       case "GET /api/search":
         return await this._apiSearch(url, isLocal);
+      case "GET /api/transcripts/search":
+        return await this._apiSearchTranscripts(url, isLocal);
       case "GET /api/stats":
         return await this._apiStats(isLocal);
       case "GET /api/status":
@@ -325,6 +329,8 @@ export class WebServer {
         return await this._apiRunMigration(req, isLocal);
       case "GET /api/user-profile":
         return await this._apiGetUserProfile(url, isLocal);
+      case "PUT /api/user-profile":
+        return await this._apiUpdateUserProfile(req, isLocal);
       case "GET /api/user-profile/changelog":
         return await this._apiGetProfileChangelog(url, isLocal);
       case "GET /api/user-profile/snapshot":
@@ -426,6 +432,18 @@ export class WebServer {
     }
 
     const result = await handleSearch(query, tag, page, pageSize);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiSearchTranscripts(url: URL, isLocal: boolean): Promise<Response> {
+    const query = url.searchParams.get("q") || "";
+    const rawPage = Number.parseInt(url.searchParams.get("page") || "1");
+    const rawPageSize = Number.parseInt(url.searchParams.get("limit") || "20");
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
+    const pageSize =
+      Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
+
+    const result = await handleSearchTranscripts(query, page, pageSize);
     return this.jsonResponse(result, 200, !isLocal);
   }
 
@@ -552,6 +570,20 @@ export class WebServer {
   private async _apiGetUserProfile(url: URL, isLocal: boolean): Promise<Response> {
     const userId = url.searchParams.get("userId") || undefined;
     const result = await handleGetUserProfile(userId);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiUpdateUserProfile(req: Request, isLocal: boolean): Promise<Response> {
+    let body;
+    try {
+      body = (await req.json()) as any;
+    } catch (e) {
+      return this.jsonResponse({ success: false, error: "Invalid JSON" }, 400, !isLocal);
+    }
+    if (!body || !body.profileData) {
+      return this.jsonResponse({ success: false, error: "Invalid request body" }, 400, !isLocal);
+    }
+    const result = await handleUpdateUserProfile(body.userId, body.profileData);
     return this.jsonResponse(result, 200, !isLocal);
   }
 

@@ -1775,3 +1775,69 @@ textarea:focus-visible {
     flex-direction: column;
   }
 }
+
+/* Timeline Styles */
+.timeline-container {
+  padding: 20px;
+}
+.timeline-day {
+  margin-bottom: 30px;
+}
+.timeline-date {
+  font-size: 1.2rem;
+  color: var(--text-color);
+  margin-bottom: 15px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 5px;
+}
+.timeline-events {
+  position: relative;
+  padding-left: 20px;
+}
+.timeline-events::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 35px;
+  width: 2px;
+  background: var(--border-color);
+}
+.timeline-event {
+  display: flex;
+  margin-bottom: 20px;
+  position: relative;
+  align-items: flex-start;
+}
+.timeline-time {
+  width: 60px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: right;
+  padding-right: 15px;
+  padding-top: 3px;
+}
+.timeline-marker {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  border: 2px solid var(--bg-color);
+  position: absolute;
+  left: 65px;
+  top: 6px;
+  z-index: 1;
+}
+.timeline-detail {
+  flex: 1;
+  padding-left: 35px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px;
+  margin-left: 20px;
+}
+.timeline-detail p {
+  margin: 5px 0 0;
+  font-size: 0.95rem;
+}

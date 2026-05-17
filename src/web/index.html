@@ -42,6 +42,14 @@
           <i data-lucide="folder" class="icon"></i>
           PROJECT MEMORIES
         </button>
+        <button id="tab-transcripts" class="tab-btn" data-i18n="tab-transcripts">
+          <i data-lucide="file-text" class="icon"></i>
+          TRANSCRIPTS
+        </button>
+        <button id="tab-timeline" class="tab-btn" data-i18n="tab-timeline">
+          <i data-lucide="clock" class="icon"></i>
+          TIMELINE
+        </button>
         <button id="tab-conflicts" class="tab-btn" data-i18n="tab-conflicts">
           <i data-lucide="alert-triangle" class="icon"></i>
           CONFLICTS <span id="conflict-badge" class="tab-badge hidden">0</span>
@@ -169,13 +177,45 @@
       <div class="profile-section hidden" id="profile-section">
         <div class="section-header">
           <h2 data-i18n="section-profile">└─ USER PROFILE ──</h2>
-          <button id="refresh-profile-btn" class="btn-secondary" data-i18n="btn-refresh">
-            <i data-lucide="refresh-cw" class="icon"></i> Refresh
-          </button>
+          <div>
+            <button id="edit-profile-btn" class="btn-primary" data-i18n="btn-edit">
+              <i data-lucide="edit-2" class="icon"></i> Edit
+            </button>
+            <button id="refresh-profile-btn" class="btn-secondary" data-i18n="btn-refresh">
+              <i data-lucide="refresh-cw" class="icon"></i> Refresh
+            </button>
+          </div>
         </div>
 
         <div id="profile-content" class="profile-content">
           <div class="loading" data-i18n="loading-profile">Loading profile...</div>
+        </div>
+      </div>
+
+      <div class="transcripts-section hidden" id="transcripts-section">
+        <div class="section-header">
+          <h2 data-i18n="section-transcripts">└─ TRANSCRIPTS ──</h2>
+        </div>
+        <div id="transcripts-list" class="transcripts-list">
+          <div class="loading" data-i18n="loading-transcripts">Loading transcripts...</div>
+        </div>
+        <div class="pagination" id="pagination-transcripts">
+          <button id="prev-page-transcripts" disabled>
+            <i data-lucide="chevron-left" class="icon"></i>
+          </button>
+          <span id="page-info-transcripts" data-i18n="text-page">Page 1 of 1</span>
+          <button id="next-page-transcripts" disabled>
+            <i data-lucide="chevron-right" class="icon"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="timeline-section hidden" id="timeline-section">
+        <div class="section-header">
+          <h2 data-i18n="section-timeline">└─ TIMELINE ──</h2>
+        </div>
+        <div id="timeline-content" class="timeline-content">
+          <div class="loading" data-i18n="loading-timeline">Loading timeline...</div>
         </div>
       </div>
 
@@ -253,6 +293,46 @@
             </button>
             <button type="submit" class="btn-primary" data-i18n="btn-save">
               <i data-lucide="check" class="icon"></i> Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="edit-profile-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 data-i18n="modal-edit-profile-title">Edit User Profile</h3>
+          <button class="modal-close" id="edit-profile-close">
+            <i data-lucide="x" class="icon"></i>
+          </button>
+        </div>
+        <form id="edit-profile-form">
+          <div class="form-group">
+            <label for="edit-profile-content" data-i18n="label-profile-content"
+              >Profile JSON:</label
+            >
+            <textarea
+              id="edit-profile-content"
+              rows="15"
+              required
+              style="font-family: monospace"
+            ></textarea>
+          </div>
+          <div class="modal-actions">
+            <button
+              type="button"
+              class="btn-secondary"
+              id="cancel-edit-profile"
+              data-i18n="btn-cancel"
+            >
+              <i data-lucide="x" class="icon"></i> Cancel
+            </button>
+            <button type="button" class="btn-secondary" id="format-profile-json">
+              <i data-lucide="align-left" class="icon"></i> Format JSON
+            </button>
+            <button type="submit" class="btn-primary" data-i18n="btn-save">
+              <i data-lucide="check" class="icon"></i> Save Profile
             </button>
           </div>
         </form>

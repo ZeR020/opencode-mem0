@@ -16,6 +16,10 @@ const state = {
   autoRefreshInterval: null,
   userProfile: null,
   conflicts: [],
+  transcripts: [],
+  transcriptsPage: 1,
+  transcriptsTotalPages: 1,
+  transcriptsTotalItems: 0,
 };
 
 marked.setOptions({
@@ -957,6 +961,80 @@ async function loadUserProfile() {
   }
 }
 
+function generateRadarChartSVG(data, size = 300) {
+  if (!data || data.length < 3)
+    return `<div class="empty-state">Not enough data for chart (need at least 3 dimensions)</div>`;
+
+  const center = size / 2;
+  const radius = (size / 2) * 0.8;
+  const numAxes = data.length;
+  const angleStep = (Math.PI * 2) / numAxes;
+
+  // Calculate points for polygon
+  const polygonPoints = data
+    .map((d, i) => {
+      const angle = i * angleStep - Math.PI / 2;
+      const value = Math.max(0, Math.min(1, d.value)); // normalized 0-1
+      const x = center + radius * value * Math.cos(angle);
+      const y = center + radius * value * Math.sin(angle);
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  // Generate grid levels
+  const levels = [0.2, 0.4, 0.6, 0.8, 1.0];
+  const gridHTML = levels
+    .map((level) => {
+      const points = data
+        .map((_, i) => {
+          const angle = i * angleStep - Math.PI / 2;
+          const x = center + radius * level * Math.cos(angle);
+          const y = center + radius * level * Math.sin(angle);
+          return `${x},${y}`;
+        })
+        .join(" ");
+      return `<polygon points="${points}" fill="none" stroke="#ccc" stroke-dasharray="3,3" />`;
+    })
+    .join("");
+
+  // Generate axes and labels
+  const axesHTML = data
+    .map((d, i) => {
+      const angle = i * angleStep - Math.PI / 2;
+      const x2 = center + radius * Math.cos(angle);
+      const y2 = center + radius * Math.sin(angle);
+
+      // Label position slightly outside
+      const lx = center + (radius + 20) * Math.cos(angle);
+      const ly = center + (radius + 20) * Math.sin(angle);
+
+      const textAnchor = lx > center + 10 ? "start" : lx < center - 10 ? "end" : "middle";
+
+      return `
+      <line x1="${center}" y1="${center}" x2="${x2}" y2="${y2}" stroke="#ccc" />
+      <text x="${lx}" y="${ly}" text-anchor="${textAnchor}" alignment-baseline="middle" font-size="12" fill="#666">${escapeHtml(d.label)}</text>
+    `;
+    })
+    .join("");
+
+  return `
+    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      ${gridHTML}
+      ${axesHTML}
+      <polygon points="${polygonPoints}" fill="rgba(59, 130, 246, 0.3)" stroke="#3b82f6" stroke-width="2" />
+      ${data
+        .map((d, i) => {
+          const angle = i * angleStep - Math.PI / 2;
+          const value = Math.max(0, Math.min(1, d.value));
+          const x = center + radius * value * Math.cos(angle);
+          const y = center + radius * value * Math.sin(angle);
+          return `<circle cx="${x}" cy="${y}" r="4" fill="#3b82f6" />`;
+        })
+        .join("")}
+    </svg>
+  `;
+}
+
 function renderUserProfile() {
   const container = document.getElementById("profile-content");
   const profile = state.userProfile;
@@ -1126,6 +1204,13 @@ function renderUserProfile() {
     </div>
 
     <div class="dashboard-grid">
+      <div class="dashboard-section radar-chart-section">
+        <h4><i data-lucide="pie-chart" class="icon"></i> Behavioral Dimensions</h4>
+        <div class="radar-chart-container" style="display: flex; justify-content: center; padding: 20px 0;">
+          ${preferences.length >= 3 ? generateRadarChartSVG(preferences.map((p) => ({ label: p.category, value: p.confidence }))) : '<div class="empty-state">Not enough preference categories to chart</div>'}
+        </div>
+      </div>
+
       <div class="dashboard-section preferences-section">
         <h4><i data-lucide="heart" class="icon"></i> ${t("profile-preferences")} <span class="count">${preferences.length}</span></h4>
         ${preferencesHtml}
@@ -1198,29 +1283,39 @@ function switchView(view) {
 
   document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.remove("active"));
 
+  const sections = ["project", "conflicts", "profile", "transcripts", "timeline"];
+  sections.forEach((sec) => {
+    const el = document.getElementById(`${sec}-section`);
+    if (el) {
+      if (sec === view) el.classList.remove("hidden");
+      else el.classList.add("hidden");
+    }
+  });
+
+  const controls = document.querySelector(".controls");
+  const addSection = document.querySelector(".add-section");
+
   if (view === "project") {
     document.getElementById("tab-project").classList.add("active");
-    document.getElementById("project-section").classList.remove("hidden");
-    document.getElementById("conflicts-section").classList.add("hidden");
-    document.getElementById("profile-section").classList.add("hidden");
-    document.querySelector(".controls").classList.remove("hidden");
-    document.querySelector(".add-section").classList.remove("hidden");
-  } else if (view === "conflicts") {
+    if (controls) controls.classList.remove("hidden");
+    if (addSection) addSection.classList.remove("hidden");
+  } else {
+    if (controls) controls.classList.add("hidden");
+    if (addSection) addSection.classList.add("hidden");
+  }
+
+  if (view === "conflicts") {
     document.getElementById("tab-conflicts").classList.add("active");
-    document.getElementById("project-section").classList.add("hidden");
-    document.getElementById("conflicts-section").classList.remove("hidden");
-    document.getElementById("profile-section").classList.add("hidden");
-    document.querySelector(".controls").classList.add("hidden");
-    document.querySelector(".add-section").classList.add("hidden");
     loadConflicts();
   } else if (view === "profile") {
     document.getElementById("tab-profile").classList.add("active");
-    document.getElementById("project-section").classList.add("hidden");
-    document.getElementById("conflicts-section").classList.add("hidden");
-    document.getElementById("profile-section").classList.remove("hidden");
-    document.querySelector(".controls").classList.add("hidden");
-    document.querySelector(".add-section").classList.add("hidden");
     loadUserProfile();
+  } else if (view === "transcripts") {
+    document.getElementById("tab-transcripts").classList.add("active");
+    loadTranscripts();
+  } else if (view === "timeline") {
+    document.getElementById("tab-timeline").classList.add("active");
+    loadTimeline();
   }
 }
 
@@ -1384,14 +1479,210 @@ function escapeJsString(str) {
   return str.replace(/[\\'"]/g, "\\$&");
 }
 
+async function loadTranscripts() {
+  const container = document.getElementById("transcripts-list");
+  container.innerHTML = '<div class="loading">Loading transcripts...</div>';
+
+  const result = await fetchAPI(`/api/transcripts/search?limit=20&page=${state.transcriptsPage}`);
+
+  if (result.success) {
+    state.transcripts = result.data.transcripts;
+    state.transcriptsTotalItems = result.data.total;
+    state.transcriptsTotalPages = result.data.totalPages || 1;
+    renderTranscripts();
+    updateTranscriptsPagination();
+  } else {
+    container.innerHTML = `<div class="error-state">Error: ${escapeHtml(result.error || "Failed to load transcripts")}</div>`;
+  }
+}
+
+function renderTranscripts() {
+  const container = document.getElementById("transcripts-list");
+
+  if (!state.transcripts || state.transcripts.length === 0) {
+    container.innerHTML = '<div class="empty-state">No transcripts found.</div>';
+    return;
+  }
+
+  container.innerHTML = state.transcripts
+    .map((t) => {
+      let preview = "";
+      try {
+        const msgs = JSON.parse(t.messages);
+        if (Array.isArray(msgs) && msgs.length > 0) {
+          preview = msgs
+            .slice(0, 2)
+            .map(
+              (m) =>
+                `<strong>${escapeHtml(m.role || "unknown")}:</strong> ${escapeHtml(typeof m.content === "string" ? m.content.substring(0, 200) : "...")}`
+            )
+            .join("<br/>");
+          if (msgs.length > 2) preview += "<br/><em>...more...</em>";
+        }
+      } catch (e) {
+        preview = escapeHtml(t.messages.substring(0, 200));
+      }
+
+      return `
+      <div class="memory-card">
+        <div class="memory-header">
+          <span class="badge badge-feature"><i data-lucide="file-text" class="icon-sm"></i> SESSION ${escapeHtml(t.sessionId || "unknown")}</span>
+          <span class="memory-date">${formatDate(t.createdAt)}</span>
+        </div>
+        <div class="memory-content markdown-body">
+          ${preview}
+        </div>
+      </div>
+    `;
+    })
+    .join("");
+
+  lucide.createIcons();
+}
+
+function updateTranscriptsPagination() {
+  const prevBtn = document.getElementById("prev-page-transcripts");
+  const nextBtn = document.getElementById("next-page-transcripts");
+  const pageInfo = document.getElementById("page-info-transcripts");
+
+  if (!prevBtn || !nextBtn || !pageInfo) return;
+
+  prevBtn.disabled = state.transcriptsPage <= 1;
+  nextBtn.disabled = state.transcriptsPage >= state.transcriptsTotalPages;
+  pageInfo.textContent = `Page ${state.transcriptsPage} of ${state.transcriptsTotalPages}`;
+}
+
+async function loadTimeline() {
+  const container = document.getElementById("timeline-content");
+  container.innerHTML = '<div class="loading">Loading timeline...</div>';
+
+  const result = await fetchAPI(`/api/memories?page=1&pageSize=100&includePrompts=false`);
+  if (result.success) {
+    const items = result.data.items;
+    if (items.length === 0) {
+      container.innerHTML = '<div class="empty-state">No timeline events found.</div>';
+      return;
+    }
+
+    // Group by day
+    const groups = {};
+    items.forEach((item) => {
+      const date = new Date(item.createdAt || item.timestamp);
+      const day = date.toLocaleDateString();
+      if (!groups[day]) groups[day] = [];
+      groups[day].push(item);
+    });
+
+    let html = '<div class="timeline-container">';
+    Object.keys(groups)
+      .sort((a, b) => new Date(b) - new Date(a))
+      .forEach((day) => {
+        html += `<div class="timeline-day">
+        <h3 class="timeline-date">${escapeHtml(day)}</h3>
+        <div class="timeline-events">`;
+        groups[day].forEach((item) => {
+          html += `
+          <div class="timeline-event">
+            <div class="timeline-time">${new Date(item.createdAt || item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+            <div class="timeline-marker"></div>
+            <div class="timeline-detail">
+              <span class="badge badge-${item.type || "other"}">${escapeHtml(item.type || "other")}</span>
+              <p>${escapeHtml(item.content)}</p>
+            </div>
+          </div>
+        `;
+        });
+        html += `</div></div>`;
+      });
+    html += "</div>";
+
+    container.innerHTML = html;
+  } else {
+    container.innerHTML = `<div class="error-state">Error: ${escapeHtml(result.error || "Failed to load timeline")}</div>`;
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("tab-project").addEventListener("click", () => switchView("project"));
   document.getElementById("tab-conflicts").addEventListener("click", () => switchView("conflicts"));
   document.getElementById("tab-profile").addEventListener("click", () => switchView("profile"));
+  document
+    .getElementById("tab-transcripts")
+    ?.addEventListener("click", () => switchView("transcripts"));
+  document.getElementById("tab-timeline")?.addEventListener("click", () => switchView("timeline"));
   document.getElementById("refresh-profile-btn")?.addEventListener("click", refreshProfile);
   document.getElementById("refresh-conflicts-btn")?.addEventListener("click", loadConflicts);
   document.getElementById("changelog-close")?.addEventListener("click", () => {
     document.getElementById("changelog-modal").classList.add("hidden");
+  });
+
+  document.getElementById("prev-page-transcripts")?.addEventListener("click", () => {
+    if (state.transcriptsPage > 1) {
+      state.transcriptsPage--;
+      loadTranscripts();
+    }
+  });
+
+  document.getElementById("next-page-transcripts")?.addEventListener("click", () => {
+    if (state.transcriptsPage < state.transcriptsTotalPages) {
+      state.transcriptsPage++;
+      loadTranscripts();
+    }
+  });
+
+  document.getElementById("edit-profile-btn")?.addEventListener("click", () => {
+    if (!state.userProfile || !state.userProfile.profileData) return;
+    document.getElementById("edit-profile-modal").classList.remove("hidden");
+    document.getElementById("edit-profile-content").value = JSON.stringify(
+      state.userProfile.profileData,
+      null,
+      2
+    );
+  });
+
+  document.getElementById("edit-profile-close")?.addEventListener("click", () => {
+    document.getElementById("edit-profile-modal").classList.add("hidden");
+  });
+
+  document.getElementById("cancel-edit-profile")?.addEventListener("click", () => {
+    document.getElementById("edit-profile-modal").classList.add("hidden");
+  });
+
+  document.getElementById("format-profile-json")?.addEventListener("click", () => {
+    try {
+      const content = document.getElementById("edit-profile-content").value;
+      const parsed = jsonrepair(content);
+      const formatted = JSON.stringify(JSON.parse(parsed), null, 2);
+      document.getElementById("edit-profile-content").value = formatted;
+    } catch (e) {
+      showToast("Invalid JSON to format", "error");
+    }
+  });
+
+  document.getElementById("edit-profile-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    let parsedData;
+    try {
+      const content = document.getElementById("edit-profile-content").value;
+      parsedData = JSON.parse(jsonrepair(content));
+    } catch (err) {
+      showToast("Invalid JSON format", "error");
+      return;
+    }
+
+    const result = await fetchAPI("/api/user-profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: state.userProfile.userId, profileData: parsedData }),
+    });
+
+    if (result.success) {
+      showToast("Profile updated successfully", "success");
+      document.getElementById("edit-profile-modal").classList.add("hidden");
+      loadUserProfile();
+    } else {
+      showToast(result.error || "Failed to update profile", "error");
+    }
   });
 
   document.getElementById("lang-toggle").addEventListener("click", () => {
