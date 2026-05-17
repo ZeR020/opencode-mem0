@@ -1019,12 +1019,7 @@ export async function handleUpdateUserProfile(
       return { success: false, error: "No profile found to update." };
     }
 
-    await userProfileManager.updateProfile(
-      profile.id,
-      profileData,
-      0,
-      "Manual profile edit via UI"
-    );
+    userProfileManager.updateProfile(profile.id, profileData, 0, "Manual profile edit via UI");
 
     return { success: true, data: { message: "Profile updated successfully." } };
   } catch (error) {

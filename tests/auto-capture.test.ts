@@ -278,6 +278,7 @@ describe("auto-capture helpers", () => {
       },
     });
     await performAutoCapture(ctx, "sess-1", "/test");
+    expect(mockMemoryClient.addMemory).not.toHaveBeenCalled();
   });
 
   it("returns early when session messages fail", async () => {

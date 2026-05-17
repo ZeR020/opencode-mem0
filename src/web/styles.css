@@ -1830,11 +1830,10 @@ textarea:focus-visible {
 }
 .timeline-detail {
   flex: 1;
-  padding-left: 35px;
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  padding: 12px;
+  padding: 12px 12px 12px 35px;
   margin-left: 20px;
 }
 .timeline-detail p {
