@@ -8,10 +8,11 @@ import { connectionManager } from "./sqlite/connection-manager.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 import type { MemoryType } from "../types/index.js";
-import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
+import { userPromptManager, type UserPrompt } from "./user-prompt/user-prompt-manager.js";
 import { getAllUnresolvedConflicts, resolveConflict } from "./memory-conflicts.js";
 import { safeToISOString, safeJSONParse } from "./utils/safe-transforms.js";
 import type { UserProfileData } from "./user-profile/types.js";
+import type { SearchResult, ShardInfo } from "./sqlite/types.js";
 
 interface ApiResponse<T = unknown> {
   success: boolean;
@@ -68,6 +69,72 @@ interface FormattedConflict {
   resolutionType?: string;
 }
 
+interface RawMemoryRow {
+  id: string;
+  content: string;
+  type?: string;
+  tags?: string;
+  metadata?: string;
+  created_at: number | string;
+  updated_at?: number | string;
+  container_tag?: string;
+  display_name?: string;
+  user_name?: string;
+  user_email?: string;
+  project_path?: string;
+  project_name?: string;
+  git_repo_url?: string;
+  is_pinned?: number;
+}
+
+interface TimelineMemoryItem extends Omit<Memory, "createdAt" | "updatedAt" | "type"> {
+  type: "memory";
+  memoryType?: string;
+  createdAt: number;
+  updatedAt?: number;
+  linkedPromptId?: string;
+}
+
+interface TimelinePromptItem {
+  type: "prompt";
+  id: string;
+  sessionId: string;
+  content: string;
+  createdAt: number;
+  projectPath?: string | null;
+  linkedMemoryId?: string | null;
+}
+
+type TimelineItem = TimelineMemoryItem | TimelinePromptItem;
+
+interface LinkedTimelinePair {
+  memory: TimelineMemoryItem | null;
+  prompt: TimelinePromptItem | null;
+}
+
+interface CountRow {
+  count: number;
+}
+
+interface ScopeCountRow {
+  user_count?: number;
+  project_count?: number;
+}
+
+interface TypeCountRow {
+  type?: string;
+  count: number;
+}
+
+interface TaggingProvider {
+  executeToolCall(
+    systemPrompt: string,
+    userPrompt: string,
+    tool: unknown,
+    sessionId: string
+  ): Promise<{ success: boolean; data?: { tags?: string[] } }>;
+}
+
 function extractScopeFromTag(tag: string): { scope: "user" | "project"; hash: string } {
   const parts = tag.split("_");
   if (parts.length >= 3) {
@@ -109,22 +176,22 @@ function sanitizeListParams(
   return { safePage, safePageSize };
 }
 
-function fetchMemoriesForList(tag: string | undefined, perShardLimit: number): any[] {
-  let allMemories: any[] = [];
+function fetchMemoriesForList(tag: string | undefined, perShardLimit: number): RawMemoryRow[] {
+  let allMemories: RawMemoryRow[] = [];
   if (tag) {
     const { scope: tagScope, hash } = extractScopeFromTag(tag);
     const shards = shardManager.getAllShards(tagScope, hash);
     for (const shard of shards) {
       const db = connectionManager.getConnection(shard.dbPath);
-      const memories = vectorSearch.listMemories(db, tag, perShardLimit);
+      const memories = vectorSearch.listMemories(db, tag, perShardLimit) as RawMemoryRow[];
       allMemories.push(...memories);
     }
   } else {
     const shards = shardManager.getAllShards("project", "");
     for (const shard of shards) {
       const db = connectionManager.getConnection(shard.dbPath);
-      const memories = vectorSearch.listMemories(db, "", perShardLimit);
-      allMemories.push(...memories.filter((m: any) => m.container_tag?.includes("_project_")));
+      const memories = vectorSearch.listMemories(db, "", perShardLimit) as RawMemoryRow[];
+      allMemories.push(...memories.filter((m) => m.container_tag?.includes("_project_")));
     }
   }
   const MAX_LIST_MEMORIES = 2000;
@@ -134,8 +201,9 @@ function fetchMemoriesForList(tag: string | undefined, perShardLimit: number): a
   return allMemories;
 }
 
-function mapRawMemoryToTyped(r: any): any {
-  const metadata = safeJSONParse(r.metadata);
+function mapRawMemoryToTyped(r: RawMemoryRow): TimelineMemoryItem {
+  const metadata = safeJSONParse(r.metadata) as Record<string, unknown> | undefined;
+  const linkedPromptId = metadata?.promptId;
   return {
     type: "memory",
     id: r.id,
@@ -145,7 +213,7 @@ function mapRawMemoryToTyped(r: any): any {
     createdAt: Number(r.created_at),
     updatedAt: r.updated_at ? Number(r.updated_at) : undefined,
     metadata,
-    linkedPromptId: (metadata as Record<string, unknown>)?.promptId,
+    linkedPromptId: typeof linkedPromptId === "string" ? linkedPromptId : undefined,
     displayName: r.display_name,
     userName: r.user_name,
     userEmail: r.user_email,
@@ -157,17 +225,17 @@ function mapRawMemoryToTyped(r: any): any {
 }
 
 function buildPaginatedTimeline(
-  memoriesWithType: any[],
+  memoriesWithType: TimelineMemoryItem[],
   includePrompts: boolean,
   tag: string | undefined,
   safePage: number,
   safePageSize: number
-): { items: any[]; total: number; totalPages: number } {
-  let timeline: any[] = memoriesWithType;
+): { items: TimelineItem[]; total: number; totalPages: number } {
+  let timeline: TimelineItem[] = memoriesWithType;
   if (includePrompts) {
     const projectPath = tag ? getProjectPathFromTag(tag) : undefined;
     const prompts = userPromptManager.getCapturedPrompts(projectPath);
-    const promptsWithType = prompts.map((p) => ({
+    const promptsWithType: TimelinePromptItem[] = prompts.map((p: UserPrompt) => ({
       type: "prompt",
       id: p.id,
       sessionId: p.sessionId,
@@ -184,8 +252,8 @@ function buildPaginatedTimeline(
     timeline = timeline.slice(0, MAX_TIMELINE_ITEMS);
   }
 
-  const linkedPairs = new Map<string, { memory: any; prompt: any }>();
-  const standalone: any[] = [];
+  const linkedPairs = new Map<string, LinkedTimelinePair>();
+  const standalone: TimelineItem[] = [];
   for (const item of timeline) {
     if (item.type === "memory" && item.linkedPromptId) {
       if (!linkedPairs.has(item.linkedPromptId)) {
@@ -206,9 +274,11 @@ function buildPaginatedTimeline(
     }
   }
 
-  const sortedTimeline: any[] = [];
+  const sortedTimeline: TimelineItem[] = [];
   const pairs = Array.from(linkedPairs.values())
-    .filter((p) => p.memory && p.prompt)
+    .filter((p): p is { memory: TimelineMemoryItem; prompt: TimelinePromptItem } =>
+      Boolean(p.memory && p.prompt)
+    )
     .sort((a, b) => b.memory.createdAt - a.memory.createdAt);
   for (const pair of pairs) {
     sortedTimeline.push(pair.memory);
@@ -225,7 +295,7 @@ function buildPaginatedTimeline(
   return { items: paginatedResults, total, totalPages };
 }
 
-function formatTimelineItem(item: any): any {
+function formatTimelineItem(item: TimelineItem): Record<string, unknown> {
   if (item.type === "memory") {
     return {
       type: "memory",
@@ -297,7 +367,7 @@ export async function handleListMemories(
   page: number = 1,
   pageSize: number = 20,
   includePrompts: boolean = true
-): Promise<ApiResponse<PaginatedResponse<Memory>>> {
+): Promise<ApiResponse<PaginatedResponse<Record<string, unknown>>>> {
   try {
     const { safePage, safePageSize } = sanitizeListParams(page, pageSize);
     await embeddingService.warmup();
@@ -565,10 +635,10 @@ async function searchMemoriesByTag(
   tag: string,
   pageSize: number,
   query: string
-): Promise<{ memoryResults: any[]; promptResults: any[] }> {
+): Promise<{ memoryResults: SearchResult[]; promptResults: UserPrompt[] }> {
   const { scope, hash } = extractScopeFromTag(tag);
   const shards = shardManager.getAllShards(scope, hash);
-  let memoryResults: any[] = [];
+  let memoryResults: SearchResult[] = [];
   for (const shard of shards) {
     try {
       const results = await vectorSearch.searchInShard(
@@ -597,10 +667,10 @@ async function searchMemoriesGlobal(
   page: number,
   pageSize: number,
   query: string
-): Promise<{ memoryResults: any[]; promptResults: any[] }> {
+): Promise<{ memoryResults: SearchResult[]; promptResults: UserPrompt[] }> {
   const userShards = shardManager.getAllShards("user", "");
   const projectShards = shardManager.getAllShards("project", "");
-  let memoryResults: any[] = [];
+  let memoryResults: SearchResult[] = [];
   const searchedPaths = new Set<string>();
   for (const shard of [...userShards, ...projectShards]) {
     if (searchedPaths.has(shard.dbPath)) continue;
@@ -627,7 +697,7 @@ async function searchMemoriesGlobal(
   return { memoryResults, promptResults };
 }
 
-function formatSearchPrompt(p: any): FormattedPrompt {
+function formatSearchPrompt(p: UserPrompt): FormattedPrompt {
   return {
     type: "prompt",
     id: p.id,
@@ -640,7 +710,7 @@ function formatSearchPrompt(p: any): FormattedPrompt {
   };
 }
 
-function formatSearchMemory(r: any): FormattedMemory {
+function formatSearchMemory(r: SearchResult): FormattedMemory {
   return {
     type: "memory",
     id: r.id,
@@ -754,8 +824,8 @@ export async function handleSearch(
 
     const queryVector = await buildSearchQueryVector(query);
 
-    let memoryResults: any[];
-    let promptResults: any[];
+    let memoryResults: SearchResult[];
+    let promptResults: UserPrompt[];
     if (tag) {
       const results = await searchMemoriesByTag(queryVector, tag, safePageSize, query);
       memoryResults = results.memoryResults;
@@ -770,8 +840,7 @@ export async function handleSearch(
     const formattedMemories = memoryResults.map(formatSearchMemory);
 
     const combinedResults = [...formattedMemories, ...formattedPrompts].sort(
-      (a: any, b: any) =>
-        (b.similarity || 0) - (a.similarity || 0) || b.createdAt.localeCompare(a.createdAt)
+      (a, b) => (b.similarity || 0) - (a.similarity || 0) || b.createdAt.localeCompare(a.createdAt)
     );
 
     let {
@@ -824,7 +893,7 @@ export function handleStats(): ApiResponse<{
         .prepare(
           "SELECT SUM(CASE WHEN container_tag LIKE '%_user_%' THEN 1 ELSE 0 END) as user_count, SUM(CASE WHEN container_tag LIKE '%_project_%' THEN 1 ELSE 0 END) as project_count FROM memories WHERE is_deprecated = 0"
         )
-        .get() as any;
+        .get() as ScopeCountRow | undefined;
       userCount += scopeRow?.user_count || 0;
       projectCount += scopeRow?.project_count || 0;
 
@@ -832,7 +901,7 @@ export function handleStats(): ApiResponse<{
         .prepare(
           "SELECT type, COUNT(*) as count FROM memories WHERE is_deprecated = 0 GROUP BY type"
         )
-        .all() as any[];
+        .all() as TypeCountRow[];
       for (const row of typeRows) {
         if (row.type) {
           typeCount[row.type] = (typeCount[row.type] || 0) + row.count;
@@ -905,7 +974,7 @@ export async function handleRunCleanup(): Promise<
 }
 
 export async function handleRunDeduplication(): Promise<
-  ApiResponse<{ exactDuplicatesDeleted: number; nearDuplicateGroups: any[] }>
+  ApiResponse<{ exactDuplicatesDeleted: number; nearDuplicateGroups: unknown[] }>
 > {
   try {
     const { deduplicationService } = await import("./deduplication-service.js");
@@ -922,7 +991,7 @@ export async function handleDetectMigration(): Promise<
     needsMigration: boolean;
     configDimensions: number;
     configModel: string;
-    shardMismatches: any[];
+    shardMismatches: unknown[];
   }>
 > {
   try {
@@ -994,7 +1063,9 @@ export async function handleBulkDeletePrompts(
   }
 }
 
-export async function handleGetUserProfile(userId?: string): Promise<ApiResponse<any>> {
+export async function handleGetUserProfile(
+  userId?: string
+): Promise<ApiResponse<Record<string, unknown>>> {
   try {
     const { userProfileManager } = await import("./user-profile/user-profile-manager.js");
     const { getTags } = await import("./tags.js");
@@ -1061,7 +1132,7 @@ export async function handleUpdateUserProfile(
 export async function handleGetProfileChangelog(
   profileId: string,
   limit: number = 5
-): Promise<ApiResponse<any[]>> {
+): Promise<ApiResponse<Record<string, unknown>[]>> {
   try {
     if (!profileId) return { success: false, error: "profileId is required" };
     const { userProfileManager } = await import("./user-profile/user-profile-manager.js");
@@ -1081,7 +1152,9 @@ export async function handleGetProfileChangelog(
   }
 }
 
-export async function handleGetProfileSnapshot(changelogId: string): Promise<ApiResponse<any>> {
+export async function handleGetProfileSnapshot(
+  changelogId: string
+): Promise<ApiResponse<Record<string, unknown>>> {
   try {
     if (!changelogId) return { success: false, error: "changelogId is required" };
     const { userProfileManager } = await import("./user-profile/user-profile-manager.js");
@@ -1105,7 +1178,9 @@ export async function handleGetProfileSnapshot(changelogId: string): Promise<Api
   }
 }
 
-export async function handleRefreshProfile(userId?: string): Promise<ApiResponse<any>> {
+export async function handleRefreshProfile(
+  userId?: string
+): Promise<ApiResponse<Record<string, unknown>>> {
   try {
     const { getTags } = await import("./tags.js");
     const { userPromptManager } = await import("./user-prompt/user-prompt-manager.js");
@@ -1135,8 +1210,8 @@ export function handleDetectTagMigration(): ApiResponse<{
       const db = connectionManager.getConnection(shard.dbPath);
       const rows = db
         .prepare("SELECT COUNT(*) as count FROM memories WHERE tags IS NULL OR tags = ''")
-        .get() as any;
-      untaggedCount += rows.count;
+        .get() as CountRow | undefined;
+      untaggedCount += rows?.count || 0;
     }
     return { success: true, data: { needsMigration: untaggedCount > 0, count: untaggedCount } };
   } catch (error) {
@@ -1182,12 +1257,12 @@ export function handleGetTagMigrationProgress(): ApiResponse<
   return { success: true, data: migrationProgress.toJSON() };
 }
 
-function loadAllMemoriesWithShards(): { memory: any; shard: any }[] {
+function loadAllMemoriesWithShards(): { memory: RawMemoryRow; shard: ShardInfo }[] {
   const projectShards = shardManager.getAllShards("project", "");
-  const allMemories: { memory: any; shard: any }[] = [];
+  const allMemories: { memory: RawMemoryRow; shard: ShardInfo }[] = [];
   for (const shard of projectShards) {
     const db = connectionManager.getConnection(shard.dbPath);
-    const memories = db.prepare("SELECT * FROM memories").all() as any[];
+    const memories = db.prepare("SELECT * FROM memories").all() as RawMemoryRow[];
     for (const m of memories) {
       allMemories.push({ memory: m, shard });
     }
@@ -1195,7 +1270,11 @@ function loadAllMemoriesWithShards(): { memory: any; shard: any }[] {
   return allMemories;
 }
 
-async function processSingleTagMigration(m: any, shard: any, provider: any): Promise<void> {
+async function processSingleTagMigration(
+  m: RawMemoryRow,
+  shard: ShardInfo,
+  provider: TaggingProvider
+): Promise<void> {
   const db = connectionManager.getConnection(shard.dbPath);
 
   let currentTags = m.tags
