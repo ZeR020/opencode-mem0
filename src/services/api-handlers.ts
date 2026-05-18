@@ -364,9 +364,9 @@ export async function handleListTags(): Promise<ApiResponse<{ project: TagInfo[]
 
 export async function handleListMemories(
   tag?: string,
-  page: number = 1,
-  pageSize: number = 20,
-  includePrompts: boolean = true
+  page = 1,
+  pageSize = 20,
+  includePrompts = true
 ): Promise<ApiResponse<PaginatedResponse<Record<string, unknown>>>> {
   try {
     const { safePage, safePageSize } = sanitizeListParams(page, pageSize);
@@ -473,7 +473,7 @@ export function handleGetMemory(id: string): ApiResponse<unknown> {
 
 export async function handleDeleteMemory(
   id: string,
-  cascade: boolean = false
+  cascade = false
 ): Promise<ApiResponse<{ deletedPrompt: boolean }>> {
   try {
     if (!id) return { success: false, error: "id is required" };
@@ -506,7 +506,7 @@ export async function handleDeleteMemory(
 
 export async function handleBulkDelete(
   ids: string[],
-  cascade: boolean = false
+  cascade = false
 ): Promise<ApiResponse<{ deleted: number }>> {
   try {
     if (!ids || ids.length === 0) return { success: false, error: "ids array is required" };
@@ -614,6 +614,7 @@ interface FormattedMemory {
 
 type SearchResultItem = FormattedPrompt | FormattedMemory;
 
+// skipcq: JS-0067 — Module helper, not a global browser function.
 async function buildSearchQueryVector(query: string): Promise<Float32Array | null> {
   await embeddingService.warmup();
   try {
@@ -630,6 +631,7 @@ async function buildSearchQueryVector(query: string): Promise<Float32Array | nul
   }
 }
 
+// skipcq: JS-0067 — Module helper, not a global browser function.
 async function searchMemoriesByTag(
   queryVector: Float32Array | null,
   tag: string,
@@ -662,6 +664,7 @@ async function searchMemoriesByTag(
   return { memoryResults, promptResults };
 }
 
+// skipcq: JS-0067 — Module helper, not a global browser function.
 async function searchMemoriesGlobal(
   queryVector: Float32Array | null,
   page: number,
@@ -697,6 +700,7 @@ async function searchMemoriesGlobal(
   return { memoryResults, promptResults };
 }
 
+// skipcq: JS-0067 — Module helper, not a global browser function.
 function formatSearchPrompt(p: UserPrompt): FormattedPrompt {
   return {
     type: "prompt",
@@ -710,6 +714,7 @@ function formatSearchPrompt(p: UserPrompt): FormattedPrompt {
   };
 }
 
+// skipcq: JS-0067 — Module helper, not a global browser function.
 function formatSearchMemory(r: SearchResult): FormattedMemory {
   return {
     type: "memory",
@@ -732,6 +737,7 @@ function formatSearchMemory(r: SearchResult): FormattedMemory {
   };
 }
 
+// skipcq: JS-0067 — Module helper, not a global browser function.
 function paginateSearchResults(
   results: SearchResultItem[],
   page: number,
@@ -743,6 +749,7 @@ function paginateSearchResults(
   return { paginated: results.slice(offset, offset + pageSize), total, totalPages };
 }
 
+// skipcq: JS-0067 — Module helper, not a global browser function.
 function fetchMissingLinkedItems(results: SearchResultItem[]): SearchResultItem[] {
   const missingPromptIds = new Set<string>();
   const missingMemoryIds = new Set<string>();
@@ -810,11 +817,12 @@ function fetchMissingLinkedItems(results: SearchResultItem[]): SearchResultItem[
   return results;
 }
 
+// skipcq: JS-R1005 — Search orchestration keeps memory and prompt context together.
 export async function handleSearch(
   query: string,
   tag?: string,
-  page: number = 1,
-  pageSize: number = 20
+  page = 1,
+  pageSize = 20
 ): Promise<ApiResponse<PaginatedResponse<SearchResultItem>>> {
   try {
     if (!query) return { success: false, error: "query is required" };
@@ -1026,7 +1034,7 @@ export async function handleRunMigration(strategy: "fresh-start" | "re-embed"): 
 
 export async function handleDeletePrompt(
   id: string,
-  cascade: boolean = false
+  cascade = false
 ): Promise<ApiResponse<{ deletedMemory: boolean }>> {
   try {
     if (!id) return { success: false, error: "id is required" };
@@ -1047,7 +1055,7 @@ export async function handleDeletePrompt(
 
 export async function handleBulkDeletePrompts(
   ids: string[],
-  cascade: boolean = false
+  cascade = false
 ): Promise<ApiResponse<{ deleted: number }>> {
   try {
     if (!ids || ids.length === 0) return { success: false, error: "ids array is required" };
@@ -1131,7 +1139,7 @@ export async function handleUpdateUserProfile(
 
 export async function handleGetProfileChangelog(
   profileId: string,
-  limit: number = 5
+  limit = 5
 ): Promise<ApiResponse<Record<string, unknown>[]>> {
   try {
     if (!profileId) return { success: false, error: "profileId is required" };
@@ -1257,6 +1265,7 @@ export function handleGetTagMigrationProgress(): ApiResponse<
   return { success: true, data: migrationProgress.toJSON() };
 }
 
+// skipcq: JS-0067 — Module helper, not a global browser function.
 function loadAllMemoriesWithShards(): { memory: RawMemoryRow; shard: ShardInfo }[] {
   const projectShards = shardManager.getAllShards("project", "");
   const allMemories: { memory: RawMemoryRow; shard: ShardInfo }[] = [];
@@ -1270,6 +1279,7 @@ function loadAllMemoriesWithShards(): { memory: RawMemoryRow; shard: ShardInfo }
   return allMemories;
 }
 
+// skipcq: JS-0067 — Module helper, not a global browser function.
 async function processSingleTagMigration(
   m: RawMemoryRow,
   shard: ShardInfo,
@@ -1323,8 +1333,9 @@ async function processSingleTagMigration(
   await vectorSearch.updateVector(db, m.id, vector, shard, tagsVector);
 }
 
+// skipcq: JS-R1005 — Batch migration intentionally coordinates provider, progress, and per-item errors.
 export async function handleRunTagMigrationBatch(
-  batchSize: number = 5
+  batchSize = 5
 ): Promise<ApiResponse<{ processed: number; total: number; hasMore: boolean }>> {
   try {
     const { AIProviderFactory } = await import("./ai/ai-provider-factory.js");
@@ -1377,8 +1388,8 @@ export async function handleRunTagMigrationBatch(
 }
 
 export function handleListConflicts(
-  resolved: boolean = false,
-  limit: number = 100
+  resolved = false,
+  limit = 100
 ): ApiResponse<FormattedConflict[]> {
   try {
     if (resolved) {
