@@ -1,5 +1,5 @@
 import { afterAll, describe, it, expect } from "vitest";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -14,6 +14,7 @@ const { CONFIG, isConfigured } = await import("../src/config.js");
 afterAll(() => {
   process.env.HOME = originalHome;
   process.env.USERPROFILE = originalUserProfile;
+  rmSync(home, { recursive: true, force: true });
 });
 
 describe("config", () => {
@@ -99,8 +100,8 @@ describe("config", () => {
   });
 
   describe("isConfigured", () => {
-    it("should return true", () => {
-      expect(isConfigured()).toBe(true);
+    it("should return false without explicit config and storage", () => {
+      expect(isConfigured()).toBe(false);
     });
 
     it("should return a boolean", () => {

@@ -39,6 +39,9 @@ currentTags = {
 function writeProjectConfig(config: Record<string, unknown>) {
   const opencodeDir = join(tmpDir, ".opencode");
   mkdirSync(opencodeDir, { recursive: true });
+  if (typeof config.storagePath === "string") {
+    mkdirSync(config.storagePath, { recursive: true });
+  }
   writeFileSync(join(opencodeDir, "opencode-mem0.json"), JSON.stringify(config), "utf-8");
 }
 
