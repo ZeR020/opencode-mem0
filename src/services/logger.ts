@@ -1,5 +1,5 @@
 import { writeFileSync, existsSync, mkdirSync, statSync, renameSync, unlinkSync } from "node:fs";
-import { appendFile } from "node:fs/promises";
+import { appendFile, mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 
@@ -114,8 +114,14 @@ function logWithLevel(level: LogLevel, message: string, data?: unknown) {
   const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
   const line = data ? `${prefix} ${message}: ${safeStringify(data)}\n` : `${prefix} ${message}\n`;
   writeQueue = writeQueue
-    .then(() => appendFile(logFile, line))
-    .catch((err) => {
+    .then(async () => {
+      await mkdir(dirname(logFile), { recursive: true });
+      await appendFile(logFile, line);
+    })
+    .catch((err: unknown) => {
+      if (err instanceof Error && "code" in err && err.code === "ENOENT") {
+        return;
+      }
       console.error(`[opencode-mem0] Log write failed: ${err}`);
     });
 }

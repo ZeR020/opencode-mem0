@@ -1,5 +1,6 @@
 /* global lucide, getLanguage, setLanguage, t, jsonrepair, DOMPurify, marked */
 const API_BASE = "";
+const API_KEY_STORAGE_KEY = "opencodeMemApiKey";
 
 const state = {
   tags: { project: [] },
@@ -34,15 +35,40 @@ function renderMarkdown(markdown) {
   return DOMPurify.sanitize(html);
 }
 
+function buildApiHeaders(options) {
+  const headers = new Headers(options.headers || {});
+  const apiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+  if (apiKey && !headers.has("authorization") && !headers.has("x-opencode-mem-key")) {
+    headers.set("Authorization", `Bearer ${apiKey}`);
+  }
+  return headers;
+}
+
+function requestApiKey() {
+  const apiKey = window.prompt("Enter webServerApiKey for this Memory Explorer instance:");
+  if (apiKey) {
+    localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+  }
+  return apiKey;
+}
+
 async function fetchAPI(endpoint, options = {}) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
     try {
-      const response = await fetch(API_BASE + endpoint, {
+      const requestOptions = {
         ...options,
+        headers: buildApiHeaders(options),
         signal: controller.signal,
-      });
+      };
+      let response = await fetch(API_BASE + endpoint, requestOptions);
+      if (response.status === 401 && requestApiKey()) {
+        response = await fetch(API_BASE + endpoint, {
+          ...requestOptions,
+          headers: buildApiHeaders(options),
+        });
+      }
       clearTimeout(timeoutId);
       const data = await response.json();
       return data;

@@ -28,7 +28,6 @@ jobs:
 
       - name: Run tests
         run: bun run test
-        continue-on-error: true
 
       - name: Check release state
         id: release_state

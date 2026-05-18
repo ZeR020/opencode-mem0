@@ -224,7 +224,6 @@ The plugin works with defaults. Customize it in `~/.config/opencode/opencode-mem
   "webServerEnabled": true,
   "webServerPort": 4747,
   "webServerHost": "127.0.0.1",
-  "webServerApiKey": "change-me",
   "autoCaptureEnabled": true,
 
   "transcriptStorage": {
@@ -255,6 +254,8 @@ The plugin works with defaults. Customize it in `~/.config/opencode/opencode-mem
   }
 }
 ```
+
+`webServerApiKey` is optional for the default loopback-only web UI. Set it only when exposing the web server beyond your local machine, for example when using `"webServerHost": "0.0.0.0"`.
 
 ### Memory Scope
 
@@ -290,23 +291,27 @@ Or any OpenAI-compatible endpoint such as Ollama, vLLM, Groq, or a local model:
 
 Open the UI at `http://localhost:4747`.
 
-| Endpoint                        | Method | Description               | Parameters                               |
-| ------------------------------- | ------ | ------------------------- | ---------------------------------------- |
-| `/api/memories`                 | GET    | List all memories         | `project`, `scope`, `limit`, `offset`    |
-| `/api/memories/search?q=...`    | GET    | Search memories           | `q` (query), `project`, `scope`, `limit` |
-| `/api/memories`                 | POST   | Add a memory              | `{ content, scope, type, tags }`         |
-| `/api/memories/:id`             | GET    | Get memory by ID          | `id` (path)                              |
-| `/api/memories/:id`             | DELETE | Delete a memory           | `id` (path)                              |
-| `/api/memories/:id`             | PUT    | Update a memory           | `id` (path), `{ content, tags }`         |
-| `/api/conflicts`                | GET    | List unresolved conflicts | `limit`, `offset`                        |
-| `/api/conflicts/:id`            | GET    | Get conflict details      | `id` (path)                              |
-| `/api/conflicts/:id`            | POST   | Resolve a conflict        | `id` (path), `{ resolution }`            |
-| `/api/transcripts`              | GET    | List transcripts          | `project`, `limit`, `offset`             |
-| `/api/transcripts/search?q=...` | GET    | Search transcripts        | `q` (query), `project`, `limit`          |
-| `/api/profile`                  | GET    | Get user profile          | —                                        |
-| `/api/profile`                  | PUT    | Update user profile       | `{ name, email, preferences }`           |
-| `/api/stats`                    | GET    | Memory statistics         | `project`                                |
-| `/api/health`                   | GET    | Health check              | —                                        |
+| Endpoint                        | Method | Description               | Parameters                                  |
+| ------------------------------- | ------ | ------------------------- | ------------------------------------------- |
+| `/api/memories`                 | GET    | List memories             | `tag`, `page`, `pageSize`, `includePrompts` |
+| `/api/search?q=...`             | GET    | Search memories           | `q` (query), `tag`, `page`, `pageSize`      |
+| `/api/memories/search?q=...`    | GET    | Search memories alias     | `q` (query), `tag`, `page`, `pageSize`      |
+| `/api/memories`                 | POST   | Add a memory              | `{ content, containerTag, type, tags }`     |
+| `/api/memories/:id`             | GET    | Get memory by ID          | `id` (path)                                 |
+| `/api/memories/:id`             | DELETE | Delete a memory           | `id` (path), `cascade`                      |
+| `/api/memories/:id`             | PUT    | Update a memory           | `id` (path), `{ content, type, tags }`      |
+| `/api/conflicts`                | GET    | List unresolved conflicts | `resolved`, `limit`                         |
+| `/api/conflicts/:id`            | GET    | Get conflict details      | `id` (path)                                 |
+| `/api/conflicts/:id`            | POST   | Resolve a conflict        | `id` (path), `{ strategy, mergedContent }`  |
+| `/api/transcripts`              | GET    | List transcripts          | `project`, `page`, `pageSize`               |
+| `/api/transcripts/search?q=...` | GET    | Search transcripts        | `q` (query), `page`, `limit`                |
+| `/api/user-profile`             | GET    | Get user profile          | `userId`                                    |
+| `/api/user-profile`             | PUT    | Update user profile       | `{ userId, profileData }`                   |
+| `/api/profile`                  | GET    | User profile alias        | `userId`                                    |
+| `/api/profile`                  | PUT    | User profile alias        | `{ userId, profileData }`                   |
+| `/api/stats`                    | GET    | Memory statistics         | —                                           |
+| `/api/status`                   | GET    | API status                | —                                           |
+| `/api/health`                   | GET    | Health check              | —                                           |
 
 All API endpoints except `/api/health` require the `Authorization: Bearer <webServerApiKey>` header when `webServerApiKey` is configured.
 
@@ -372,9 +377,9 @@ npm run build        # TypeScript compile + copy web assets (Node.js)
 bun run typecheck    # tsc --noEmit
 
 # Tests
-bun test             # Run test suite (Bun)
-npm test             # Run test suite (Node.js / vitest)
-bun run test:bun     # Run test suite with Bun test runner
+bun run test         # Run Vitest suite with Bun
+npm test             # Run Vitest suite with Node.js
+bun run test:coverage # Run Vitest with coverage
 
 # Code quality
 bun run format       # Prettier format

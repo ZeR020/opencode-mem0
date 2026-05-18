@@ -17,11 +17,14 @@ vi.mock("../src/services/platform-server.js", () => ({
 vi.mock("../src/services/api-handlers.js", () => ({
   handleListTags: vi.fn(),
   handleListMemories: vi.fn(),
+  handleGetMemory: vi.fn(),
   handleAddMemory: vi.fn(),
   handleDeleteMemory: vi.fn(),
   handleBulkDelete: vi.fn(),
   handleUpdateMemory: vi.fn(),
   handleSearch: vi.fn(),
+  handleSearchTranscripts: vi.fn(),
+  handleListTranscripts: vi.fn(),
   handleStats: vi.fn(),
   handlePinMemory: vi.fn(),
   handleUnpinMemory: vi.fn(),
@@ -35,6 +38,7 @@ vi.mock("../src/services/api-handlers.js", () => ({
   handleDeletePrompt: vi.fn(),
   handleBulkDeletePrompts: vi.fn(),
   handleGetUserProfile: vi.fn(),
+  handleUpdateUserProfile: vi.fn(),
   handleGetProfileChangelog: vi.fn(),
   handleGetProfileSnapshot: vi.fn(),
   handleRefreshProfile: vi.fn(),
@@ -42,6 +46,7 @@ vi.mock("../src/services/api-handlers.js", () => ({
   handleResolveConflict: vi.fn(),
   handleConflictStats: vi.fn(),
   handleEmbeddingCacheStats: vi.fn(),
+  handleApiStatus: vi.fn(),
 }));
 
 import { WebServer, startWebServer } from "../src/services/web-server.js";
@@ -49,11 +54,14 @@ import { serve } from "../src/services/platform-server.js";
 import {
   handleListTags,
   handleListMemories,
+  handleGetMemory,
   handleAddMemory,
   handleDeleteMemory,
   handleBulkDelete,
   handleUpdateMemory,
   handleSearch,
+  handleSearchTranscripts,
+  handleListTranscripts,
   handleStats,
   handlePinMemory,
   handleUnpinMemory,
@@ -70,10 +78,12 @@ import {
   handleDeletePrompt,
   handleBulkDeletePrompts,
   handleGetUserProfile,
+  handleUpdateUserProfile,
   handleGetProfileChangelog,
   handleGetProfileSnapshot,
   handleRefreshProfile,
   handleEmbeddingCacheStats,
+  handleApiStatus,
 } from "../src/services/api-handlers.js";
 
 describe("WebServer Routes", () => {

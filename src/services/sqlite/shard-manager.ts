@@ -40,6 +40,10 @@ export class ShardManager {
     `);
   }
 
+  close(): void {
+    connectionManager.closeConnection(this.metadataPath);
+  }
+
   private initMetadataDb(): void {
     this.metadataDb.run(`
       CREATE TABLE IF NOT EXISTS shards (
@@ -417,4 +421,22 @@ export class ShardManager {
   }
 }
 
-export const shardManager = new ShardManager();
+let shardManagerInstance: ShardManager | null = null;
+let shardManagerStoragePath: string | null = null;
+
+export function getShardManager(): ShardManager {
+  if (!shardManagerInstance || shardManagerStoragePath !== CONFIG.storagePath) {
+    shardManagerInstance?.close();
+    shardManagerInstance = new ShardManager();
+    shardManagerStoragePath = CONFIG.storagePath;
+  }
+  return shardManagerInstance;
+}
+
+export const shardManager = new Proxy({} as ShardManager, {
+  get(_target, prop, receiver) {
+    const manager = getShardManager();
+    const value = Reflect.get(manager, prop, receiver);
+    return typeof value === "function" ? value.bind(manager) : value;
+  },
+});

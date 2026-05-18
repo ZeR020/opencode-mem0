@@ -56,6 +56,18 @@ interface PaginatedResponse<T> {
   totalPages: number;
 }
 
+interface FormattedConflict {
+  id: string;
+  memoryId1: string;
+  memoryId2: string;
+  memory1Content?: string;
+  memory2Content?: string;
+  similarityScore: number;
+  detectedAt: string;
+  resolved: boolean;
+  resolutionType?: string;
+}
+
 function extractScopeFromTag(tag: string): { scope: "user" | "project"; hash: string } {
   const parts = tag.split("_");
   if (parts.length >= 3) {
@@ -367,6 +379,24 @@ export async function handleAddMemory(data: {
     return { success: true, data: { id } };
   } catch (error) {
     log("handleAddMemory: error", { error: String(error) });
+    return { success: false, error: "Internal error" };
+  }
+}
+
+export function handleGetMemory(id: string): ApiResponse<unknown> {
+  try {
+    if (!id) return { success: false, error: "id is required" };
+    const allShards = getAllShards();
+    for (const shard of allShards) {
+      const db = connectionManager.getConnection(shard.dbPath);
+      const memory = vectorSearch.getMemoryById(db, id);
+      if (memory) {
+        return { success: true, data: formatTimelineItem(mapRawMemoryToTyped(memory)) };
+      }
+    }
+    return { success: false, error: "Memory not found" };
+  } catch (error) {
+    log("handleGetMemory: error", { error: String(error) });
     return { success: false, error: "Internal error" };
   }
 }
@@ -1270,7 +1300,7 @@ export async function handleRunTagMigrationBatch(
 export function handleListConflicts(
   resolved: boolean = false,
   limit: number = 100
-): ApiResponse<any[]> {
+): ApiResponse<FormattedConflict[]> {
   try {
     if (resolved) {
       return {
@@ -1403,5 +1433,39 @@ export async function handleSearchTranscripts(
   } catch (error) {
     log("API error in handleSearchTranscripts", { error: String(error) });
     return { success: false, error: "Internal error searching transcripts" };
+  }
+}
+
+export function handleListTranscripts(
+  page: number,
+  pageSize: number,
+  projectPath?: string
+): ApiResponse<{
+  transcripts: TranscriptRecord[];
+  total: number;
+  page: number;
+  totalPages: number;
+}> {
+  try {
+    const { safePage, safePageSize } = sanitizeListParams(page, pageSize);
+    const offset = (safePage - 1) * safePageSize;
+    const maxToFetch = Math.min(offset + safePageSize, 500);
+    let transcripts = transcriptManager.getRecentTranscripts(maxToFetch);
+    if (projectPath) {
+      transcripts = transcripts.filter((t) => t.projectPath === projectPath);
+    }
+    const total = transcripts.length;
+    return {
+      success: true,
+      data: {
+        transcripts: transcripts.slice(offset, offset + safePageSize),
+        total,
+        page: safePage,
+        totalPages: Math.ceil(total / safePageSize),
+      },
+    };
+  } catch (error) {
+    log("API error in handleListTranscripts", { error: String(error) });
+    return { success: false, error: "Internal error listing transcripts" };
   }
 }

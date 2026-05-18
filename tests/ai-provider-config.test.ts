@@ -68,7 +68,9 @@ describe("AI provider config", () => {
     globalThis.fetch = originalFetch;
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    await flushLogs();
+
     if (originalLogFileEnv === undefined) {
       delete process.env.OPENCODE_MEM_LOG_FILE;
     } else {

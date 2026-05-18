@@ -522,12 +522,8 @@ export class VectorSearch {
       }
     }
 
-    let ids = Array.from(scoreMap.keys());
     const ftsResults = this.searchFTS5(db, queryText, limit);
-
-    if (embeddingDegraded && ftsResults.length > 0) {
-      ids = ftsResults;
-    }
+    const ids = Array.from(new Set([...scoreMap.keys(), ...ftsResults]));
 
     if (ids.length === 0) return [];
 

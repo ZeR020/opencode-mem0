@@ -31,19 +31,34 @@ function approximateTokenCount(text: string): number {
 
 export class TranscriptManager {
   private db: DatabaseType | null = null;
+  private dbPath: string | null = null;
 
   private getDb(): DatabaseType {
-    if (this.db) return this.db;
-
     const dbPath = getTranscriptDbPath();
+    if (this.db && this.dbPath === dbPath) return this.db;
+
+    if (this.dbPath && this.dbPath !== dbPath) {
+      connectionManager.closeConnection(this.dbPath);
+      this.db = null;
+    }
+
     const dir = dirname(dbPath);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
 
     this.db = connectionManager.getConnection(dbPath);
+    this.dbPath = dbPath;
     this.initSchema(this.db);
     return this.db;
+  }
+
+  close(): void {
+    if (this.dbPath) {
+      connectionManager.closeConnection(this.dbPath);
+      this.dbPath = null;
+      this.db = null;
+    }
   }
 
   private initSchema(db: DatabaseType): void {

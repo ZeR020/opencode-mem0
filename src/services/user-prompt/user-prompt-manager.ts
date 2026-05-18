@@ -123,6 +123,10 @@ export class UserPromptManager {
     };
   }
 
+  close(): void {
+    connectionManager.closeConnection(this.dbPath);
+  }
+
   private initDatabase(): void {
     this.db.run(`
       CREATE TABLE IF NOT EXISTS user_prompts (
@@ -302,4 +306,22 @@ export class UserPromptManager {
   }
 }
 
-export const userPromptManager = new UserPromptManager();
+let userPromptManagerInstance: UserPromptManager | null = null;
+let userPromptManagerStoragePath: string | null = null;
+
+export function getUserPromptManager(): UserPromptManager {
+  if (!userPromptManagerInstance || userPromptManagerStoragePath !== CONFIG.storagePath) {
+    userPromptManagerInstance?.close();
+    userPromptManagerInstance = new UserPromptManager();
+    userPromptManagerStoragePath = CONFIG.storagePath;
+  }
+  return userPromptManagerInstance;
+}
+
+export const userPromptManager = new Proxy({} as UserPromptManager, {
+  get(_target, prop, receiver) {
+    const manager = getUserPromptManager();
+    const value = Reflect.get(manager, prop, receiver);
+    return typeof value === "function" ? value.bind(manager) : value;
+  },
+});

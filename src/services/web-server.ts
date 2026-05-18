@@ -8,12 +8,14 @@ import type { UserProfileData } from "./user-profile/types.js";
 import {
   handleListTags,
   handleListMemories,
+  handleGetMemory,
   handleAddMemory,
   handleDeleteMemory,
   handleBulkDelete,
   handleUpdateMemory,
   handleSearch,
   handleSearchTranscripts,
+  handleListTranscripts,
   handleStats,
   handlePinMemory,
   handleUnpinMemory,
@@ -59,6 +61,10 @@ interface WebServerConfig {
   apiKey?: string;
 }
 
+function isLoopbackHost(host: string): boolean {
+  return LOCAL_HOSTS.has(host.trim().toLowerCase());
+}
+
 export class WebServer {
   private server: PlatformServer | null = null;
   private readonly config: WebServerConfig;
@@ -87,6 +93,10 @@ export class WebServer {
   private async _start(): Promise<void> {
     if (!this.config.enabled) {
       return;
+    }
+
+    if (!this.config.apiKey && !isLoopbackHost(this.config.host)) {
+      throw new Error("webServerApiKey is required when webServerHost is not loopback");
     }
 
     try {
@@ -200,7 +210,7 @@ export class WebServer {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 2000);
       try {
-        const response = await fetch(`${this.getUrl()}/api/stats`, {
+        const response = await fetch(`${this.getUrl()}/api/health`, {
           method: "GET",
           signal: controller.signal,
         });
@@ -238,16 +248,19 @@ export class WebServer {
     const method = req.method;
 
     try {
-      const requiresAuth = Boolean(this.config.apiKey);
       const remoteIp = this.server?.requestIP(req)?.address;
       const isLocal = remoteIp ? LOCAL_HOSTS.has(remoteIp) : false;
 
-      if (requiresAuth && req.headers.get("x-opencode-mem-key") !== this.config.apiKey) {
-        return this.jsonResponse({ success: false, error: "Unauthorized" }, 401);
-      }
-
       const staticResponse = this._tryServeStatic(path);
       if (staticResponse) return staticResponse;
+
+      if (path === "/api/health") {
+        return this._apiStatus(isLocal);
+      }
+
+      if (this.config.apiKey && !this._isAuthorized(req)) {
+        return this.jsonResponse({ success: false, error: "Unauthorized" }, 401);
+      }
 
       return await this._dispatchApiRoute(req, url, path, method, isLocal);
     } catch (error) {
@@ -282,6 +295,14 @@ export class WebServer {
     return null;
   }
 
+  private _isAuthorized(req: Request): boolean {
+    if (req.headers.get("x-opencode-mem-key") === this.config.apiKey) {
+      return true;
+    }
+    const authorization = req.headers.get("authorization") || "";
+    return authorization === `Bearer ${this.config.apiKey}`;
+  }
+
   private async _dispatchApiRoute(
     req: Request,
     url: URL,
@@ -302,11 +323,17 @@ export class WebServer {
         return await this._apiBulkDeleteMemories(req, isLocal);
       case "GET /api/search":
         return await this._apiSearch(url, isLocal);
+      case "GET /api/memories/search":
+        return await this._apiSearch(url, isLocal);
+      case "GET /api/transcripts":
+        return this._apiListTranscripts(url, isLocal);
       case "GET /api/transcripts/search":
         return await this._apiSearchTranscripts(url, isLocal);
       case "GET /api/stats":
         return await this._apiStats(isLocal);
       case "GET /api/status":
+        return await this._apiStatus(isLocal);
+      case "GET /api/health":
         return await this._apiStatus(isLocal);
       case "GET /api/embedding-cache":
         return await this._apiEmbeddingCacheStats(isLocal);
@@ -332,6 +359,10 @@ export class WebServer {
         return await this._apiGetUserProfile(url, isLocal);
       case "PUT /api/user-profile":
         return await this._apiUpdateUserProfile(req, isLocal);
+      case "GET /api/profile":
+        return await this._apiGetUserProfile(url, isLocal);
+      case "PUT /api/profile":
+        return await this._apiUpdateUserProfile(req, isLocal);
       case "GET /api/user-profile/changelog":
         return await this._apiGetProfileChangelog(url, isLocal);
       case "GET /api/user-profile/snapshot":
@@ -348,6 +379,9 @@ export class WebServer {
     if (method === "DELETE" && path.startsWith("/api/memories/")) {
       return await this._apiDeleteMemory(url, path, isLocal);
     }
+    if (method === "GET" && path.startsWith("/api/memories/")) {
+      return this._apiGetMemory(path, isLocal);
+    }
     if (method === "PUT" && path.startsWith("/api/memories/")) {
       return await this._apiUpdateMemory(req, path, isLocal);
     }
@@ -359,6 +393,9 @@ export class WebServer {
     }
     if (method === "POST" && path.startsWith("/api/conflicts/")) {
       return await this._apiResolveConflict(req, path, isLocal);
+    }
+    if (method === "GET" && path.startsWith("/api/conflicts/")) {
+      return this._apiGetConflict(path, isLocal);
     }
     if (method === "DELETE" && path.startsWith("/api/prompts/")) {
       return await this._apiDeletePrompt(url, path, isLocal);
@@ -398,6 +435,16 @@ export class WebServer {
     }
     const cascade = url.searchParams.get("cascade") === "true";
     const result = await handleDeleteMemory(id, cascade);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private _apiGetMemory(path: string, isLocal: boolean): Response {
+    const parts = path.split("/");
+    const id = parts[3];
+    if (!id || id === "search") {
+      return this.jsonResponse({ success: false, error: "Invalid ID" });
+    }
+    const result = handleGetMemory(id);
     return this.jsonResponse(result, 200, !isLocal);
   }
 
@@ -448,6 +495,19 @@ export class WebServer {
     return this.jsonResponse(result, 200, !isLocal);
   }
 
+  private _apiListTranscripts(url: URL, isLocal: boolean): Response {
+    const rawPage = Number.parseInt(url.searchParams.get("page") || "1");
+    const rawPageSize = Number.parseInt(
+      url.searchParams.get("pageSize") || url.searchParams.get("limit") || "20"
+    );
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
+    const pageSize =
+      Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
+    const projectPath = url.searchParams.get("project") || undefined;
+    const result = handleListTranscripts(page, pageSize, projectPath);
+    return this.jsonResponse(result, 200, !isLocal);
+  }
+
   private async _apiStats(isLocal: boolean): Promise<Response> {
     const result = handleStats();
     return this.jsonResponse(result, 200, !isLocal);
@@ -488,6 +548,22 @@ export class WebServer {
     const body = (await req.json().catch(() => ({}))) as any;
     const result = await handleResolveConflict(conflictId, body.strategy, body.mergedContent);
     return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private _apiGetConflict(path: string, isLocal: boolean): Response {
+    const conflictId = path.split("/")[3];
+    if (!conflictId || conflictId === "stats") {
+      return this.jsonResponse({ success: false, error: "Invalid conflict ID" });
+    }
+    const result = handleListConflicts(false, 1000);
+    if (!result.success) {
+      return this.jsonResponse(result, 200, !isLocal);
+    }
+    const conflict = (result.data || []).find((item) => item.id === conflictId);
+    if (!conflict) {
+      return this.jsonResponse({ success: false, error: "Conflict not found" }, 404, !isLocal);
+    }
+    return this.jsonResponse({ success: true, data: conflict }, 200, !isLocal);
   }
 
   private async _apiPinMemory(path: string, isLocal: boolean): Promise<Response> {
