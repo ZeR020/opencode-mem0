@@ -13,7 +13,7 @@ import { getAllUnresolvedConflicts, resolveConflict } from "./memory-conflicts.j
 import { safeToISOString, safeJSONParse } from "./utils/safe-transforms.js";
 import type { UserProfileData } from "./user-profile/types.js";
 
-interface ApiResponse<T = any> {
+interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
