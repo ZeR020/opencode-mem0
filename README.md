@@ -416,7 +416,7 @@ MIT License. See [`LICENSE`](LICENSE).
 
 **Author:** ZeR020
 
-**Original project:** [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem) — `opencode-mem0` is a cognitive enhancement fork with fresh git history, extended features, and ongoing development.
+**Original project:** [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem) — `opencode-mem0` is a cognitive enhancement fork. Currently ongoing development.
 
 ---
 
