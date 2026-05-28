@@ -99,7 +99,6 @@ export class VectorSearch {
   private readonly MAX_WORDSET_CACHE = 1000;
 
   constructor(backend?: VectorBackend, fallbackBackend: VectorBackend = new ExactScanBackend()) {
-    // NOSONAR
     this.backendPromise = backend
       ? Promise.resolve(backend)
       : createVectorBackend({ vectorBackend: CONFIG.vectorBackend });
@@ -213,7 +212,6 @@ export class VectorSearch {
   private static readonly BASE_MULTIPLIER = 2;
 
   private searchFTS5(db: Database, queryText: string | undefined, limit: number): string[] {
-    // NOSONAR
     if (!queryText || queryText.length === 0) return [];
 
     const safeFtsQuery = queryText
@@ -255,7 +253,6 @@ export class VectorSearch {
   }
 
   private hydrateAndScoreResults(
-    // NOSONAR
     rows: any[],
     scoreMap: Map<string, { contentSim: number; tagsSim: number }>,
     ftsResults: string[],

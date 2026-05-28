@@ -1,5 +1,4 @@
 export function stripJsoncComments(content: string): string {
-  // NOSONAR
   const out: string[] = [];
   let i = 0;
   let inString = false;
