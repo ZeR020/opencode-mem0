@@ -1,16 +1,16 @@
 import { type Database } from "./sqlite/sqlite-bootstrap.js";
 import { randomBytes } from "node:crypto";
 import { connectionManager } from "./sqlite/connection-manager.js";
-import { shardManager } from "./sqlite/shard-manager.js";
+import {
+  shardManager,
+  getAllShards,
+  extractScopeFromContainerTag,
+} from "./sqlite/shard-manager.js";
 import { vectorSearch } from "./sqlite/vector-search.js";
 import { embeddingService } from "./embedding.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 import type { MemoryConflict } from "./sqlite/types.js";
-
-function getAllShards() {
-  return [...shardManager.getAllShards("user", ""), ...shardManager.getAllShards("project", "")];
-}
 
 function rowToConflict(row: any): MemoryConflict {
   return {
@@ -282,26 +282,6 @@ export async function detectConflicts(
   } finally {
     conflictCheckLock.release(lockKey);
   }
-}
-
-/**
- * Extract scope and hash from a container tag string.
- * Container tags follow the format `mem_<scope>_<hash>`.
- *
- * @param containerTag - The container tag to parse
- * @returns Object with scope ('user' or 'project') and hash
- */
-function extractScopeFromContainerTag(containerTag: string): {
-  scope: "user" | "project";
-  hash: string;
-} {
-  const parts = containerTag.split("_");
-  if (parts.length >= 3) {
-    const scope = parts[1] as "user" | "project";
-    const hash = parts.slice(2).join("_");
-    return { scope, hash };
-  }
-  return { scope: "user", hash: containerTag };
 }
 
 interface SimilarMemory {

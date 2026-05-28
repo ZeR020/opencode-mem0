@@ -2,7 +2,11 @@ import { transcriptManager, type TranscriptRecord } from "./sqlite/transcript-ma
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { embeddingService } from "./embedding.js";
-import { shardManager } from "./sqlite/shard-manager.js";
+import {
+  shardManager,
+  getAllShards,
+  extractScopeFromContainerTag,
+} from "./sqlite/shard-manager.js";
 import { vectorSearch } from "./sqlite/vector-search.js";
 import { connectionManager } from "./sqlite/connection-manager.js";
 import { log } from "./logger.js";
@@ -135,19 +139,7 @@ interface TaggingProvider {
   ): Promise<{ success: boolean; data?: { tags?: string[] } }>;
 }
 
-function extractScopeFromTag(tag: string): { scope: "user" | "project"; hash: string } {
-  const parts = tag.split("_");
-  if (parts.length >= 3) {
-    const scope = parts[1] as "user" | "project";
-    const hash = parts.slice(2).join("_");
-    return { scope, hash };
-  }
-  return { scope: "project", hash: tag };
-}
-
-function getAllShards(): ReturnType<typeof shardManager.getAllShards> {
-  return [...shardManager.getAllShards("user", ""), ...shardManager.getAllShards("project", "")];
-}
+const extractScopeFromTag = (tag: string) => extractScopeFromContainerTag(tag, "project");
 
 function findMemoryInShards(id: string): { shard: ShardInfo; memory: RawMemoryRow } | null {
   for (const shard of getAllShards()) {

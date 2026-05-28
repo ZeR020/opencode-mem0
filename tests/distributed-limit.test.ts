@@ -25,15 +25,25 @@ vi.mock("../src/services/embedding.js", () => ({
   },
 }));
 
-const getAllShardsSpy = vi.fn();
 const listMemoriesSpy = vi.fn();
 
+const shardMgr: any = {
+  getAllShards: vi.fn(),
+  getWriteShard: vi.fn(),
+  incrementVectorCount: vi.fn(),
+  decrementVectorCount: vi.fn(),
+};
 vi.mock("../src/services/sqlite/shard-manager.js", () => ({
-  shardManager: {
-    getAllShards: getAllShardsSpy,
-    getWriteShard: vi.fn(),
-    incrementVectorCount: vi.fn(),
-    decrementVectorCount: vi.fn(),
+  shardManager: shardMgr,
+  getAllShards: vi.fn(() => [
+    ...shardMgr.getAllShards("user", ""),
+    ...shardMgr.getAllShards("project", ""),
+  ]),
+  extractScopeFromContainerTag: (tag: string, defaultScope: "user" | "project" = "user") => {
+    const parts = tag.split("_");
+    return parts.length >= 3
+      ? { scope: parts[1] as "user" | "project", hash: parts.slice(2).join("_") }
+      : { scope: defaultScope, hash: tag };
   },
 }));
 
@@ -79,12 +89,12 @@ function makeMemory(id: string, overrides: Record<string, unknown> = {}) {
 
 describe("distributed-limit", () => {
   beforeEach(() => {
-    getAllShardsSpy.mockReset();
+    shardMgr.getAllShards.mockReset();
     listMemoriesSpy.mockReset();
   });
 
   it("over-fetches 2x per shard and returns globally top N", async () => {
-    getAllShardsSpy.mockReturnValue([
+    shardMgr.getAllShards.mockReturnValue([
       { id: "shard-a", dbPath: "/tmp/a.db" },
       { id: "shard-b", dbPath: "/tmp/b.db" },
       { id: "shard-c", dbPath: "/tmp/c.db" },
@@ -110,7 +120,7 @@ describe("distributed-limit", () => {
   });
 
   it("does not under-fetch when one shard dominates", async () => {
-    getAllShardsSpy.mockReturnValue([
+    shardMgr.getAllShards.mockReturnValue([
       { id: "shard-a", dbPath: "/tmp/a.db" },
       { id: "shard-b", dbPath: "/tmp/b.db" },
       { id: "shard-c", dbPath: "/tmp/c.db" },

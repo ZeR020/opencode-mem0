@@ -42,12 +42,25 @@ vi.mock("../src/services/sqlite/connection-manager.js", () => ({
   },
 }));
 
-vi.mock("../src/services/sqlite/shard-manager.js", () => ({
-  shardManager: {
+vi.mock("../src/services/sqlite/shard-manager.js", () => {
+  const shdMgr = {
     getAllShards: vi.fn(() => []),
     decrementVectorCount: vi.fn(),
-  },
-}));
+  };
+  return {
+    shardManager: shdMgr,
+    getAllShards: vi.fn(() => [
+      ...shdMgr.getAllShards("user", ""),
+      ...shdMgr.getAllShards("project", ""),
+    ]),
+    extractScopeFromContainerTag: (tag: string, defaultScope: "user" | "project" = "user") => {
+      const parts = tag.split("_");
+      return parts.length >= 3
+        ? { scope: parts[1] as "user" | "project", hash: parts.slice(2).join("_") }
+        : { scope: defaultScope, hash: tag };
+    },
+  };
+});
 
 vi.mock("../src/services/sqlite/vector-search.js", () => ({
   vectorSearch: {
@@ -198,10 +211,21 @@ describe("contextual-decay", () => {
         },
       }));
 
+      const shardMgr1 = {
+        getAllShards: vi.fn(() => [{ id: "shard-1", dbPath: "/tmp/test.db" }]),
+        decrementVectorCount: vi.fn(),
+      };
       vi.doMock("../src/services/sqlite/shard-manager.js", () => ({
-        shardManager: {
-          getAllShards: vi.fn(() => [{ id: "shard-1", dbPath: "/tmp/test.db" }]),
-          decrementVectorCount: vi.fn(),
+        shardManager: shardMgr1,
+        getAllShards: vi.fn(() => [
+          ...shardMgr1.getAllShards("user", ""),
+          ...shardMgr1.getAllShards("project", ""),
+        ]),
+        extractScopeFromContainerTag: (tag: string, defaultScope: "user" | "project" = "user") => {
+          const parts = tag.split("_");
+          return parts.length >= 3
+            ? { scope: parts[1] as "user" | "project", hash: parts.slice(2).join("_") }
+            : { scope: defaultScope, hash: tag };
         },
       }));
 
@@ -257,10 +281,21 @@ describe("contextual-decay", () => {
         },
       }));
 
+      const shardMgr2 = {
+        getAllShards: vi.fn(() => [{ id: "shard-1", dbPath: "/tmp/test.db" }]),
+        decrementVectorCount: vi.fn(),
+      };
       vi.doMock("../src/services/sqlite/shard-manager.js", () => ({
-        shardManager: {
-          getAllShards: vi.fn(() => [{ id: "shard-1", dbPath: "/tmp/test.db" }]),
-          decrementVectorCount: vi.fn(),
+        shardManager: shardMgr2,
+        getAllShards: vi.fn(() => [
+          ...shardMgr2.getAllShards("user", ""),
+          ...shardMgr2.getAllShards("project", ""),
+        ]),
+        extractScopeFromContainerTag: (tag: string, defaultScope: "user" | "project" = "user") => {
+          const parts = tag.split("_");
+          return parts.length >= 3
+            ? { scope: parts[1] as "user" | "project", hash: parts.slice(2).join("_") }
+            : { scope: defaultScope, hash: tag };
         },
       }));
 
@@ -309,10 +344,21 @@ describe("contextual-decay", () => {
         },
       }));
 
+      const shardMgr3 = {
+        getAllShards: vi.fn(() => [{ id: "shard-1", dbPath: "/tmp/test.db" }]),
+        decrementVectorCount: vi.fn(),
+      };
       vi.doMock("../src/services/sqlite/shard-manager.js", () => ({
-        shardManager: {
-          getAllShards: vi.fn(() => [{ id: "shard-1", dbPath: "/tmp/test.db" }]),
-          decrementVectorCount: vi.fn(),
+        shardManager: shardMgr3,
+        getAllShards: vi.fn(() => [
+          ...shardMgr3.getAllShards("user", ""),
+          ...shardMgr3.getAllShards("project", ""),
+        ]),
+        extractScopeFromContainerTag: (tag: string, defaultScope: "user" | "project" = "user") => {
+          const parts = tag.split("_");
+          return parts.length >= 3
+            ? { scope: parts[1] as "user" | "project", hash: parts.slice(2).join("_") }
+            : { scope: defaultScope, hash: tag };
         },
       }));
 

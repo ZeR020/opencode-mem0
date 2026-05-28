@@ -1,5 +1,5 @@
 import { vectorSearch } from "./sqlite/vector-search.js";
-import { shardManager } from "./sqlite/shard-manager.js";
+import { shardManager, getAllShards } from "./sqlite/shard-manager.js";
 import { connectionManager } from "./sqlite/connection-manager.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
@@ -50,10 +50,6 @@ class LifecycleManager {
 }
 
 const lifecycleManager = new LifecycleManager();
-
-function getAllShards() {
-  return [...shardManager.getAllShards("user", ""), ...shardManager.getAllShards("project", "")];
-}
 
 // Memory type classification rules
 const LTM_TYPES = new Set([

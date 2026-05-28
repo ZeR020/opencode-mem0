@@ -165,8 +165,8 @@ vi.mock("../src/services/sqlite/connection-manager.js", () => ({
   },
 }));
 
-vi.mock("../src/services/sqlite/shard-manager.js", () => ({
-  shardManager: {
+vi.mock("../src/services/sqlite/shard-manager.js", () => {
+  const shardMgr: any = {
     getAllShards(scope: string, hash: string) {
       return scope === "project" && hash === "" ? mockShards : [makeShard("shard-current")];
     },
@@ -175,8 +175,21 @@ vi.mock("../src/services/sqlite/shard-manager.js", () => ({
     },
     incrementVectorCount() {},
     decrementVectorCount() {},
-  },
-}));
+  };
+  return {
+    shardManager: shardMgr,
+    getAllShards: vi.fn(() => [
+      ...shardMgr.getAllShards("user", ""),
+      ...shardMgr.getAllShards("project", ""),
+    ]),
+    extractScopeFromContainerTag: (tag: string, defaultScope: "user" | "project" = "user") => {
+      const parts = tag.split("_");
+      return parts.length >= 3
+        ? { scope: parts[1] as "user" | "project", hash: parts.slice(2).join("_") }
+        : { scope: defaultScope, hash: tag };
+    },
+  };
+});
 
 vi.mock("../src/services/sqlite/vector-search.js", () => ({
   vectorSearch: {

@@ -1,4 +1,4 @@
-import { shardManager } from "./sqlite/shard-manager.js";
+import { shardManager, getAllShards } from "./sqlite/shard-manager.js";
 import { connectionManager } from "./sqlite/connection-manager.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
@@ -79,10 +79,6 @@ function recalculateSingleMemory(
   });
 
   return { recency, frequency, importance, utility, novelty, confidence, interference, strength };
-}
-
-function getAllShards() {
-  return [...shardManager.getAllShards("user", ""), ...shardManager.getAllShards("project", "")];
 }
 
 export function recalculateAllScores(recalculateNoveltyAndInterference: boolean = false): {

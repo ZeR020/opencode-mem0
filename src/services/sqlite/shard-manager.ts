@@ -401,3 +401,23 @@ export const shardManager = new Proxy({} as ShardManager, {
     return typeof value === "function" ? value.bind(manager) : value;
   },
 });
+
+export function getAllShards(): ReturnType<ShardManager["getAllShards"]> {
+  return [...shardManager.getAllShards("user", ""), ...shardManager.getAllShards("project", "")];
+}
+
+export function extractScopeFromContainerTag(
+  containerTag: string,
+  defaultScope: "user" | "project" = "user"
+): {
+  scope: "user" | "project";
+  hash: string;
+} {
+  const parts = containerTag.split("_");
+  if (parts.length >= 3) {
+    const scope = parts[1] as "user" | "project";
+    const hash = parts.slice(2).join("_");
+    return { scope, hash };
+  }
+  return { scope: defaultScope, hash: containerTag };
+}

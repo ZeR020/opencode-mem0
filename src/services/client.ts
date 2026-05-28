@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { embeddingService } from "./embedding.js";
-import { shardManager } from "./sqlite/shard-manager.js";
+import { shardManager, extractScopeFromContainerTag } from "./sqlite/shard-manager.js";
 import { vectorSearch } from "./sqlite/vector-search.js";
 import { connectionManager } from "./sqlite/connection-manager.js";
 import { CONFIG } from "../config.js";
@@ -15,19 +15,6 @@ import { safeToISOString, safeJSONParse } from "./utils/safe-transforms.js";
 import { deduplicationService } from "./deduplication-service.js";
 
 export type MemoryScope = "project" | "all-projects";
-
-function extractScopeFromContainerTag(containerTag: string): {
-  scope: "user" | "project";
-  hash: string;
-} {
-  const parts = containerTag.split("_");
-  if (parts.length >= 3) {
-    const scope = parts[1] as "user" | "project";
-    const hash = parts.slice(2).join("_");
-    return { scope, hash };
-  }
-  return { scope: "user", hash: containerTag };
-}
 
 function resolveScopeValue(
   scope: MemoryScope,

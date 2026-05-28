@@ -569,52 +569,57 @@ export class VectorSearch {
       return (b.finalScore || 0) - (a.finalScore || 0);
     });
 
+    const finalResults = this.filterDiverseResults(allResults, limit);
+
+    if (embeddingDegraded) return finalResults;
+    return finalResults.filter((r) => r.similarity >= similarityThreshold);
+  }
+
+  private filterDiverseResults(candidates: SearchResult[], limit: number): SearchResult[] {
     const diversityThreshold = CONFIG.retrieval.diversityThreshold || 0.9;
-    const finalResults: SearchResult[] = [];
     const maxResults = CONFIG.retrieval.maxResults || limit;
+    const results: SearchResult[] = [];
 
-    const getWordSet = (text: string): Set<string> => {
-      let set = this.wordSetCache.get(text);
-      if (!set) {
-        set = new Set(
-          (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length > 4)
-        );
-        this.setWordSet(text, set);
-      }
-      return set;
-    };
-
-    for (const candidate of allResults) {
-      if (finalResults.length >= maxResults) break;
+    for (const candidate of candidates) {
+      if (results.length >= maxResults) break;
 
       let isDiverse = true;
-      const candidateWords = getWordSet(candidate.memory);
-      for (const selected of finalResults) {
-        const selectedWords = getWordSet(selected.memory);
-        const [smaller, larger] =
-          candidateWords.size <= selectedWords.size
-            ? [candidateWords, selectedWords]
-            : [selectedWords, candidateWords];
-        let intersectionSize = 0;
-        for (const word of smaller) {
-          if (larger.has(word)) intersectionSize++;
-        }
-        const unionSize = candidateWords.size + selectedWords.size - intersectionSize;
-        const jaccard = unionSize > 0 ? intersectionSize / unionSize : 0;
-
+      const candidateWords = this.getWordSet(candidate.memory);
+      for (const selected of results) {
+        const jaccard = this.jaccardSimilarity(candidateWords, this.getWordSet(selected.memory));
         if (jaccard > diversityThreshold) {
           isDiverse = false;
           break;
         }
       }
 
-      if (isDiverse || finalResults.length < maxResults / 2) {
-        finalResults.push(candidate);
+      if (isDiverse || results.length < maxResults / 2) {
+        results.push(candidate);
       }
     }
 
-    if (embeddingDegraded) return finalResults;
-    return finalResults.filter((r) => r.similarity >= similarityThreshold);
+    return results;
+  }
+
+  private getWordSet(text: string): Set<string> {
+    let set = this.wordSetCache.get(text);
+    if (!set) {
+      set = new Set(
+        (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length > 4)
+      );
+      this.setWordSet(text, set);
+    }
+    return set;
+  }
+
+  private jaccardSimilarity(a: Set<string>, b: Set<string>): number {
+    const [smaller, larger] = a.size <= b.size ? [a, b] : [b, a];
+    let intersectionSize = 0;
+    for (const word of smaller) {
+      if (larger.has(word)) intersectionSize++;
+    }
+    const unionSize = a.size + b.size - intersectionSize;
+    return unionSize > 0 ? intersectionSize / unionSize : 0;
   }
 
   async deleteVector(db: Database, memoryId: string, shard?: ShardInfo): Promise<void> {

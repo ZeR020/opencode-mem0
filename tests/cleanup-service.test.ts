@@ -1,12 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock dependencies
-vi.mock("../src/services/sqlite/shard-manager.js", () => ({
-  shardManager: {
+vi.mock("../src/services/sqlite/shard-manager.js", () => {
+  const shardMgr: any = {
     getAllShards: vi.fn(),
     decrementVectorCount: vi.fn(),
-  },
-}));
+  };
+  return {
+    shardManager: shardMgr,
+    getAllShards: vi.fn(() => [
+      ...shardMgr.getAllShards("user", ""),
+      ...shardMgr.getAllShards("project", ""),
+    ]),
+    extractScopeFromContainerTag: (tag: string, defaultScope: "user" | "project" = "user") => {
+      const parts = tag.split("_");
+      return parts.length >= 3
+        ? { scope: parts[1] as "user" | "project", hash: parts.slice(2).join("_") }
+        : { scope: defaultScope, hash: tag };
+    },
+  };
+});
 
 vi.mock("../src/services/sqlite/vector-search.js", () => ({
   vectorSearch: {
