@@ -215,23 +215,13 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     return requestBody;
   }
 
-  private _processChatResponse(
+  private async _processChatResponse(
     response: Response,
     session: any,
     messages: APIMessage[],
     toolSchema: ChatCompletionTool,
     iterations: number
-  ): Promise<ToolCallResult> {
-    return this._processChatResponseAsync(response, session, messages, toolSchema, iterations);
-  }
-
-  private async _processChatResponseAsync(
-    response: Response,
-    session: any,
-    messages: APIMessage[],
-    toolSchema: ChatCompletionTool,
-    iterations: number
-  ): Promise<ToolCallResult> {
+  ): Promise<ToolCallResult | null> {
     const data: unknown = await response.json();
 
     if (isErrorResponseBody(data)) {
@@ -300,7 +290,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
       );
     }
 
-    return null as any;
+    return null;
   }
 
   private _handleToolCalls(
@@ -309,9 +299,9 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     messages: APIMessage[],
     toolSchema: ChatCompletionTool,
     iterations: number
-  ): ToolCallResult {
+  ): ToolCallResult | null {
     const toolCall = toolCalls[0];
-    if (!toolCall) return null as any;
+    if (!toolCall) return null;
 
     const toolCallId = toolCall.id;
 
@@ -360,7 +350,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
       JSON.stringify({ success: false, error: wrongToolMessage })
     );
 
-    return null as any;
+    return null;
   }
 
   async executeToolCall(

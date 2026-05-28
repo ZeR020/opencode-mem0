@@ -95,9 +95,10 @@ export class CleanupService {
     try {
       const cutoffTime = Date.now() - CONFIG.autoCleanupRetentionDays * 24 * 60 * 60 * 1000;
 
-      const userShards = shardManager.getAllShards("user", "");
-      const projectShards = shardManager.getAllShards("project", "");
-      const allShards = [...userShards, ...projectShards];
+      const allShards = [
+        ...shardManager.getAllShards("user", ""),
+        ...shardManager.getAllShards("project", ""),
+      ];
 
       const pinnedMemoryIds = this._collectPinnedMemoryIds(allShards);
       const promptCleanupResult = userPromptManager.deleteOldPrompts(cutoffTime);

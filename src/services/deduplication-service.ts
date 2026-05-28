@@ -61,15 +61,7 @@ export class DeduplicationService {
 
         exactDeleted += this._deleteExactDuplicates(memories, db, shard);
 
-        const contentMap = new Map<string, any[]>();
-        for (const memory of memories) {
-          const key = `${memory.container_tag}:${memory.content}`;
-          if (!contentMap.has(key)) {
-            contentMap.set(key, []);
-          }
-          const arr = contentMap.get(key);
-          if (arr) arr.push(memory);
-        }
+        const contentMap = this.buildContentMap(memories);
         const uniqueMemories = Array.from(contentMap.values()).map((arr) => arr[0]);
 
         nearDuplicateGroups.push(...this._findNearDuplicates(uniqueMemories, shard));
@@ -94,16 +86,18 @@ export class DeduplicationService {
     }
   }
 
-  private _deleteExactDuplicates(memories: any[], db: any, shard: any): number {
+  private buildContentMap(memories: any[]): Map<string, any[]> {
     const contentMap = new Map<string, any[]>();
     for (const memory of memories) {
       const key = `${memory.container_tag}:${memory.content}`;
-      if (!contentMap.has(key)) {
-        contentMap.set(key, []);
-      }
-      const arr = contentMap.get(key);
-      if (arr) arr.push(memory);
+      if (!contentMap.has(key)) contentMap.set(key, []);
+      contentMap.get(key)!.push(memory);
     }
+    return contentMap;
+  }
+
+  private _deleteExactDuplicates(memories: any[], db: any, shard: any): number {
+    const contentMap = this.buildContentMap(memories);
 
     let exactDeleted = 0;
     for (const [, duplicates] of contentMap) {
@@ -206,8 +200,8 @@ export class DeduplicationService {
     let normB = 0;
 
     for (let i = 0; i < a.length; i++) {
-      const aVal = a[i] || 0;
-      const bVal = b[i] || 0;
+      const aVal = a[i]!;
+      const bVal = b[i]!;
       dotProduct += aVal * bVal;
       normA += aVal * aVal;
       normB += bVal * bVal;
@@ -219,7 +213,7 @@ export class DeduplicationService {
   }
 
   private _parseMetadata(candidate: any): Record<string, unknown> {
-    if (candidate.metadata && typeof candidate.metadata === "string") {
+    if (typeof candidate.metadata === "string") {
       try {
         return JSON.parse(candidate.metadata) as Record<string, unknown>;
       } catch {

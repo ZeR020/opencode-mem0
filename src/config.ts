@@ -368,18 +368,11 @@ const DEFAULTS: Required<
   warmupTimeoutMs: 30000,
 };
 
-// skipcq: JS-0067
 function expandPath(path: string): string {
-  if (path.startsWith("~/")) {
-    return join(homedir(), path.slice(2));
-  }
-  if (path === "~") {
-    return homedir();
-  }
-  return path;
+  if (path.startsWith("~/")) return join(homedir(), path.slice(2));
+  return path === "~" ? homedir() : path;
 }
 
-// skipcq: JS-0067
 function loadConfigFromPaths(paths: string[]): OpenCodeMemConfig {
   for (const path of paths) {
     if (existsSync(path)) {
@@ -396,10 +389,8 @@ function loadConfigFromPaths(paths: string[]): OpenCodeMemConfig {
   return {};
 }
 
-// skipcq: JS-0067
 function getEmbeddingDimensions(model: string): number {
   const dimensionMap: Record<string, number> = {
-    // Local Xenova models
     "Xenova/nomic-embed-text-v1": 768,
     "Xenova/nomic-embed-text-v1-unsupervised": 768,
     "Xenova/nomic-embed-text-v1-ablated": 768,
@@ -415,23 +406,15 @@ function getEmbeddingDimensions(model: string): number {
     "Xenova/gte-small": 384,
     "Xenova/GIST-small-Embedding-v0": 384,
     "Xenova/text-embedding-ada-002": 1536,
-
-    // OpenAI API models
     "text-embedding-3-small": 1536,
     "text-embedding-3-large": 3072,
     "text-embedding-ada-002": 1536,
-
-    // Cohere API models
     "embed-english-v3.0": 1024,
     "embed-multilingual-v3.0": 1024,
     "embed-english-light-v3.0": 384,
     "embed-multilingual-light-v3.0": 384,
-
-    // Google API models
     "text-embedding-004": 768,
     "text-multilingual-embedding-002": 768,
-
-    // Voyage AI models
     "voyage-3": 1024,
     "voyage-3-lite": 512,
     "voyage-code-3": 1024,
@@ -439,178 +422,120 @@ function getEmbeddingDimensions(model: string): number {
   return dimensionMap[model] || 768;
 }
 
-// skipcq: JS-0067
-function coalesce<T>(value: T | undefined, defaultValue: T): T {
-  return value ?? defaultValue;
-}
-
-// skipcq: JS-0067
 function buildMemoryConfig(f: OpenCodeMemConfig) {
-  return { defaultScope: coalesce(f.memory?.defaultScope, DEFAULTS.memory.defaultScope) };
+  return { defaultScope: f.memory?.defaultScope ?? DEFAULTS.memory.defaultScope };
 }
 
-// skipcq: JS-0067
 function buildCompactionConfig(f: OpenCodeMemConfig) {
   return {
-    enabled: coalesce(f.compaction?.enabled, DEFAULTS.compaction.enabled),
-    memoryLimit: coalesce(f.compaction?.memoryLimit, DEFAULTS.compaction.memoryLimit),
+    enabled: f.compaction?.enabled ?? DEFAULTS.compaction.enabled,
+    memoryLimit: f.compaction?.memoryLimit ?? DEFAULTS.compaction.memoryLimit,
   };
 }
 
-// skipcq: JS-0067
 function buildTranscriptConfig(f: OpenCodeMemConfig) {
   return {
-    enabled: coalesce(f.transcriptStorage?.enabled, DEFAULTS.transcriptStorage.enabled),
-    maxAgeDays: coalesce(f.transcriptStorage?.maxAgeDays, DEFAULTS.transcriptStorage.maxAgeDays),
+    enabled: f.transcriptStorage?.enabled ?? DEFAULTS.transcriptStorage.enabled,
+    maxAgeDays: f.transcriptStorage?.maxAgeDays ?? DEFAULTS.transcriptStorage.maxAgeDays,
   };
 }
 
-// skipcq: JS-0067
 function buildScoringConfig(f: OpenCodeMemConfig) {
   return {
-    enabled: coalesce(f.memoryScoring?.enabled, DEFAULTS.memoryScoring.enabled),
-    recalculationIntervalMinutes: coalesce(
-      f.memoryScoring?.recalculationIntervalMinutes,
-      DEFAULTS.memoryScoring.recalculationIntervalMinutes
-    ),
-    recencyHalfLifeDays: coalesce(
-      f.memoryScoring?.recencyHalfLifeDays,
-      DEFAULTS.memoryScoring.recencyHalfLifeDays
-    ),
-    utilityHalfLifeDays: coalesce(
-      f.memoryScoring?.utilityHalfLifeDays,
-      DEFAULTS.memoryScoring.utilityHalfLifeDays
-    ),
+    enabled: f.memoryScoring?.enabled ?? DEFAULTS.memoryScoring.enabled,
+    recalculationIntervalMinutes:
+      f.memoryScoring?.recalculationIntervalMinutes ??
+      DEFAULTS.memoryScoring.recalculationIntervalMinutes,
+    recencyHalfLifeDays:
+      f.memoryScoring?.recencyHalfLifeDays ?? DEFAULTS.memoryScoring.recencyHalfLifeDays,
+    utilityHalfLifeDays:
+      f.memoryScoring?.utilityHalfLifeDays ?? DEFAULTS.memoryScoring.utilityHalfLifeDays,
   };
 }
 
-// skipcq: JS-0067
 function buildLifecycleConfig(f: OpenCodeMemConfig) {
   return {
-    stmDecayDays: coalesce(f.memoryLifecycle?.stmDecayDays, DEFAULTS.memoryLifecycle.stmDecayDays),
-    ltmDecayDays: coalesce(f.memoryLifecycle?.ltmDecayDays, DEFAULTS.memoryLifecycle.ltmDecayDays),
-    promotionThreshold: coalesce(
-      f.memoryLifecycle?.promotionThreshold,
-      DEFAULTS.memoryLifecycle.promotionThreshold
-    ),
-    archiveThreshold: coalesce(
-      f.memoryLifecycle?.archiveThreshold,
-      DEFAULTS.memoryLifecycle.archiveThreshold
-    ),
-    archiveAfterDays: coalesce(
-      f.memoryLifecycle?.archiveAfterDays,
-      DEFAULTS.memoryLifecycle.archiveAfterDays
-    ),
-    checkIntervalMinutes: coalesce(
-      f.memoryLifecycle?.checkIntervalMinutes,
-      DEFAULTS.memoryLifecycle.checkIntervalMinutes
-    ),
+    stmDecayDays: f.memoryLifecycle?.stmDecayDays ?? DEFAULTS.memoryLifecycle.stmDecayDays,
+    ltmDecayDays: f.memoryLifecycle?.ltmDecayDays ?? DEFAULTS.memoryLifecycle.ltmDecayDays,
+    promotionThreshold:
+      f.memoryLifecycle?.promotionThreshold ?? DEFAULTS.memoryLifecycle.promotionThreshold,
+    archiveThreshold:
+      f.memoryLifecycle?.archiveThreshold ?? DEFAULTS.memoryLifecycle.archiveThreshold,
+    archiveAfterDays:
+      f.memoryLifecycle?.archiveAfterDays ?? DEFAULTS.memoryLifecycle.archiveAfterDays,
+    checkIntervalMinutes:
+      f.memoryLifecycle?.checkIntervalMinutes ?? DEFAULTS.memoryLifecycle.checkIntervalMinutes,
   };
 }
 
-// skipcq: JS-0067
 function buildChatConfig(f: OpenCodeMemConfig) {
   return {
-    enabled: coalesce(f.chatMessage?.enabled, DEFAULTS.chatMessage.enabled),
-    maxMemories: coalesce(f.chatMessage?.maxMemories, DEFAULTS.chatMessage.maxMemories),
-    excludeCurrentSession: coalesce(
-      f.chatMessage?.excludeCurrentSession,
-      DEFAULTS.chatMessage.excludeCurrentSession
-    ),
+    enabled: f.chatMessage?.enabled ?? DEFAULTS.chatMessage.enabled,
+    maxMemories: f.chatMessage?.maxMemories ?? DEFAULTS.chatMessage.maxMemories,
+    excludeCurrentSession:
+      f.chatMessage?.excludeCurrentSession ?? DEFAULTS.chatMessage.excludeCurrentSession,
     maxAgeDays: f.chatMessage?.maxAgeDays,
-    injectOn: coalesce(f.chatMessage?.injectOn, DEFAULTS.chatMessage.injectOn) as
-      | "first"
-      | "always",
-    mode: coalesce(f.chatMessage?.mode, DEFAULTS.chatMessage.mode) as "relevant" | "fast",
+    injectOn: (f.chatMessage?.injectOn ?? DEFAULTS.chatMessage.injectOn) as "first" | "always",
+    mode: (f.chatMessage?.mode ?? DEFAULTS.chatMessage.mode) as "relevant" | "fast",
   };
 }
 
-// skipcq: JS-0067
 function buildRetrievalConfig(f: OpenCodeMemConfig) {
   return {
-    maxResults: coalesce(f.retrieval?.maxResults, DEFAULTS.retrieval.maxResults),
-    diversityThreshold: coalesce(
-      f.retrieval?.diversityThreshold,
-      DEFAULTS.retrieval.diversityThreshold
-    ),
-    contextBoost: coalesce(f.retrieval?.contextBoost, DEFAULTS.retrieval.contextBoost),
+    maxResults: f.retrieval?.maxResults ?? DEFAULTS.retrieval.maxResults,
+    diversityThreshold: f.retrieval?.diversityThreshold ?? DEFAULTS.retrieval.diversityThreshold,
+    contextBoost: f.retrieval?.contextBoost ?? DEFAULTS.retrieval.contextBoost,
   };
 }
 
-// skipcq: JS-0067
 function buildInjectionConfig(f: OpenCodeMemConfig) {
   return {
-    tokenBudget: coalesce(f.injection?.tokenBudget, DEFAULTS.injection.tokenBudget),
-    format: coalesce(f.injection?.format, DEFAULTS.injection.format),
-    queryAwareFiltering: coalesce(
-      f.injection?.queryAwareFiltering,
-      DEFAULTS.injection.queryAwareFiltering
-    ),
-    relevanceThreshold: coalesce(
-      f.injection?.relevanceThreshold,
-      DEFAULTS.injection.relevanceThreshold
-    ),
+    tokenBudget: f.injection?.tokenBudget ?? DEFAULTS.injection.tokenBudget,
+    format: f.injection?.format ?? DEFAULTS.injection.format,
+    queryAwareFiltering: f.injection?.queryAwareFiltering ?? DEFAULTS.injection.queryAwareFiltering,
+    relevanceThreshold: f.injection?.relevanceThreshold ?? DEFAULTS.injection.relevanceThreshold,
   };
 }
 
-// skipcq: JS-0067
 function buildDecayConfig(f: OpenCodeMemConfig) {
   return {
-    enabled: coalesce(f.contextualDecay?.enabled, DEFAULTS.contextualDecay.enabled),
-    baseDecayRate: coalesce(
-      f.contextualDecay?.baseDecayRate,
-      DEFAULTS.contextualDecay.baseDecayRate
-    ),
-    strengthBoostFactor: coalesce(
-      f.contextualDecay?.strengthBoostFactor,
-      DEFAULTS.contextualDecay.strengthBoostFactor
-    ),
-    accessBoostFactor: coalesce(
-      f.contextualDecay?.accessBoostFactor,
-      DEFAULTS.contextualDecay.accessBoostFactor
-    ),
-    minDecayRate: coalesce(f.contextualDecay?.minDecayRate, DEFAULTS.contextualDecay.minDecayRate),
-    maxDecayRate: coalesce(f.contextualDecay?.maxDecayRate, DEFAULTS.contextualDecay.maxDecayRate),
+    enabled: f.contextualDecay?.enabled ?? DEFAULTS.contextualDecay.enabled,
+    baseDecayRate: f.contextualDecay?.baseDecayRate ?? DEFAULTS.contextualDecay.baseDecayRate,
+    strengthBoostFactor:
+      f.contextualDecay?.strengthBoostFactor ?? DEFAULTS.contextualDecay.strengthBoostFactor,
+    accessBoostFactor:
+      f.contextualDecay?.accessBoostFactor ?? DEFAULTS.contextualDecay.accessBoostFactor,
+    minDecayRate: f.contextualDecay?.minDecayRate ?? DEFAULTS.contextualDecay.minDecayRate,
+    maxDecayRate: f.contextualDecay?.maxDecayRate ?? DEFAULTS.contextualDecay.maxDecayRate,
   };
 }
 
-// skipcq: JS-0067
 function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
   const cfg = fileConfig;
   const defaults = DEFAULTS;
   return {
-    storagePath: expandPath(coalesce(cfg.storagePath, defaults.storagePath)),
+    storagePath: expandPath(cfg.storagePath ?? defaults.storagePath),
     userEmailOverride: cfg.userEmailOverride,
     userNameOverride: cfg.userNameOverride,
-    embeddingModel: coalesce(cfg.embeddingModel, defaults.embeddingModel),
-    embeddingDimensions: coalesce(
-      cfg.embeddingDimensions,
-      getEmbeddingDimensions(coalesce(cfg.embeddingModel, defaults.embeddingModel))
-    ),
+    embeddingModel: cfg.embeddingModel ?? defaults.embeddingModel,
+    embeddingDimensions:
+      cfg.embeddingDimensions ??
+      getEmbeddingDimensions(cfg.embeddingModel ?? defaults.embeddingModel),
     embeddingApiUrl: cfg.embeddingApiUrl,
     embeddingApiKey: cfg.embeddingApiUrl
-      ? resolveSecretValue(coalesce(cfg.embeddingApiKey, process.env.OPENAI_API_KEY))
+      ? resolveSecretValue(cfg.embeddingApiKey ?? process.env.OPENAI_API_KEY)
       : undefined,
-    similarityThreshold: coalesce(cfg.similarityThreshold, defaults.similarityThreshold),
-    maxMemories: coalesce(cfg.maxMemories, defaults.maxMemories),
-    maxProfileItems: coalesce(cfg.maxProfileItems, defaults.maxProfileItems),
-    injectProfile: coalesce(cfg.injectProfile, defaults.injectProfile),
-    containerTagPrefix: coalesce(cfg.containerTagPrefix, defaults.containerTagPrefix),
-    autoCaptureEnabled: coalesce(cfg.autoCaptureEnabled, defaults.autoCaptureEnabled),
-    autoCaptureMaxIterations: coalesce(
-      cfg.autoCaptureMaxIterations,
-      defaults.autoCaptureMaxIterations
-    ),
-    autoCaptureIterationTimeout: coalesce(
-      cfg.autoCaptureIterationTimeout,
-      defaults.autoCaptureIterationTimeout
-    ),
+    similarityThreshold: cfg.similarityThreshold ?? defaults.similarityThreshold,
+    maxMemories: cfg.maxMemories ?? defaults.maxMemories,
+    maxProfileItems: cfg.maxProfileItems ?? defaults.maxProfileItems,
+    injectProfile: cfg.injectProfile ?? defaults.injectProfile,
+    containerTagPrefix: cfg.containerTagPrefix ?? defaults.containerTagPrefix,
+    autoCaptureEnabled: cfg.autoCaptureEnabled ?? defaults.autoCaptureEnabled,
+    autoCaptureMaxIterations: cfg.autoCaptureMaxIterations ?? defaults.autoCaptureMaxIterations,
+    autoCaptureIterationTimeout:
+      cfg.autoCaptureIterationTimeout ?? defaults.autoCaptureIterationTimeout,
     autoCaptureLanguage: cfg.autoCaptureLanguage,
-    memoryProvider: coalesce(cfg.memoryProvider, "openai-chat") as
-      | "openai-chat"
-      | "openai-responses"
-      | "anthropic"
-      | "google-gemini",
+    memoryProvider: (cfg.memoryProvider ?? "openai-chat") as AIProviderType,
     memoryModel: cfg.memoryModel,
     memoryApiUrl: cfg.memoryApiUrl,
     memoryApiKey: resolveSecretValue(cfg.memoryApiKey),
@@ -618,51 +543,31 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
     memoryExtraParams: cfg.memoryExtraParams,
     opencodeProvider: cfg.opencodeProvider,
     opencodeModel: cfg.opencodeModel,
-    vectorBackend: coalesce(cfg.vectorBackend, "usearch-first") as
-      | "usearch-first"
-      | "usearch"
-      | "exact-scan",
-    aiSessionRetentionDays: coalesce(cfg.aiSessionRetentionDays, defaults.aiSessionRetentionDays),
-    webServerEnabled: coalesce(cfg.webServerEnabled, defaults.webServerEnabled),
-    webServerPort: coalesce(cfg.webServerPort, defaults.webServerPort),
-    webServerHost: coalesce(cfg.webServerHost, defaults.webServerHost),
+    vectorBackend: (cfg.vectorBackend ?? "usearch-first") as VectorBackendConfig,
+    aiSessionRetentionDays: cfg.aiSessionRetentionDays ?? defaults.aiSessionRetentionDays,
+    webServerEnabled: cfg.webServerEnabled ?? defaults.webServerEnabled,
+    webServerPort: cfg.webServerPort ?? defaults.webServerPort,
+    webServerHost: cfg.webServerHost ?? defaults.webServerHost,
     webServerApiKey: cfg.webServerApiKey,
-    maxVectorsPerShard: coalesce(cfg.maxVectorsPerShard, defaults.maxVectorsPerShard),
-    autoCleanupEnabled: coalesce(cfg.autoCleanupEnabled, defaults.autoCleanupEnabled),
-    autoCleanupRetentionDays: coalesce(
-      cfg.autoCleanupRetentionDays,
-      defaults.autoCleanupRetentionDays
-    ),
-    deduplicationEnabled: coalesce(cfg.deduplicationEnabled, defaults.deduplicationEnabled),
-    deduplicationSimilarityThreshold: coalesce(
-      cfg.deduplicationSimilarityThreshold,
-      defaults.deduplicationSimilarityThreshold
-    ),
-    deduplicationIngestEnabled: coalesce(cfg.deduplicationIngestEnabled, true),
-    userProfileAnalysisInterval: coalesce(
-      cfg.userProfileAnalysisInterval,
-      defaults.userProfileAnalysisInterval
-    ),
-    userProfileMaxPreferences: coalesce(
-      cfg.userProfileMaxPreferences,
-      defaults.userProfileMaxPreferences
-    ),
-    userProfileMaxPatterns: coalesce(cfg.userProfileMaxPatterns, defaults.userProfileMaxPatterns),
-    userProfileMaxWorkflows: coalesce(
-      cfg.userProfileMaxWorkflows,
-      defaults.userProfileMaxWorkflows
-    ),
-    userProfileConfidenceDecayDays: coalesce(
-      cfg.userProfileConfidenceDecayDays,
-      defaults.userProfileConfidenceDecayDays
-    ),
-    userProfileChangelogRetentionCount: coalesce(
-      cfg.userProfileChangelogRetentionCount,
-      defaults.userProfileChangelogRetentionCount
-    ),
-    showAutoCaptureToasts: coalesce(cfg.showAutoCaptureToasts, defaults.showAutoCaptureToasts),
-    showUserProfileToasts: coalesce(cfg.showUserProfileToasts, defaults.showUserProfileToasts),
-    showErrorToasts: coalesce(cfg.showErrorToasts, defaults.showErrorToasts),
+    maxVectorsPerShard: cfg.maxVectorsPerShard ?? defaults.maxVectorsPerShard,
+    autoCleanupEnabled: cfg.autoCleanupEnabled ?? defaults.autoCleanupEnabled,
+    autoCleanupRetentionDays: cfg.autoCleanupRetentionDays ?? defaults.autoCleanupRetentionDays,
+    deduplicationEnabled: cfg.deduplicationEnabled ?? defaults.deduplicationEnabled,
+    deduplicationSimilarityThreshold:
+      cfg.deduplicationSimilarityThreshold ?? defaults.deduplicationSimilarityThreshold,
+    deduplicationIngestEnabled: cfg.deduplicationIngestEnabled ?? true,
+    userProfileAnalysisInterval:
+      cfg.userProfileAnalysisInterval ?? defaults.userProfileAnalysisInterval,
+    userProfileMaxPreferences: cfg.userProfileMaxPreferences ?? defaults.userProfileMaxPreferences,
+    userProfileMaxPatterns: cfg.userProfileMaxPatterns ?? defaults.userProfileMaxPatterns,
+    userProfileMaxWorkflows: cfg.userProfileMaxWorkflows ?? defaults.userProfileMaxWorkflows,
+    userProfileConfidenceDecayDays:
+      cfg.userProfileConfidenceDecayDays ?? defaults.userProfileConfidenceDecayDays,
+    userProfileChangelogRetentionCount:
+      cfg.userProfileChangelogRetentionCount ?? defaults.userProfileChangelogRetentionCount,
+    showAutoCaptureToasts: cfg.showAutoCaptureToasts ?? defaults.showAutoCaptureToasts,
+    showUserProfileToasts: cfg.showUserProfileToasts ?? defaults.showUserProfileToasts,
+    showErrorToasts: cfg.showErrorToasts ?? defaults.showErrorToasts,
     memory: buildMemoryConfig(cfg),
     compaction: buildCompactionConfig(cfg),
     transcriptStorage: buildTranscriptConfig(cfg),
@@ -672,12 +577,11 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
     retrieval: buildRetrievalConfig(cfg),
     injection: buildInjectionConfig(cfg),
     contextualDecay: buildDecayConfig(cfg),
-    logLevel: coalesce(cfg.logLevel, defaults.logLevel),
-    warmupTimeoutMs: coalesce(cfg.warmupTimeoutMs, defaults.warmupTimeoutMs),
+    logLevel: cfg.logLevel ?? defaults.logLevel,
+    warmupTimeoutMs: cfg.warmupTimeoutMs ?? defaults.warmupTimeoutMs,
   };
 }
 
-// skipcq: JS-0067
 function buildConfig(fileConfig: OpenCodeMemConfig) {
   const validation = OpenCodeMemConfigSchema.safeParse(fileConfig);
   if (!validation.success) {
@@ -688,7 +592,6 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
   }
   const result = mergeConfigWithDefaults(fileConfig);
 
-  // Apply log level from config
   if (fileConfig.logLevel) {
     setLogLevel(fileConfig.logLevel);
   }
@@ -699,12 +602,10 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
 const _globalFileConfig = loadConfigFromPaths(CONFIG_FILES);
 export const CONFIG = buildConfig(_globalFileConfig);
 
-// skipcq: JS-0067
 function isPlainObject(value: unknown): value is object {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// skipcq: JS-0067
 function deepMerge<T extends object>(target: T, source: Partial<T>): T {
   const result = { ...target } as Record<string, unknown>;
   for (const key of Object.keys(source) as Array<keyof T>) {
@@ -719,7 +620,6 @@ function deepMerge<T extends object>(target: T, source: Partial<T>): T {
   return result as T;
 }
 
-// skipcq: JS-0067
 export function initConfig(directory: string): void {
   const projectPaths = [
     join(directory, ".opencode", "opencode-mem0.jsonc"),
@@ -731,7 +631,6 @@ export function initConfig(directory: string): void {
   Object.assign(CONFIG, buildConfig(merged));
 }
 
-// skipcq: JS-0067
 export function isConfigured(): boolean {
   return Boolean(_globalFileConfig) && existsSync(CONFIG.storagePath);
 }

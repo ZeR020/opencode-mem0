@@ -51,6 +51,10 @@ class LifecycleManager {
 
 const lifecycleManager = new LifecycleManager();
 
+function getAllShards() {
+  return [...shardManager.getAllShards("user", ""), ...shardManager.getAllShards("project", "")];
+}
+
 // Memory type classification rules
 const LTM_TYPES = new Set([
   "preference",
@@ -60,17 +64,6 @@ const LTM_TYPES = new Set([
   "architecture",
   "configuration",
   "rule",
-]);
-
-const STM_TYPES = new Set([
-  "episodic",
-  "chat",
-  "conversation",
-  "greeting",
-  "casual",
-  "question",
-  "answer",
-  "exchange",
 ]);
 
 const SLOW_DECAY_LTM_TYPES = new Set([
@@ -104,11 +97,6 @@ export function classifyMemory(memoryType?: string): {
     return { storeType: "ltm", decayRate: 0.01 };
   }
 
-  if (STM_TYPES.has(type)) {
-    return { storeType: "stm", decayRate: 0.05 };
-  }
-
-  // Default: STM with standard decay
   return { storeType: "stm", decayRate: 0.05 };
 }
 
@@ -147,11 +135,11 @@ export function calculateContextualDecayRate(
   }
 
   const config = CONFIG.contextualDecay;
-  const baseRate = config?.baseDecayRate ?? 0.05;
-  const strengthBoost = config?.strengthBoostFactor ?? 0.5;
-  const accessBoost = config?.accessBoostFactor ?? 0.3;
-  const minRate = config?.minDecayRate ?? 0.005;
-  const maxRate = config?.maxDecayRate ?? 0.15;
+  const baseRate = config.baseDecayRate ?? 0.05;
+  const strengthBoost = config.strengthBoostFactor ?? 0.5;
+  const accessBoost = config.accessBoostFactor ?? 0.3;
+  const minRate = config.minDecayRate ?? 0.005;
+  const maxRate = config.maxDecayRate ?? 0.15;
 
   const strengthMultiplier = Math.max(0, 1 - strengthBoost * strength);
   const accessMultiplier = Math.max(0, 1 - accessBoost * Math.log2((accessCount ?? 0) + 1));
@@ -170,9 +158,7 @@ export function calculateContextualDecayRate(
  */
 export function promoteToLTM(memoryId: string): { success: boolean; promoted: boolean } {
   try {
-    const userShards = shardManager.getAllShards("user", "");
-    const projectShards = shardManager.getAllShards("project", "");
-    const allShards = [...userShards, ...projectShards];
+    const allShards = getAllShards();
 
     const threshold = CONFIG.memoryLifecycle?.promotionThreshold ?? 0.7;
 
@@ -322,9 +308,7 @@ export async function applyDecay(): Promise<{
   let totalArchived = 0;
 
   try {
-    const userShards = shardManager.getAllShards("user", "");
-    const projectShards = shardManager.getAllShards("project", "");
-    const allShards = [...userShards, ...projectShards];
+    const allShards = getAllShards();
 
     const now = Date.now();
     const archiveThreshold = CONFIG.memoryLifecycle?.archiveThreshold ?? 0.2;
@@ -493,9 +477,9 @@ export function getArchivedCount(): number {
   let count = 0;
 
   try {
-    const userShards = shardManager.getAllShards("user", "");
-    const projectShards = shardManager.getAllShards("project", "");
-    const allShards = [...userShards, ...projectShards];
+    const allShards = getAllShards();
+
+    const threshold = CONFIG.memoryLifecycle?.promotionThreshold ?? 0.7;
 
     for (const shard of allShards) {
       const db = connectionManager.getConnection(shard.dbPath);
@@ -516,9 +500,7 @@ export function scanAndPromote(): { scanned: number; promoted: number } {
   let promoted = 0;
 
   try {
-    const userShards = shardManager.getAllShards("user", "");
-    const projectShards = shardManager.getAllShards("project", "");
-    const allShards = [...userShards, ...projectShards];
+    const allShards = getAllShards();
 
     const threshold = CONFIG.memoryLifecycle?.promotionThreshold ?? 0.7;
 

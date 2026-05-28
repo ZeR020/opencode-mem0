@@ -8,7 +8,24 @@ import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 import type { MemoryConflict } from "./sqlite/types.js";
 
-type DatabaseType = Database;
+function getAllShards() {
+  return [...shardManager.getAllShards("user", ""), ...shardManager.getAllShards("project", "")];
+}
+
+function rowToConflict(row: any): MemoryConflict {
+  return {
+    id: row.id,
+    memoryId1: row.memory_id_1,
+    memoryId2: row.memory_id_2,
+    similarityScore: row.similarity_score,
+    detectedAt: row.detected_at,
+    resolved: row.resolved,
+    resolutionType: row.resolution_type,
+    resolvedAt: row.resolved_at,
+    resolutionData: row.resolution_data,
+    containerTag: row.container_tag,
+  };
+}
 
 class ConflictCheckLock {
   private running = new Set<string>();
@@ -304,7 +321,7 @@ interface SimilarMemory {
  * @returns Array of similar memories with similarity scores
  */
 function findSimilarMemories(
-  db: DatabaseType,
+  db: Database,
   content: string,
   containerTag: string,
   excludeMemoryId?: string
@@ -407,7 +424,7 @@ function findSimilarMemories(
  * @returns The existing conflict record, or null if not found
  */
 function findExistingConflict(
-  db: DatabaseType,
+  db: Database,
   memoryId1: string,
   memoryId2: string
 ): MemoryConflict | null {
@@ -424,18 +441,7 @@ function findExistingConflict(
 
   if (!row) return null;
 
-  return {
-    id: row.id,
-    memoryId1: row.memory_id_1,
-    memoryId2: row.memory_id_2,
-    similarityScore: row.similarity_score,
-    detectedAt: row.detected_at,
-    resolved: row.resolved,
-    resolutionType: row.resolution_type,
-    resolvedAt: row.resolved_at,
-    resolutionData: row.resolution_data,
-    containerTag: row.container_tag,
-  };
+  return rowToConflict(row);
 }
 
 /**
@@ -444,7 +450,7 @@ function findExistingConflict(
  * @param db - SQLite database handle
  * @param conflict - The conflict record to save
  */
-function saveConflict(db: DatabaseType, conflict: MemoryConflict): void {
+function saveConflict(db: Database, conflict: MemoryConflict): void {
   db.prepare(
     `
     INSERT INTO memory_conflicts (
@@ -488,11 +494,8 @@ export async function resolveConflict(
   try {
     // First, find the conflict in any shard to read its container_tag
     let conflictRow: any = null;
-    let conflictDb: DatabaseType | null = null;
-    const searchShards = [
-      ...shardManager.getAllShards("user", ""),
-      ...shardManager.getAllShards("project", ""),
-    ];
+    let conflictDb: Database | null = null;
+    const searchShards = getAllShards();
 
     for (const shard of searchShards) {
       const db = connectionManager.getConnection(shard.dbPath);
@@ -518,18 +521,7 @@ export async function resolveConflict(
 
       if (!row) continue;
 
-      const conflict: MemoryConflict = {
-        id: row.id,
-        memoryId1: row.memory_id_1,
-        memoryId2: row.memory_id_2,
-        similarityScore: row.similarity_score,
-        detectedAt: row.detected_at,
-        resolved: row.resolved,
-        resolutionType: row.resolution_type,
-        resolvedAt: row.resolved_at,
-        resolutionData: row.resolution_data,
-        containerTag: row.container_tag,
-      };
+      const conflict = rowToConflict(row);
 
       const now = Date.now();
 
@@ -658,7 +650,7 @@ export async function resolveConflict(
  * @returns Array of conflicts with optional memory content previews
  */
 export function getConflicts(
-  db: DatabaseType,
+  db: Database,
   resolved: boolean = false,
   limit: number = 100
 ): (MemoryConflict & { memory1Content?: string; memory2Content?: string })[] {
@@ -677,15 +669,7 @@ export function getConflicts(
     .all(resolved ? 1 : 0, limit) as any[];
 
   return rows.map((r) => ({
-    id: r.id,
-    memoryId1: r.memory_id_1,
-    memoryId2: r.memory_id_2,
-    similarityScore: r.similarity_score,
-    detectedAt: r.detected_at,
-    resolved: r.resolved,
-    resolutionType: r.resolution_type,
-    resolvedAt: r.resolved_at,
-    resolutionData: r.resolution_data,
+    ...rowToConflict(r),
     memory1Content: r.m1_content,
     memory2Content: r.m2_content,
   }));
@@ -702,10 +686,7 @@ export function getAllUnresolvedConflicts(
 ): (MemoryConflict & { memory1Content?: string; memory2Content?: string })[] {
   const allConflicts: (MemoryConflict & { memory1Content?: string; memory2Content?: string })[] =
     [];
-  const shards = [
-    ...shardManager.getAllShards("user", ""),
-    ...shardManager.getAllShards("project", ""),
-  ];
+  const shards = getAllShards();
 
   for (const shard of shards) {
     const db = connectionManager.getConnection(shard.dbPath);

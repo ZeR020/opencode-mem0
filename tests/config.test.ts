@@ -101,7 +101,10 @@ describe("config", () => {
 
   describe("isConfigured", () => {
     it("should return false without explicit config and storage", () => {
+      const saved = CONFIG.storagePath;
+      CONFIG.storagePath = join(home, "nonexistent-opencode-mem0");
       expect(isConfigured()).toBe(false);
+      CONFIG.storagePath = saved;
     });
 
     it("should return a boolean", () => {

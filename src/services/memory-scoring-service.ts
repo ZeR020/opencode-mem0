@@ -12,6 +12,8 @@ import {
   calculateInterference,
   computeStrength,
 } from "./memory-scoring.js";
+import type { ScoreComponents } from "./memory-scoring.js";
+import { safeJSONParse } from "./utils/safe-transforms.js";
 
 let scoringInterval: NodeJS.Timeout | null = null;
 let isRunning = false;
@@ -21,27 +23,15 @@ let isRunning = false;
  * Updates recency, utility, and strength in-place.
  * Optionally recalculates novelty and interference (expensive).
  */
-function parseMemoryMetadata(memory: any): any {
-  try {
-    if (memory.metadata) {
-      return JSON.parse(memory.metadata);
-    }
-  } catch {
-    // ignore parse errors
-  }
-  return {};
-}
-
 function findConflictingMemories(content: string, allContents: string[]): string[] {
-  const otherContents = allContents.filter((c) => c !== content);
-  return otherContents
-    .filter((existing: string) => {
-      const words = content
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((w: string) => w.length > 4);
-      return words.some((w: string) => existing.toLowerCase().includes(w));
-    })
+  const words = content
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 4);
+  if (words.length === 0) return [];
+  return allContents
+    .filter((c) => c !== content)
+    .filter((existing) => words.some((w) => existing.toLowerCase().includes(w)))
     .slice(0, 10);
 }
 
@@ -49,23 +39,14 @@ function recalculateSingleMemory(
   memory: any,
   allContents: string[],
   recalculateNoveltyAndInterference: boolean
-): {
-  recency: number;
-  frequency: number;
-  importance: number;
-  utility: number;
-  novelty: number;
-  confidence: number;
-  interference: number;
-  strength: number;
-} {
+): ScoreComponents & { strength: number } {
   const content = memory.content || "";
   const createdAt = Number(memory.created_at);
   const accessCount = Number(memory.access_count || 0);
   const lastAccessed = memory.last_accessed ? Number(memory.last_accessed) : null;
   const type = memory.type || undefined;
 
-  const metadata = parseMemoryMetadata(memory);
+  const metadata = (safeJSONParse(memory.metadata) as Record<string, any>) ?? {};
   const source = metadata.source || undefined;
 
   const recency = calculateRecency(createdAt, CONFIG.memoryScoring.recencyHalfLifeDays);
@@ -100,6 +81,10 @@ function recalculateSingleMemory(
   return { recency, frequency, importance, utility, novelty, confidence, interference, strength };
 }
 
+function getAllShards() {
+  return [...shardManager.getAllShards("user", ""), ...shardManager.getAllShards("project", "")];
+}
+
 export function recalculateAllScores(recalculateNoveltyAndInterference: boolean = false): {
   updated: number;
   shards: number;
@@ -110,9 +95,7 @@ export function recalculateAllScores(recalculateNoveltyAndInterference: boolean 
   let shardsProcessed = 0;
 
   try {
-    const userShards = shardManager.getAllShards("user", "");
-    const projectShards = shardManager.getAllShards("project", "");
-    const allShards = [...userShards, ...projectShards];
+    const allShards = getAllShards();
 
     for (const shard of allShards) {
       let db: any = null;
@@ -239,7 +222,7 @@ export function startScoringRecalculation(): void {
  */
 export function stopScoringRecalculation(): void {
   if (scoringInterval) {
-    clearInterval(scoringInterval as any);
+    clearInterval(scoringInterval);
     scoringInterval = null;
     log("Memory scoring recalculation stopped");
   }

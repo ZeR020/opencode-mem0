@@ -18,9 +18,7 @@ function normalizeHeaders(rawHeaders: IncomingMessage["headers"]): Headers {
   for (const [key, value] of Object.entries(rawHeaders)) {
     if (value === undefined) continue;
     if (Array.isArray(value)) {
-      for (const v of value) {
-        headers.append(key, v);
-      }
+      for (const v of value) headers.append(key, v);
     } else {
       headers.set(key, value);
     }

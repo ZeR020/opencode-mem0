@@ -4,6 +4,20 @@ import { ExactScanBackend } from "./exact-scan-backend.js";
 import type { VectorBackend, VectorBackendFactoryOptions } from "./types.js";
 import { USearchBackend } from "./usearch-backend.js";
 
+function logDegradation(
+  strategy: string,
+  severity: string,
+  operation: string,
+  error: unknown
+): void {
+  log("Vector backend degraded to exact-scan", {
+    strategy,
+    severity,
+    operation,
+    error: String(error),
+  });
+}
+
 class FallbackAwareBackend implements VectorBackend {
   private activeBackend: VectorBackend;
 
@@ -59,13 +73,12 @@ class FallbackAwareBackend implements VectorBackend {
   }
 
   private logDegrade(operation: string, error: unknown): void {
-    const isStrict = this.strategy === "usearch" || this.strategy === "nsw";
-    log("Vector backend degraded to exact-scan", {
-      strategy: this.strategy,
-      severity: isStrict ? "warning" : "info",
+    logDegradation(
+      this.strategy,
+      this.strategy.endsWith("-first") ? "info" : "warning",
       operation,
-      error: String(error),
-    });
+      error
+    );
   }
 }
 
@@ -104,12 +117,12 @@ export async function createVectorBackend(
       }
       return nswBackend;
     } catch (error) {
-      log("Vector backend degraded to exact-scan", {
-        strategy: options.vectorBackend,
-        severity: options.vectorBackend === "nsw" ? "warning" : "info",
-        operation: "create",
-        error: String(error),
-      });
+      logDegradation(
+        options.vectorBackend,
+        options.vectorBackend === "nsw" ? "warning" : "info",
+        "create",
+        error
+      );
       return exactScanBackend;
     }
   }
@@ -117,12 +130,7 @@ export async function createVectorBackend(
   const probeUSearch = options.probeUSearch ?? defaultUSearchProbe;
   if (!(await probeUSearch())) {
     if (isUSearch) {
-      log("Vector backend degraded to exact-scan", {
-        strategy: options.vectorBackend,
-        severity: "warning",
-        operation: "probe",
-        error: "USearch unavailable",
-      });
+      logDegradation(options.vectorBackend, "warning", "probe", "USearch unavailable");
     }
     return exactScanBackend;
   }
@@ -137,12 +145,7 @@ export async function createVectorBackend(
 
     return new FallbackAwareBackend(options.vectorBackend, usearchBackend, exactScanBackend);
   } catch (error) {
-    log("Vector backend degraded to exact-scan", {
-      strategy: options.vectorBackend,
-      severity: isUSearch ? "warning" : "info",
-      operation: "create",
-      error: String(error),
-    });
+    logDegradation(options.vectorBackend, isUSearch ? "warning" : "info", "create", error);
     return exactScanBackend;
   }
 }

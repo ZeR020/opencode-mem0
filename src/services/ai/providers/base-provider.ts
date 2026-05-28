@@ -16,7 +16,7 @@ export interface ProviderConfig {
   extraParams?: Record<string, unknown>;
 }
 
-const PROTECTED_KEYS = new Set([
+const UNSAFE_KEYS = new Set([
   "model",
   "messages",
   "tools",
@@ -25,6 +25,9 @@ const PROTECTED_KEYS = new Set([
   "input",
   "instructions",
   "conversation",
+  "__proto__",
+  "constructor",
+  "prototype",
 ]);
 
 export function applySafeExtraParams(
@@ -32,14 +35,7 @@ export function applySafeExtraParams(
   extraParams: Record<string, unknown>
 ): void {
   for (const [key, value] of Object.entries(extraParams)) {
-    if (
-      !PROTECTED_KEYS.has(key) &&
-      key !== "__proto__" &&
-      key !== "constructor" &&
-      key !== "prototype"
-    ) {
-      requestBody[key] = value;
-    }
+    if (!UNSAFE_KEYS.has(key)) requestBody[key] = value;
   }
 }
 

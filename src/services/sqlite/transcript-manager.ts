@@ -6,8 +6,6 @@ import { log } from "../logger.js";
 import { CONFIG } from "../../config.js";
 import { connectionManager } from "./connection-manager.js";
 
-type DatabaseType = Database;
-
 export interface TranscriptRecord {
   id: string;
   sessionId: string;
@@ -29,11 +27,24 @@ function approximateTokenCount(text: string): number {
   return Math.ceil(trimmed.split(WORD_SPLIT_RE).length * 1.33);
 }
 
+function rowToTranscript(row: any): TranscriptRecord {
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    projectPath: row.project_path,
+    messages: row.messages,
+    createdAt: row.created_at,
+    tokenCount: row.token_count,
+  };
+}
+
+const TRANSCRIPT_FIELDS = "id, session_id, project_path, messages, created_at, token_count";
+
 export class TranscriptManager {
-  private db: DatabaseType | null = null;
+  private db: Database | null = null;
   private dbPath: string | null = null;
 
-  private getDb(): DatabaseType {
+  private getDb(): Database {
     const dbPath = getTranscriptDbPath();
     if (this.db && this.dbPath === dbPath) return this.db;
 
@@ -61,8 +72,7 @@ export class TranscriptManager {
     }
   }
 
-  private initSchema(db: DatabaseType): void {
-    // Main transcripts table
+  private initSchema(db: Database): void {
     db.run(`
       CREATE TABLE IF NOT EXISTS transcripts (
         id TEXT PRIMARY KEY,
@@ -74,23 +84,10 @@ export class TranscriptManager {
       )
     `);
 
-    db.run(`
-      CREATE INDEX IF NOT EXISTS idx_transcripts_session 
-      ON transcripts(session_id)
-    `);
+    db.run("CREATE INDEX IF NOT EXISTS idx_transcripts_session ON transcripts(session_id)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_transcripts_created ON transcripts(created_at DESC)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_transcripts_project ON transcripts(project_path)");
 
-    db.run(`
-      CREATE INDEX IF NOT EXISTS idx_transcripts_created 
-      ON transcripts(created_at DESC)
-    `);
-
-    db.run(`
-      CREATE INDEX IF NOT EXISTS idx_transcripts_project 
-      ON transcripts(project_path)
-    `);
-
-    // FTS5 virtual table for full-text search on messages
-    // Use implicit integer rowid (transcripts.id is TEXT, so content_rowid='id' would mismatch)
     db.run(`
       CREATE VIRTUAL TABLE IF NOT EXISTS transcripts_fts USING fts5(
         messages,
@@ -98,7 +95,6 @@ export class TranscriptManager {
       )
     `);
 
-    // Triggers to keep FTS index in sync
     db.run(`
       CREATE TRIGGER IF NOT EXISTS transcripts_fts_insert 
       AFTER INSERT ON transcripts BEGIN
@@ -127,9 +123,7 @@ export class TranscriptManager {
   }
 
   saveTranscript(sessionId: string, projectPath: string, messages: unknown[]): { id: string } {
-    if (!CONFIG.transcriptStorage.enabled) {
-      return { id: "" };
-    }
+    if (!CONFIG.transcriptStorage.enabled) return { id: "" };
 
     try {
       const db = this.getDb();
@@ -138,12 +132,12 @@ export class TranscriptManager {
       const createdAt = Date.now();
       const tokenCount = approximateTokenCount(messagesJson);
 
-      const stmt = db.prepare(`
+      db.prepare(
+        `
         INSERT INTO transcripts (id, session_id, project_path, messages, created_at, token_count)
         VALUES (?, ?, ?, ?, ?, ?)
-      `);
-
-      stmt.run(id, sessionId, projectPath, messagesJson, createdAt, tokenCount);
+      `
+      ).run(id, sessionId, projectPath, messagesJson, createdAt, tokenCount);
 
       log("Transcript saved", { sessionId, transcriptId: id, tokenCount });
       return { id };
@@ -154,28 +148,20 @@ export class TranscriptManager {
   }
 
   getTranscript(sessionId: string): TranscriptRecord | null {
-    if (!CONFIG.transcriptStorage.enabled) {
-      return null;
-    }
+    if (!CONFIG.transcriptStorage.enabled) return null;
 
     try {
       const db = this.getDb();
-      const stmt = db.prepare(`
-        SELECT id, session_id, project_path, messages, created_at, token_count
+      const row = db
+        .prepare(
+          `
+        SELECT ${TRANSCRIPT_FIELDS}
         FROM transcripts WHERE session_id = ? ORDER BY created_at DESC LIMIT 1
-      `);
+      `
+        )
+        .get(sessionId) as any;
 
-      const row = stmt.get(sessionId) as any;
-      if (!row) return null;
-
-      return {
-        id: row.id,
-        sessionId: row.session_id,
-        projectPath: row.project_path,
-        messages: row.messages,
-        createdAt: row.created_at,
-        tokenCount: row.token_count,
-      };
+      return row ? rowToTranscript(row) : null;
     } catch (error) {
       log("getTranscript: error", { sessionId, error: String(error) });
       return null;
@@ -183,26 +169,20 @@ export class TranscriptManager {
   }
 
   getRecentTranscripts(limit: number = 10): TranscriptRecord[] {
-    if (!CONFIG.transcriptStorage.enabled) {
-      return [];
-    }
+    if (!CONFIG.transcriptStorage.enabled) return [];
 
     try {
       const db = this.getDb();
-      const stmt = db.prepare(`
-        SELECT id, session_id, project_path, messages, created_at, token_count
+      const rows = db
+        .prepare(
+          `
+        SELECT ${TRANSCRIPT_FIELDS}
         FROM transcripts ORDER BY created_at DESC LIMIT ?
-      `);
+      `
+        )
+        .all(limit) as any[];
 
-      const rows = stmt.all(limit) as any[];
-      return rows.map((row) => ({
-        id: row.id,
-        sessionId: row.session_id,
-        projectPath: row.project_path,
-        messages: row.messages,
-        createdAt: row.created_at,
-        tokenCount: row.token_count,
-      }));
+      return rows.map(rowToTranscript);
     } catch (error) {
       log("getRecentTranscripts: error", { error: String(error) });
       return [];
@@ -214,40 +194,35 @@ export class TranscriptManager {
     limit: number = 20,
     offset: number = 0
   ): { transcripts: TranscriptRecord[]; total: number } {
-    if (!CONFIG.transcriptStorage.enabled) {
-      return { transcripts: [], total: 0 };
-    }
+    if (!CONFIG.transcriptStorage.enabled) return { transcripts: [], total: 0 };
 
     try {
       const db = this.getDb();
 
-      const countStmt = db.prepare(`
-        SELECT count(*) as total
-        FROM transcripts_fts
-        WHERE transcripts_fts MATCH ?
-      `);
-      const totalRow = countStmt.get(query) as { total: number };
+      const totalRow = db
+        .prepare(
+          `
+        SELECT count(*) as total FROM transcripts_fts WHERE transcripts_fts MATCH ?
+      `
+        )
+        .get(query) as { total: number } | null;
 
-      const stmt = db.prepare(`
-        SELECT t.id, t.session_id, t.project_path, t.messages, t.created_at, t.token_count
+      const rows = db
+        .prepare(
+          `
+        SELECT t.${TRANSCRIPT_FIELDS}
         FROM transcripts t
         JOIN transcripts_fts fts ON fts.rowid = t.rowid
         WHERE transcripts_fts MATCH ?
         ORDER BY rank
         LIMIT ? OFFSET ?
-      `);
+      `
+        )
+        .all(query, limit, offset) as any[];
 
-      const rows = stmt.all(query, limit, offset) as any[];
       return {
-        transcripts: rows.map((row) => ({
-          id: row.id,
-          sessionId: row.session_id,
-          projectPath: row.project_path,
-          messages: row.messages,
-          createdAt: row.created_at,
-          tokenCount: row.token_count,
-        })),
-        total: totalRow ? totalRow.total : 0,
+        transcripts: rows.map(rowToTranscript),
+        total: totalRow?.total ?? 0,
       };
     } catch (error) {
       log("searchTranscripts: error", { query, error: String(error) });
@@ -256,17 +231,11 @@ export class TranscriptManager {
   }
 
   deleteOldTranscripts(cutoffTime: number): number {
-    if (!CONFIG.transcriptStorage.enabled) {
-      return 0;
-    }
+    if (!CONFIG.transcriptStorage.enabled) return 0;
 
     try {
       const db = this.getDb();
-      const stmt = db.prepare(`
-        DELETE FROM transcripts WHERE created_at < ?
-      `);
-
-      const result = stmt.run(cutoffTime);
+      const result = db.prepare("DELETE FROM transcripts WHERE created_at < ?").run(cutoffTime);
       const deletedCount = Number(result.changes);
 
       if (deletedCount > 0) {
@@ -281,14 +250,11 @@ export class TranscriptManager {
   }
 
   getTranscriptCount(): number {
-    if (!CONFIG.transcriptStorage.enabled) {
-      return 0;
-    }
+    if (!CONFIG.transcriptStorage.enabled) return 0;
 
     try {
       const db = this.getDb();
-      const stmt = db.prepare("SELECT COUNT(*) as count FROM transcripts");
-      const row = stmt.get() as any;
+      const row = db.prepare("SELECT COUNT(*) as count FROM transcripts").get() as any;
       return row?.count || 0;
     } catch (error) {
       log("getTranscriptCount: error", { error: String(error) });

@@ -19,6 +19,48 @@ CRITICAL: Detect the language used by the user in their prompts. You MUST output
 
 Use the update_user_profile tool to save the ${existingProfile ? "updated" : "new"} profile.`;
 
+const USER_PROFILE_TOOL_PARAMS = {
+  type: "object" as const,
+  properties: {
+    preferences: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          category: { type: "string" },
+          description: { type: "string" },
+          confidence: { type: "number", minimum: 0, maximum: 1 },
+          evidence: { type: "array", items: { type: "string" }, maxItems: 3 },
+        },
+        required: ["category", "description", "confidence", "evidence"],
+      },
+    },
+    patterns: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          category: { type: "string" },
+          description: { type: "string" },
+        },
+        required: ["category", "description"],
+      },
+    },
+    workflows: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          description: { type: "string" },
+          steps: { type: "array", items: { type: "string" } },
+        },
+        required: ["description", "steps"],
+      },
+    },
+  },
+  required: ["preferences", "patterns", "workflows"],
+};
+
 let isLearningRunning = false;
 
 export async function performUserProfileLearning(
@@ -101,16 +143,15 @@ export async function performUserProfileLearning(
 
 function generateChangeSummary(oldProfile: UserProfileData, newProfile: UserProfileData): string {
   const changes: string[] = [];
-
-  const prefDiff = newProfile.preferences.length - oldProfile.preferences.length;
-  if (prefDiff > 0) changes.push(`+${prefDiff} preferences`);
-
-  const patternDiff = newProfile.patterns.length - oldProfile.patterns.length;
-  if (patternDiff > 0) changes.push(`+${patternDiff} patterns`);
-
-  const workflowDiff = newProfile.workflows.length - oldProfile.workflows.length;
-  if (workflowDiff > 0) changes.push(`+${workflowDiff} workflows`);
-
+  const sections: Array<[string, number, number]> = [
+    ["preferences", oldProfile.preferences.length, newProfile.preferences.length],
+    ["patterns", oldProfile.patterns.length, newProfile.patterns.length],
+    ["workflows", oldProfile.workflows.length, newProfile.workflows.length],
+  ];
+  for (const [name, oldLen, newLen] of sections) {
+    const diff = newLen - oldLen;
+    if (diff > 0) changes.push(`+${diff} ${name}`);
+  }
   return changes.length > 0 ? changes.join(", ") : "Profile refinement";
 }
 
@@ -240,47 +281,7 @@ async function analyzeUserProfile(
       description: existingProfile
         ? "Update existing user profile with new insights"
         : "Create new user profile",
-      parameters: {
-        type: "object",
-        properties: {
-          preferences: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                category: { type: "string" },
-                description: { type: "string" },
-                confidence: { type: "number", minimum: 0, maximum: 1 },
-                evidence: { type: "array", items: { type: "string" }, maxItems: 3 },
-              },
-              required: ["category", "description", "confidence", "evidence"],
-            },
-          },
-          patterns: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                category: { type: "string" },
-                description: { type: "string" },
-              },
-              required: ["category", "description"],
-            },
-          },
-          workflows: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                description: { type: "string" },
-                steps: { type: "array", items: { type: "string" } },
-              },
-              required: ["description", "steps"],
-            },
-          },
-        },
-        required: ["preferences", "patterns", "workflows"],
-      },
+      parameters: USER_PROFILE_TOOL_PARAMS,
     },
   };
 

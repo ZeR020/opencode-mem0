@@ -33,10 +33,7 @@ export class EmbeddingService {
   private cacheMisses = 0;
 
   static getInstance(): EmbeddingService {
-    if (!(globalThis as any)[GLOBAL_EMBEDDING_KEY]) {
-      (globalThis as any)[GLOBAL_EMBEDDING_KEY] = new EmbeddingService();
-    }
-    return (globalThis as any)[GLOBAL_EMBEDDING_KEY];
+    return ((globalThis as any)[GLOBAL_EMBEDDING_KEY] ??= new EmbeddingService());
   }
 
   private getHashKey(text: string): string {
@@ -125,11 +122,8 @@ export class EmbeddingService {
     let result: Float32Array;
 
     try {
-      if (!this.isWarmedUp && !this.initPromise) {
+      if (!this.isWarmedUp) {
         await this.warmup();
-      }
-      if (this.initPromise) {
-        await this.initPromise;
       }
 
       if (CONFIG.embeddingApiUrl && CONFIG.embeddingApiKey) {
@@ -171,7 +165,6 @@ export class EmbeddingService {
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => abortController.abort(), TIMEOUT_MS);
     try {
-      // skipcq: await required for try/catch error handling
       return await this.embed(text, abortController.signal);
     } finally {
       clearTimeout(timeoutId);

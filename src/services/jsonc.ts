@@ -1,10 +1,3 @@
-/**
- * Strips comments from JSONC content while respecting string boundaries.
- * Handles // and /* comments, URLs in strings, and escaped quotes.
- * Also removes trailing commas to support more relaxed JSONC format.
- */
-// NOSONAR S3776: JSONC comment stripping requires a state machine (string/comment/escape tracking)
-// with 4 interleaved states — decomposition into separate functions would create shared mutable state.
 export function stripJsoncComments(content: string): string {
   const out: string[] = [];
   let i = 0;
@@ -14,46 +7,21 @@ export function stripJsoncComments(content: string): string {
 
   while (i < content.length) {
     const char = content.charAt(i);
-    const nextChar = content.charAt(i + 1);
-
-    if (!inSingleLineComment && !inMultiLineComment) {
-      if (char === '"') {
-        // Count consecutive backslashes before this quote
-        let backslashCount = 0;
-        let j = i - 1;
-        while (j >= 0 && content[j] === "\\") {
-          backslashCount++;
-          j--;
-        }
-        // Quote is escaped only if preceded by ODD number of backslashes
-        // e.g., \" = escaped, \\" = not escaped (escaped backslash + quote)
-        if (backslashCount % 2 === 0) {
-          inString = !inString;
-        }
-        out.push(char);
-        i++;
-        continue;
-      }
-    }
+    const next = content.charAt(i + 1);
 
     if (inString) {
+      if (char === '"') {
+        let backslashes = 0;
+        let j = i - 1;
+        while (j >= 0 && content[j] === "\\") {
+          backslashes++;
+          j--;
+        }
+        if (backslashes % 2 === 0) inString = false;
+      }
       out.push(char);
       i++;
       continue;
-    }
-
-    if (!inSingleLineComment && !inMultiLineComment) {
-      if (char === "/" && nextChar === "/") {
-        inSingleLineComment = true;
-        i += 2;
-        continue;
-      }
-
-      if (char === "/" && nextChar === "*") {
-        inMultiLineComment = true;
-        i += 2;
-        continue;
-      }
     }
 
     if (inSingleLineComment) {
@@ -66,15 +34,32 @@ export function stripJsoncComments(content: string): string {
     }
 
     if (inMultiLineComment) {
-      if (char === "*" && nextChar === "/") {
+      if (char === "*" && next === "/") {
         inMultiLineComment = false;
         i += 2;
         continue;
       }
-      if (char === "\n") {
-        out.push(char);
-      }
+      if (char === "\n") out.push(char);
       i++;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      out.push(char);
+      i++;
+      continue;
+    }
+
+    if (char === "/" && next === "/") {
+      inSingleLineComment = true;
+      i += 2;
+      continue;
+    }
+
+    if (char === "/" && next === "*") {
+      inMultiLineComment = true;
+      i += 2;
       continue;
     }
 
@@ -82,6 +67,5 @@ export function stripJsoncComments(content: string): string {
     i++;
   }
 
-  // Remove trailing commas before } or ]
   return out.join("").replace(/,\s*([}\]])/g, "$1");
 }

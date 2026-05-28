@@ -2,6 +2,8 @@ import { CONFIG } from "../config.js";
 import { getUserProfileContext } from "./user-profile/profile-context.js";
 import { analyzeQueryIntent, scoreMemoryRelevance } from "./retrieval-context.js";
 
+const injectionConfig = (CONFIG as any).injection ?? {};
+
 export interface MemoryResultMinimal {
   id?: string;
   similarity: number;
@@ -78,7 +80,7 @@ function scoreMemoriesForQuery(
   }));
   scored.sort((a, b) => b.relevance - a.relevance);
 
-  const threshold = (CONFIG as any).injection?.relevanceThreshold ?? 0.3;
+  const threshold = injectionConfig.relevanceThreshold ?? 0.3;
   return scored.filter((m) => m.relevance >= threshold);
 }
 
@@ -134,8 +136,8 @@ export function formatContextForPrompt(
   projectMemories: MemoriesResponseMinimal,
   options?: FormatOptions
 ): string {
-  const tokenBudget = options?.tokenBudget ?? (CONFIG as any).injection?.tokenBudget ?? 4000;
-  const format = options?.format ?? (CONFIG as any).injection?.format ?? "plain";
+  const tokenBudget = options?.tokenBudget ?? injectionConfig.tokenBudget ?? 4000;
+  const format = options?.format ?? injectionConfig.format ?? "plain";
   const query = options?.query;
 
   const memories = projectMemories.results || [];

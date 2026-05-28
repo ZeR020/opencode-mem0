@@ -49,6 +49,13 @@ const TECHNICAL_KEYWORDS = [
   "service",
   "endpoint",
   "query",
+  "cache",
+  "caching",
+  "network",
+  "protocol",
+  "async",
+  "await",
+  "deploy",
 ];
 
 const STOP_WORDS = new Set([
@@ -95,7 +102,6 @@ const STOP_WORDS = new Set([
   "may",
   "might",
   "must",
-  "shall",
   "i",
   "you",
   "we",
@@ -134,11 +140,7 @@ export function analyzeQueryIntent(query: string): QueryIntent {
   const words = lower.split(/[^a-z0-9_]+/).filter((w) => w.length >= 4 && !STOP_WORDS.has(w));
   const topics = [...new Set(words)];
 
-  const isTechnical =
-    TECHNICAL_KEYWORDS.some((k) => lower.includes(k)) ||
-    ["cache", "caching", "network", "protocol", "async", "await", "deploy"].some((k) =>
-      lower.includes(k)
-    );
+  const isTechnical = TECHNICAL_KEYWORDS.some((k) => lower.includes(k));
   const requiresCode =
     lower.includes("```") ||
     (IMPLEMENTATION_KEYWORDS.some((k) => lower.includes(k)) &&
@@ -225,23 +227,19 @@ class ContextTracker {
   private readonly maxScopeHistory = 100;
 
   private getOrCreate(scope: string) {
-    if (!this.contexts.has(scope)) {
-      // Evict oldest scope if at capacity
+    let ctx = this.contexts.get(scope);
+    if (!ctx) {
       if (this.contexts.size >= MAX_SCOPES) {
         const oldestScope = this.scopeAccessOrder.shift();
-        if (oldestScope) {
-          this.contexts.delete(oldestScope);
-        }
+        if (oldestScope) this.contexts.delete(oldestScope);
       }
-      this.contexts.set(scope, { recentQueries: [], recentFiles: [] });
+      ctx = { recentQueries: [], recentFiles: [] };
+      this.contexts.set(scope, ctx);
       this.scopeAccessOrder.push(scope);
     } else {
-      // Move to end (MRU)
       this.scopeAccessOrder = this.scopeAccessOrder.filter((s) => s !== scope);
       this.scopeAccessOrder.push(scope);
     }
-    const ctx = this.contexts.get(scope);
-    if (!ctx) throw new Error(`Context for scope ${scope} not found`);
     return ctx;
   }
 
@@ -350,11 +348,6 @@ export function calculateContextBoost(
     }
   }
 
-  // Query relevance - check if memory content contains words from recent queries
-  if (context.recentQueries && context.recentQueries.length > 0) {
-    // This is checked at a higher level where we have access to content
-  }
-
   return score;
 }
 
@@ -395,9 +388,12 @@ export function calculateDiversityPenalty(
     );
     if (selectedWords.size === 0) continue;
 
-    const intersection = [...contentWords].filter((w) => selectedWords.has(w));
-    const union = new Set([...contentWords, ...selectedWords]);
-    const sim = union.size > 0 ? intersection.length / union.size : 0;
+    let intersectionSize = 0;
+    for (const w of contentWords) {
+      if (selectedWords.has(w)) intersectionSize++;
+    }
+    const unionSize = contentWords.size + selectedWords.size - intersectionSize;
+    const sim = unionSize > 0 ? intersectionSize / unionSize : 0;
 
     if (sim > maxSimilarity) {
       maxSimilarity = sim;

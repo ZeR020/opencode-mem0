@@ -10,20 +10,19 @@ function sha256(input: string): string {
 }
 
 // Memoization caches — git config values don't change during a session
-const gitEmailCache: { value: string | null; cached: boolean } = { value: null, cached: false };
-const gitNameCache: { value: string | null; cached: boolean } = { value: null, cached: false };
+let cachedGitEmail: string | null | undefined;
+let cachedGitName: string | null | undefined;
 const gitRepoUrlCache = new Map<string, string | null>();
 const gitCommonDirCache = new Map<string, string | null>();
 const gitTopLevelCache = new Map<string, string | null>();
 
 const TRUSTED_GIT_PATHS = ["/usr/bin/git", "/bin/git", "/usr/local/bin/git"];
-let resolvedGitPath: string | null | undefined;
+let cachedGitPath: string | null | undefined;
 
-// skipcq: JS-0067
 function getGitExecutable(): string | null {
-  if (resolvedGitPath !== undefined) return resolvedGitPath;
-  resolvedGitPath = TRUSTED_GIT_PATHS.find((path) => existsSync(path)) ?? null;
-  return resolvedGitPath;
+  if (cachedGitPath !== undefined) return cachedGitPath;
+  cachedGitPath = TRUSTED_GIT_PATHS.find((path) => existsSync(path)) ?? null;
+  return cachedGitPath;
 }
 
 export interface TagInfo {
@@ -61,17 +60,15 @@ function execGitCommand(
 }
 
 export function getGitEmail(): string | null {
-  if (gitEmailCache.cached) return gitEmailCache.value;
-  gitEmailCache.value = execGitCommand(["config", "user.email"]);
-  gitEmailCache.cached = true;
-  return gitEmailCache.value;
+  if (cachedGitEmail !== undefined) return cachedGitEmail;
+  cachedGitEmail = execGitCommand(["config", "user.email"]);
+  return cachedGitEmail;
 }
 
 export function getGitName(): string | null {
-  if (gitNameCache.cached) return gitNameCache.value;
-  gitNameCache.value = execGitCommand(["config", "user.name"]);
-  gitNameCache.cached = true;
-  return gitNameCache.value;
+  if (cachedGitName !== undefined) return cachedGitName;
+  cachedGitName = execGitCommand(["config", "user.name"]);
+  return cachedGitName;
 }
 
 export function getGitRepoUrl(directory: string): string | null {
@@ -124,16 +121,8 @@ export function getGitTopLevel(directory: string): string | null {
 
 export function getProjectRoot(directory: string): string {
   const commonDir = getGitCommonDir(directory);
-  if (commonDir && basename(commonDir) === ".git") {
-    return dirname(commonDir);
-  }
-
-  const topLevel = getGitTopLevel(directory);
-  if (topLevel) {
-    return topLevel;
-  }
-
-  return directory;
+  if (commonDir && basename(commonDir) === ".git") return dirname(commonDir);
+  return getGitTopLevel(directory) ?? directory;
 }
 
 export function getProjectIdentity(directory: string): string {

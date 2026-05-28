@@ -17,6 +17,11 @@ export class ConnectionManager {
   private readonly batches: Map<string, Array<{ sql: string; params: any[] }>> = new Map();
   private readonly stmtCache = new WeakMap<Database, Map<string, any>>();
 
+  private touchAccessOrder(dbPath: string): void {
+    this.accessOrder = this.accessOrder.filter((p) => p !== dbPath);
+    this.accessOrder.push(dbPath);
+  }
+
   private getStmt(db: Database, sql: string): any {
     let dbCache = this.stmtCache.get(db);
     if (!dbCache) {
@@ -80,7 +85,6 @@ export class ConnectionManager {
     db.run("PRAGMA temp_store = MEMORY");
     db.run("PRAGMA foreign_keys = ON");
 
-    // Schema version tracking
     db.run(`
       CREATE TABLE IF NOT EXISTS schema_version (
         version INTEGER PRIMARY KEY,
@@ -88,10 +92,8 @@ export class ConnectionManager {
       )
     `);
 
-    // Run versioned migrations
     runMigrations(db);
 
-    // Legacy v0→v1 migration (tags column only)
     this.migrateSchema(db);
   }
 
@@ -109,12 +111,9 @@ export class ConnectionManager {
   }
 
   getConnection(dbPath: string): Database {
-    // Fast path: existing connection
     const existing = this.connections.get(dbPath);
     if (existing) {
-      // Move to end of access order (MRU)
-      this.accessOrder = this.accessOrder.filter((p) => p !== dbPath);
-      this.accessOrder.push(dbPath);
+      this.touchAccessOrder(dbPath);
       return existing;
     }
 
@@ -122,15 +121,10 @@ export class ConnectionManager {
       throw new Error("ConnectionManager is closing — cannot create new connections");
     }
 
-    // Race-condition guard: if another caller is already creating this path,
-    // spin until they finish (safe in single-threaded JS since creation is sync)
     if (this.creating.has(dbPath)) {
-      // In single-threaded JS this is unreachable, but defensively return the
-      // connection that the concurrent caller will have just created.
       const raced = this.connections.get(dbPath);
       if (raced) {
-        this.accessOrder = this.accessOrder.filter((p) => p !== dbPath);
-        this.accessOrder.push(dbPath);
+        this.touchAccessOrder(dbPath);
         return raced;
       }
     }
@@ -138,7 +132,6 @@ export class ConnectionManager {
     this.creating.add(dbPath);
 
     try {
-      // Evict oldest connection if at capacity
       if (this.connections.size >= MAX_CONNECTIONS) {
         const oldestPath = this.accessOrder.shift();
         if (oldestPath) {
@@ -152,11 +145,9 @@ export class ConnectionManager {
         mkdirSync(dir, { recursive: true });
       }
 
-      // Double-check after eviction/mkdir in case another async caller raced us
       const doubleCheck = this.connections.get(dbPath);
       if (doubleCheck) {
-        this.accessOrder = this.accessOrder.filter((p) => p !== dbPath);
-        this.accessOrder.push(dbPath);
+        this.touchAccessOrder(dbPath);
         return doubleCheck;
       }
 
@@ -189,8 +180,7 @@ export class ConnectionManager {
   closeAll(): void {
     this.isClosing = true;
     try {
-      // Flush all pending batches before closing connections
-      for (const [path, _batch] of this.batches) {
+      for (const path of this.batches.keys()) {
         this.flushBatch(path);
       }
       for (const [path, db] of this.connections) {
@@ -209,8 +199,7 @@ export class ConnectionManager {
   }
 
   checkpointAll(): void {
-    // Flush pending batches before checkpointing WAL
-    for (const [path, _batch] of this.batches) {
+    for (const path of this.batches.keys()) {
       this.flushBatch(path);
     }
     for (const [path, db] of this.connections) {
@@ -225,7 +214,6 @@ export class ConnectionManager {
 
 export const connectionManager = new ConnectionManager();
 
-// Emergency flush on process exit to prevent data loss from unwritten batches
 function emergencyFlush(): void {
   try {
     connectionManager.closeAll();
@@ -234,6 +222,4 @@ function emergencyFlush(): void {
   }
 }
 
-// Expose emergency flush for host to call explicitly; do not bind process signals
-// to avoid interfering with host process lifecycle.
 (globalThis as any)[Symbol.for("opencode-mem0.emergencyFlush")] = emergencyFlush;

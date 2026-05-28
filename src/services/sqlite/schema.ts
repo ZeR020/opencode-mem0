@@ -12,17 +12,6 @@ export const MIGRATIONS: Record<number, string[]> = {
   ],
 };
 
-function tableExists(db: Database, tableName: string): boolean {
-  try {
-    const row = db
-      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
-      .get(tableName) as any;
-    return Boolean(row);
-  } catch {
-    return false;
-  }
-}
-
 export function getCurrentVersion(db: Database): number {
   try {
     const row = db
@@ -32,6 +21,20 @@ export function getCurrentVersion(db: Database): number {
   } catch {
     return 0;
   }
+}
+
+function shouldSkipMigration(
+  sql: string,
+  columnNames: Set<string>,
+  existingTables: Set<string>
+): boolean {
+  const alterMatch = /ALTER TABLE (\w+)/i.exec(sql);
+  if (alterMatch?.[1] && !existingTables.has(alterMatch[1].toLowerCase())) return true;
+
+  const addColMatch = /ADD COLUMN (\w+)/i.exec(sql);
+  if (addColMatch?.[1] && columnNames.has(addColMatch[1])) return true;
+
+  return false;
 }
 
 export function runMigrations(
@@ -45,15 +48,8 @@ export function runMigrations(
   const columns = db.prepare("PRAGMA table_info(memories)").all() as any[];
   const columnNames = new Set(columns.map((c) => c.name));
 
-  function shouldSkipMigration(sql: string, columnNames: Set<string>, db: Database): boolean {
-    const alterMatch = /ALTER TABLE (\w+)/i.exec(sql);
-    if (alterMatch?.[1] && !tableExists(db, alterMatch[1])) return true;
-
-    const addColMatch = /ADD COLUMN (\w+)/i.exec(sql);
-    if (addColMatch?.[1] && columnNames.has(addColMatch[1])) return true;
-
-    return false;
-  }
+  const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as any[];
+  const existingTables = new Set(tables.map((t) => t.name.toLowerCase()));
 
   for (let v = existingVersion + 1; v <= targetVersion; v++) {
     const versionMigrations = migrations[v];
@@ -62,7 +58,7 @@ export function runMigrations(
     db.run("BEGIN IMMEDIATE");
     try {
       for (const sql of versionMigrations) {
-        if (shouldSkipMigration(sql, columnNames, db)) continue;
+        if (shouldSkipMigration(sql, columnNames, existingTables)) continue;
         db.run(sql);
       }
 

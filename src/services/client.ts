@@ -39,6 +39,53 @@ function resolveScopeValue(
   return extractScopeFromContainerTag(containerTag);
 }
 
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function rowToMemoryListItem(r: any) {
+  return {
+    id: r.id,
+    summary: r.content,
+    createdAt: safeToISOString(r.created_at),
+    metadata: safeJSONParse(r.metadata),
+    displayName: r.display_name,
+    userName: r.user_name,
+    userEmail: r.user_email,
+    projectPath: r.project_path,
+    projectName: r.project_name,
+    gitRepoUrl: r.git_repo_url,
+    strength: r.strength,
+    recencyScore: r.recency_score,
+    frequencyScore: r.frequency_score,
+    importanceScore: r.importance_score,
+    utilityScore: r.utility_score,
+    noveltyScore: r.novelty_score,
+    confidenceScore: r.confidence_score,
+    interferencePenalty: r.interference_penalty,
+    accessCount: r.access_count,
+    isPinned: r.is_pinned,
+  };
+}
+
+function rowToSessionSearchResult(row: any) {
+  return {
+    id: row.id,
+    memory: row.content,
+    similarity: 1,
+    tags: row.tags || [],
+    metadata: row.metadata || {},
+    containerTag: row.container_tag,
+    displayName: row.display_name,
+    userName: row.user_name,
+    userEmail: row.user_email,
+    projectPath: row.project_path,
+    projectName: row.project_name,
+    gitRepoUrl: row.git_repo_url,
+    createdAt: row.created_at,
+  };
+}
+
 export class LocalMemoryClient {
   private initPromise: Promise<void> | null = null;
   private isInitialized: boolean = false;
@@ -163,7 +210,7 @@ export class LocalMemoryClient {
 
       return { success: true as const, results, total: results.length, timing: 0, degraded };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = toErrorMessage(error);
       log("searchMemories: error", { error: errorMessage });
       return { success: false as const, error: errorMessage, results: [], total: 0, timing: 0 };
     }
@@ -315,7 +362,7 @@ export class LocalMemoryClient {
 
       return { success: true as const, id };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = toErrorMessage(error);
       log("addMemory: error", { error: errorMessage });
       return { success: false as const, error: errorMessage };
     }
@@ -325,9 +372,10 @@ export class LocalMemoryClient {
     try {
       await this.initialize();
 
-      const userShards = shardManager.getAllShards("user", "");
-      const projectShards = shardManager.getAllShards("project", "");
-      const allShards = [...userShards, ...projectShards];
+      const allShards = [
+        ...shardManager.getAllShards("user", ""),
+        ...shardManager.getAllShards("project", ""),
+      ];
 
       for (const shard of allShards) {
         const db = connectionManager.getConnection(shard.dbPath);
@@ -342,7 +390,7 @@ export class LocalMemoryClient {
 
       return { success: false, error: "Memory not found" };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = toErrorMessage(error);
       log("deleteMemory: error", { memoryId, error: errorMessage });
       return { success: false, error: errorMessage };
     }
@@ -384,28 +432,7 @@ export class LocalMemoryClient {
         return (b.recency_score || 0) - (a.recency_score || 0);
       });
 
-      const memories = allMemories.slice(0, limit).map((r: any) => ({
-        id: r.id,
-        summary: r.content,
-        createdAt: safeToISOString(r.created_at),
-        metadata: safeJSONParse(r.metadata),
-        displayName: r.display_name,
-        userName: r.user_name,
-        userEmail: r.user_email,
-        projectPath: r.project_path,
-        projectName: r.project_name,
-        gitRepoUrl: r.git_repo_url,
-        strength: r.strength,
-        recencyScore: r.recency_score,
-        frequencyScore: r.frequency_score,
-        importanceScore: r.importance_score,
-        utilityScore: r.utility_score,
-        noveltyScore: r.novelty_score,
-        confidenceScore: r.confidence_score,
-        interferencePenalty: r.interference_penalty,
-        accessCount: r.access_count,
-        isPinned: r.is_pinned,
-      }));
+      const memories = allMemories.slice(0, limit).map(rowToMemoryListItem);
 
       return {
         success: true as const,
@@ -413,7 +440,7 @@ export class LocalMemoryClient {
         pagination: { currentPage: 1, totalItems: memories.length, totalPages: 1 },
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = toErrorMessage(error);
       log("listMemories: error", { error: errorMessage });
       return {
         success: false as const,
@@ -445,25 +472,11 @@ export class LocalMemoryClient {
 
       allMemories.sort((a, b) => b.created_at - a.created_at);
 
-      const results = allMemories.slice(0, limit).map((row: any) => ({
-        id: row.id,
-        memory: row.content,
-        similarity: 1,
-        tags: row.tags || [],
-        metadata: row.metadata || {},
-        containerTag: row.container_tag,
-        displayName: row.display_name,
-        userName: row.user_name,
-        userEmail: row.user_email,
-        projectPath: row.project_path,
-        projectName: row.project_name,
-        gitRepoUrl: row.git_repo_url,
-        createdAt: row.created_at,
-      }));
+      const results = allMemories.slice(0, limit).map(rowToSessionSearchResult);
 
       return { success: true as const, results, total: results.length, timing: 0 };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = toErrorMessage(error);
       log("searchMemoriesBySessionID: error", { error: errorMessage });
       return { success: false as const, error: errorMessage, results: [], total: 0, timing: 0 };
     }

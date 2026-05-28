@@ -8,12 +8,26 @@ import { vectorSearch } from "./vector-search.js";
 import type { ShardInfo } from "./types.js";
 import { runMigrations } from "./schema.js";
 
-type DatabaseType = Database;
-
 const METADATA_DB_NAME = "metadata.db";
 
+function rowToShardInfo(
+  row: any,
+  resolvePath: (stored: string, scope: string) => string
+): ShardInfo {
+  return {
+    id: row.id,
+    scope: row.scope,
+    scopeHash: row.scope_hash,
+    shardIndex: row.shard_index,
+    dbPath: resolvePath(row.db_path, row.scope),
+    vectorCount: row.vector_count,
+    isActive: row.is_active === 1,
+    createdAt: row.created_at,
+  };
+}
+
 export class ShardManager {
-  private readonly metadataDb: DatabaseType;
+  private readonly metadataDb: Database;
   private readonly metadataPath: string;
   private readonly activeShardStmt: any;
   private readonly allShardsStmt: any;
@@ -64,7 +78,6 @@ export class ShardManager {
       ON shards(scope, scope_hash, is_active)
     `);
 
-    // Ensure schema version tracking on metadata DB
     runMigrations(this.metadataDb);
   }
 
@@ -78,20 +91,13 @@ export class ShardManager {
     return join(CONFIG.storagePath, `${scope}s`, fileName);
   }
 
-  getActiveShard(scope: "user" | "project", scopeHash: string): ShardInfo | null {
-    const row = this.activeShardStmt.get(scope, scopeHash);
-    if (!row) return null;
+  private toShardInfo(row: any): ShardInfo {
+    return rowToShardInfo(row, (stored, scope) => this.resolveStoredPath(stored, scope));
+  }
 
-    return {
-      id: row.id,
-      scope: row.scope,
-      scopeHash: row.scope_hash,
-      shardIndex: row.shard_index,
-      dbPath: this.resolveStoredPath(row.db_path, row.scope),
-      vectorCount: row.vector_count,
-      isActive: row.is_active === 1,
-      createdAt: row.created_at,
-    };
+  getActiveShard(scope: "user" | "project", scopeHash: string): ShardInfo | null {
+    const row = this.activeShardStmt.get(scope, scopeHash) as any;
+    return row ? this.toShardInfo(row) : null;
   }
 
   getAllShards(scope: "user" | "project", scopeHash: string): ShardInfo[] {
@@ -100,16 +106,7 @@ export class ShardManager {
         ? (this.allShardsStmt.all(scope) as any[])
         : (this.scopedShardsStmt.all(scope, scopeHash) as any[]);
 
-    return rows.map((row: any) => ({
-      id: row.id,
-      scope: row.scope,
-      scopeHash: row.scope_hash,
-      shardIndex: row.shard_index,
-      dbPath: this.resolveStoredPath(row.db_path, row.scope),
-      vectorCount: row.vector_count,
-      isActive: row.is_active === 1,
-      createdAt: row.created_at,
-    }));
+    return rows.map((row: any) => this.toShardInfo(row));
   }
 
   createShard(scope: "user" | "project", scopeHash: string, shardIndex: number): ShardInfo {
@@ -134,7 +131,7 @@ export class ShardManager {
     };
   }
 
-  private initShardDb(db: DatabaseType): void {
+  private initShardDb(db: Database): void {
     db.run(`
       CREATE TABLE IF NOT EXISTS shard_metadata (
         key TEXT PRIMARY KEY,
@@ -188,16 +185,21 @@ export class ShardManager {
       )
     `);
 
-    db.run("CREATE INDEX IF NOT EXISTS idx_container_tag ON memories(container_tag)");
-    db.run("CREATE INDEX IF NOT EXISTS idx_type ON memories(type)");
-    db.run("CREATE INDEX IF NOT EXISTS idx_created_at ON memories(created_at DESC)");
-    db.run("CREATE INDEX IF NOT EXISTS idx_is_pinned ON memories(is_pinned)");
-    db.run("CREATE INDEX IF NOT EXISTS idx_strength ON memories(strength DESC)");
-    db.run("CREATE INDEX IF NOT EXISTS idx_recency ON memories(recency_score DESC)");
-    db.run("CREATE INDEX IF NOT EXISTS idx_access_count ON memories(access_count DESC)");
-    db.run("CREATE INDEX IF NOT EXISTS idx_store_type ON memories(store_type)");
-    db.run("CREATE INDEX IF NOT EXISTS idx_decay_strength ON memories(strength, created_at)");
-    db.run("CREATE INDEX IF NOT EXISTS idx_is_deprecated ON memories(is_deprecated)");
+    const INDEXES = [
+      "idx_container_tag ON memories(container_tag)",
+      "idx_type ON memories(type)",
+      "idx_created_at ON memories(created_at DESC)",
+      "idx_is_pinned ON memories(is_pinned)",
+      "idx_strength ON memories(strength DESC)",
+      "idx_recency ON memories(recency_score DESC)",
+      "idx_access_count ON memories(access_count DESC)",
+      "idx_store_type ON memories(store_type)",
+      "idx_decay_strength ON memories(strength, created_at)",
+      "idx_is_deprecated ON memories(is_deprecated)",
+    ];
+    for (const idx of INDEXES) {
+      db.run(`CREATE INDEX IF NOT EXISTS ${idx}`);
+    }
 
     db.run(`
       CREATE TABLE IF NOT EXISTS memory_conflicts (
@@ -222,12 +224,11 @@ export class ShardManager {
       "CREATE INDEX IF NOT EXISTS idx_conflict_resolved ON memory_conflicts(resolved, detected_at)"
     );
 
-    // Migrate existing databases to add scoring columns
     this.migrateScoringColumns(db);
     this.migrateConflictColumns(db);
   }
 
-  private migrateScoringColumns(db: DatabaseType): void {
+  private migrateScoringColumns(db: Database): void {
     const columns = db.prepare("PRAGMA table_info(memories)").all() as any[];
     const columnNames = new Set(columns.map((c) => c.name));
 
@@ -253,15 +254,13 @@ export class ShardManager {
         try {
           db.run(`ALTER TABLE memories ADD COLUMN ${col.name} ${col.type}`);
         } catch (error) {
-          log(`Schema migration: failed to add column ${col.name}`, {
-            error: String(error),
-          });
+          log(`Schema migration: failed to add column ${col.name}`, { error: String(error) });
         }
       }
     }
   }
 
-  private migrateConflictColumns(db: DatabaseType): void {
+  private migrateConflictColumns(db: Database): void {
     const columns = db.prepare("PRAGMA table_info(memory_conflicts)").all() as any[];
     const columnNames = new Set(columns.map((c) => c.name));
 
@@ -269,9 +268,7 @@ export class ShardManager {
       try {
         db.run("ALTER TABLE memory_conflicts ADD COLUMN container_tag TEXT");
       } catch (error) {
-        log("Schema migration: failed to add column container_tag", {
-          error: String(error),
-        });
+        log("Schema migration: failed to add column container_tag", { error: String(error) });
       }
     }
   }
@@ -288,18 +285,12 @@ export class ShardManager {
         .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='memories'")
         .get() as any;
       if (!result) {
-        log("Shard DB missing 'memories' table", {
-          dbPath: shard.dbPath,
-          shardId: shard.id,
-        });
+        log("Shard DB missing 'memories' table", { dbPath: shard.dbPath, shardId: shard.id });
         return false;
       }
       return true;
     } catch (error) {
-      log("Error validating shard DB", {
-        dbPath: shard.dbPath,
-        error: String(error),
-      });
+      log("Error validating shard DB", { dbPath: shard.dbPath, error: String(error) });
       return false;
     }
   }
@@ -309,10 +300,7 @@ export class ShardManager {
       const db = connectionManager.getConnection(shard.dbPath);
       this.initShardDb(db);
     } catch (error) {
-      log("Error ensuring shard tables", {
-        dbPath: shard.dbPath,
-        error: String(error),
-      });
+      log("Error ensuring shard tables", { dbPath: shard.dbPath, error: String(error) });
     }
   }
 
@@ -348,75 +336,48 @@ export class ShardManager {
   }
 
   private markShardReadOnly(shardId: number): void {
-    const stmt = this.metadataDb.prepare(`
-      UPDATE shards SET is_active = 0 WHERE id = ?
-    `);
-    stmt.run(shardId);
+    this.metadataDb.prepare("UPDATE shards SET is_active = 0 WHERE id = ?").run(shardId);
   }
 
   incrementVectorCount(shardId: number): void {
-    const stmt = this.metadataDb.prepare(`
-      UPDATE shards SET vector_count = vector_count + 1 WHERE id = ?
-    `);
-    stmt.run(shardId);
+    this.metadataDb
+      .prepare("UPDATE shards SET vector_count = vector_count + 1 WHERE id = ?")
+      .run(shardId);
   }
 
   decrementVectorCount(shardId: number): void {
-    const stmt = this.metadataDb.prepare(`
-      UPDATE shards SET vector_count = vector_count - 1 WHERE id = ? AND vector_count > 0
-    `);
-    stmt.run(shardId);
+    this.metadataDb
+      .prepare(
+        "UPDATE shards SET vector_count = vector_count - 1 WHERE id = ? AND vector_count > 0"
+      )
+      .run(shardId);
   }
 
   getShardByPath(dbPath: string): ShardInfo | null {
     const fileName = basename(dbPath);
-    const stmt = this.metadataDb.prepare("SELECT * FROM shards WHERE db_path LIKE '%' || ?");
-    const row = stmt.get(fileName) as any;
-    if (!row) return null;
-
-    return {
-      id: row.id,
-      scope: row.scope,
-      scopeHash: row.scope_hash,
-      shardIndex: row.shard_index,
-      dbPath: this.resolveStoredPath(row.db_path, row.scope),
-      vectorCount: row.vector_count,
-      isActive: row.is_active === 1,
-      createdAt: row.created_at,
-    };
+    const row = this.metadataDb
+      .prepare("SELECT * FROM shards WHERE db_path LIKE '%' || ?")
+      .get(fileName) as any;
+    return row ? this.toShardInfo(row) : null;
   }
 
   async deleteShard(shardId: number): Promise<void> {
-    const stmt = this.metadataDb.prepare("SELECT * FROM shards WHERE id = ?");
-    const row = stmt.get(shardId) as any;
+    const row = this.metadataDb.prepare("SELECT * FROM shards WHERE id = ?").get(shardId) as any;
 
     if (row) {
-      const fullPath = this.resolveStoredPath(row.db_path, row.scope);
-      await vectorSearch.deleteShardIndexes({
-        id: row.id,
-        scope: row.scope,
-        scopeHash: row.scope_hash,
-        shardIndex: row.shard_index,
-        dbPath: fullPath,
-        vectorCount: row.vector_count,
-        isActive: row.is_active === 1,
-        createdAt: row.created_at,
-      });
-      connectionManager.closeConnection(fullPath);
+      const shard = this.toShardInfo(row);
+      await vectorSearch.deleteShardIndexes(shard);
+      connectionManager.closeConnection(shard.dbPath);
 
       try {
-        if (existsSync(fullPath)) {
-          unlinkSync(fullPath);
+        if (existsSync(shard.dbPath)) {
+          unlinkSync(shard.dbPath);
         }
       } catch (error) {
-        log("Error deleting shard file", {
-          dbPath: fullPath,
-          error: String(error),
-        });
+        log("Error deleting shard file", { dbPath: shard.dbPath, error: String(error) });
       }
 
-      const deleteStmt = this.metadataDb.prepare("DELETE FROM shards WHERE id = ?");
-      deleteStmt.run(shardId);
+      this.metadataDb.prepare("DELETE FROM shards WHERE id = ?").run(shardId);
     }
   }
 }

@@ -6,6 +6,7 @@ import type {
   VectorKind,
 } from "./types.js";
 import type { ShardInfo } from "../sqlite/types.js";
+import { cosineDistance, decodeVector, getIndexKey, KIND_COLUMN } from "./shared.js";
 
 interface NSWNode {
   id: string;
@@ -66,31 +67,8 @@ export class NSWBackend implements VectorBackend {
     return graph;
   }
 
-  private getIndexKey(shard: ShardInfo, kind: VectorKind): string {
-    return `${shard.scope}_${shard.scopeHash}_${shard.shardIndex}_${kind}`;
-  }
-
-  private cosineDistance(a: Float32Array, b: Float32Array): number {
-    if (a.length !== b.length) return 1;
-
-    let dot = 0;
-    let magA = 0;
-    let magB = 0;
-
-    for (let i = 0; i < a.length; i++) {
-      const av = a[i] ?? 0;
-      const bv = b[i] ?? 0;
-      dot += av * bv;
-      magA += av * av;
-      magB += bv * bv;
-    }
-
-    if (magA === 0 || magB === 0) return 1;
-    return 1 - dot / (Math.sqrt(magA) * Math.sqrt(magB));
-  }
-
   insert(args: { id: string; vector: Float32Array; shard: ShardInfo; kind: VectorKind }): void {
-    const indexKey = this.getIndexKey(args.shard, args.kind);
+    const indexKey = getIndexKey(args.shard, args.kind);
     const graph = this.getGraph(indexKey);
 
     // Remove existing node if present (upsert)
@@ -139,14 +117,14 @@ export class NSWBackend implements VectorBackend {
   }
 
   delete(args: { id: string; shard: ShardInfo; kind: VectorKind }): void {
-    const indexKey = this.getIndexKey(args.shard, args.kind);
+    const indexKey = getIndexKey(args.shard, args.kind);
     const graph = this.graphs.get(indexKey);
     if (!graph) return;
     this.removeNode(graph, args.id);
   }
 
   search(args: VectorBackendSearchParams): BackendSearchResult[] {
-    const indexKey = this.getIndexKey(args.shard, args.kind);
+    const indexKey = getIndexKey(args.shard, args.kind);
     const graph = this.graphs.get(indexKey);
     if (!graph || graph.size === 0) {
       return [];
@@ -157,11 +135,11 @@ export class NSWBackend implements VectorBackend {
   }
 
   rebuildFromShard(args: { db: unknown; shard: ShardInfo; kind: VectorKind }): void {
-    const indexKey = this.getIndexKey(args.shard, args.kind);
+    const indexKey = getIndexKey(args.shard, args.kind);
     const graph = new Map<string, NSWNode>();
     this.graphs.set(indexKey, graph);
 
-    const column = args.kind === "tags" ? "tags_vector" : "vector";
+    const column = KIND_COLUMN[args.kind];
     const rows = (
       args.db as {
         prepare: (sql: string) => {
@@ -178,7 +156,7 @@ export class NSWBackend implements VectorBackend {
 
     for (const row of rows) {
       const raw = args.kind === "tags" ? row.tags_vector : row.vector;
-      const vector = this.decodeVector(raw);
+      const vector = decodeVector(raw);
       if (vector.length === 0) continue;
 
       // Search for neighbors BEFORE adding the new node
@@ -214,7 +192,7 @@ export class NSWBackend implements VectorBackend {
 
   deleteShardIndexes(args: { shard: ShardInfo }): void {
     for (const kind of ["content", "tags"] as const) {
-      const indexKey = this.getIndexKey(args.shard, kind);
+      const indexKey = getIndexKey(args.shard, kind);
       this.graphs.delete(indexKey);
     }
   }
@@ -259,7 +237,7 @@ export class NSWBackend implements VectorBackend {
     visited.add(entryPoint.id);
     candidates.push({
       id: entryPoint.id,
-      distance: this.cosineDistance(queryVector, entryPoint.vector),
+      distance: cosineDistance(queryVector, entryPoint.vector),
     });
 
     let bestUnvisitedIndex = 0;
@@ -279,7 +257,7 @@ export class NSWBackend implements VectorBackend {
         const neighbor = graph.get(neighborId);
         if (!neighbor) continue;
 
-        const dist = this.cosineDistance(queryVector, neighbor.vector);
+        const dist = cosineDistance(queryVector, neighbor.vector);
         candidates.push({ id: neighborId, distance: dist });
       }
     }
@@ -322,7 +300,7 @@ export class NSWBackend implements VectorBackend {
       if (!neighbor) continue;
       neighborDistances.push({
         id: neighborId,
-        distance: this.cosineDistance(node.vector, neighbor.vector),
+        distance: cosineDistance(node.vector, neighbor.vector),
       });
     }
 
@@ -338,15 +316,5 @@ export class NSWBackend implements VectorBackend {
         }
       }
     }
-  }
-
-  private decodeVector(value: Uint8Array | ArrayBuffer | null | undefined): Float32Array {
-    if (!value) return new Float32Array();
-    if (value instanceof Uint8Array) {
-      return new Float32Array(
-        value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength)
-      );
-    }
-    return new Float32Array(value);
   }
 }

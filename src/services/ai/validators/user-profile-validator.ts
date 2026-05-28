@@ -27,17 +27,13 @@ export class UserProfileValidator {
     if (errors.length > 0) {
       return { valid: false, errors };
     }
-    if (Object.hasOwn(data, "preferences")) {
-      const prefErrors = this.validatePreferences(data.preferences);
-      errors.push(...prefErrors);
-    }
-    if (Object.hasOwn(data, "patterns")) {
-      const patternErrors = this.validatePatterns(data.patterns);
-      errors.push(...patternErrors);
-    }
-    if (Object.hasOwn(data, "workflows")) {
-      const workflowErrors = this.validateWorkflows(data.workflows);
-      errors.push(...workflowErrors);
+    const sections: Array<{ key: string; validator: (data: any) => string[] }> = [
+      { key: "preferences", validator: (d) => this.validatePreferences(d) },
+      { key: "patterns", validator: (d) => this.validatePatterns(d) },
+      { key: "workflows", validator: (d) => this.validateWorkflows(d) },
+    ];
+    for (const { key, validator } of sections) {
+      if (Object.hasOwn(data, key)) errors.push(...validator(data[key]));
     }
     if (errors.length > 0) {
       return { valid: false, errors };
@@ -45,76 +41,66 @@ export class UserProfileValidator {
     return { valid: true, errors: [], data: data as UserProfileData };
   }
 
-  private static validatePreferences(preferences: any): string[] {
+  private static validateArraySection(
+    section: any,
+    sectionName: string,
+    fieldChecks: Array<{
+      field: string;
+      type: "string" | "number" | "array";
+      required?: boolean;
+      cannotBeEmpty?: boolean;
+    }>
+  ): string[] {
+    if (!Array.isArray(section)) return [`${sectionName} must be an array`];
     const errors: string[] = [];
-    if (!Array.isArray(preferences)) {
-      return ["preferences must be an array"];
-    }
-    for (let i = 0; i < preferences.length; i++) {
-      const pref = preferences[i];
-      if (!pref || typeof pref !== "object") {
-        errors.push(`preferences[${i}] is not an object`);
+    for (let i = 0; i < section.length; i++) {
+      const item = section[i];
+      if (!item || typeof item !== "object") {
+        errors.push(`${sectionName}[${i}] is not an object`);
         continue;
       }
-      if (!pref.category || typeof pref.category !== "string") {
-        errors.push(`preferences[${i}].category is missing or invalid`);
-      }
-      if (!pref.description || typeof pref.description !== "string") {
-        errors.push(`preferences[${i}].description is missing or invalid`);
-      }
-      if (typeof pref.confidence !== "number") {
-        errors.push(`preferences[${i}].confidence is missing or invalid`);
-      }
-      if (!Array.isArray(pref.evidence)) {
-        errors.push(`preferences[${i}].evidence must be an array`);
-      } else if (pref.evidence.length === 0) {
-        errors.push(`preferences[${i}].evidence cannot be empty`);
+      for (const check of fieldChecks) {
+        const value = item[check.field];
+        if (check.type === "string") {
+          if (!value || typeof value !== "string") {
+            errors.push(`${sectionName}[${i}].${check.field} is missing or invalid`);
+          }
+        } else if (check.type === "number") {
+          if (typeof value !== "number") {
+            errors.push(`${sectionName}[${i}].${check.field} is missing or invalid`);
+          }
+        } else if (check.type === "array") {
+          if (!Array.isArray(value)) {
+            errors.push(`${sectionName}[${i}].${check.field} must be an array`);
+          } else if (check.cannotBeEmpty && value.length === 0) {
+            errors.push(`${sectionName}[${i}].${check.field} cannot be empty`);
+          }
+        }
       }
     }
     return errors;
+  }
+
+  private static validatePreferences(preferences: any): string[] {
+    return this.validateArraySection(preferences, "preferences", [
+      { field: "category", type: "string" },
+      { field: "description", type: "string" },
+      { field: "confidence", type: "number" },
+      { field: "evidence", type: "array", cannotBeEmpty: true },
+    ]);
   }
 
   private static validatePatterns(patterns: any): string[] {
-    const errors: string[] = [];
-    if (!Array.isArray(patterns)) {
-      return ["patterns must be an array"];
-    }
-    for (let i = 0; i < patterns.length; i++) {
-      const pattern = patterns[i];
-      if (!pattern || typeof pattern !== "object") {
-        errors.push(`patterns[${i}] is not an object`);
-        continue;
-      }
-      if (!pattern.category || typeof pattern.category !== "string") {
-        errors.push(`patterns[${i}].category is missing or invalid`);
-      }
-      if (!pattern.description || typeof pattern.description !== "string") {
-        errors.push(`patterns[${i}].description is missing or invalid`);
-      }
-    }
-    return errors;
+    return this.validateArraySection(patterns, "patterns", [
+      { field: "category", type: "string" },
+      { field: "description", type: "string" },
+    ]);
   }
 
   private static validateWorkflows(workflows: any): string[] {
-    const errors: string[] = [];
-    if (!Array.isArray(workflows)) {
-      return ["workflows must be an array"];
-    }
-    for (let i = 0; i < workflows.length; i++) {
-      const workflow = workflows[i];
-      if (!workflow || typeof workflow !== "object") {
-        errors.push(`workflows[${i}] is not an object`);
-        continue;
-      }
-      if (!workflow.description || typeof workflow.description !== "string") {
-        errors.push(`workflows[${i}].description is missing or invalid`);
-      }
-      if (!Array.isArray(workflow.steps)) {
-        errors.push(`workflows[${i}].steps must be an array`);
-      } else if (workflow.steps.length === 0) {
-        errors.push(`workflows[${i}].steps cannot be empty`);
-      }
-    }
-    return errors;
+    return this.validateArraySection(workflows, "workflows", [
+      { field: "description", type: "string" },
+      { field: "steps", type: "array", cannotBeEmpty: true },
+    ]);
   }
 }

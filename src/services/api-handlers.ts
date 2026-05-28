@@ -146,9 +146,16 @@ function extractScopeFromTag(tag: string): { scope: "user" | "project"; hash: st
 }
 
 function getAllShards(): ReturnType<typeof shardManager.getAllShards> {
-  const userShards = shardManager.getAllShards("user", "");
-  const projectShards = shardManager.getAllShards("project", "");
-  return [...userShards, ...projectShards];
+  return [...shardManager.getAllShards("user", ""), ...shardManager.getAllShards("project", "")];
+}
+
+function findMemoryInShards(id: string): { shard: ShardInfo; memory: RawMemoryRow } | null {
+  for (const shard of getAllShards()) {
+    const db = connectionManager.getConnection(shard.dbPath);
+    const memory = vectorSearch.getMemoryById(db, id);
+    if (memory) return { shard, memory };
+  }
+  return null;
 }
 
 function getProjectPathFromTag(tag: string): string | undefined {
@@ -456,15 +463,9 @@ export async function handleAddMemory(data: {
 export function handleGetMemory(id: string): ApiResponse<unknown> {
   try {
     if (!id) return { success: false, error: "id is required" };
-    const allShards = getAllShards();
-    for (const shard of allShards) {
-      const db = connectionManager.getConnection(shard.dbPath);
-      const memory = vectorSearch.getMemoryById(db, id);
-      if (memory) {
-        return { success: true, data: formatTimelineItem(mapRawMemoryToTyped(memory)) };
-      }
-    }
-    return { success: false, error: "Memory not found" };
+    const found = findMemoryInShards(id);
+    if (!found) return { success: false, error: "Memory not found" };
+    return { success: true, data: formatTimelineItem(mapRawMemoryToTyped(found.memory)) };
   } catch (error) {
     log("handleGetMemory: error", { error: String(error) });
     return { success: false, error: "Internal error" };
@@ -477,27 +478,20 @@ export async function handleDeleteMemory(
 ): Promise<ApiResponse<{ deletedPrompt: boolean }>> {
   try {
     if (!id) return { success: false, error: "id is required" };
-    const allShards = getAllShards();
-    for (const shard of allShards) {
-      const db = connectionManager.getConnection(shard.dbPath);
-      const memory = vectorSearch.getMemoryById(db, id);
-      if (memory) {
-        const metadata = safeJSONParse(memory.metadata) as Record<string, unknown> | undefined;
-        const linkedPromptId = metadata?.promptId as string | undefined;
-        if (cascade) {
-          if (linkedPromptId) userPromptManager.deletePrompt(linkedPromptId);
-        }
-        await vectorSearch.deleteVector(db, id, shard);
-        shardManager.decrementVectorCount(shard.id);
-        return {
-          success: true,
-          data: {
-            deletedPrompt: cascade && Boolean(linkedPromptId),
-          },
-        };
-      }
+    const found = findMemoryInShards(id);
+    if (!found) return { success: false, error: "Memory not found" };
+    const metadata = safeJSONParse(found.memory.metadata) as Record<string, unknown> | undefined;
+    const linkedPromptId = metadata?.promptId as string | undefined;
+    if (cascade && linkedPromptId) {
+      userPromptManager.deletePrompt(linkedPromptId);
     }
-    return { success: false, error: "Memory not found" };
+    const db = connectionManager.getConnection(found.shard.dbPath);
+    await vectorSearch.deleteVector(db, id, found.shard);
+    shardManager.decrementVectorCount(found.shard.id);
+    return {
+      success: true,
+      data: { deletedPrompt: cascade && Boolean(linkedPromptId) },
+    };
   } catch (error) {
     log("handleDeleteMemory: error", { error: String(error) });
     return { success: false, error: "Internal error" };
@@ -529,19 +523,9 @@ export async function handleUpdateMemory(
   try {
     if (!id) return { success: false, error: "id is required" };
     await embeddingService.warmup();
-    const allShards = getAllShards();
-    let foundShard = null,
-      existingMemory = null;
-    for (const shard of allShards) {
-      const db = connectionManager.getConnection(shard.dbPath);
-      const memory = vectorSearch.getMemoryById(db, id);
-      if (memory) {
-        foundShard = shard;
-        existingMemory = memory;
-        break;
-      }
-    }
-    if (!foundShard || !existingMemory) return { success: false, error: "Memory not found" };
+    const found = findMemoryInShards(id);
+    if (!found) return { success: false, error: "Memory not found" };
+    const existingMemory = found.memory;
     const newContent = data.content || existingMemory.content;
     const tags = data.tags || (existingMemory.tags ? existingMemory.tags.split(",") : []);
 
@@ -556,10 +540,10 @@ export async function handleUpdateMemory(
       content: newContent,
       vector,
       tagsVector,
-      containerTag: existingMemory.container_tag,
+      containerTag: existingMemory.container_tag || "",
       tags: tags.length > 0 ? tags.join(",") : undefined,
       type: data.type || existingMemory.type,
-      createdAt: existingMemory.created_at,
+      createdAt: Number(existingMemory.created_at),
       updatedAt: Date.now(),
       metadata: existingMemory.metadata,
       displayName: existingMemory.display_name,
@@ -570,8 +554,8 @@ export async function handleUpdateMemory(
       gitRepoUrl: existingMemory.git_repo_url,
     };
 
-    const db = connectionManager.getConnection(foundShard.dbPath);
-    await vectorSearch.replaceVector(db, id, updatedRecord, foundShard);
+    const db = connectionManager.getConnection(found.shard.dbPath);
+    await vectorSearch.replaceVector(db, id, updatedRecord, found.shard);
     return { success: true };
   } catch (error) {
     log("handleUpdateMemory: error", { error: String(error) });
@@ -614,7 +598,6 @@ interface FormattedMemory {
 
 type SearchResultItem = FormattedPrompt | FormattedMemory;
 
-// skipcq: JS-0067 — Module helper, not a global browser function.
 async function buildSearchQueryVector(query: string): Promise<Float32Array | null> {
   await embeddingService.warmup();
   try {
@@ -631,7 +614,6 @@ async function buildSearchQueryVector(query: string): Promise<Float32Array | nul
   }
 }
 
-// skipcq: JS-0067 — Module helper, not a global browser function.
 async function searchMemoriesByTag(
   queryVector: Float32Array | null,
   tag: string,
@@ -664,18 +646,16 @@ async function searchMemoriesByTag(
   return { memoryResults, promptResults };
 }
 
-// skipcq: JS-0067 — Module helper, not a global browser function.
 async function searchMemoriesGlobal(
   queryVector: Float32Array | null,
   page: number,
   pageSize: number,
   query: string
 ): Promise<{ memoryResults: SearchResult[]; promptResults: UserPrompt[] }> {
-  const userShards = shardManager.getAllShards("user", "");
-  const projectShards = shardManager.getAllShards("project", "");
+  const allShards = getAllShards();
   let memoryResults: SearchResult[] = [];
   const searchedPaths = new Set<string>();
-  for (const shard of [...userShards, ...projectShards]) {
+  for (const shard of allShards) {
     if (searchedPaths.has(shard.dbPath)) continue;
     searchedPaths.add(shard.dbPath);
     try {
@@ -700,7 +680,6 @@ async function searchMemoriesGlobal(
   return { memoryResults, promptResults };
 }
 
-// skipcq: JS-0067 — Module helper, not a global browser function.
 function formatSearchPrompt(p: UserPrompt): FormattedPrompt {
   return {
     type: "prompt",
@@ -714,7 +693,6 @@ function formatSearchPrompt(p: UserPrompt): FormattedPrompt {
   };
 }
 
-// skipcq: JS-0067 — Module helper, not a global browser function.
 function formatSearchMemory(r: SearchResult): FormattedMemory {
   return {
     type: "memory",
@@ -737,7 +715,6 @@ function formatSearchMemory(r: SearchResult): FormattedMemory {
   };
 }
 
-// skipcq: JS-0067 — Module helper, not a global browser function.
 function paginateSearchResults(
   results: SearchResultItem[],
   page: number,
@@ -749,7 +726,6 @@ function paginateSearchResults(
   return { paginated: results.slice(offset, offset + pageSize), total, totalPages };
 }
 
-// skipcq: JS-0067 — Module helper, not a global browser function.
 function fetchMissingLinkedItems(results: SearchResultItem[]): SearchResultItem[] {
   const missingPromptIds = new Set<string>();
   const missingMemoryIds = new Set<string>();
@@ -817,7 +793,6 @@ function fetchMissingLinkedItems(results: SearchResultItem[]): SearchResultItem[
   return results;
 }
 
-// skipcq: JS-R1005 — Search orchestration keeps memory and prompt context together.
 export async function handleSearch(
   query: string,
   tag?: string,
@@ -826,9 +801,7 @@ export async function handleSearch(
 ): Promise<ApiResponse<PaginatedResponse<SearchResultItem>>> {
   try {
     if (!query) return { success: false, error: "query is required" };
-    const safePage = Number.isFinite(page) && page > 0 ? Math.min(Math.floor(page), 10000) : 1;
-    const safePageSize =
-      Number.isFinite(pageSize) && pageSize > 0 && pageSize <= 100 ? Math.floor(pageSize) : 20;
+    const { safePage, safePageSize } = sanitizeListParams(page, pageSize);
 
     const queryVector = await buildSearchQueryVector(query);
 
@@ -890,12 +863,11 @@ export function handleStats(): ApiResponse<{
   byType: Record<string, number>;
 }> {
   try {
-    const userShards = shardManager.getAllShards("user", "");
-    const projectShards = shardManager.getAllShards("project", "");
+    const allShards = getAllShards();
     let userCount = 0,
       projectCount = 0;
     const typeCount: Record<string, number> = {};
-    for (const shard of [...userShards, ...projectShards]) {
+    for (const shard of allShards) {
       const db = connectionManager.getConnection(shard.dbPath);
       const scopeRow = db
         .prepare(
@@ -933,16 +905,11 @@ export function handleStats(): ApiResponse<{
 export function handlePinMemory(id: string): ApiResponse<void> {
   try {
     if (!id) return { success: false, error: "id is required" };
-    const allShards = getAllShards();
-    for (const shard of allShards) {
-      const db = connectionManager.getConnection(shard.dbPath);
-      const memory = vectorSearch.getMemoryById(db, id);
-      if (memory) {
-        vectorSearch.pinMemory(db, id);
-        return { success: true };
-      }
-    }
-    return { success: false, error: "Memory not found" };
+    const found = findMemoryInShards(id);
+    if (!found) return { success: false, error: "Memory not found" };
+    const db = connectionManager.getConnection(found.shard.dbPath);
+    vectorSearch.pinMemory(db, id);
+    return { success: true };
   } catch (error) {
     log("handlePinMemory: error", { error: String(error) });
     return { success: false, error: "Internal error" };
@@ -952,16 +919,11 @@ export function handlePinMemory(id: string): ApiResponse<void> {
 export function handleUnpinMemory(id: string): ApiResponse<void> {
   try {
     if (!id) return { success: false, error: "id is required" };
-    const allShards = getAllShards();
-    for (const shard of allShards) {
-      const db = connectionManager.getConnection(shard.dbPath);
-      const memory = vectorSearch.getMemoryById(db, id);
-      if (memory) {
-        vectorSearch.unpinMemory(db, id);
-        return { success: true };
-      }
-    }
-    return { success: false, error: "Memory not found" };
+    const found = findMemoryInShards(id);
+    if (!found) return { success: false, error: "Memory not found" };
+    const db = connectionManager.getConnection(found.shard.dbPath);
+    vectorSearch.unpinMemory(db, id);
+    return { success: true };
   } catch (error) {
     log("handleUnpinMemory: error", { error: String(error) });
     return { success: false, error: "Internal error" };
@@ -1265,7 +1227,6 @@ export function handleGetTagMigrationProgress(): ApiResponse<
   return { success: true, data: migrationProgress.toJSON() };
 }
 
-// skipcq: JS-0067 — Module helper, not a global browser function.
 function loadAllMemoriesWithShards(): { memory: RawMemoryRow; shard: ShardInfo }[] {
   const projectShards = shardManager.getAllShards("project", "");
   const allMemories: { memory: RawMemoryRow; shard: ShardInfo }[] = [];
@@ -1279,7 +1240,6 @@ function loadAllMemoriesWithShards(): { memory: RawMemoryRow; shard: ShardInfo }
   return allMemories;
 }
 
-// skipcq: JS-0067 — Module helper, not a global browser function.
 async function processSingleTagMigration(
   m: RawMemoryRow,
   shard: ShardInfo,
@@ -1333,7 +1293,6 @@ async function processSingleTagMigration(
   await vectorSearch.updateVector(db, m.id, vector, shard, tagsVector);
 }
 
-// skipcq: JS-R1005 — Batch migration intentionally coordinates provider, progress, and per-item errors.
 export async function handleRunTagMigrationBatch(
   batchSize = 5
 ): Promise<ApiResponse<{ processed: number; total: number; hasMore: boolean }>> {
@@ -1458,10 +1417,7 @@ export function handleConflictStats(): ApiResponse<{ unresolved: number; resolve
     const unresolved = getAllUnresolvedConflicts(1000);
     // Count resolved across all shards
     let resolved = 0;
-    const shards = [
-      ...shardManager.getAllShards("user", ""),
-      ...shardManager.getAllShards("project", ""),
-    ];
+    const shards = getAllShards();
     for (const shard of shards) {
       const db = connectionManager.getConnection(shard.dbPath);
       const row = db

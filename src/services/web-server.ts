@@ -411,11 +411,7 @@ export class WebServer {
 
   private async _apiListMemories(url: URL, isLocal: boolean): Promise<Response> {
     const tag = url.searchParams.get("tag") || undefined;
-    const rawPage = Number.parseInt(url.searchParams.get("page") || "1");
-    const rawPageSize = Number.parseInt(url.searchParams.get("pageSize") || "20");
-    const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
-    const pageSize =
-      Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
+    const { page, pageSize } = this._parsePageParams(url);
     const includePrompts = url.searchParams.get("includePrompts") !== "false";
     const result = await handleListMemories(tag, page, pageSize, includePrompts);
     return this.jsonResponse(result, 200, !isLocal);
@@ -428,9 +424,8 @@ export class WebServer {
   }
 
   private async _apiDeleteMemory(url: URL, path: string, isLocal: boolean): Promise<Response> {
-    const parts = path.split("/");
-    const id = parts[3];
-    if (!id || id === "bulk-delete") {
+    const id = this._extractIdFromPath(path);
+    if (!id) {
       return this.jsonResponse({ success: false, error: "Invalid ID" });
     }
     const cascade = url.searchParams.get("cascade") === "true";
@@ -439,9 +434,8 @@ export class WebServer {
   }
 
   private _apiGetMemory(path: string, isLocal: boolean): Response {
-    const parts = path.split("/");
-    const id = parts[3];
-    if (!id || id === "search") {
+    const id = this._extractIdFromPath(path, ["search"]);
+    if (!id) {
       return this.jsonResponse({ success: false, error: "Invalid ID" });
     }
     const result = handleGetMemory(id);
@@ -449,11 +443,11 @@ export class WebServer {
   }
 
   private async _apiUpdateMemory(req: Request, path: string, isLocal: boolean): Promise<Response> {
-    const putParts = path.split("/");
-    if (putParts.length !== 4 || !putParts[3]) {
+    const parts = path.split("/");
+    if (parts.length !== 4 || !parts[3]) {
       return this.jsonResponse({ success: false, error: "Invalid ID" });
     }
-    const id = putParts[3];
+    const id = parts[3];
     const body = (await req.json()) as any;
     const result = await handleUpdateMemory(id, body);
     return this.jsonResponse(result, 200, !isLocal);
@@ -469,11 +463,7 @@ export class WebServer {
   private async _apiSearch(url: URL, isLocal: boolean): Promise<Response> {
     const query = url.searchParams.get("q");
     const tag = url.searchParams.get("tag") || undefined;
-    const rawPage = Number.parseInt(url.searchParams.get("page") || "1");
-    const rawPageSize = Number.parseInt(url.searchParams.get("pageSize") || "20");
-    const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
-    const pageSize =
-      Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
+    const { page, pageSize } = this._parsePageParams(url);
 
     if (!query) {
       return this.jsonResponse({ success: false, error: "query parameter required" });
@@ -485,24 +475,14 @@ export class WebServer {
 
   private async _apiSearchTranscripts(url: URL, isLocal: boolean): Promise<Response> {
     const query = url.searchParams.get("q") || "";
-    const rawPage = Number.parseInt(url.searchParams.get("page") || "1");
-    const rawPageSize = Number.parseInt(url.searchParams.get("limit") || "20");
-    const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
-    const pageSize =
-      Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
+    const { page, pageSize } = this._parsePageParams(url, "page", "limit");
 
     const result = await handleSearchTranscripts(query, page, pageSize);
     return this.jsonResponse(result, 200, !isLocal);
   }
 
   private _apiListTranscripts(url: URL, isLocal: boolean): Response {
-    const rawPage = Number.parseInt(url.searchParams.get("page") || "1");
-    const rawPageSize = Number.parseInt(
-      url.searchParams.get("pageSize") || url.searchParams.get("limit") || "20"
-    );
-    const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
-    const pageSize =
-      Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
+    const { page, pageSize } = this._parsePageParams(url, "page", "pageSize", "limit");
     const projectPath = url.searchParams.get("project") || undefined;
     const result = handleListTranscripts(page, pageSize, projectPath);
     return this.jsonResponse(result, 200, !isLocal);
@@ -540,9 +520,8 @@ export class WebServer {
     path: string,
     isLocal: boolean
   ): Promise<Response> {
-    const parts = path.split("/");
-    const conflictId = parts[3];
-    if (!conflictId || conflictId === "stats") {
+    const conflictId = this._extractIdFromPath(path, ["stats"]);
+    if (!conflictId) {
       return this.jsonResponse({ success: false, error: "Invalid conflict ID" });
     }
     const body = (await req.json().catch(() => ({}))) as any;
@@ -551,8 +530,8 @@ export class WebServer {
   }
 
   private _apiGetConflict(path: string, isLocal: boolean): Response {
-    const conflictId = path.split("/")[3];
-    if (!conflictId || conflictId === "stats") {
+    const conflictId = this._extractIdFromPath(path, ["stats"]);
+    if (!conflictId) {
       return this.jsonResponse({ success: false, error: "Invalid conflict ID" });
     }
     const result = handleListConflicts(false, 1000);
@@ -567,20 +546,23 @@ export class WebServer {
   }
 
   private async _apiPinMemory(path: string, isLocal: boolean): Promise<Response> {
-    const id = path.split("/")[3];
-    if (!id) {
-      return this.jsonResponse({ success: false, error: "Invalid ID" });
-    }
-    const result = handlePinMemory(id);
-    return this.jsonResponse(result, 200, !isLocal);
+    return this._apiPinAction(path, handlePinMemory, isLocal);
   }
 
   private async _apiUnpinMemory(path: string, isLocal: boolean): Promise<Response> {
-    const id = path.split("/")[3];
+    return this._apiPinAction(path, handleUnpinMemory, isLocal);
+  }
+
+  private async _apiPinAction(
+    path: string,
+    handler: (id: string) => any,
+    isLocal: boolean
+  ): Promise<Response> {
+    const id = this._extractIdFromPath(path);
     if (!id) {
       return this.jsonResponse({ success: false, error: "Invalid ID" });
     }
-    const result = handleUnpinMemory(id);
+    const result = handler(id);
     return this.jsonResponse(result, 200, !isLocal);
   }
 
@@ -627,9 +609,8 @@ export class WebServer {
   }
 
   private async _apiDeletePrompt(url: URL, path: string, isLocal: boolean): Promise<Response> {
-    const parts = path.split("/");
-    const id = parts[3];
-    if (!id || id === "bulk-delete") {
+    const id = this._extractIdFromPath(path);
+    if (!id) {
       return this.jsonResponse({ success: false, error: "Invalid ID" });
     }
     const cascade = url.searchParams.get("cascade") === "true";
@@ -694,28 +675,46 @@ export class WebServer {
     const webDir = join(__dirname, "..", "web");
     const filePath = join(webDir, filename);
     try {
-      if (contentType.startsWith("image/")) {
-        const content = readFileSync(filePath);
-        return new Response(content, {
-          headers: {
-            "Content-Type": contentType,
-            "Cache-Control": "public, max-age=86400",
-          },
-        });
-      }
-
-      const content = readFileSync(filePath, "utf-8");
-
+      const isImage = contentType.startsWith("image/");
+      const content = isImage ? readFileSync(filePath) : readFileSync(filePath, "utf-8");
       return new Response(content, {
         headers: {
           "Content-Type": contentType,
-          "Cache-Control": "no-cache",
+          "Cache-Control": isImage ? "public, max-age=86400" : "no-cache",
         },
       });
     } catch (error) {
       log("Static file serve error", { path: filePath, error: String(error) });
       return new Response("File not found", { status: 404 });
     }
+  }
+
+  private _parsePageParams(
+    url: URL,
+    pageKey: string = "page",
+    pageSizeKey: string = "pageSize",
+    pageSizeFallbackKey?: string
+  ): { page: number; pageSize: number } {
+    const rawPage = Number.parseInt(url.searchParams.get(pageKey) || "1");
+    const rawPageSizeStr =
+      url.searchParams.get(pageSizeKey) ||
+      (pageSizeFallbackKey ? url.searchParams.get(pageSizeFallbackKey) : null) ||
+      "20";
+    const rawPageSize = Number.parseInt(rawPageSizeStr);
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
+    const pageSize =
+      Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;
+    return { page, pageSize };
+  }
+
+  private _extractIdFromPath(
+    path: string,
+    excludeSegments: string[] = ["bulk-delete", "search", "stats"]
+  ): string | null {
+    const parts = path.split("/");
+    const id = parts[3];
+    if (!id || excludeSegments.includes(id)) return null;
+    return id;
   }
 
   private jsonResponse(data: any, status: number = 200, redact: boolean = false): Response {

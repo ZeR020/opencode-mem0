@@ -4,8 +4,6 @@ import { join } from "node:path";
 import { connectionManager } from "../sqlite/connection-manager.js";
 import { CONFIG } from "../../config.js";
 
-type DatabaseType = Database;
-
 const USER_PROMPTS_DB_NAME = "user-prompts.db";
 
 function escapeLikePattern(value: string): string {
@@ -25,31 +23,29 @@ export interface UserPrompt {
 }
 
 export class UserPromptManager {
-  private readonly db: DatabaseType;
+  private readonly db: Database;
   private readonly dbPath: string;
   private readonly stmts: {
-    savePrompt: ReturnType<DatabaseType["prepare"]>;
-    getLastUncaptured: ReturnType<DatabaseType["prepare"]>;
-    deletePrompt: ReturnType<DatabaseType["prepare"]>;
-    markCaptured: ReturnType<DatabaseType["prepare"]>;
-    claimPrompt: ReturnType<DatabaseType["prepare"]>;
-    resetClaim: ReturnType<DatabaseType["prepare"]>;
-    countUncaptured: ReturnType<DatabaseType["prepare"]>;
-    getUncaptured: ReturnType<DatabaseType["prepare"]>;
-    markMultipleCaptured: ReturnType<DatabaseType["prepare"]>;
-    countUnanalyzed: ReturnType<DatabaseType["prepare"]>;
-    getForUserLearning: ReturnType<DatabaseType["prepare"]>;
-    markUserLearningCaptured: ReturnType<DatabaseType["prepare"]>;
-    markMultipleUserLearning: ReturnType<DatabaseType["prepare"]>;
-    getLinkedMemoryIds: ReturnType<DatabaseType["prepare"]>;
-    deleteOldPrompts: ReturnType<DatabaseType["prepare"]>;
-    linkMemory: ReturnType<DatabaseType["prepare"]>;
-    getById: ReturnType<DatabaseType["prepare"]>;
-    getCaptured: ReturnType<DatabaseType["prepare"]>;
-    getCapturedByProject: ReturnType<DatabaseType["prepare"]>;
-    searchPrompts: ReturnType<DatabaseType["prepare"]>;
-    searchPromptsByProject: ReturnType<DatabaseType["prepare"]>;
-    getByIds: ReturnType<DatabaseType["prepare"]>;
+    savePrompt: ReturnType<Database["prepare"]>;
+    getLastUncaptured: ReturnType<Database["prepare"]>;
+    deletePrompt: ReturnType<Database["prepare"]>;
+    markCaptured: ReturnType<Database["prepare"]>;
+    claimPrompt: ReturnType<Database["prepare"]>;
+    resetClaim: ReturnType<Database["prepare"]>;
+    countUncaptured: ReturnType<Database["prepare"]>;
+    getUncaptured: ReturnType<Database["prepare"]>;
+    countUnanalyzed: ReturnType<Database["prepare"]>;
+    getForUserLearning: ReturnType<Database["prepare"]>;
+    markUserLearningCaptured: ReturnType<Database["prepare"]>;
+    getLinkedMemoryIds: ReturnType<Database["prepare"]>;
+    deleteOldPrompts: ReturnType<Database["prepare"]>;
+    linkMemory: ReturnType<Database["prepare"]>;
+    getById: ReturnType<Database["prepare"]>;
+    getCaptured: ReturnType<Database["prepare"]>;
+    getCapturedByProject: ReturnType<Database["prepare"]>;
+    searchPrompts: ReturnType<Database["prepare"]>;
+    searchPromptsByProject: ReturnType<Database["prepare"]>;
+    getByIds: ReturnType<Database["prepare"]>;
   };
 
   constructor() {
@@ -84,7 +80,6 @@ export class UserPromptManager {
         ORDER BY created_at ASC 
         LIMIT ?
       `),
-      markMultipleCaptured: this.db.prepare("UPDATE user_prompts SET captured = 1 WHERE id = ?"),
       countUnanalyzed: this.db.prepare(
         "SELECT COUNT(*) as count FROM user_prompts WHERE user_learning_captured = 0"
       ),
@@ -95,9 +90,6 @@ export class UserPromptManager {
         LIMIT ?
       `),
       markUserLearningCaptured: this.db.prepare(
-        "UPDATE user_prompts SET user_learning_captured = 1 WHERE id = ?"
-      ),
-      markMultipleUserLearning: this.db.prepare(
         "UPDATE user_prompts SET user_learning_captured = 1 WHERE id = ?"
       ),
       getLinkedMemoryIds: this.db.prepare(`
@@ -144,20 +136,17 @@ export class UserPromptManager {
 
     this.db.run("UPDATE user_prompts SET captured = 0 WHERE captured = 2");
 
-    this.db.run("CREATE INDEX IF NOT EXISTS idx_user_prompts_session ON user_prompts(session_id)");
-    this.db.run("CREATE INDEX IF NOT EXISTS idx_user_prompts_captured ON user_prompts(captured)");
-    this.db.run(
-      "CREATE INDEX IF NOT EXISTS idx_user_prompts_created ON user_prompts(created_at DESC)"
-    );
-    this.db.run(
-      "CREATE INDEX IF NOT EXISTS idx_user_prompts_project ON user_prompts(project_path)"
-    );
-    this.db.run(
-      "CREATE INDEX IF NOT EXISTS idx_user_prompts_linked ON user_prompts(linked_memory_id)"
-    );
-    this.db.run(
-      "CREATE INDEX IF NOT EXISTS idx_user_prompts_user_learning ON user_prompts(user_learning_captured)"
-    );
+    const indexes: Array<[string, string]> = [
+      ["idx_user_prompts_session", "session_id"],
+      ["idx_user_prompts_captured", "captured"],
+      ["idx_user_prompts_created", "created_at DESC"],
+      ["idx_user_prompts_project", "project_path"],
+      ["idx_user_prompts_linked", "linked_memory_id"],
+      ["idx_user_prompts_user_learning", "user_learning_captured"],
+    ];
+    for (const [name, column] of indexes) {
+      this.db.run(`CREATE INDEX IF NOT EXISTS ${name} ON user_prompts(${column})`);
+    }
   }
 
   savePrompt(sessionId: string, messageId: string, projectPath: string, content: string): string {
@@ -201,16 +190,7 @@ export class UserPromptManager {
   }
 
   markMultipleAsCaptured(promptIds: string[]): void {
-    if (promptIds.length === 0) return;
-    if (promptIds.length === 1) {
-      this.stmts.markMultipleCaptured.run(promptIds[0]);
-      return;
-    }
-    const placeholders = promptIds.map(() => "?").join(",");
-    const stmt = this.db.prepare(
-      `UPDATE user_prompts SET captured = 1 WHERE id IN (${placeholders})`
-    );
-    stmt.run(...promptIds);
+    this.markMultiple(promptIds, "captured", 1);
   }
 
   countUnanalyzedForUserLearning(): number {
@@ -228,16 +208,7 @@ export class UserPromptManager {
   }
 
   markMultipleAsUserLearningCaptured(promptIds: string[]): void {
-    if (promptIds.length === 0) return;
-    if (promptIds.length === 1) {
-      this.stmts.markMultipleUserLearning.run(promptIds[0]);
-      return;
-    }
-    const placeholders = promptIds.map(() => "?").join(",");
-    const stmt = this.db.prepare(
-      `UPDATE user_prompts SET user_learning_captured = 1 WHERE id IN (${placeholders})`
-    );
-    stmt.run(...promptIds);
+    this.markMultiple(promptIds, "user_learning_captured", 1);
   }
 
   deleteOldPrompts(cutoffTime: number): { deleted: number; linkedMemoryIds: string[] } {
@@ -289,6 +260,18 @@ export class UserPromptManager {
     const stmt = this.db.prepare(`SELECT * FROM user_prompts WHERE id IN (${placeholders})`);
     const rows = stmt.all(...ids) as any[];
     return rows.map((row) => this.rowToPrompt(row));
+  }
+
+  private markMultiple(ids: string[], field: string, value: number): void {
+    if (ids.length === 0) return;
+    if (ids.length === 1) {
+      this.db.prepare(`UPDATE user_prompts SET ${field} = ? WHERE id = ?`).run(value, ids[0]);
+      return;
+    }
+    const placeholders = ids.map(() => "?").join(",");
+    this.db
+      .prepare(`UPDATE user_prompts SET ${field} = ${value} WHERE id IN (${placeholders})`)
+      .run(...ids);
   }
 
   private rowToPrompt(row: any): UserPrompt {

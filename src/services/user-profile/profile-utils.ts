@@ -1,41 +1,25 @@
-export const safeArray = <T>(arr: any): T[] => {
-  if (!arr) return [];
-  let result = arr;
-  if (typeof result === "string") {
+const parseJSON = (value: string): any => {
+  try {
+    return JSON.parse(value);
+  } catch {
     try {
-      result = JSON.parse(result);
+      return JSON.parse(value.trim().replace(/,$/, ""));
     } catch {
-      try {
-        result = JSON.parse(result.trim().replace(/,$/, ""));
-      } catch {
-        return [];
-      }
+      return undefined;
     }
   }
-  if (!Array.isArray(result)) return [];
+};
 
-  const flattened: T[] = [];
-  const walk = (item: any) => {
-    if (Array.isArray(item)) {
-      item.forEach(walk);
-    } else if (item !== undefined && item !== null) {
-      flattened.push(item);
-    }
-  };
-  walk(result);
-  return flattened;
+export const safeArray = <T>(arr: any): T[] => {
+  if (!arr) return [];
+  const result = typeof arr === "string" ? parseJSON(arr) : arr;
+  if (!Array.isArray(result)) return [];
+  return result.flat(Infinity).filter((item: any) => item !== undefined && item !== null) as T[];
 };
 
 export const safeObject = <T extends object>(obj: any, fallback: T): T => {
   if (!obj) return fallback;
-  let result = obj;
-  if (typeof result === "string") {
-    try {
-      result = JSON.parse(result);
-    } catch {
-      return fallback;
-    }
-  }
-  const isValidObject = result && typeof result === "object" && !Array.isArray(result);
-  return isValidObject ? (result as T) : fallback;
+  const result = typeof obj === "string" ? parseJSON(obj) : obj;
+  if (result && typeof result === "object" && !Array.isArray(result)) return result as T;
+  return fallback;
 };

@@ -1,4 +1,4 @@
-import { BaseAIProvider, type ToolCallResult } from "./base-provider.js";
+import { BaseAIProvider, type ProviderConfig, type ToolCallResult } from "./base-provider.js";
 import { AISessionManager } from "../session/ai-session-manager.js";
 import { ToolSchemaConverter, type ChatCompletionTool } from "../tools/tool-schema.js";
 import { log } from "../../logger.js";
@@ -31,7 +31,7 @@ interface AnthropicResponse {
 export class AnthropicMessagesProvider extends BaseAIProvider {
   private readonly aiSessionManager: AISessionManager;
 
-  constructor(config: any, aiSessionManager: AISessionManager) {
+  constructor(config: ProviderConfig, aiSessionManager: AISessionManager) {
     super(config);
     this.aiSessionManager = aiSessionManager;
   }
@@ -96,17 +96,10 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
       }
       return { success: true, data: result.data, iterations };
     } catch (validationError) {
-      const errorStack = validationError instanceof Error ? validationError.stack : undefined;
       log("Anthropic tool response validation failed", {
         error: String(validationError),
-        stack: errorStack,
-        errorType:
-          validationError instanceof Error
-            ? validationError.constructor.name
-            : typeof validationError,
         toolName: toolSchema.function.name,
         iteration: iterations,
-        rawData: "[REDACTED]",
       });
       return { success: false, error: `Validation failed: ${String(validationError)}`, iterations };
     }

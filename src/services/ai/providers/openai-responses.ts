@@ -1,6 +1,12 @@
-import { BaseAIProvider, type ToolCallResult, applySafeExtraParams } from "./base-provider.js";
+import {
+  BaseAIProvider,
+  type ProviderConfig,
+  type ToolCallResult,
+  applySafeExtraParams,
+} from "./base-provider.js";
 import { AISessionManager } from "../session/ai-session-manager.js";
 import { ToolSchemaConverter, type ChatCompletionTool } from "../tools/tool-schema.js";
+import { UserProfileValidator } from "../validators/user-profile-validator.js";
 import { log } from "../../logger.js";
 
 interface ResponsesAPIOutput {
@@ -25,7 +31,7 @@ interface ResponsesAPIOutput {
 export class OpenAIResponsesProvider extends BaseAIProvider {
   private readonly aiSessionManager: AISessionManager;
 
-  constructor(config: any, aiSessionManager: AISessionManager) {
+  constructor(config: ProviderConfig, aiSessionManager: AISessionManager) {
     super(config);
     this.aiSessionManager = aiSessionManager;
   }
@@ -88,10 +94,15 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
         conversationId,
       });
 
+      const validation = UserProfileValidator.validate(toolCall);
+      if (!validation.valid) {
+        throw new Error(validation.errors.join(", "));
+      }
+
       return {
         result: {
           success: true,
-          data: this.validateResponse(toolCall),
+          data: validation.data,
           iterations,
         },
         conversationId,
@@ -256,28 +267,5 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
     }
 
     return `Previous response: ${assistantResponse}\n\nPlease use the save_memories tool to extract and save the memories from the conversation as instructed.`;
-  }
-
-  private validateResponse(data: any): any {
-    if (!data || typeof data !== "object") {
-      throw new TypeError("Response is not an object");
-    }
-
-    if (Array.isArray(data)) {
-      throw new Error("Response cannot be an array");
-    }
-
-    const keys = Object.keys(data);
-    if (keys.length === 0) {
-      throw new Error("Response object is empty");
-    }
-
-    for (const key of keys) {
-      if (data[key] === undefined || data[key] === null) {
-        throw new Error(`Response field '${key}' is null or undefined`);
-      }
-    }
-
-    return data;
   }
 }

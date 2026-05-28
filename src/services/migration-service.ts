@@ -39,9 +39,10 @@ export class MigrationService {
   private progressCallback?: (progress: MigrationProgress) => void;
 
   detectDimensionMismatch(): DimensionMismatch {
-    const userShards = shardManager.getAllShards("user", "");
-    const projectShards = shardManager.getAllShards("project", "");
-    const allShards = [...userShards, ...projectShards];
+    const allShards = [
+      ...shardManager.getAllShards("user", ""),
+      ...shardManager.getAllShards("project", ""),
+    ];
 
     const mismatches: DimensionMismatch["shardMismatches"] = [];
 
@@ -354,9 +355,7 @@ export class MigrationService {
   }
 
   private reportProgress(progress: MigrationProgress): void {
-    if (this.progressCallback) {
-      this.progressCallback(progress);
-    }
+    this.progressCallback?.(progress);
   }
 
   getStatus() {

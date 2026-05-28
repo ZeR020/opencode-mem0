@@ -49,16 +49,4 @@ export class ToolSchemaConverter {
       input_schema: chatCompletionTool.function.parameters,
     };
   }
-
-  static fromChatCompletion(tool: ChatCompletionTool): {
-    chatCompletion: ChatCompletionTool;
-    responsesAPI: ResponsesAPITool;
-    anthropic: AnthropicTool;
-  } {
-    return {
-      chatCompletion: tool,
-      responsesAPI: this.toResponsesAPI(tool),
-      anthropic: this.toAnthropic(tool),
-    };
-  }
 }

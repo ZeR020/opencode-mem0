@@ -4,24 +4,12 @@ import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 
 function getLogFilePath(): string | null {
-  if (process.env.OPENCODE_MEM_LOG_FILE) {
-    return process.env.OPENCODE_MEM_LOG_FILE;
-  }
+  if (process.env.OPENCODE_MEM_LOG_FILE) return process.env.OPENCODE_MEM_LOG_FILE;
   const defaultPath = join(homedir(), ".opencode-mem0", "opencode-mem0.log");
-  // Only use default log path if the directory already exists (plugin was previously set up)
-  if (existsSync(dirname(defaultPath))) {
-    return defaultPath;
-  }
-  return null;
-}
-
-function getLogDirPath(): string | null {
-  const logFile = getLogFilePath();
-  return logFile ? dirname(logFile) : null;
+  return existsSync(dirname(defaultPath)) ? defaultPath : null;
 }
 
 const MAX_LOG_SIZE = 5 * 1024 * 1024;
-
 const GLOBAL_LOGGER_KEY = Symbol.for("opencode-mem0.logger.initialized");
 
 function rotateLog() {
@@ -29,8 +17,7 @@ function rotateLog() {
   if (!logFile) return;
   try {
     if (!existsSync(logFile)) return;
-    const stats = statSync(logFile);
-    if (stats.size < MAX_LOG_SIZE) return;
+    if (statSync(logFile).size < MAX_LOG_SIZE) return;
 
     const oldLog = `${logFile}.old`;
     if (existsSync(oldLog)) unlinkSync(oldLog);
@@ -40,39 +27,13 @@ function rotateLog() {
   }
 }
 
-function ensureLoggerInitialized() {
-  const logFile = getLogFilePath();
-  if (!logFile) return; // Plugin not initialized — no file logging
-
-  const logDir = getLogDirPath();
-  if (logDir && !existsSync(logDir)) {
-    mkdirSync(logDir, { recursive: true });
-  }
-  if ((globalThis as any)[GLOBAL_LOGGER_KEY]) {
-    if (!existsSync(logFile)) {
-      writeFileSync(logFile, `\n--- Session started: ${new Date().toISOString()} ---\n`, {
-        flag: "a",
-      });
-    }
-    return;
-  }
-  rotateLog();
-  writeFileSync(logFile, `\n--- Session started: ${new Date().toISOString()} ---\n`, {
-    flag: "a",
-  });
-  (globalThis as any)[GLOBAL_LOGGER_KEY] = true;
-}
-
 const SENSITIVE_KEY_REGEX = /token|secret|password|api[-_]?key|authorization/i;
 
 function safeStringify(data: unknown): string {
   try {
-    return JSON.stringify(data, (key, value) => {
-      if (SENSITIVE_KEY_REGEX.test(key)) {
-        return "[REDACTED]";
-      }
-      return value;
-    });
+    return JSON.stringify(data, (key, value) =>
+      SENSITIVE_KEY_REGEX.test(key) ? "[REDACTED]" : value
+    );
   } catch {
     return '"[Unserializable data]"';
   }
@@ -80,12 +41,7 @@ function safeStringify(data: unknown): string {
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
-const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3,
-};
+const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
 
 let currentLogLevel: LogLevel = (process.env.OPENCODE_MEM_LOG_LEVEL as LogLevel) || "info";
 
@@ -97,31 +53,34 @@ export function getLogLevel(): LogLevel {
   return currentLogLevel;
 }
 
-function shouldLog(level: LogLevel): boolean {
-  return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[currentLogLevel];
-}
-
-// Ordered async write queue — prevents interleaved log lines from concurrent writes
 let writeQueue: Promise<void> = Promise.resolve();
 
 function logWithLevel(level: LogLevel, message: string, data?: unknown) {
-  if (!shouldLog(level)) return;
-  ensureLoggerInitialized();
+  if (LOG_LEVEL_PRIORITY[level] < LOG_LEVEL_PRIORITY[currentLogLevel]) return;
+
   const logFile = getLogFilePath();
-  if (!logFile) return; // Skip file logging when plugin hasn't set up its directory
+  if (!logFile) return;
+
+  const logDir = dirname(logFile);
+  if (!existsSync(logDir)) mkdirSync(logDir, { recursive: true });
+
+  const isInitialized = (globalThis as any)[GLOBAL_LOGGER_KEY];
+  if (!isInitialized) {
+    rotateLog();
+    (globalThis as any)[GLOBAL_LOGGER_KEY] = true;
+  }
 
   const timestamp = new Date().toISOString();
   const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
   const line = data ? `${prefix} ${message}: ${safeStringify(data)}\n` : `${prefix} ${message}\n`;
+
   writeQueue = writeQueue
     .then(async () => {
       await mkdir(dirname(logFile), { recursive: true });
       await appendFile(logFile, line);
     })
     .catch((err: unknown) => {
-      if (err instanceof Error && "code" in err && err.code === "ENOENT") {
-        return;
-      }
+      if (err instanceof Error && "code" in err && err.code === "ENOENT") return;
       console.error(`[opencode-mem0] Log write failed: ${err}`);
     });
 }

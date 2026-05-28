@@ -6,6 +6,7 @@ import type {
   VectorKind,
 } from "./types.js";
 import type { ShardInfo } from "../sqlite/types.js";
+import { decodeVector, getIndexKey, KIND_COLUMN } from "./shared.js";
 
 type USearchModule = typeof import("usearch");
 type USearchIndex = InstanceType<USearchModule["Index"]>;
@@ -27,9 +28,7 @@ export class USearchBackend implements VectorBackend {
       baseDir: string;
       dimensions: number;
     }
-  ) {
-    // constructor intentionally empty - options stored for later use
-  }
+  ) {}
 
   getBackendName(): string {
     return "usearch";
@@ -41,7 +40,7 @@ export class USearchBackend implements VectorBackend {
     shard: ShardInfo;
     kind: VectorKind;
   }): Promise<void> {
-    const indexKey = this.getIndexKey(args.shard, args.kind);
+    const indexKey = getIndexKey(args.shard, args.kind);
     const cache = await this.getOrCreateIndex(indexKey);
     try {
       this.upsertItem(cache, { id: args.id, vector: args.vector });
@@ -56,7 +55,7 @@ export class USearchBackend implements VectorBackend {
     shard: ShardInfo;
     kind: VectorKind;
   }): Promise<void> {
-    const indexKey = this.getIndexKey(args.shard, args.kind);
+    const indexKey = getIndexKey(args.shard, args.kind);
     const cache = await this.getOrCreateIndex(indexKey);
     try {
       this.addItems(cache, args.items);
@@ -67,7 +66,7 @@ export class USearchBackend implements VectorBackend {
   }
 
   async delete(args: { id: string; shard: ShardInfo; kind: VectorKind }): Promise<void> {
-    const cache = await this.getOrCreateIndex(this.getIndexKey(args.shard, args.kind));
+    const cache = await this.getOrCreateIndex(getIndexKey(args.shard, args.kind));
     const key = cache.idToKey.get(args.id);
     if (key === undefined) return;
     cache.index.remove(key);
@@ -76,29 +75,18 @@ export class USearchBackend implements VectorBackend {
   }
 
   async search(args: VectorBackendSearchParams): Promise<BackendSearchResult[]> {
-    const indexKey = this.getIndexKey(args.shard, args.kind);
+    const indexKey = getIndexKey(args.shard, args.kind);
     const cache = await this.getOrCreateIndex(indexKey);
     try {
       const matches = cache.index.search(args.queryVector, args.limit);
-      return Array.from(matches.keys as Iterable<bigint>, (key, index) => {
-        const id = cache.keyToId.get(key);
-        if (!id) {
-          throw new Error(
-            `USearch index metadata missing for key ${String(key)} in ${cache.indexKey}`
-          );
-        }
-        return {
-          id,
-          distance: matches.distances[index] ?? 0,
-        };
-      });
+      return this.mapSearchResults(cache, matches);
     } catch (error) {
       throw new Error(`USearch search failed for ${indexKey}: ${String(error)}`);
     }
   }
 
   async rebuildFromShard(args: { db: unknown; shard: ShardInfo; kind: VectorKind }): Promise<void> {
-    const indexKey = this.getIndexKey(args.shard, args.kind);
+    const indexKey = getIndexKey(args.shard, args.kind);
     const existing = this.indexes.get(indexKey);
     if (existing?.initialized) {
       return;
@@ -111,7 +99,7 @@ export class USearchBackend implements VectorBackend {
     }
 
     const promise = (async () => {
-      const column = args.kind === "tags" ? "tags_vector" : "vector";
+      const column = KIND_COLUMN[args.kind];
       const rows = (
         args.db as {
           prepare: (sql: string) => {
@@ -131,7 +119,7 @@ export class USearchBackend implements VectorBackend {
 
       for (const row of rows) {
         const raw = args.kind === "tags" ? row.tags_vector : row.vector;
-        const vector = this.decodeVector(raw);
+        const vector = decodeVector(raw);
         if (vector.length === 0) continue;
         this.upsertItem(cache, { id: row.id, vector });
       }
@@ -149,7 +137,7 @@ export class USearchBackend implements VectorBackend {
 
   deleteShardIndexes(args: { shard: ShardInfo }): void {
     for (const kind of ["content", "tags"] as const) {
-      const indexKey = this.getIndexKey(args.shard, kind);
+      const indexKey = getIndexKey(args.shard, kind);
       this.indexes.delete(indexKey);
     }
   }
@@ -168,18 +156,7 @@ export class USearchBackend implements VectorBackend {
     const cache = await this.getOrCreateIndex(indexKey);
     try {
       const matches = cache.index.search(queryVector, limit);
-      return Array.from(matches.keys as Iterable<bigint>, (key, index) => {
-        const id = cache.keyToId.get(key);
-        if (!id) {
-          throw new Error(
-            `USearch index metadata missing for key ${String(key)} in ${cache.indexKey}`
-          );
-        }
-        return {
-          id,
-          distance: matches.distances[index] ?? 0,
-        };
-      });
+      return this.mapSearchResults(cache, matches);
     } catch (error) {
       throw new Error(`USearch test search failed for ${indexKey}: ${String(error)}`);
     }
@@ -228,6 +205,20 @@ export class USearchBackend implements VectorBackend {
     return key;
   }
 
+  private mapSearchResults(
+    cache: CachedIndex,
+    matches: { keys: bigint[]; distances: Float64Array }
+  ): BackendSearchResult[] {
+    return Array.from(matches.keys as Iterable<bigint>, (key, index) => {
+      const id = cache.keyToId.get(key);
+      if (!id)
+        throw new Error(
+          `USearch index metadata missing for key ${String(key)} in ${cache.indexKey}`
+        );
+      return { id, distance: matches.distances[index] ?? 0 };
+    });
+  }
+
   private addItems(cache: CachedIndex, items: BackendInsertItem[]): void {
     for (const item of items) {
       this.upsertItem(cache, item);
@@ -241,20 +232,6 @@ export class USearchBackend implements VectorBackend {
     }
     const key = this.ensureKey(cache, item.id);
     cache.index.add(key, item.vector);
-  }
-
-  private decodeVector(value: Uint8Array | ArrayBuffer | null | undefined): Float32Array {
-    if (!value) return new Float32Array();
-    if (value instanceof Uint8Array) {
-      return new Float32Array(
-        value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength)
-      );
-    }
-    return new Float32Array(value);
-  }
-
-  private getIndexKey(shard: ShardInfo, kind: VectorKind): string {
-    return `${shard.scope}_${shard.scopeHash}_${shard.shardIndex}_${kind}`;
   }
 
   private async loadUSearch(): Promise<USearchModule> {

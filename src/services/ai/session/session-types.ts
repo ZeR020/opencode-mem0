@@ -1,4 +1,6 @@
-export type AIProviderType = "openai-chat" | "openai-responses" | "anthropic" | "google-gemini";
+import type { AIProviderType } from "../../../types/index.js";
+
+export type { AIProviderType };
 
 export interface AIMessage {
   id?: number;

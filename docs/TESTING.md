@@ -61,15 +61,9 @@ vitest run tests/memory-engine.test.ts
 vitest run -t "memory scoring"
 ```
 
-### Known issue: parallel execution interference
+### Running with Bun's native test runner
 
-When running `bun test` (Bun's native test runner, **not** Vitest), approximately 12 tests fail due to shared-state interference between parallel test workers. All 172+ tests pass individually and all 60 test files pass when run via `vitest run` (which uses isolated worker processes). The CI pipeline uses `vitest run` and is not affected.
-
-If you encounter failures with `bun test`, re-run with Vitest instead:
-
-```bash
-bun run test   # uses vitest run — reliable
-```
+Bun's built-in test runner (`bun test`) has incomplete Vitest API compatibility. Prefer using Vitest directly (`bun run test`) for reliable results.
 
 ## Writing New Tests
 

@@ -63,10 +63,10 @@ opencode-mem0 is an OpenCode plugin — it activates automatically when OpenCode
 2. **Run the test suite to confirm everything works:**
 
    ```bash
-   bun test
+   bun run test
    ```
 
-   This runs vitest. All 641 tests should pass individually. Note: running the full suite in parallel may produce 12 flaky failures due to SQLite file contention — this is a known issue, not a setup problem.
+   This runs vitest. All 641 tests should pass.
 
 3. **Use the plugin through OpenCode.** Once loaded, the plugin exposes six tool commands to the agent:
 
@@ -150,11 +150,11 @@ After the initial download, subsequent runs are near-instant. Alternatively, use
 
 Or disable the web UI entirely: `"webServerEnabled": false`.
 
-### Tests fail when running the full suite
+### Tests fail
 
-**Symptom:** `bun test` reports ~12 failures out of 641 tests.
+**Symptom:** Tests fail unexpectedly.
 
-**Solution:** This is a known parallel-execution issue with SQLite file contention. All 641 tests pass when run individually. For CI, tests run successfully because vitest handles isolation. For local development, re-run tests or run a subset.
+**Solution:** Ensure you're running the correct test command: `bun run test` (which uses Vitest). Avoid `bun test` (Bun's native test runner) as it has incomplete Vitest API compatibility. Also verify dependencies are installed with `bun install`.
 
 ## Next Steps
 

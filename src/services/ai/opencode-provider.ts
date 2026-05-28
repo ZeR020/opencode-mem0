@@ -134,20 +134,8 @@ function mergeRequestHeaders(
     input.headers.forEach((value, key) => requestHeaders.set(key, value));
   }
   if (init?.headers) {
-    if (init.headers instanceof Headers) {
-      init.headers.forEach((value, key) => requestHeaders.set(key, value));
-    } else if (Array.isArray(init.headers)) {
-      for (const pair of init.headers) {
-        const [key, value] = pair;
-        if (typeof key === "string" && typeof value === "string") {
-          requestHeaders.set(key, value);
-        }
-      }
-    } else {
-      for (const [key, value] of Object.entries(init.headers)) {
-        if (value !== undefined) requestHeaders.set(key, String(value));
-      }
-    }
+    const initHeaders = new Headers(init.headers as Exclude<RequestInit["headers"], undefined>);
+    initHeaders.forEach((value, key) => requestHeaders.set(key, value));
   }
 }
 

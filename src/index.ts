@@ -33,6 +33,51 @@ import type { SearchResult } from "./services/sqlite/types.js";
 import { getLanguageName } from "./services/language-detector.js";
 import type { MemoryScope } from "./services/client.js";
 
+async function showToast(
+  ctx: PluginInput,
+  opts: {
+    title: string;
+    message: string;
+    variant: "success" | "info" | "warning" | "error";
+    duration: number;
+  }
+) {
+  try {
+    await ctx.client?.tui
+      ?.showToast({ body: opts })
+      ?.catch?.((err: unknown) => log("Toast display failed", { error: String(err) }));
+  } catch (err) {
+    log("Toast display failed", { error: String(err) });
+  }
+}
+
+function filterMemories<T extends { metadata?: unknown; createdAt?: unknown }>(
+  memories: T[],
+  sessionId: string,
+  config: typeof CONFIG.chatMessage
+): T[] {
+  let filtered = memories;
+  if (config.excludeCurrentSession) {
+    filtered = filtered.filter(
+      (m) => (m.metadata as Record<string, unknown>)?.sessionID !== sessionId
+    );
+  }
+  if (config.maxAgeDays) {
+    const cutoff = Date.now() - config.maxAgeDays * 86400000;
+    filtered = filtered.filter(
+      (m) => !m.createdAt || new Date(m.createdAt as string | number).getTime() > cutoff
+    );
+  }
+  return filtered;
+}
+
+function isNonSyntheticUserMessage(m: {
+  info: { role: string };
+  parts: Array<{ type: string; synthetic?: boolean }>;
+}): boolean {
+  return m.info.role === "user" && !m.parts.every((p) => p.type !== "text" || p.synthetic === true);
+}
+
 const helpResponseCache = new Map<string, string>();
 const MAX_HELP_CACHE = 20;
 
@@ -79,14 +124,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   let webServer: WebServer | null = null;
   const sessionIdleTimers = new Map<string, NodeJS.Timeout>();
 
-  // Periodic sweep to prevent leaks if sessions end without firing idle timers
   const sessionIdleSweep = setInterval(() => {
-    sessionIdleTimers.forEach(() => {
-      // Timers that have already fired are deleted in the finally block,
-      // so any remaining entries are pending. Nothing to do here unless
-      // we add a session-end event in the future.
-    });
-    // Keep the Map size bounded by clearing if it grows unexpectedly large
     if (sessionIdleTimers.size > 10000) {
       log("sessionIdleTimers exceeded 10k entries — clearing all pending timers");
       sessionIdleTimers.forEach((timer) => clearTimeout(timer));
@@ -144,74 +182,43 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
       enabled: CONFIG.webServerEnabled,
       apiKey: CONFIG.webServerApiKey,
     })
-      .then((server) => {
+      .then(async (server) => {
         webServer = server;
         const url = webServer.getUrl();
 
         webServer.setOnTakeoverCallback(async () => {
-          try {
-            if (ctx.client?.tui) {
-              await ctx.client.tui
-                .showToast({
-                  body: {
-                    title: "Memory Explorer",
-                    message: "Took over web server ownership",
-                    variant: "success",
-                    duration: 3000,
-                  },
-                })
-                .catch((err) => log("Toast display failed", { error: String(err) }));
-            }
-          } catch (err) {
-            log("Toast display failed", { error: String(err) });
-          }
+          await showToast(ctx, {
+            title: "Memory Explorer",
+            message: "Took over web server ownership",
+            variant: "success",
+            duration: 3000,
+          });
         });
 
         if (webServer.isServerOwner()) {
-          if (ctx.client?.tui) {
-            ctx.client.tui
-              .showToast({
-                body: {
-                  title: "Memory Explorer",
-                  message: `Web UI started at ${url}`,
-                  variant: "success",
-                  duration: 5000,
-                },
-              })
-              .catch((err) => log("Toast display failed", { error: String(err) }));
-          }
-        } else if (ctx.client?.tui) {
-          ctx.client.tui
-            .showToast({
-              body: {
-                title: "Memory Explorer",
-                message: `Web UI available at ${url}`,
-                variant: "info",
-                duration: 3000,
-              },
-            })
-            .catch((err) => log("Toast display failed", { error: String(err) }));
+          await showToast(ctx, {
+            title: "Memory Explorer",
+            message: `Web UI started at ${url}`,
+            variant: "success",
+            duration: 5000,
+          });
+        } else {
+          await showToast(ctx, {
+            title: "Memory Explorer",
+            message: `Web UI available at ${url}`,
+            variant: "info",
+            duration: 3000,
+          });
         }
       })
-      .catch((error) => {
+      .catch(async (error) => {
         log("Web server failed to start", { error: String(error) });
-
-        try {
-          if (ctx.client?.tui) {
-            ctx.client.tui
-              .showToast({
-                body: {
-                  title: "Memory Explorer Error",
-                  message: `Failed to start: ${String(error)}`,
-                  variant: "error",
-                  duration: 5000,
-                },
-              })
-              .catch((err) => log("Toast display failed", { error: String(err) }));
-          }
-        } catch (err) {
-          log("Toast display failed", { error: String(err) });
-        }
+        await showToast(ctx, {
+          title: "Memory Explorer Error",
+          message: `Failed to start: ${String(error)}`,
+          variant: "error",
+          duration: 5000,
+        });
       });
   }
 
@@ -278,11 +285,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         });
         const messages = messagesResponse.data || [];
 
-        const hasNonSyntheticUserMessages = messages.some(
-          (m) =>
-            m.info.role === "user" &&
-            !m.parts.every((p) => p.type !== "text" || p.synthetic === true)
-        );
+        const hasNonSyntheticUserMessages = messages.some(isNonSyntheticUserMessage);
 
         const lastMessage = messages.length > 0 ? (messages.at(-1) ?? null) : null;
         const isAfterCompaction = lastMessage?.info?.summary === true;
@@ -290,12 +293,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         const shouldInject =
           CONFIG.chatMessage.injectOn === "always" ||
           !hasNonSyntheticUserMessages ||
-          (isAfterCompaction &&
-            messages.filter(
-              (m) =>
-                m.info.role === "user" &&
-                !m.parts.every((p) => p.type !== "text" || p.synthetic === true)
-            ).length === 1);
+          (isAfterCompaction && messages.filter(isNonSyntheticUserMessage).length === 1);
 
         if (!shouldInject) return;
 
@@ -315,18 +313,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
           );
           if (!searchResult.success) return;
           let memories = searchResult.results;
-
-          if (CONFIG.chatMessage.excludeCurrentSession) {
-            memories = memories.filter(
-              (m) => (m.metadata as Record<string, unknown>)?.sessionID !== input.sessionID
-            );
-          }
-          if (CONFIG.chatMessage.maxAgeDays) {
-            const cutoffDate = Date.now() - CONFIG.chatMessage.maxAgeDays * 86400000;
-            memories = memories.filter((m) =>
-              m.createdAt ? new Date(m.createdAt).getTime() > cutoffDate : true
-            );
-          }
+          memories = filterMemories(memories, input.sessionID, CONFIG.chatMessage);
           if (memories.length === 0) return;
 
           projectMemories = {
@@ -343,22 +330,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
             CONFIG.chatMessage.maxMemories
           );
           let memories = listResult.success ? listResult.memories : [];
-
-          if (CONFIG.chatMessage.excludeCurrentSession) {
-            memories = memories.filter(
-              (m) =>
-                (m.metadata as Record<string, unknown> | undefined)?.sessionID !== input.sessionID
-            );
-          }
-          if (CONFIG.chatMessage.maxAgeDays) {
-            const cutoffDate = Date.now() - CONFIG.chatMessage.maxAgeDays * 86400000;
-            memories = memories.filter((m) =>
-              (m as Record<string, string | number>).createdAt
-                ? new Date((m as Record<string, string | number>).createdAt as string).getTime() >
-                  cutoffDate
-                : true
-            );
-          }
+          memories = filterMemories(memories, input.sessionID, CONFIG.chatMessage);
           if (memories.length === 0) return;
 
           projectMemories = {
@@ -391,17 +363,13 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         }
       } catch (error) {
         log("chat.message: ERROR", { error: String(error) });
-        if (ctx.client?.tui && CONFIG.showErrorToasts) {
-          await ctx.client.tui
-            .showToast({
-              body: {
-                title: "Memory System Error",
-                message: String(error),
-                variant: "error",
-                duration: 5000,
-              },
-            })
-            .catch((err) => log("Toast display failed", { error: String(err) }));
+        if (CONFIG.showErrorToasts) {
+          await showToast(ctx, {
+            title: "Memory System Error",
+            message: String(error),
+            variant: "error",
+            duration: 5000,
+          });
         }
       }
     },
@@ -482,18 +450,14 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
             );
             if (!searchRes.success)
               return JSON.stringify({ success: false, error: searchRes.error });
-            if (searchRes.degraded && ctx.client?.tui && CONFIG.showErrorToasts) {
-              await ctx.client.tui
-                .showToast({
-                  body: {
-                    title: "Memory Search Degraded",
-                    message:
-                      "Embedding model unavailable — using text-only search. Results may be less accurate.",
-                    variant: "warning",
-                    duration: 5000,
-                  },
-                })
-                .catch((err) => log("Toast display failed", { error: String(err) }));
+            if (searchRes.degraded && CONFIG.showErrorToasts) {
+              await showToast(ctx, {
+                title: "Memory Search Degraded",
+                message:
+                  "Embedding model unavailable — using text-only search. Results may be less accurate.",
+                variant: "warning",
+                duration: 5000,
+              });
             }
             return formatSearchResults(args.query, searchRes, args.limit);
           }
@@ -712,18 +676,12 @@ async function handleSessionCompacted(
       },
     });
 
-    if (ctx.client?.tui) {
-      await ctx.client.tui
-        .showToast({
-          body: {
-            title: "Memory Restored",
-            message: `${memoriesResult.results.length} memories injected after compaction`,
-            variant: "success",
-            duration: 3000,
-          },
-        })
-        .catch((err) => log("Toast display failed", { error: String(err) }));
-    }
+    await showToast(ctx, {
+      title: "Memory Restored",
+      message: `${memoriesResult.results.length} memories injected after compaction`,
+      variant: "success",
+      duration: 3000,
+    });
 
     log("Compaction memory injected", {
       sessionID,

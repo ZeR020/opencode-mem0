@@ -6,6 +6,7 @@ import type {
   VectorKind,
 } from "./types.js";
 import type { ShardInfo } from "../sqlite/types.js";
+import { cosineSimilarity, decodeVector, KIND_COLUMN } from "./shared.js";
 
 interface RankedRow {
   id: string;
@@ -27,7 +28,7 @@ export class ExactScanBackend implements VectorBackend {
     return rows
       .map((row) => ({
         id: row.id,
-        distance: 1 - ExactScanBackend.cosineSimilarity(row.vector, queryVector),
+        distance: 1 - cosineSimilarity(row.vector, queryVector),
       }))
       .sort((a, b) => a.distance - b.distance)
       .slice(0, limit);
@@ -46,11 +47,7 @@ export class ExactScanBackend implements VectorBackend {
   }
 
   search(args: VectorBackendSearchParams): BackendSearchResult[] {
-    const COLUMN_MAP: Record<string, string> = {
-      content: "vector",
-      tags: "tags_vector",
-    };
-    const column = COLUMN_MAP[args.kind];
+    const column = KIND_COLUMN[args.kind];
     if (!column) {
       throw new Error(`Invalid vector kind: ${args.kind}`);
     }
@@ -69,7 +66,7 @@ export class ExactScanBackend implements VectorBackend {
     const rankedRows: RankedRow[] = rows
       .map((row) => ({
         id: row.id,
-        vector: ExactScanBackend.decodeVector(args.kind === "tags" ? row.tags_vector : row.vector),
+        vector: decodeVector(args.kind === "tags" ? row.tags_vector : row.vector),
       }))
       .filter((row) => row.vector.length > 0);
 
@@ -82,43 +79,5 @@ export class ExactScanBackend implements VectorBackend {
 
   deleteShardIndexes(_args: { shard: ShardInfo }): void {
     // No-op: exact-scan searches directly from SQLite, no index to delete
-  }
-
-  private static decodeVector(value: Uint8Array | ArrayBuffer | null | undefined): Float32Array {
-    if (!value) {
-      return new Float32Array();
-    }
-
-    if (value instanceof Uint8Array) {
-      return new Float32Array(
-        value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength)
-      );
-    }
-
-    return new Float32Array(value);
-  }
-
-  private static cosineSimilarity(a: Float32Array, b: Float32Array): number {
-    if (a.length !== b.length) {
-      return 0;
-    }
-
-    let dot = 0;
-    let magA = 0;
-    let magB = 0;
-
-    for (let i = 0; i < a.length; i++) {
-      const av = a[i] ?? 0;
-      const bv = b[i] ?? 0;
-      dot += av * bv;
-      magA += av * av;
-      magB += bv * bv;
-    }
-
-    if (magA === 0 || magB === 0) {
-      return 0;
-    }
-
-    return dot / (Math.sqrt(magA) * Math.sqrt(magB));
   }
 }

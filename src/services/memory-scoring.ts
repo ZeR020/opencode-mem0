@@ -8,15 +8,7 @@ export interface ScoreComponents {
   interference: number;
 }
 
-export interface MemoryScoringWeights {
-  recency: number;
-  frequency: number;
-  importance: number;
-  utility: number;
-  novelty: number;
-  confidence: number;
-  interference: number;
-}
+export type MemoryScoringWeights = ScoreComponents;
 
 const DEFAULT_WEIGHTS: MemoryScoringWeights = {
   recency: 0.2,
@@ -239,11 +231,6 @@ function countWords(text: string): number {
   return trimmed.split(WORD_SPLIT_RE).length;
 }
 
-// skipcq: JS-0067
-function hasTypeMatch(types: Set<string>, lowerType: string) {
-  return Array.from(types).some((type) => lowerType.includes(type));
-}
-
 /**
  * Calculate recency score using exponential decay.
  * Score = exp(-λ * age_in_days)
@@ -297,9 +284,9 @@ function scoreLength(wordCount: number): number {
 // skipcq: JS-0067
 function scoreType(type: string) {
   const lowerType = type.toLowerCase();
-  if (hasTypeMatch(HIGH_IMPORTANCE_TYPES, lowerType)) return 0.15;
-  if (hasTypeMatch(MEDIUM_IMPORTANCE_TYPES, lowerType)) return 0.05;
-  if (hasTypeMatch(LOW_IMPORTANCE_TYPES, lowerType)) return -0.1;
+  for (const t of HIGH_IMPORTANCE_TYPES) if (lowerType.includes(t)) return 0.15;
+  for (const t of MEDIUM_IMPORTANCE_TYPES) if (lowerType.includes(t)) return 0.05;
+  for (const t of LOW_IMPORTANCE_TYPES) if (lowerType.includes(t)) return -0.1;
   return 0;
 }
 
@@ -423,10 +410,13 @@ export function calculateNovelty(content: string, existingContents: string[]): n
 
     if (existingWords.size === 0) continue;
 
-    const intersection = new Set([...contentWords].filter((w) => existingWords.has(w)));
-    const union = new Set([...contentWords, ...existingWords]);
+    let intersectionSize = 0;
+    for (const w of contentWords) {
+      if (existingWords.has(w)) intersectionSize++;
+    }
+    const unionSize = contentWords.size + existingWords.size - intersectionSize;
 
-    const jaccardSimilarity = intersection.size / union.size;
+    const jaccardSimilarity = intersectionSize / unionSize;
     maxSimilarity = Math.max(maxSimilarity, jaccardSimilarity);
 
     // Length similarity
@@ -440,31 +430,27 @@ export function calculateNovelty(content: string, existingContents: string[]): n
   return novelty;
 }
 
+const HIGH_CONFIDENCE_TYPES = ["decision", "architecture", "configuration", "security"];
+const LOW_CONFIDENCE_TYPES = ["greeting", "chat", "casual", "meta", "question"];
+
 /**
  * Calculate confidence based on source and extraction method.
  * Manual memories have higher confidence than auto-captured ones.
  */
 export function calculateConfidence(source?: string, type?: string): number {
-  let score = 0.7; // Base confidence
+  let score = 0.7;
 
-  // Source-based confidence
   if (source === "manual") {
     score += 0.2;
   } else if (source === "auto-capture") {
     score += 0.05;
   } else if (source === "api") {
     score += 0.1;
-  } else if (source === "import") {
-    score += 0;
   }
 
-  // Type-based confidence adjustments
-  const highConfidenceTypes = ["decision", "architecture", "configuration", "security"];
-  const lowConfidenceTypes = ["greeting", "chat", "casual", "meta", "question"];
-
-  if (type && highConfidenceTypes.some((t) => type.toLowerCase().includes(t))) {
+  if (type && HIGH_CONFIDENCE_TYPES.some((t) => type.toLowerCase().includes(t))) {
     score += 0.05;
-  } else if (type && lowConfidenceTypes.some((t) => type.toLowerCase().includes(t))) {
+  } else if (type && LOW_CONFIDENCE_TYPES.some((t) => type.toLowerCase().includes(t))) {
     score -= 0.1;
   }
 
@@ -522,8 +508,11 @@ function checkNegationOverlap(content: string, conflicting: string): number {
 
   if (contentWords.size === 0 || conflictingWords.size === 0) return 0;
 
-  const intersection = new Set([...contentWords].filter((w) => conflictingWords.has(w)));
-  const overlapRatio = intersection.size / Math.min(contentWords.size, conflictingWords.size);
+  let intersectionSize = 0;
+  for (const w of contentWords) {
+    if (conflictingWords.has(w)) intersectionSize++;
+  }
+  const overlapRatio = intersectionSize / Math.min(contentWords.size, conflictingWords.size);
 
   return overlapRatio > 0.3 ? 0.2 : 0;
 }
@@ -588,18 +577,15 @@ export function computeStrength(
   scores: ScoreComponents,
   weights: MemoryScoringWeights = DEFAULT_WEIGHTS
 ): number {
-  const rawStrength =
-    scores.recency * weights.recency +
-    scores.frequency * weights.frequency +
-    scores.importance * weights.importance +
-    scores.utility * weights.utility +
-    scores.novelty * weights.novelty +
-    scores.confidence * weights.confidence -
-    scores.interference * Math.abs(weights.interference);
+  let rawStrength = 0;
+  for (const key of Object.keys(scores) as (keyof ScoreComponents)[]) {
+    if (key === "interference") {
+      rawStrength -= scores[key] * Math.abs(weights[key]);
+    } else {
+      rawStrength += scores[key] * weights[key];
+    }
+  }
 
-  // Normalize to [0, 1] range
-  // Max possible: 0.2 + 0.15 + 0.25 + 0.2 + 0.1 + 0.1 = 1.0 (interference subtracts)
-  // Min possible: 0 - 0.1 = -0.1
   const normalized = (rawStrength + 0.1) / 1.1;
 
   return Math.max(0, Math.min(1, normalized));

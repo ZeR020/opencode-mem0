@@ -5,24 +5,16 @@ import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
 
 function expandPath(path: string): string {
-  if (path.startsWith("~/")) {
-    return join(homedir(), path.slice(2));
-  }
-  if (path === "~") {
-    return homedir();
-  }
+  if (path.startsWith("~/")) return join(homedir(), path.slice(2));
+  if (path === "~") return homedir();
   return path;
 }
 
 function checkFilePermissions(filePath: string): void {
-  if (platform() === "win32") {
-    return;
-  }
+  if (platform() === "win32") return;
 
   try {
-    const stats = statSync(filePath);
-    const mode = stats.mode & 0o777;
-
+    const mode = statSync(filePath).mode & 0o777;
     if ((mode & 0o077) !== 0) {
       log(
         `Warning: Secret file ${filePath} has group/other permissions (${(mode & 0o077).toString(8)}). Recommend chmod 600.`,
@@ -38,17 +30,13 @@ function checkFilePermissions(filePath: string): void {
 }
 
 export function resolveSecretValue(value: string | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
+  if (!value) return undefined;
 
   if (value.startsWith("file://")) {
     const filePath = normalize(expandPath(fileURLToPath(new URL(value))));
 
-    if (filePath.includes("..") || (isAbsolute(filePath) && !existsSync(filePath))) {
-      if (filePath.includes("..")) {
-        throw new Error(`Secret file path traversal blocked: ${filePath}`);
-      }
+    if (filePath.includes("..")) {
+      throw new Error(`Secret file path traversal blocked: ${filePath}`);
     }
 
     if (!existsSync(filePath)) {
@@ -57,9 +45,7 @@ export function resolveSecretValue(value: string | undefined): string | undefine
 
     try {
       checkFilePermissions(filePath);
-
-      const content = readFileSync(filePath, "utf-8");
-      return content.trim();
+      return readFileSync(filePath, "utf-8").trim();
     } catch (error) {
       throw new Error(`Failed to read secret file ${filePath}: ${error}`);
     }
@@ -68,11 +54,7 @@ export function resolveSecretValue(value: string | undefined): string | undefine
   if (value.startsWith("env://")) {
     const envVar = value.slice(6);
     const envValue = process.env[envVar];
-
-    if (!envValue) {
-      throw new Error(`Environment variable not found: ${envVar}`);
-    }
-
+    if (!envValue) throw new Error(`Environment variable not found: ${envVar}`);
     return envValue;
   }
 

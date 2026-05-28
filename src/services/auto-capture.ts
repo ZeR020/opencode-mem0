@@ -220,15 +220,12 @@ function extractAIContent(messages: any[]): {
 
       if (tool.state?.input) {
         const inputObj = tool.state.input;
-        if (typeof inputObj === "string") {
-          input = inputObj;
-        } else if (typeof inputObj === "object") {
-          const params = [];
-          for (const [key, value] of Object.entries(inputObj)) {
-            params.push(`${key}: ${JSON.stringify(value)}`);
-          }
-          input = params.join(", ");
-        }
+        input =
+          typeof inputObj === "string"
+            ? inputObj
+            : Object.entries(inputObj as Record<string, unknown>)
+                .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
+                .join(", ");
       }
 
       if (input.length > MAX_TOOL_INPUT_LENGTH) {
@@ -245,22 +242,9 @@ function extractAIContent(messages: any[]): {
 async function getLatestProjectMemory(containerTag: string): Promise<string | null> {
   try {
     const result = await memoryClient.listMemories(containerTag, 1);
-    if (!result.success || result.memories.length === 0) {
-      return null;
-    }
-
-    const latest = result.memories[0];
-    if (!latest) {
-      return null;
-    }
-
-    const content = latest.summary;
-
-    if (content.length <= 500) {
-      return content;
-    }
-
-    return `${content.substring(0, 500)}...`;
+    if (!result.success || result.memories.length === 0) return null;
+    const content = result.memories[0]!.summary;
+    return content.length <= 500 ? content : `${content.substring(0, 500)}...`;
   } catch {
     return null;
   }
@@ -287,11 +271,7 @@ function buildMarkdownContext(
   if (toolCalls.length > 0) {
     sections.push("## Tools Used", "---");
     for (const tool of toolCalls) {
-      if (tool.input) {
-        sections.push(`- ${tool.name}(${tool.input})`);
-      } else {
-        sections.push(`- ${tool.name}`);
-      }
+      sections.push(tool.input ? `- ${tool.name}(${tool.input})` : `- ${tool.name}`);
     }
     sections.push("---\n");
   }

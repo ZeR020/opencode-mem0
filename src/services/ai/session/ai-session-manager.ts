@@ -13,12 +13,10 @@ import {
   type SessionUpdateParams,
 } from "./session-types.js";
 
-type DatabaseType = Database;
-
 const AI_SESSIONS_DB_NAME = "ai-sessions.db";
 
 export class AISessionManager {
-  private readonly db: DatabaseType;
+  private readonly db: Database;
   private readonly dbPath: string;
   private readonly sessionRetentionMs: number;
   private readonly getSessionStmt: any;
@@ -300,33 +298,14 @@ let _aiSessionManager: AISessionManager | null = null;
 
 // skipcq: JS-0067 — Intentional module-level singleton for connection pooling
 export function getAISessionManager(): AISessionManager {
-  if (!_aiSessionManager) {
-    _aiSessionManager = new AISessionManager();
-  }
-  return _aiSessionManager;
+  return (_aiSessionManager ??= new AISessionManager());
 }
 
 // Backward-compatible named export (lazy — no side effects at import time)
-export const aiSessionManager = {
-  get cleanupExpiredSessions() {
-    return getAISessionManager().cleanupExpiredSessions.bind(getAISessionManager());
+export const aiSessionManager: AISessionManager = new Proxy({} as AISessionManager, {
+  get(_target, prop: string) {
+    const manager = getAISessionManager();
+    const value = (manager as any)[prop];
+    return typeof value === "function" ? value.bind(manager) : value;
   },
-  get createSession() {
-    return getAISessionManager().createSession.bind(getAISessionManager());
-  },
-  get getSession() {
-    return getAISessionManager().getSession.bind(getAISessionManager());
-  },
-  get getMessages() {
-    return getAISessionManager().getMessages.bind(getAISessionManager());
-  },
-  get addMessage() {
-    return getAISessionManager().addMessage.bind(getAISessionManager());
-  },
-  get updateSession() {
-    return getAISessionManager().updateSession.bind(getAISessionManager());
-  },
-  get getLastSequence() {
-    return getAISessionManager().getLastSequence.bind(getAISessionManager());
-  },
-} as unknown as AISessionManager;
+});

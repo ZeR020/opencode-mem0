@@ -1,8 +1,18 @@
-import { BaseAIProvider, type ToolCallResult } from "./base-provider.js";
+import { BaseAIProvider, type ProviderConfig, type ToolCallResult } from "./base-provider.js";
 import { AISessionManager } from "../session/ai-session-manager.js";
 import type { ChatCompletionTool } from "../tools/tool-schema.js";
 import { log } from "../../logger.js";
 import { UserProfileValidator } from "../validators/user-profile-validator.js";
+
+function safeParseToolResponse(content: string): any {
+  try {
+    return JSON.parse(content);
+  } catch {
+    return { raw: content };
+  }
+}
+
+const extractFunctionName = (id: string) => id.split(":")[0];
 
 /**
  * Google Gemini Provider
@@ -11,7 +21,7 @@ import { UserProfileValidator } from "../validators/user-profile-validator.js";
 export class GoogleGeminiProvider extends BaseAIProvider {
   private readonly aiSessionManager: AISessionManager;
 
-  constructor(config: any, aiSessionManager: AISessionManager) {
+  constructor(config: ProviderConfig, aiSessionManager: AISessionManager) {
     super(config);
     this.aiSessionManager = aiSessionManager;
   }
@@ -36,20 +46,13 @@ export class GoogleGeminiProvider extends BaseAIProvider {
       content,
       toolCallId,
     });
-    let response: any;
-    try {
-      response = JSON.parse(content);
-    } catch {
-      log("Gemini: failed to parse tool response content in addToolResponse", { content });
-      response = { raw: content };
-    }
-    // Gemini tool response format
+    const response = safeParseToolResponse(content);
     messages.push({
       role: "function",
       parts: [
         {
           functionResponse: {
-            name: toolCallId.split(":")[0], // Gemini expects the name of the function
+            name: extractFunctionName(toolCallId),
             response,
           },
         },
@@ -94,19 +97,13 @@ export class GoogleGeminiProvider extends BaseAIProvider {
       }
 
       if (msg.role === "tool") {
-        let response: any;
-        try {
-          response = JSON.parse(msg.content);
-        } catch {
-          log("Gemini: failed to parse tool response content", { content: msg.content });
-          response = { raw: msg.content };
-        }
+        const response = safeParseToolResponse(msg.content);
         contents.push({
           role: "function",
           parts: [
             {
               functionResponse: {
-                name: (msg.toolCallId || "").split(":")[0],
+                name: extractFunctionName(msg.toolCallId || ""),
                 response,
               },
             },
