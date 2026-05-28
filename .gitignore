@@ -262,5 +262,8 @@ log/
 .graphifyignore
 .config/
 bin/
-deepsource-*.json
-REVIEW.md
+  deepsource-*.json
+  REVIEW.md
+  GSD_SDK_GUIDE.md
+  check-vi-internal.ts
+  AGENTS.md.bak.md
