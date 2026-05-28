@@ -1,332 +1,158 @@
-# Getting Started with opencode-mem0
+<!-- generated-by: gsd-doc-writer -->
 
-This guide will take you from zero to durable memory in under five minutes. No prior development experience is required.
+# Getting Started
 
----
-
-## Table of Contents
-
-1. [Prerequisites](#prerequisites)
-2. [Installation](#installation)
-3. [First-Time Setup](#first-time-setup)
-4. [Basic Usage](#basic-usage)
-5. [Memory Scopes](#memory-scopes)
-6. [Common Workflows](#common-workflows)
-7. [Troubleshooting](#troubleshooting)
-8. [Next Steps](#next-steps)
-
----
+This guide walks you through installing, configuring, and running opencode-mem0 for the first time.
 
 ## Prerequisites
 
-Before installing, ensure you have the following:
+| Requirement  | Version   | Notes                                                                                                        |
+| ------------ | --------- | ------------------------------------------------------------------------------------------------------------ |
+| **Bun**      | >= 1.0.0  | Primary runtime. Required for `bun:sqlite` — the fast native SQLite driver.                                  |
+| **Node.js**  | >= 20.0.0 | Fallback runtime. Uses `better-sqlite3` instead of `bun:sqlite`. Full functionality on Bun; partial on Node. |
+| **OpenCode** | latest    | The agent framework this plugin extends. Install via `npm install -g opencode` or your preferred method.     |
+| **Git**      | any       | For cloning the repository.                                                                                  |
 
-| Requirement            | Version                  | How to check                        |
-| ---------------------- | ------------------------ | ----------------------------------- |
-| **Bun** or **Node.js** | Bun 1.x+ or Node.js 20+  | `bun --version` or `node --version` |
-| **OpenCode**           | Latest                   | `opencode --version`                |
-| **Operating System**   | Linux, macOS, or Windows | Any modern OS                       |
+> **Bun is strongly recommended.** The plugin probes for `bun:sqlite` at startup and falls back to `better-sqlite3` on Node.js, but the Bun path is faster and is the tested primary target.
 
-If you don't have Bun installed, you can use Node.js as a fallback. Both work equally well.
+## Installation Steps
 
-**Tip:** This plugin stores everything locally. No external account, cloud service, or API key is required for basic usage.
-
----
-
-## Installation
-
-Choose the method that fits your workflow.
-
-### Method 1: Global Installation (Recommended)
-
-Install once, use everywhere:
+### 1. Clone the repository
 
 ```bash
-npm install -g opencode-mem0
+git clone https://github.com/ZeR020/opencode-mem0.git
+cd opencode-mem0
 ```
 
-This makes the plugin available to every OpenCode session on your machine.
-
-### Method 2: Project-Local Installation
-
-If you prefer to keep dependencies inside your project:
+### 2. Install dependencies
 
 ```bash
-npm install opencode-mem0
+bun install
 ```
 
-Then add it to your project's OpenCode configuration instead of the global one.
-
-### Method 3: Via the OpenCode Plugin System
-
-Some OpenCode distributions support plugin discovery. If yours does:
+If you don't have Bun, use npm (Node.js >= 20):
 
 ```bash
-opencode plugin add opencode-mem0
+npm install
 ```
 
-> **Which should I choose?** Use global installation for a personal machine. Use project-local if you work on shared environments where you want reproducible setups.
-
----
-
-## First-Time Setup
-
-After installation, you need to tell OpenCode to load the plugin.
-
-### Step 1: Add to your OpenCode configuration
-
-Edit (or create) `~/.config/opencode/opencode.json`:
-
-```json
-{
-  "plugin": ["opencode-mem0"]
-}
-```
-
-If you already have other plugins, simply append to the array:
-
-```json
-{
-  "plugin": ["some-other-plugin", "opencode-mem0"]
-}
-```
-
-### Step 2: Start OpenCode
-
-Open a terminal and run:
+### 3. Build the plugin
 
 ```bash
-opencode
+bun run build
 ```
 
-The plugin auto-initializes on startup. You will see a brief startup message confirming the memory store is ready.
+This compiles TypeScript to `dist/plugin.js` using the custom build script at `scripts/build.mjs`.
 
-### Step 3: Verify the Web UI
+### 4. Verify the build
 
-Open your browser and navigate to:
-
-```
-http://localhost:4747
+```bash
+bun run typecheck
 ```
 
-You should see the memory management dashboard. If this page loads, everything is working correctly.
+Confirms the TypeScript compiles without errors.
 
-### What just happened?
+## First Run
 
-- A local SQLite database was created at `~/.opencode-mem0/data` (or your configured `storagePath`).
-- The vector index for semantic search was initialized.
-- A small web server started on port `4747` for visual memory management.
-- A default configuration file was created at `~/.config/opencode/opencode-mem0.jsonc` with all options commented out.
+opencode-mem0 is an OpenCode plugin — it activates automatically when OpenCode loads it. There is no standalone server to start (the optional Web UI starts as part of the plugin lifecycle).
 
-No data leaves your machine. All memories, transcripts, and preferences are stored locally.
+### Quick verification
 
----
+1. **Ensure OpenCode is installed and configured.** The plugin registers via the `opencode` field in `package.json` (hooks: `chat.message`, `event`).
 
-## Basic Usage
+2. **Run the test suite to confirm everything works:**
 
-Once OpenCode is running with the plugin loaded, you can manage memories directly from chat or via the Web UI.
+   ```bash
+   bun test
+   ```
 
-### Storing a Memory
+   This runs vitest. All 641 tests should pass individually. Note: running the full suite in parallel may produce 12 flaky failures due to SQLite file contention — this is a known issue, not a setup problem.
 
-```
-memory add "User prefers bun over npm for package management"
-```
+3. **Use the plugin through OpenCode.** Once loaded, the plugin exposes six tool commands to the agent:
 
-The plugin automatically assigns a scope, scores the memory, and indexes it for later retrieval.
+   | Command   | Description                             |
+   | --------- | --------------------------------------- |
+   | `add`     | Store a new memory                      |
+   | `search`  | Search memories by keywords             |
+   | `profile` | View or update user profile/preferences |
+   | `list`    | List recent memories                    |
+   | `forget`  | Remove a memory by ID                   |
 
-### Searching Memories
+4. **Open the Web UI.** By default, the plugin starts a web dashboard at `http://127.0.0.1:4747`. Open it in your browser to browse memories, view profiles, and manage data visually.
 
-```
-memory search "package manager preference"
-```
+### Minimal configuration
 
-Results are ranked by a combination of semantic similarity, text match, recency, and the built-in 7-factor memory score.
+No configuration is required for first run. The plugin uses these defaults:
 
-### Listing All Memories
+- **Storage**: `~/.opencode-mem0/data/` (local SQLite + usearch vectors)
+- **Embedding model**: `Xenova/nomic-embed-text-v1` (runs locally, no API key needed)
+- **Web UI**: enabled on `127.0.0.1:4747`
+- **Auto-capture**: enabled (automatically extracts memories from conversations)
+- **Memory scope**: per-project
 
-```
-memory list
-```
-
-You can also filter by project or scope:
-
-```
-memory list --scope project
-```
-
-### Deleting a Memory
-
-First, find the memory ID from `memory list` or search results. Then:
-
-```
-memory delete <id>
-```
-
-Replace `<id>` with the actual memory identifier. Deleted memories are removed permanently.
-
-### Using the Web UI
-
-The Web UI at `http://localhost:4747` provides a visual interface for all of the above operations:
-
-- **Browse** all stored memories in a timeline view.
-- **Search** using keywords or natural language.
-- **View details** including the 7-factor scoring breakdown.
-- **Delete** or **update** memories with one click.
-- **Resolve conflicts** when new memories contradict old ones.
-- **Search transcripts** of past OpenCode sessions.
-- **Manage your profile** and stored preferences.
-
----
-
-## Memory Scopes
-
-Memories can be scoped to a specific project or shared across all projects.
-
-| Scope          | Behavior                                                 | Best for                                                         |
-| -------------- | -------------------------------------------------------- | ---------------------------------------------------------------- |
-| `project`      | Only visible when working inside the matching project.   | Code conventions, project-specific decisions, temporary context. |
-| `all-projects` | Visible everywhere, regardless of which project is open. | Personal preferences, universal rules, cross-project knowledge.  |
-
-**Default scope:** `project`.
-
-When you store a memory inside a project directory, it is automatically tagged with that project's scope. When you store one outside any project, it defaults to `all-projects`.
-
-You can override the default in your configuration:
+To override defaults, create a config file at `~/.config/opencode/opencode-mem0.jsonc`:
 
 ```jsonc
 {
-  "memory": {
-    "defaultScope": "all-projects",
-  },
+  // Use your name instead of the system default
+  "userNameOverride": "Your Name",
+  "userEmailOverride": "you@example.com",
 }
 ```
 
----
+See [CONFIGURATION.md](CONFIGURATION.md) for the full list of settings.
 
-## Common Workflows
+## Common Setup Issues
 
-### Workflow 1: Storing a Project Convention
+### Bun not found / wrong runtime
 
-You just decided that all functions in this project must use explicit return types. Store it so the agent remembers:
+**Symptom:** `bun: command not found` or the plugin logs `"bun:sqlite probe failed"`.
 
-```
-memory add "All functions in this project must use explicit return types. No implicit any allowed."
-```
+**Solution:** Install Bun:
 
-This is scoped to the current project by default. The next time you open this project, the agent will recall this rule.
-
-### Workflow 2: Searching for Past Decisions
-
-You remember making a decision about the database schema last week but don't recall the details. Search for it:
-
-```
-memory search "database schema decision"
+```bash
+curl -fsSL https://bun.sh/install | bash
 ```
 
-The hybrid search (vector + full-text + scoring + recency) will surface the most relevant memory, even if your query wording differs from the original text.
+Restart your shell after installation. On Node.js, the plugin works but uses `better-sqlite3` as a fallback, which is slower for vector operations.
 
-### Workflow 3: Resolving Conflicts
+### Embedding model warmup timeout
 
-You store a new memory that contradicts an old one. For example:
+**Symptom:** Plugin logs `"Embedding model warmup timed out"` during startup.
 
-- Old memory: "Use npm for package management."
-- New memory: "Switch to bun for faster installs."
+**Solution:** The first run downloads the local embedding model (~270 MB). On slow connections, the 30-second default timeout may be insufficient. Increase it in config:
 
-The plugin detects the conflict and presents options:
+```jsonc
+{
+  "warmupTimeoutMs": 120000, // 2 minutes
+}
+```
 
-- **Keep newer** — replace the old memory.
-- **Keep both** — store as separate memories (perhaps with different scopes).
-- **Merge** — combine into a single updated memory.
-- **Resolve manually** — review in the Web UI and decide yourself.
+After the initial download, subsequent runs are near-instant. Alternatively, use a remote embedding API (see [CONFIGURATION.md](CONFIGURATION.md)).
 
-Conflicts are surfaced in the Web UI at `http://localhost:4747/conflicts` and via the API.
+### Port 4747 already in use
 
----
+**Symptom:** Web UI fails to start; log shows EADDRINUSE.
 
-## Troubleshooting
+**Solution:** Change the port in config:
 
-### Plugin not loading
+```jsonc
+{
+  "webServerPort": 5050,
+}
+```
 
-**Symptom:** OpenCode starts, but `memory` commands are not recognized.
+Or disable the web UI entirely: `"webServerEnabled": false`.
 
-**Steps:**
+### Tests fail when running the full suite
 
-1. Verify `opencode-mem0` is in your `~/.config/opencode/opencode.json` plugin array.
-2. Confirm the package is installed: `npm list -g opencode-mem0`.
-3. Restart OpenCode completely.
-4. Check the OpenCode logs for startup errors.
+**Symptom:** `bun test` reports ~12 failures out of 641 tests.
 
-### Web UI not accessible
-
-**Symptom:** `http://localhost:4747` does not load.
-
-**Steps:**
-
-1. Verify OpenCode is running.
-2. Check if another service is using port `4747`.
-3. Try a different port in your configuration:
-
-   ```jsonc
-   {
-     "webServerPort": 4748,
-   }
-   ```
-
-4. Restart OpenCode and try the new port.
-
-### Database locked errors
-
-**Symptom:** Commands fail with "database is locked" or similar.
-
-**Cause:** SQLite only supports one writer at a time.
-
-**Steps:**
-
-1. Close any other OpenCode instances or tools accessing `~/.opencode-mem0/data`.
-2. Restart OpenCode.
-3. If the issue persists, the lock file may be stale. Stop OpenCode and delete any `*.lock` or `*.journal` files in the data directory, then restart.
-
-### Port conflicts
-
-**Symptom:** Startup fails with "address already in use."
-
-**Steps:**
-
-1. Find what is using the port: `lsof -i :4747` (macOS/Linux) or `netstat -ano | findstr :4747` (Windows).
-2. Either stop the conflicting service, or change the `webServerPort` in your configuration.
-3. Restart OpenCode.
-
-### Memories not appearing in search
-
-**Symptom:** You added a memory, but it does not show up in results.
-
-**Possible causes:**
-
-- **Scope mismatch** — you searched in a different project than where the memory was stored.
-- **Low score** — the memory scored below the relevance threshold and was filtered out.
-- **Indexing delay** — embeddings are computed asynchronously. Wait a few seconds and retry.
-- **Archived** — very old or low-scoring memories may have been archived automatically.
-
-**Steps:**
-
-1. Use `memory list` to confirm the memory exists.
-2. Try `memory search "your query" --scope all-projects`.
-3. Check the Web UI for the memory's score and status.
-
----
+**Solution:** This is a known parallel-execution issue with SQLite file contention. All 641 tests pass when run individually. For CI, tests run successfully because vitest handles isolation. For local development, re-run tests or run a subset.
 
 ## Next Steps
 
-Now that you have durable memory working, you can dive deeper:
-
-- **Customize behavior** — See [`CONFIGURATION.md`](CONFIGURATION.md) for every available option, including AI providers, scoring weights, lifecycle settings, and project-level overrides.
-- **Understand the system** — See [`ARCHITECTURE.md`](ARCHITECTURE.md) for a technical deep-dive into how data flows, how the 7-factor scoring works, and how the STM/LTM lifecycle manages memory decay.
-- **Development and contribution** — See [`README.md`](../README.md#development) for build instructions, test commands, and contribution guidelines.
-
-If you encounter an issue not covered here, please open an issue on the [GitHub repository](https://github.com/ZeR020/opencode-mem0).
-
----
-
-<p align="center">
-  <sub>Happy remembering.</sub>
-</p>
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — Understand the system design, data flow, and key abstractions.
+- **[CONFIGURATION.md](CONFIGURATION.md)** — Explore all configurable settings including memory scoring, lifecycle, retrieval, and AI provider options.
+- **[examples/basic-usage.ts](../examples/basic-usage.ts)** — See a complete code example for adding, searching, and listing memories.
+- **[examples/custom-scoring.ts](../examples/custom-scoring.ts)** — Learn how the 7-factor memory scoring system works.

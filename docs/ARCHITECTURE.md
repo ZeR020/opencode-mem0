@@ -1,769 +1,231 @@
-# opencode-mem0 Architecture
+<!-- generated-by: gsd-doc-writer -->
 
-**Version:** 2.16 (Phase 03: Experience & Polish)  
-**Runtime:** Bun (primary), Node.js 20+ (fallback)  
-**Storage:** SQLite + usearch (local vector DB)  
-**License:** MIT
+# Architecture
 
----
+opencode-mem0 is an [OpenCode plugin](https://github.com/nicepkg/opencode) that gives coding agents persistent memory through a local vector database built on SQLite and usearch. It intercepts chat messages and session events from the OpenCode host, stores technical knowledge as vector-embedded memories, and injects relevant context back into agent conversations — all running entirely on the local machine with no cloud dependencies.
 
-## Table of Contents
+## System Overview
 
-1. [High-Level System Diagram](#1-high-level-system-diagram)
-2. [Data Flow](#2-data-flow)
-3. [Module Breakdown](#3-module-breakdown)
-4. [Database Schema](#4-database-schema)
-5. [Memory Lifecycle State Machine](#5-memory-lifecycle-state-machine)
-6. [Search Pipeline](#6-search-pipeline)
-7. [Storage Architecture](#7-storage-architecture)
-8. [Cross-Platform Runtime Abstraction](#8-cross-platform-runtime-abstraction)
-9. [Extension Points](#9-extension-points)
-10. [AI Provider Ecosystem](#10-ai-provider-ecosystem)
-11. [Security & Privacy Model](#11-security--privacy-model)
+The system is a **layered, event-driven plugin** that operates as a cognitive enhancement layer over the OpenCode agent framework. Its primary input is the stream of user–agent chat messages and session lifecycle events; its primary output is injected memory context (synthetic message parts) prepended to agent prompts. The architecture follows a service-oriented pattern where a thin plugin entry point delegates to specialized services for storage, scoring, retrieval, and lifecycle management. All data is persisted locally via sharded SQLite databases with pluggable vector search backends.
 
----
+```mermaid
+graph TD
+    OC[OpenCode Host] -->|chat.message event| EP[Plugin Entry Point<br>src/index.ts]
+    OC -->|session.idle event| EP
+    OC -->|session.compacted event| EP
+    EP -->|tool invocation| TL[Memory Tool<br>add/search/list/forget/profile]
+    EP -->|context injection| CI[Context Formatter<br>src/services/context.ts]
+    EP -->|auto-capture| AC[Auto-Capture Service]
+    EP -->|web UI| WS[Web Server<br>localhost:4747]
 
-## 1. High-Level System Diagram
+    TL --> MC[LocalMemoryClient<br>src/services/client.ts]
+    CI --> MC
+    AC --> MC
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           OpenCode Host                                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐ │
-│  │ chat.message │  │  session.*   │  │   tool       │  │   event (idle)   │ │
-│  │   hook       │  │   hooks      │  │  (memory)    │  │    hook          │ │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └────────┬─────────┘ │
-│         │                 │                 │                   │           │
-│         └─────────────────┴─────────────────┴───────────────────┘           │
-│                                    │                                        │
-│                         ┌──────────▼──────────┐                           │
-│                         │   OpenCodeMemPlugin   │                           │
-│                         │     (src/index.ts)    │                           │
-│                         └──────────┬──────────┘                           │
-│                                    │                                        │
-│    ┌───────────────────────────────┼───────────────────────────────┐         │
-│    │                               │                               │         │
-│    ▼                               ▼                               ▼         │
-│ ┌────────────┐            ┌─────────────────┐            ┌───────────────┐  │
-│ │ Auto-Capture│            │  Memory Client   │            │   Web Server   │  │
-│ │ (AI-driven)│            │ (src/services/  │            │  (localhost:   │  │
-│ │            │            │    client.ts)    │            │    4747)       │  │
-│ └─────┬──────┘            └────────┬─────────┘            └───────┬───────┘  │
-│       │                            │                              │         │
-│       ▼                            ▼                              │         │
-│ ┌──────────────┐         ┌─────────────────────┐                  │         │
-│ │ Transcript   │         │   7-Factor Scoring   │                  │         │
-│ │ Capture      │         │   (memory-scoring.ts)│                 │         │
-│ └──────┬───────┘         └──────────┬──────────┘                  │         │
-│        │                            │                             │         │
-│        ▼                            ▼                             ▼         │
-│ ┌─────────────────────────────────────────────────────────────────────────┐ │
-│ │                         SQLite Storage Layer                             │ │
-│ │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌──────────────────┐ │ │
-│ │  │  Memories  │  │  Shards    │  │  Conflicts │  │ User Profiles    │ │ │
-│ │  │  (FTS5+Vec)│  │  Metadata  │  │            │  │                  │ │ │
-│ │  └────────────┘  └────────────┘  └────────────┘  └──────────────────┘ │ │
-│ └─────────────────────────────────────────────────────────────────────────┘ │
-│                                    │                                        │
-│                         ┌──────────▼──────────┐                           │
-│                         │  Vector Backends     │                           │
-│                         │  (usearch/NSW/exact) │                           │
-│                         └─────────────────────┘                           │
-└─────────────────────────────────────────────────────────────────────────────┘
+    MC --> EM[Embedding Service]
+    MC --> VS[VectorSearch]
+    MC --> SM[ShardManager]
+    MC --> MS[Memory Scoring]
+    MC --> ML[Memory Lifecycle]
+    MC --> CF[Conflict Detection]
+    MC --> DD[Deduplication Service]
+
+    VS --> VB[Vector Backend<br>usearch / exact-scan]
+    VS --> CM[ConnectionManager<br>SQLite pool]
+    SM --> CM
+
+    EM -->|local| HF[HuggingFace Transformers<br>Xenova/nomic-embed-text-v1]
+    EM -->|remote| API[OpenAI-compatible API]
+
+    WS --> AH[API Handlers<br>src/services/api-handlers.ts]
+    AH --> MC
 ```
 
----
+## Data Flow
 
-## 2. Data Flow
+### 1. Memory Injection (chat.message hook)
 
-### 2.1 Memory Ingestion Flow
+When a user sends a chat message, the `chat.message` hook fires:
 
-```
-User / AI Action
-      │
-      ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   OpenCode Hook  │────▶│  Privacy Filter  │────▶│  Deduplication   │
-│ (chat.message /  │     │ (stripPrivate,   │     │ (ingest-time     │
-│  tool execute)   │     │  isFullyPrivate) │     │  similarity check)│
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                                                        │
-                              ┌─────────────────────────┘
-                              ▼
-                    ┌─────────────────┐
-                    │  Embedding Gen   │
-                    │ (Xenova local /  │
-                    │  OpenAI API)     │
-                    └────────┬────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              ▼              ▼              ▼
-       ┌────────────┐ ┌────────────┐ ┌────────────┐
-       │ 7-Factor   │ │ Lifecycle  │ │ Conflict   │
-       │ Scoring    │ │ Classify   │ │ Detection  │
-       │ (recency,  │ │ (STM/LTM)  │ │ (async)    │
-       │ frequency, │ │            │ │            │
-       │ importance, │ │            │ │            │
-       │ utility,    │ │            │ │            │
-       │ novelty,    │ │            │ │            │
-       │ confidence, │ │            │ │            │
-       │ interference)│ │            │ │            │
-       └──────┬─────┘ └─────┬──────┘ └─────┬──────┘
-              │             │              │
-              └─────────────┼──────────────┘
-                            ▼
-                   ┌─────────────────┐
-                   │  Shard Manager   │
-                   │ (getWriteShard) │
-                   └────────┬────────┘
-                            ▼
-                   ┌─────────────────┐
-                   │ SQLite INSERT   │
-                   │ + Vector Index  │
-                   │ (atomic txn)    │
-                   └─────────────────┘
-```
+1. **Filter** — Skip if system not configured, no text parts, or injection conditions not met (e.g., `injectOn: "first"` and non-first user message).
+2. **Search** — Query `LocalMemoryClient.searchMemories()` with the user message text; uses vector similarity + FTS5 hybrid search with context boost and diversity filtering.
+3. **Filter results** — Exclude current session memories (`excludeCurrentSession`), apply max-age filter (`maxAgeDays`), limit to `maxMemories` count.
+4. **Format** — `formatContextForPrompt()` scores memories for query relevance, applies token budget (`injection.tokenBudget`), includes user profile context if `injectProfile` is enabled, and formats as plain/XML/YAML.
+5. **Inject** — Prepend a synthetic `Part` to the output message parts, making memories appear as implicit context before the user's actual text.
 
-### 2.2 Memory Retrieval Flow
+### 2. Memory Storage (add/search tool calls or auto-capture)
 
-```
-User Query
-      │
-      ▼
-┌─────────────────┐     ┌─────────────────┐
-│  Query Intent    │────▶│  Embedding Gen   │
-│  Analysis        │     │ (with timeout)   │
-│ (retrieval-ctx)  │     └────────┬────────┘
-└─────────────────┘              │
-                                 ▼
-                    ┌──────────────────────────┐
-                    │  Shard Resolution         │
-                    │  (scope: user/project/all)│
-                    └─────────────┬────────────┘
-                                  │
-                    ┌─────────────┼─────────────┐
-                    ▼             ▼             ▼
-           ┌────────────┐  ┌────────────┐  ┌────────────┐
-           │ Vector     │  │ FTS5 Text  │  │ Tag        │
-           │ Search     │  │ Search     │  │ Search     │
-           │ (backend)  │  │            │  │            │
-           └─────┬──────┘  └─────┬──────┘  └─────┬──────┘
-                 │               │               │
-                 └───────────────┼───────────────┘
-                                 ▼
-                    ┌──────────────────────────┐
-                    │  Hybrid Score Merge       │
-                    │  (60% vector + 40% tags    │
-                    │   + 0.1 FTS boost)        │
-                    └─────────────┬────────────┘
-                                  │
-                    ┌─────────────┼─────────────┐
-                    ▼             ▼             ▼
-           ┌────────────┐  ┌────────────┐  ┌────────────┐
-           │ Multi-Factor│  │ Context    │  │ Diversity  │
-           │ Ranking     │  │ Boost      │  │ Penalty    │
-           │ (40/30/30)  │  │            │  │ (Jaccard)  │
-           └─────┬──────┘  └─────┬──────┘  └─────┬──────┘
-                 │               │               │
-                 └───────────────┼───────────────┘
-                                 ▼
-                    ┌──────────────────────────┐
-                    │  Final Result Set          │
-                    │  (sorted, pinned first)   │
-                    └──────────────────────────┘
-```
+When a memory is added:
 
----
+1. **Embed** — `EmbeddingService.embed()` generates a vector from the content (local Xenova model or remote OpenAI-compatible API). Tags also get embedded separately.
+2. **Deduplicate** — `DeduplicationService.checkDuplicateAtIngest()` compares against existing vectors; near-duplicates (>0.9 similarity) are silently merged.
+3. **Score** — `calculateAllScores()` computes 7 factors: recency (Ebbinghaus half-life decay), frequency, importance (keyword + heuristic), utility, novelty (Jaccard similarity from existing), confidence, and interference penalty. Weighted sum produces a `strength` score.
+4. **Classify** — `classifyMemory()` determines `storeType` (STM or LTM) based on memory type (e.g., `preference` → LTM, `episodic` → STM) and assigns a `decayRate`.
+5. **Persist** — `VectorSearch.insertVector()` writes to the active shard database, including all scoring fields, metadata, and the raw vector blob.
+6. **Conflict detect** — `detectConflicts()` runs asynchronously, comparing new content against existing memories via LLM or heuristic contradiction checks.
 
-## 3. Module Breakdown
+### 3. Session Idle → Auto-Capture
 
-| Module                  | File                                                | Responsibility                                                                                                                                                                                                                   |
-| ----------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Plugin Entry**        | `src/index.ts`                                      | OpenCode lifecycle hooks (`chat.message`, `tool`, `event`), warmup, shutdown, web server orchestration                                                                                                                           |
-| **Configuration**       | `src/config.ts`                                     | Zod-validated config schema, JSONC parsing, defaults, migration from v1 (`~/.opencode-mem`)                                                                                                                                      |
-| **Memory Client**       | `src/services/client.ts`                            | Public API facade: `addMemory`, `searchMemories`, `deleteMemory`, `listMemories`, `searchMemoriesBySessionID`                                                                                                                    |
-| **Scoring Engine**      | `src/services/memory-scoring.ts`                    | 7-factor scoring: recency (exponential decay), frequency (log scale), importance (keyword + type analysis), utility (context-aware), novelty (Jaccard vs existing), confidence (source-based), interference (negation detection) |
-| **Scoring Service**     | `src/services/memory-scoring-service.ts`            | Background recalculation scheduler (interval-based, configurable)                                                                                                                                                                |
-| **Lifecycle**           | `src/services/memory-lifecycle.ts`                  | STM/LTM classification, decay application (Ebbinghaus curve), promotion scanning, archival                                                                                                                                       |
-| **Conflict Detection**  | `src/services/memory-conflicts.ts`                  | LLM-assisted contradiction detection with heuristic pre-filter; resolution strategies: `keep_newer`, `keep_both`, `merge`, `manual`                                                                                              |
-| **Retrieval Context**   | `src/services/retrieval-context.ts`                 | Query intent analysis, context boost (project/file/query matching), diversity penalty (Jaccard), `ContextTracker` (scoped, LRU-evicted)                                                                                          |
-| **Vector Search**       | `src/services/sqlite/vector-search.ts`              | Hybrid search orchestration: vector backend search + FTS5 + hydration + scoring + diversity filtering + access-count updates                                                                                                     |
-| **Shard Manager**       | `src/services/sqlite/shard-manager.ts`              | Metadata DB (`metadata.db`), per-scope shard creation, auto-split at `maxVectorsPerShard` (default 50k), read-only promotion                                                                                                     |
-| **Connection Manager**  | `src/services/sqlite/connection-manager.ts`         | SQLite connection pooling, WAL mode, batch write queuing, checkpoint scheduling                                                                                                                                                  |
-| **Transcript Manager**  | `src/services/sqlite/transcript-manager.ts`         | Session transcript storage with FTS5 indexing                                                                                                                                                                                    |
-| **Transcript Capture**  | `src/services/transcript-capture.ts`                | OpenCode session message capture, synthetic-part filtering, cleanup scheduling                                                                                                                                                   |
-| **Embedding Service**   | `src/services/embedding.ts`                         | Local Xenova Transformers.js pipeline or OpenAI-compatible API fallback; SHA256 LRU cache (max 100); timeout wrapper                                                                                                             |
-| **Deduplication**       | `src/services/deduplication-service.ts`             | Exact duplicate removal (same content+container) and near-duplicate detection (cosine similarity) at ingest and batch-cleanup time                                                                                               |
-| **User Profile**        | `src/services/user-profile/user-profile-manager.ts` | Profile CRUD, changelog versioning, confidence decay, merge strategies for preferences/patterns/workflows                                                                                                                        |
-| **Profile Context**     | `src/services/user-profile/profile-context.ts`      | Profile serialization for injection into AI context                                                                                                                                                                              |
-| **Prompt Manager**      | `src/services/user-prompt/user-prompt-manager.ts`   | User prompt accumulation for profile analysis                                                                                                                                                                                    |
-| **Auto-Capture**        | `src/services/auto-capture.ts`                      | AI-driven memory extraction from idle sessions                                                                                                                                                                                   |
-| **User Learning**       | `src/services/user-memory-learning.ts`              | Profile analysis from accumulated prompts via AI providers                                                                                                                                                                       |
-| **Web Server**          | `src/services/web-server.ts`                        | HTTP request router, static asset serving, API handler delegation, ownership election (multi-instance safe)                                                                                                                      |
-| **Platform Server**     | `src/services/platform-server.ts`                   | Runtime abstraction: Bun.serve() or Node.js `http.createServer()`                                                                                                                                                                |
-| **API Handlers**        | `src/services/api-handlers.ts`                      | REST API endpoints for web UI: memories CRUD, search, conflicts, profiles, transcripts, system status                                                                                                                            |
-| **Context Formatter**   | `src/services/context.ts`                           | Memory injection formatting: plain/XML/YAML output with token budgeting and query-aware relevance filtering                                                                                                                      |
-| **AI Provider Factory** | `src/services/ai/ai-provider-factory.ts`            | Provider instantiation: OpenAI Chat/Responses, Anthropic Messages, Google Gemini; session cleanup scheduling                                                                                                                     |
-| **Base Provider**       | `src/services/ai/providers/base-provider.ts`        | Abstract base with retry logic, rate limiting, error normalization                                                                                                                                                               |
-| **OpenCode Provider**   | `src/services/ai/opencode-provider.ts`              | Bridge to OpenCode's configured providers (Claude, OpenAI, etc.) via SDK state path                                                                                                                                              |
-| **AI Session Manager**  | `src/services/ai/session/ai-session-manager.ts`     | Session state retention for providers that support it (OpenAI Responses, Anthropic)                                                                                                                                              |
-| **Privacy Filter**      | `src/services/privacy.ts`                           | PII redaction (`[REDACTED]`), fully-private content blocking                                                                                                                                                                     |
-| **Tags**                | `src/services/tags.ts`                              | Container tag generation from git/project metadata; user/project scope separation                                                                                                                                                |
-| **Language Detector**   | `src/services/language-detector.ts`                 | ISO code → human-readable language name for UI/help localization                                                                                                                                                                 |
-| **Logger**              | `src/services/logger.ts`                            | Structured logging with configurable level (debug/info/warn/error)                                                                                                                                                               |
-| **Safe Transforms**     | `src/services/utils/safe-transforms.ts`             | JSON parse/stringify wrappers, ISO date formatting with fallbacks                                                                                                                                                                |
+When a session goes idle:
 
----
+1. **10-second debounce timer** fires after `session.idle` event.
+2. **Transcript capture** — `cleanupOldTranscripts()` prunes old transcripts from the FTS5-indexed transcript database. Raw transcript saving occurs during `session.end` (not idle); idle focuses on knowledge extraction.
+3. **Auto-capture** — `performAutoCapture()` retrieves recent messages, sends them to an LLM (via OpenCode's provider or a configured AI provider) with a system prompt that extracts technical knowledge, then stores the summary as a new memory.
+4. **Profile learning** — `performUserProfileLearning()` analyzes unanalyzed user prompts to build/update the user profile (preferences, patterns, workflows).
+5. **Cleanup** — Old transcripts pruned, SQLite WAL checkpointed.
 
-## 4. Database Schema
+### 4. Background Lifecycle Jobs
 
-### 4.1 Metadata Database (`metadata.db`)
+Two periodic jobs run continuously:
 
-```sql
-CREATE TABLE shards (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  scope TEXT NOT NULL,              -- 'user' | 'project'
-  scope_hash TEXT NOT NULL,         -- container hash
-  shard_index INTEGER NOT NULL,     -- 0, 1, 2... per scope+hash
-  db_path TEXT NOT NULL,            -- relative path like "projects/proj_hash_shard_0.db"
-  vector_count INTEGER DEFAULT 0,
-  is_active INTEGER DEFAULT 1,    -- 0 = read-only (full), 1 = active (write)
-  created_at INTEGER NOT NULL,
-  UNIQUE(scope, scope_hash, shard_index)
-);
+- **Scoring recalculation** (`startScoringRecalculation`) — Every 60 minutes (configurable), recomputes recency and utility scores for all memories based on elapsed time and access patterns.
+- **Lifecycle maintenance** (`startLifecycleJob`) — Every 60 minutes, applies Ebbinghaus-inspired decay to memory `strength`, promotes high-strength STM memories to LTM, and archives memories below the `archiveThreshold`.
 
-CREATE INDEX idx_active_shards ON shards(scope, scope_hash, is_active);
-```
+### 5. Compaction Recovery
 
-### 4.2 Shard Database (`<scope>_<hash>_shard_<N>.db`)
+When OpenCode compacts a session (summarizes old messages):
 
-#### `memories` — Primary memory store
+1. The `session.compacted` event fires.
+2. `searchMemoriesBySessionID()` retrieves memories tagged with the compacted session.
+3. A synthetic no-reply prompt is injected into the session with the restored memories, ensuring the agent doesn't lose context after compaction.
 
-| Column                 | Type             | Default | Purpose                                       |
-| ---------------------- | ---------------- | ------- | --------------------------------------------- |
-| `id`                   | TEXT PRIMARY KEY | —       | `mem_${ts}_${randomHex(10)}`                  |
-| `content`              | TEXT NOT NULL    | —       | Full memory text                              |
-| `vector`               | BLOB NOT NULL    | —       | Float32Array binary embedding                 |
-| `tags_vector`          | BLOB             | NULL    | Separate embedding for tags                   |
-| `container_tag`        | TEXT NOT NULL    | —       | `mem_project_<hash>` or `mem_user_<hash>`     |
-| `tags`                 | TEXT             | NULL    | Comma-separated tags                          |
-| `type`                 | TEXT             | NULL    | Memory classification (preference, bug, etc.) |
-| `created_at`           | INTEGER NOT NULL | —       | Unix epoch ms                                 |
-| `updated_at`           | INTEGER NOT NULL | —       | Last modification                             |
-| `metadata`             | TEXT             | NULL    | JSON blob (sessionID, tool, source, etc.)     |
-| `display_name`         | TEXT             | NULL    | User display name                             |
-| `user_name`            | TEXT             | NULL    | Git user.name                                 |
-| `user_email`           | TEXT             | NULL    | Git user.email                                |
-| `project_path`         | TEXT             | NULL    | Absolute project directory                    |
-| `project_name`         | TEXT             | NULL    | Project directory basename                    |
-| `git_repo_url`         | TEXT             | NULL    | Remote origin URL                             |
-| `is_pinned`            | INTEGER          | 0       | 1 = always rank first                         |
-| `is_deprecated`        | INTEGER          | 0       | 1 = logically deleted                         |
-| `store_type`           | TEXT             | 'stm'   | 'stm' (short-term) or 'ltm' (long-term)       |
-| `decay_rate`           | REAL             | 0.05    | Ebbinghaus decay lambda                       |
-| `last_decay_at`        | INTEGER          | NULL    | Last maintenance timestamp                    |
-| **Scoring columns**    |                  |         |                                               |
-| `recency_score`        | REAL             | 0.5     | `exp(-λ * age_days)`                          |
-| `frequency_score`      | REAL             | 0.0     | `log(1+accesses) / log(101)`                  |
-| `importance_score`     | REAL             | 0.5     | Keyword + type + length analysis              |
-| `utility_score`        | REAL             | 0.3     | Context-aware access recency                  |
-| `novelty_score`        | REAL             | 0.5     | 1 - max Jaccard(existing)                     |
-| `confidence_score`     | REAL             | 0.7     | Source reliability                            |
-| `interference_penalty` | REAL             | 0.0     | Contradiction penalty                         |
-| `strength`             | REAL             | 0.5     | Weighted composite [0,1]                      |
-| `access_count`         | INTEGER          | 0       | Incremented on each search hit                |
-| `last_accessed`        | INTEGER          | NULL    | Last search timestamp                         |
+## Key Abstractions
 
-#### `memories_fts` — FTS5 virtual table (auto-created by `sqlite-bootstrap.ts`)
+| Abstraction                                                                        | File                                                | Description                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LocalMemoryClient`                                                                | `src/services/client.ts`                            | Central orchestrator for all memory operations (add, search, delete, list). Coordinates embedding, scoring, lifecycle, and storage.                                                                                               |
+| `VectorSearch`                                                                     | `src/services/sqlite/vector-search.ts`              | Hybrid search engine: vector similarity via pluggable backend + FTS5 text search + multi-factor ranking with context boost and diversity filtering.                                                                               |
+| `ShardManager`                                                                     | `src/services/sqlite/shard-manager.ts`              | Manages SQLite database shards per scope (user/project) and scope hash. Auto-creates new shards when `maxVectorsPerShard` is reached.                                                                                             |
+| `ConnectionManager`                                                                | `src/services/sqlite/connection-manager.ts`         | LRU connection pool for SQLite databases (max 20 connections). Handles WAL mode, schema migrations, batch writes, and checkpointing.                                                                                              |
+| `EmbeddingService`                                                                 | `src/services/embedding.ts`                         | Singleton that loads Xenova/transformers.js models locally or calls an OpenAI-compatible embedding API. Includes SHA-256-based LRU cache (100 entries).                                                                           |
+| `calculateAllScores()` / `computeStrength()`                                       | `src/services/memory-scoring.ts`                    | 7-factor scoring functions: recency, frequency, importance, utility, novelty, confidence, interference. Configurable weights via `MemoryScoringWeights` interface; default strength = weighted sum.                               |
+| `LifecycleManager`                                                                 | `src/services/memory-lifecycle.ts`                  | STM/LTM dual-store with Ebbinghaus decay curves. Promotes STM→LTM at `promotionThreshold` (0.7), archives below `archiveThreshold` (0.2).                                                                                         |
+| `detectConflicts()` / `resolveConflict()`                                          | `src/services/memory-conflicts.ts`                  | LLM-backed contradiction detection between memories, with heuristic fallback. Stores conflicts in a dedicated table for resolution.                                                                                               |
+| `DeduplicationService`                                                             | `src/services/deduplication-service.ts`             | Ingest-time near-duplicate detection (≥0.9 cosine similarity) and batch deduplication across shards.                                                                                                                              |
+| `analyzeQueryIntent()` / `calculateContextBoost()` / `calculateDiversityPenalty()` | `src/services/retrieval-context.ts`                 | Query intent classification (troubleshooting/recall/exploration/implementation), context boost scoring, and diversity penalty for search result reranking. `RetrievalContext` interface defines the query analysis result shape.  |
+| `VectorBackend`                                                                    | `src/services/vector-backends/types.ts`             | Interface for pluggable vector index backends. Exported implementations: `USearchBackend`, `NSWBackend`, `ExactScanBackend`. Internal `FallbackAwareBackend` (not exported) wraps primary + fallback via `createVectorBackend()`. |
+| `AIProviderFactory`                                                                | `src/services/ai/ai-provider-factory.ts`            | Factory for AI providers (openai-chat, openai-responses, anthropic, google-gemini) used by auto-capture and conflict detection.                                                                                                   |
+| `TranscriptManager`                                                                | `src/services/sqlite/transcript-manager.ts`         | Stores raw session transcripts with FTS5 full-text search. Configurable retention via `transcriptStorage.maxAgeDays`.                                                                                                             |
+| `UserProfileManager`                                                               | `src/services/user-profile/user-profile-manager.ts` | Manages user profiles with preferences, patterns, and workflows. Supports merge, versioning, and confidence decay.                                                                                                                |
+| `WebServer`                                                                        | `src/services/web-server.ts`                        | HTTP server for the Memory Explorer web UI. Serves static SPA + REST API for CRUD, search, stats, conflicts, deduplication, and migration.                                                                                        |
 
-```sql
-CREATE VIRTUAL TABLE memories_fts USING fts5(
-  content,                          -- mirrored from memories.content
-  content='memories',               -- source table
-  content_rowid='rowid'             -- rowid linkage
-);
-```
-
-Triggers maintain FTS5 sync on INSERT/UPDATE/DELETE.
-
-#### `memory_conflicts` — Contradiction tracking
-
-| Column             | Type             | Purpose                                         |
-| ------------------ | ---------------- | ----------------------------------------------- |
-| `id`               | TEXT PRIMARY KEY | `conflict_${ts}_${hex}`                         |
-| `memory_id_1`      | TEXT FK          | First memory                                    |
-| `memory_id_2`      | TEXT FK          | Second memory                                   |
-| `similarity_score` | REAL             | Content overlap score                           |
-| `detected_at`      | INTEGER          | Detection timestamp                             |
-| `resolved`         | INTEGER          | 0 = unresolved, 1 = resolved                    |
-| `resolution_type`  | TEXT             | `keep_newer` / `keep_both` / `merge` / `manual` |
-| `resolved_at`      | INTEGER          | Resolution timestamp                            |
-| `resolution_data`  | TEXT             | JSON (e.g., merged memory ID)                   |
-
-#### `memories_archive` — Archived weak memories
-
-Same columns as `memories` minus `vector`/`tags_vector`, plus `archived_at`.
-
-#### `shard_metadata` — Per-shard bookkeeping
-
-| Column  | Type             | Purpose                                   |
-| ------- | ---------------- | ----------------------------------------- |
-| `key`   | TEXT PRIMARY KEY | `embedding_dimensions`, `embedding_model` |
-| `value` | TEXT NOT NULL    | Stored config at creation time            |
-
-### 4.3 User Profiles Database (`user-profiles.db`)
-
-```sql
-CREATE TABLE user_profiles (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL UNIQUE,
-  display_name TEXT NOT NULL,
-  user_name TEXT NOT NULL,
-  user_email TEXT NOT NULL,
-  profile_data TEXT NOT NULL,       -- JSON: {preferences[], patterns[], workflows[]}
-  version INTEGER NOT NULL DEFAULT 1,
-  created_at INTEGER NOT NULL,
-  last_analyzed_at INTEGER NOT NULL,
-  total_prompts_analyzed INTEGER DEFAULT 0,
-  is_active BOOLEAN DEFAULT 1
-);
-
-CREATE TABLE user_profile_changelogs (
-  id TEXT PRIMARY KEY,
-  profile_id TEXT NOT NULL,
-  version INTEGER NOT NULL,
-  change_type TEXT NOT NULL,
-  change_summary TEXT NOT NULL,
-  profile_data_snapshot TEXT NOT NULL,
-  created_at INTEGER NOT NULL,
-  FOREIGN KEY (profile_id) REFERENCES user_profiles(id) ON DELETE CASCADE
-);
-```
-
-### 4.4 Transcript Database (`transcripts.db`)
-
-```sql
-CREATE TABLE transcripts (
-  id TEXT PRIMARY KEY,
-  session_id TEXT NOT NULL,
-  project_path TEXT,
-  messages TEXT NOT NULL,           -- JSON array of filtered messages
-  created_at INTEGER NOT NULL
-);
-
-CREATE VIRTUAL TABLE transcripts_fts USING fts5(
-  messages,
-  content='transcripts',
-  content_rowid='rowid'
-);
-```
-
----
-
-## 5. Memory Lifecycle State Machine
+## Directory Structure
 
 ```
-                    ┌─────────────────┐
-                    │   Creation      │
-                    │  (addMemory)    │
-                    └────────┬────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              │              │              │
-              ▼              ▼              ▼
-       ┌────────────┐ ┌────────────┐ ┌────────────┐
-       │   STM      │ │   LTM      │ │   LTM      │
-       │ (default)  │ │ (hard:     │ │ (slow:     │
-       │ decay=0.05 │ │ preference,│ │ learning,  │
-       │            │ │ decision,  │ │ tutorial)  │
-       │            │ │ rule,      │ │ decay=0.01 │
-       │            │ │ arch)      │ │            │
-       │            │ │ decay=0.0  │ │            │
-       └─────┬──────┘ └─────┬──────┘ └─────┬──────┘
-             │              │              │
-             │              │              │ (optional decay)
-             ▼              │              ▼
-    ┌─────────────────┐     │       ┌─────────────────┐
-    │  Access / Use   │     │       │  Contextual     │
-    │  (increment     │     │       │  Decay (opt.)   │
-    │   access_count) │     │       │  rate = base ×  │
-    └────────┬────────┘     │       │  √(strengthM ×│
-             │              │       │   accessM)     │
-             │              │       └─────────────────┘
-             ▼              │
-    ┌─────────────────┐      │
-    │  Promotion Check │     │
-    │  (lifecycle job) │     │
-    │  strength > 0.7  │     │
-    │  access_count > 3│    │
-    └────────┬────────┘     │
-             │ Yes          │
-             ▼              │
-    ┌─────────────────┐     │
-    │  Promote to LTM  │─────┘
-    │  decay_rate → 0  │
-    │  (or 0.01)       │
-    └─────────────────┘
-
-
-    ┌──────────────────────────────────────────────┐
-    │              DECAY BRANCH (STM)              │
-    └──────────────────────────────────────────────┘
-
-    ┌─────────────────┐
-    │ applyDecay()    │
-    │  runs every N   │
-    │  minutes        │
-    └────────┬────────┘
-             │
-             ▼
-    ┌─────────────────────────────┐
-    │ strength *= exp(-decay×days)│
-    │ (Ebbinghaus forgetting curve) │
-    └────────┬────────────────────┘
-             │
-             ▼
-    ┌─────────────────┐
-    │ strength < 0.2  │─────No────▶ Keep in STM
-    │ AND age > 30d   │
-    └────────┬────────┘
-             │ Yes
-             ▼
-    ┌─────────────────────────────┐
-    │ Archive to memories_archive │
-    │ Delete vector index         │
-    │ Keep for audit/history      │
-    └─────────────────────────────┘
+src/
+├── index.ts              # Plugin entry point: hooks, tool definition, event handlers
+├── config.ts             # Configuration loading, validation (Zod), defaults, project/global merge
+├── plugin.ts             # Plugin export shim
+├── types/
+│   └── index.ts          # Shared types: MemoryType, MemoryMetadata, AIProviderType
+├── services/
+│   ├── client.ts         # LocalMemoryClient — top-level memory operations
+│   ├── embedding.ts      # EmbeddingService — local/remote embedding with LRU cache
+│   ├── context.ts        # formatContextForPrompt — memory formatting for injection
+│   ├── tags.ts           # Project/user tag generation from git config and directory
+│   ├── auto-capture.ts   # Session idle → LLM-based technical knowledge extraction
+│   ├── transcript-capture.ts  # Raw transcript storage and cleanup
+│   ├── user-memory-learning.ts  # User profile learning from prompt analysis
+│   ├── memory-scoring.ts       # 7-factor scoring algorithm
+│   ├── memory-scoring-service.ts  # Periodic scoring recalculation job
+│   ├── memory-lifecycle.ts     # STM/LTM decay, promotion, archival
+│   ├── memory-conflicts.ts     # LLM + heuristic contradiction detection
+│   ├── deduplication-service.ts  # Near-duplicate detection and removal
+│   ├── retrieval-context.ts    # Query intent analysis and search reranking
+│   ├── cleanup-service.ts      # Old memory and transcript cleanup
+│   ├── migration-service.ts    # V1→V2 data migration
+│   ├── web-server.ts           # HTTP server for web UI + REST API
+│   ├── api-handlers.ts         # REST API endpoint handlers
+│   ├── platform-server.ts      # Platform-agnostic HTTP server abstraction
+│   ├── logger.ts               # Structured logging with level control
+│   ├── privacy.ts              # Private content stripping (API keys, tokens)
+│   ├── language-detector.ts    # Language detection via franc-min
+│   ├── jsonc.ts                # JSONC (JSON with comments) parser
+│   ├── secret-resolver.ts      # Secret resolution from env vars
+│   ├── sqlite/
+│   │   ├── sqlite-bootstrap.ts  # SQLite abstraction: Bun vs better-sqlite3 detection
+│   │   ├── connection-manager.ts  # LRU connection pool with WAL, batching, migrations
+│   │   ├── vector-search.ts     # Hybrid vector + FTS5 search with reranking
+│   │   ├── shard-manager.ts     # Shard lifecycle: creation, rotation, counting
+│   │   ├── transcript-manager.ts # FTS5 transcript storage and search
+│   │   ├── schema.ts            # Schema version tracking and migrations
+│   │   └── types.ts             # ShardInfo, MemoryRecord, SearchResult, MemoryConflict
+│   ├── ai/
+│   │   ├── ai-provider-factory.ts  # Provider factory (OpenAI, Anthropic, Gemini)
+│   │   ├── opencode-provider.ts    # Bridge to OpenCode's connected AI providers
+│   │   ├── provider-config.ts      # Provider configuration types
+│   │   ├── providers/              # Provider implementations (openai-chat, openai-responses, anthropic, google-gemini)
+│   │   ├── session/                # AI session management with expiration
+│   │   ├── tools/                  # Structured output tool definitions
+│   │   └── validators/            # Output validation schemas
+│   ├── vector-backends/
+│   │   ├── types.ts               # VectorBackend interface, VectorBackendFactoryOptions
+│   │   ├── backend-factory.ts     # Creates backend with fallback chain (usearch→exact-scan)
+│   │   ├── usearch-backend.ts     # USearch HNSW index implementation
+│   │   ├── nsw-backend.ts         # Custom NSW (Navigable Small World) index
+│   │   └── exact-scan-backend.ts  # Brute-force cosine similarity fallback
+│   ├── user-profile/
+│   │   ├── types.ts               # UserProfile, UserProfileData types
+│   │   ├── user-profile-manager.ts  # Profile CRUD, merge, confidence decay
+│   │   ├── profile-context.ts     # Profile context extraction for injection
+│   │   └── profile-utils.ts       # Profile utility functions
+│   ├── user-prompt/
+│   │   └── user-prompt-manager.ts  # User prompt storage and retrieval for learning
+│   └── utils/
+│       └── safe-transforms.ts     # Safe JSON parse, date conversion utilities
+└── web/
+    ├── index.html          # Single-page application shell
+    ├── app.js              # SPA application logic
+    ├── styles.css          # UI styles
+    └── i18n.js             # Internationalization support
 ```
 
-### Classification Rules
+## Storage Architecture
 
-| Memory Type                                                                                    | Store | Decay Rate    | Examples                   |
-| ---------------------------------------------------------------------------------------------- | ----- | ------------- | -------------------------- |
-| `preference`, `constraint`, `decision`, `requirement`, `architecture`, `configuration`, `rule` | LTM   | `0.0` (never) | "User prefers no comments" |
-| `learning`, `procedural`, `how-to`, `guide`, `tutorial`, `workflow`, `process`                 | LTM   | `0.01` (slow) | "How to migrate schemas"   |
-| `episodic`, `chat`, `conversation`, `greeting`, `casual`, `question`, `answer`, `exchange`     | STM   | `0.05` (fast) | "Good morning"             |
-| All others (default)                                                                           | STM   | `0.05` (fast) | Uncategorized entries      |
-
----
-
-## 6. Search Pipeline
-
-The search pipeline is implemented in `VectorSearch` (`src/services/sqlite/vector-search.ts`) and operates in **6 stages**:
-
-### Stage 1: Query Embedding
-
-- Attempts local/API embedding with 30-second timeout
-- On failure: marks `degraded=true`, proceeds with text-only search
-
-### Stage 2: Shard Resolution
-
-- `scope="project"` → search shards matching current project hash
-- `scope="all-projects"` → search all project shards
-- `scope="user"` → search user-scoped shards
-
-### Stage 3: Backend Search (per shard)
-
-**Over-fetch strategy**: starts at 2.0x `limit`; if fill ratio < 85%, retries up to 8.0x.
-
-```
-contentVector.search(queryVector, limit × multiplier)
-  → {id, distance}
-
-tagsVector.search(queryVector, limit × multiplier)
-  → {id, distance}
-```
-
-Distances converted to similarities: `sim = 1 - distance`.
-
-### Stage 4: FTS5 Fallback / Boost
-
-```sql
-SELECT id FROM memories_fts WHERE memories_fts MATCH ? ORDER BY rank LIMIT ?
-```
-
-- Sanitizes query: strips `*^:-+?()"` and FTS5 reserved words
-- If FTS5 fails → `LIKE '%word%'` fallback
-- FTS5 hits receive `+0.1` boost in hybrid scoring
-
-### Stage 5: Hybrid Scoring & Hydration
-
-For each candidate memory:
-
-```
-vectorSimilarity = contentSim × 0.6 + max(tagsSim, exactMatchBoost) × 0.4 + ftsBoost
-
-finalSimilarity = strength × 0.4 + recencyScore × 0.3 + vectorSimilarity × 0.3
-
-finalScore = finalSimilarity × contextBoost(projectPath, projectName, files, queries)
-```
-
-- **Tag exact match boost**: `matching_tags / max(query_words, 1)`
-- **Context boost**: `1.5` (default) for project path/name match; `√1.5` for metadata file references
-
-Sorting: `is_pinned DESC → finalScore DESC`
-
-### Stage 6: Diversity Filtering
-
-Greedy selection with Jaccard similarity penalty:
-
-```
-for candidate in sortedResults:
-    penalty = max_jaccard_similarity(candidate, selected) > threshold
-              ? (sim - threshold) / (1 - threshold)
-              : 0
-
-    penalizedScore = finalScore × (1 - penalty)
-
-    if penalizedScore > 0.01 OR selected.length < limit/2:
-        selected.push(candidate)
-```
-
-- Word-level Jaccard on words > 4 chars
-- Default threshold: `0.9` (very strict)
-- Global diversity applied across all shard results
-
-### Access Count Update
-
-After final selection, `UPDATE memories SET access_count = access_count + 1, last_accessed = ? WHERE id IN (results)`
-
----
-
-## 7. Storage Architecture
-
-### 7.1 Directory Layout
+Data is persisted in the directory configured by `storagePath` (default: `~/.opencode-mem0/data/`):
 
 ```
 ~/.opencode-mem0/data/
-├── metadata.db                    # Shard registry + schema_version
-├── user-profiles.db               # User profile store
-├── transcripts.db                 # Session transcript store
+├── metadata.db              # Shard registry (scope, hash, path, vector count, active flag)
 ├── users/
-│   └── user_<hash>_shard_0.db     # User-scoped memories
-└── projects/
-    ├── project_<hash>_shard_0.db  # Project-scoped memories (active)
-    ├── project_<hash>_shard_1.db  # Auto-created when shard_0 full
-    └── project_<other>_shard_0.db # Other projects
+│   └── user_<hash>_shard_0.db   # User-scoped memory shards
+├── projects/
+│   └── project_<hash>_shard_0.db # Project-scoped memory shards
+├── transcripts.db           # FTS5-indexed session transcripts
+└── .cache/                  # HuggingFace model cache (Xenova/nomic-embed-text-v1)
 ```
 
-### 7.2 Sharding Strategy
+Each shard database contains a `memories` table with columns for content, vector blob, scoring fields (recency, frequency, importance, utility, novelty, confidence, interference, strength), lifecycle fields (store_type, decay_rate, is_deprecated, is_pinned), and metadata (tags, type, user info, project info). The `schema_version` table tracks applied migrations.
 
-- **Scope**: Every memory is either `user`-scoped or `project`-scoped
-- **Container Tag Format**: `mem_<scope>_<hash>` where hash = SHA256 of project path or user email
-- **Shard Splitting**: When `vector_count >= maxVectorsPerShard` (default 50,000):
-  1. Mark current shard `is_active = 0` (read-only)
-  2. Create new shard with `shard_index + 1`
-  3. Writes go to new shard; searches scan all shards in the scope
-- **Validation**: On read, validates shard file exists and `memories` table present; auto-recreates if corrupt
+The `ConnectionManager` maintains up to 20 LRU-cached connections with WAL journaling, 64MB cache, and batch write support. When a shard exceeds `maxVectorsPerShard` (default: 50,000 vectors), the `ShardManager` rotates to a new shard file.
 
-### 7.3 Connection Management
+## Vector Search Pipeline
 
-- **WAL Mode**: All SQLite connections use `PRAGMA journal_mode = WAL` for concurrent read/write
-- **Connection Pool**: Lazy-initialized `Map<dbPath, Database>` in `ConnectionManager`
-- **Batch Writes**: `batchWrite()` queues INSERTs and flushes in a single transaction every N items or on explicit `flushBatch()`
-- **Checkpointing**: `connectionManager.checkpointAll()` called during idle processing to shrink WAL files
+Search follows a multi-stage pipeline:
 
-### 7.4 Per-Project Isolation
+1. **Embed query** — Generate vector from query text (or fall back to text-only if embedding unavailable).
+2. **Shard selection** — Resolve scope (project vs all-projects) and fetch matching shards.
+3. **Per-shard search** — For each shard:
+   - Vector backend returns top-K candidates by cosine similarity (over-fetch with 2× base multiplier, adaptive up to 8×).
+   - FTS5 text search adds keyword-matching candidates.
+   - Results are merged and deduplicated.
+4. **Reranking** — Apply `RetrievalContext` scoring:
+   - Context boost: memories matching project path, recent files, or query topics get up to 1.5× boost.
+   - Diversity penalty: similar results are penalized to ensure topical variety.
+   - Query-aware filtering: memories below `relevanceThreshold` (0.3) are dropped.
+5. **Sort and return** — Scoring: `similarity = strength×0.4 + recencyScore×0.3 + vectorSimilarity×0.3`; `finalScore = similarity × contextBoost`; diversity penalty applied multiplicatively: `penalizedScore = finalScore × (1 − penalty)`.
 
-- Each project gets independent shard(s) in `projects/`
-- Searches default to `project` scope (current project only)
-- `all-projects` scope flattens results across all project shards
-- User-scoped memories (profiles, global preferences) live in `users/`
+The vector backend is selected via `vectorBackend` config:
 
----
+- `usearch-first` (default) — Try USearch HNSW index; fall back to exact-scan on error.
+- `usearch` — USearch only; error if unavailable.
+- `exact-scan` — Brute-force cosine similarity (no index overhead).
 
-## 8. Cross-Platform Runtime Abstraction
+## Configuration Layer
 
-### 8.1 HTTP Server Abstraction
+Configuration is loaded from two locations and deep-merged:
 
-`src/services/platform-server.ts` provides a unified `serve()` interface:
+1. **Global**: `~/.config/opencode/opencode-mem0.jsonc` (or `.json`)
+2. **Project**: `<project>/.opencode/opencode-mem0.jsonc` (or `.json`)
 
-```typescript
-interface PlatformServer {
-  stop(): void;
-  requestIP(req: Request): { address: string } | null;
-}
-
-function serve(options: ServeOptions): Promise<PlatformServer>;
-```
-
-**Bun path** (`typeof Bun !== 'undefined'`):
-
-- Uses native `Bun.serve(options)`
-- Zero-copy Request/Response
-- Native `requestIP()` via `BunServer.requestIP(req)`
-
-**Node.js path**:
-
-- Uses `node:http.createServer()`
-- Streams body with 256 KiB max payload limit (413 on overflow)
-- Converts `IncomingMessage` → `Request` via `normalizeHeaders()`
-- Attaches remote address via `Symbol.for("opencode-mem0.remoteAddress")`
-
-### 8.2 SQLite Bootstrap
-
-`src/services/sqlite/sqlite-bootstrap.ts` abstracts the SQLite driver:
-
-- **Bun**: Uses `bun:sqlite` (native, fastest)
-- **Node.js**: Uses `better-sqlite3` (C++ bindings)
-- Both expose identical `Database` interface with `.prepare()`, `.run()`, `.get()`, `.all()`, `.transaction()`
-
-### 8.3 Vector Backend Abstraction
-
-`src/services/vector-backends/types.ts` defines the `VectorBackend` contract:
-
-```typescript
-interface VectorBackend {
-  getBackendName(): string;
-  insert(args: { id; vector; shard; kind }): Promise<void>;
-  insertBatch(args: { items; shard; kind }): Promise<void>;
-  delete(args: { id; shard; kind }): Promise<void>;
-  search(args: { db; shard; kind; queryVector; limit }): Promise<{ id; distance }[]>;
-  rebuildFromShard(args: { db; shard; kind }): Promise<void>;
-  deleteShardIndexes(args: { shard }): Promise<void>;
-}
-```
-
-| Backend        | Implementation                                                | Use Case                          |
-| -------------- | ------------------------------------------------------------- | --------------------------------- |
-| **usearch**    | `usearch-backend.ts` — loads `usearch` npm package (C++ HNSW) | Production, fast ANN              |
-| **nsw**        | `nsw-backend.ts` — pure-JS HNSW implementation                | Fallback when usearch unavailable |
-| **exact-scan** | `exact-scan-backend.ts` — brute-force cosine over all rows    | Guaranteed availability, slower   |
-
-**Factory** (`backend-factory.ts`) implements `usearch-first` / `usearch` / `exact-scan` strategies with automatic fallback:
-
-- Probes `usearch` import at startup
-- If probe fails → exact-scan
-- If search fails at runtime → degrades to exact-scan for that operation
-
----
-
-## 9. Extension Points
-
-### 9.1 Vector Backends
-
-Implement `VectorBackend` interface and register via `createVectorBackend({ createUSearchBackend, createNSWBackend })`:
-
-```typescript
-import type { VectorBackend } from "./services/vector-backends/types.js";
-
-class MyBackend implements VectorBackend {
-  getBackendName() {
-    return "my-backend";
-  }
-  async insert(args) {
-    /* ... */
-  }
-  async search(args) {
-    /* ... */
-  }
-  // ... all methods
-}
-```
-
-### 9.2 AI Providers
-
-Extend `BaseAIProvider` and register in `AIProviderFactory`:
-
-1. Create `src/services/ai/providers/my-provider.ts`
-2. Extend `BaseAIProvider` (handles retries, rate limiting, error normalization)
-3. Implement `executeToolCall(systemPrompt, userPrompt, toolSchema, sessionID)`
-4. Register in `AIProviderFactory.createProvider()` switch statement
-5. Add to `AIProviderType` union in `session-types.ts`
-
-Supported out-of-the-box:
-
-- **OpenAI Chat Completions** (`openai-chat`) — Generic OpenAI-compatible (DeepSeek, Groq, etc.)
-- **OpenAI Responses** (`openai-responses`) — Stateful sessions
-- **Anthropic Messages** (`anthropic`) — Claude with session support
-- **Google Gemini** (`google-gemini`) — Native Gemini API
-
-### 9.3 Memory Types & Scoring
-
-Add new memory types to scoring heuristics:
-
-- Edit `TECHNICAL_KEYWORDS` array in `memory-scoring.ts` for importance detection
-- Edit `LTM_TYPES` / `STM_TYPES` / `SLOW_DECAY_LTM_TYPES` in `memory-lifecycle.ts` for store classification
-- Edit `HIGH_IMPORTANCE_TYPES` / `MEDIUM_IMPORTANCE_TYPES` / `LOW_IMPORTANCE_TYPES` for type-based scoring
-
-### 9.4 Query Intent & Retrieval Context
-
-Extend `analyzeQueryIntent()` in `retrieval-context.ts`:
-
-- Add keyword arrays for new intents
-- Modify `scoreMemoryRelevance()` for intent→type alignment rules
-- Adjust `calculateContextBoost()` for new context signals
-
-### 9.5 Web UI
-
-The web UI (`src/web/app.js`, `src/web/index.html`) is a vanilla JavaScript SPA:
-
-- Add new API routes in `api-handlers.ts`
-- Add new UI panels in `app.js` (no build step required)
-- Static assets served from `src/web/` directory at runtime
-
----
-
-## 10. AI Provider Ecosystem
-
-### Provider Configuration Resolution
-
-1. **Opencode Provider** (recommended): If `opencodeProvider` + `opencodeModel` are set, uses OpenCode's already-authenticated provider (Claude Pro/Max via OAuth, or any API key configured in OpenCode). No separate key needed.
-2. **Manual Config**: Falls back to `memoryProvider` + `memoryModel` + `memoryApiUrl` + `memoryApiKey` for standalone operation.
-
-### Session Retention
-
-- **OpenAI Responses**: Native `previous_response_id` chaining
-- **Anthropic**: Conversation history managed in `AISessionManager`
-- **OpenAI Chat / Gemini**: Stateless per-call (history tracked in `AISessionManager` for context)
-
-### Cleanup
-
-`AIProviderFactory.startCleanupSchedule(3600*1000)` purges sessions older than `aiSessionRetentionDays` (default 7 days).
-
----
-
-## 11. Security & Privacy Model
-
-### Content Filtering
-
-| Stage      | Mechanism                                                                                | File                 |
-| ---------- | ---------------------------------------------------------------------------------------- | -------------------- |
-| **Ingest** | `stripPrivateContent()` — redacts emails, tokens, keys with `[REDACTED]`                 | `privacy.ts`         |
-| **Ingest** | `isFullyPrivate()` — blocks content that is 100% private material                        | `privacy.ts`         |
-| **Config** | `resolveSecretValue()` — supports `file://` and `env://` references so keys never inline | `secret-resolver.ts` |
-| **Config** | Config file created with `0o600` permissions                                             | `config.ts`          |
-
-### Web UI Security
-
-- **Localhost-only by default**: `webServerHost = "127.0.0.1"`
-- **API Key mode**: When binding to `0.0.0.0`, require `x-opencode-mem-key` header matching `webServerApiKey`
-- **No CORS**: Not designed for cross-origin use
-
-### Database Security
-
-- All databases stored in user's home directory (`~/.opencode-mem0/`)
-- WAL mode prevents corruption on crash
-- Atomic transactions for all write operations (memories, conflicts, profiles)
-- Rollback on vector backend failure during insert
-
----
-
-## Appendix: Key Configuration Defaults
-
-| Parameter                                    | Default                      | Description                       |
-| -------------------------------------------- | ---------------------------- | --------------------------------- |
-| `embeddingModel`                             | `Xenova/nomic-embed-text-v1` | 768-dim local model               |
-| `similarityThreshold`                        | `0.6`                        | Min similarity for search results |
-| `maxVectorsPerShard`                         | `50000`                      | Auto-shard threshold              |
-| `memoryLifecycle.stmDecayDays`               | `7`                          | STM half-life                     |
-| `memoryLifecycle.ltmDecayDays`               | `90`                         | LTM half-life                     |
-| `retrieval.diversityThreshold`               | `0.9`                        | Jaccard diversity cutoff          |
-| `retrieval.contextBoost`                     | `1.5`                        | Context match multiplier          |
-| `memoryScoring.recalculationIntervalMinutes` | `60`                         | Background scoring period         |
-| `webServerPort`                              | `4747`                       | Web UI port                       |
-| `transcriptStorage.maxAgeDays`               | `30`                         | Transcript retention              |
-| `autoCleanupRetentionDays`                   | `30`                         | Memory auto-delete age            |
-
----
-
-_Generated from source analysis. Architecture reflects v2.16 codebase state._
+Project config overrides global. The `OpenCodeMemConfigSchema` (Zod) validates all fields. Secrets (API keys) are resolved via `resolveSecretValue()` which checks environment variables. See [CONFIGURATION.md](CONFIGURATION.md) for the full variable reference.

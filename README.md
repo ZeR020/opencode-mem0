@@ -1,412 +1,109 @@
-<h1 align="center"><ins><strong>opencode-mem0</strong></ins></h1>
+<!-- generated-by: gsd-doc-writer -->
 
-<p align="center">
-  <strong>Private long-term memory for OpenCode agents.</strong>
-</p>
+# opencode-mem0
 
-<p align="center">
-  Give your coding agent durable context across sessions: preferences, project decisions, transcripts, profiles, and architecture notes, all stored locally on your machine.
-</p>
+OpenCode plugin that gives coding agents persistent memory using a local vector database (SQLite + usearch). No cloud services required — all data stays on your machine.
 
-<p align="center">
-  <strong>Local SQLite</strong> · <strong>Vector + FTS5 search</strong> · <strong>Transcript recall</strong> · <strong>Web UI</strong>
-</p>
+[![npm version](https://img.shields.io/npm/v/opencode-mem0.svg)](https://www.npmjs.com/package/opencode-mem0) [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/opencode-mem0"><img alt="npm version" src="https://img.shields.io/npm/v/opencode-mem0.svg"></a>
-  <a href="https://www.npmjs.com/package/opencode-mem0"><img alt="npm downloads" src="https://img.shields.io/npm/dm/opencode-mem0.svg"></a>
-  <a href="https://github.com/ZeR020/opencode-mem0/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/ZeR020/opencode-mem0.svg?style=flat"></a>
-  <a href="https://bun.sh/"><img alt="Bun" src="https://img.shields.io/badge/Bun-000000?logo=bun&logoColor=white"></a>
-  <a href="https://nodejs.org/"><img alt="Node.js 20+" src="https://img.shields.io/badge/Node.js-20+-green?logo=node.js&logoColor=white"></a>
-  <a href="https://github.com/ZeR020/opencode-mem0/blob/main/LICENSE"><img alt="license" src="https://img.shields.io/npm/l/opencode-mem0.svg"></a>
-  <a href="https://deepwiki.com/ZeR020/opencode-mem0"><img alt="Ask DeepWiki" src="https://deepwiki.com/badge.svg"></a>
-</p>
+## Installation
 
-<p align="center">
-  <a href="#quick-start">Quick Start</a> ·
-  <a href="#why-opencode-mem0">Why opencode-mem0</a> ·
-  <a href="#screenshots">Screenshots</a> ·
-  <a href="#feature-deep-dives">Features</a> ·
-  <a href="#architecture">Architecture</a> ·
-  <a href="#configuration">Configuration</a> ·
-  <a href="#api-endpoints">API</a> ·
-  <a href="#development">Development</a>
-</p>
+```bash
+npm install opencode-mem0
+```
 
----
-
-## Why opencode-mem0
-
-Most agents forget everything when the session ends. `opencode-mem0` gives OpenCode a local memory layer that can recall what matters without sending your project context to another hosted memory service.
-
-| What you get                      | Why it matters                                                    |
-| --------------------------------- | ----------------------------------------------------------------- |
-| **Persistent project memory**     | Your agent remembers conventions, commands, decisions, and fixes. |
-| **Privacy-first local storage**   | Memories stay in `~/.opencode-mem0`; no telemetry or cloud sync.  |
-| **Hybrid semantic + text search** | Vector search, FTS5, scoring, recency, and context-aware ranking. |
-| **Transcript-aware recall**       | Past conversations become searchable instead of disappearing.     |
-| **Built-in web UI**               | Browse, search, delete, and resolve conflicts from localhost.     |
-| **Bun + Node.js support**         | Works on Linux, macOS, and Windows with Node.js 20+ fallback.     |
-
----
+Requires **Bun >= 1.0.0** (Linux/macOS) for `bun:sqlite`. Node.js >= 20.0.0 works with partial fallback via `better-sqlite3`.
 
 ## Quick Start
 
-### 1. Install
+1. Install the plugin in your OpenCode project:
+   ```bash
+   npm install opencode-mem0
+   ```
+2. Create a config file at `~/.config/opencode/opencode-mem0.json` (optional — defaults work out of the box):
+   ```json
+   {
+     "webServerEnabled": true,
+     "autoCaptureEnabled": true
+   }
+   ```
+3. Start OpenCode — the plugin warms up automatically, the Web UI launches at `http://127.0.0.1:4747`, and memories are captured from your sessions.
 
-```bash
-npm install -g opencode-mem0
-```
+## Usage Examples
 
-### 2. Enable the Plugin
+### Agent Tool — Memory Commands
 
-Add it to `~/.config/opencode/opencode.json`:
+The plugin exposes a `memory` tool to the OpenCode agent with six modes:
 
-```json
-{
-  "plugin": ["opencode-mem0"]
-}
-```
-
-### 3. Start Remembering
-
-```bash
-# Store a durable preference
-memory add "User prefers TypeScript strict mode and avoids implicit any"
-
-# Search remembered context
-memory search "typescript strict mode"
-
-# Open the local management UI
-open http://localhost:4747
-```
-
----
-
-## Screenshots
-
-| Project Memory Timeline                                                                                                                                       | User Profile Viewer                                                                                                                                     |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [![Project Memory Timeline](https://github.com/ZeR020/opencode-mem0/raw/main/.github/screenshot-project-memory.png)](https://github.com/ZeR020/opencode-mem0) | [![User Profile Viewer](https://github.com/ZeR020/opencode-mem0/raw/main/.github/screenshot-user-profile.png)](https://github.com/ZeR020/opencode-mem0) |
-
----
-
-## Feature Deep-Dives
-
-### Intelligent Memory Ranking
-
-Every memory gets a transparent strength score that balances **recency, frequency, importance, utility, novelty, confidence, and interference**. Strong memories surface first; stale or low-value memories naturally decay.
-
-The scoring system evaluates:
-
-- **Recency**: How recently the memory was accessed or created
-- **Frequency**: How often the memory is referenced
-- **Importance**: User-marked or inferred priority
-- **Utility**: Practical value based on successful retrievals
-- **Novelty**: Uniqueness compared to existing memories
-- **Confidence**: Certainty score from extraction quality
-- **Interference**: Penalty for conflicting or redundant information
-
-### Short-Term and Long-Term Memory (STM/LTM)
-
-`opencode-mem0` separates conversational short-term memory from long-term rules and preferences. Useful short-term memories can be promoted automatically based on scoring thresholds, while obsolete context is archived.
-
-| Memory Type          | Decay Period | Promotion Threshold | Use Case                                                      |
-| -------------------- | ------------ | ------------------- | ------------------------------------------------------------- |
-| **Short-Term (STM)** | 7 days       | 0.7                 | Recent conversations, temporary context                       |
-| **Long-Term (LTM)**  | 90 days      | N/A                 | Project conventions, user preferences, architecture decisions |
-
-When STM memories score above the promotion threshold, they graduate to LTM automatically. Memories below the archive threshold are safely archived after the configured period.
-
-### Conflict Detection
-
-When new memories contradict old ones, conflicts are detected with an LLM-assisted semantic check and a heuristic fallback for offline operation. You can:
-
-- **Keep the newer memory** — replace the old one
-- **Keep both** — store as separate, potentially-scoped memories
-- **Merge** — combine into a single updated memory
-- **Resolve manually** — use the web UI to review and decide
-
-Conflicts are surfaced in the web UI at `/conflicts` and via the `/api/conflicts` endpoint.
-
-### Context-Aware Retrieval
-
-Search combines multiple signals so results are **relevant** instead of merely similar:
-
-1. **Vector similarity** — semantic meaning via usearch vector index
-2. **Full-text search (FTS5)** — keyword matching with SQLite FTS5
-3. **Score weighting** — 7-factor memory strength
-4. **Project context boost** — prioritize current project memories
-5. **Recency bias** — favor recently used memories
-6. **Diversity filtering** — avoid redundant results above similarity threshold
-
-This hybrid approach ensures you get the most useful memories for your current task.
-
-### Transcript Capture
-
-Session transcripts are automatically captured and stored with FTS5 indexing, making every conversation searchable. Transcripts decay after the configured retention period (default 30 days) to prevent unbounded growth.
-
-### Web UI
-
-A built-in management interface runs at `http://localhost:4747`:
-
-- Browse and search all memories
-- View memory details and scoring breakdown
-- Resolve conflicts visually
-- Search transcript history
-- Manage user profile and preferences
-
----
-
-## Architecture
-
-```text
-OpenCode hooks
-    -> transcript capture
-    -> memory extraction
-    -> scoring + lifecycle jobs
-    -> SQLite shards + vector index + FTS5
-    -> hybrid retrieval
-    -> local web UI / REST API
-```
-
-### File Structure
+| Mode      | Description                   | Key Args                    |
+| --------- | ----------------------------- | --------------------------- |
+| `add`     | Store a new memory            | `content`, `type?`, `tags?` |
+| `search`  | Hybrid search (vector + FTS5) | `query`, `scope?`           |
+| `profile` | Read/write user preferences   | `content?`                  |
+| `list`    | List recent memories          | `limit?`, `scope?`          |
+| `forget`  | Delete a memory by ID         | `memoryId`                  |
+| `help`    | Show usage guide              | —                           |
 
 ```
-src/
-├── index.ts              # Plugin entry, lifecycle hooks
-├── config.ts             # Configuration loading
-├── services/
-│   ├── client.ts         # LocalMemoryClient
-│   ├── memory-scoring.ts # 7-factor scoring
-│   ├── memory-lifecycle.ts   # STM/LTM management
-│   ├── memory-conflicts.ts     # Contradiction detection
-│   ├── retrieval-context.ts    # Context boost + diversity
-│   ├── transcript-capture.ts   # Transcript hook
-│   ├── platform-server.ts      # Bun/Node HTTP server abstraction
-│   ├── sqlite/
-│   │   ├── sqlite-bootstrap.ts # Runtime SQLite abstraction
-│   │   ├── vector-search.ts    # Hybrid search
-│   │   ├── transcript-manager.ts   # Transcript DB
-│   │   └── shard-manager.ts      # Sharding + migration
-│   └── web/              # UI assets and handlers
-├── examples/             # basic-usage.ts, custom-scoring.ts
-├── scripts/
-│   ├── build.mjs         # Cross-platform build
-│   ├── migrate-tests.mjs # bun:test → vitest migration helper
-│   └── migrate-v1-to-v2.ts   # Database migration
-└── vitest.config.ts      # Vitest test runner config
+Agent:  memory mode=search query="dark mode preference"
+→ {"success":true,"query":"dark mode preference","count":1,"results":[{"id":"abc123","content":"User prefers dark mode","similarity":92}]}
 ```
 
-### Core Modules
+```
+Agent:  memory mode=add content="API base URL is https://api.example.com/v2" tags="api,config"
+→ {"success":true,"message":"Memory added","id":"def456","tags":["api","config"]}
+```
 
-| Module                    | Responsibility                          |
-| ------------------------- | --------------------------------------- |
-| `client.ts`               | Add, search, list, and delete memories. |
-| `memory-scoring.ts`       | 7-factor memory scoring.                |
-| `memory-lifecycle.ts`     | STM/LTM decay, promotion, and archival. |
-| `memory-conflicts.ts`     | Contradiction detection and resolution. |
-| `retrieval-context.ts`    | Context boost and diversity filtering.  |
-| `transcript-capture.ts`   | Session transcript capture and cleanup. |
-| `sqlite/vector-search.ts` | Hybrid vector + FTS5 retrieval.         |
-| `sqlite/shard-manager.ts` | Project sharding and schema migration.  |
-| `platform-server.ts`      | Bun/Node HTTP server abstraction.       |
+### Programmatic API
 
----
+```typescript
+import plugin from "opencode-mem0/server";
+
+// The plugin auto-registers with OpenCode when loaded
+// Configure via opencode.json (see Configuration section)
+```
+
+## Key Features
+
+- **7-Factor Memory Scoring** — recency, frequency, importance, utility, novelty, confidence, and interference combine into a single strength score that drives lifecycle decisions.
+- **STM/LTM Dual-Store Lifecycle** — short-term memories decay via Ebbinghaus curves; high-strength memories auto-promote to long-term store; low-strength memories archive after inactivity.
+- **Intelligent Conflict Resolution** — detects contradictions between memories (e.g., "auth uses cookies" vs. "auth uses JWT") using LLM + heuristic analysis and resolves them.
+- **Hybrid Search** — vector similarity (usearch) + full-text search (SQLite FTS5) + multi-factor ranking + context boost + diversity filtering for high-relevance results.
+- **Transcript Storage** — session capture with FTS5 search and configurable retention, so past conversations remain searchable.
+- **Auto-Capture** — extracts important knowledge from idle sessions automatically, with privacy filtering that strips secrets and PII.
+- **User Profiles** — learns preferences, patterns, and workflows from session history; stores them per-user for personalized context injection.
+- **Web UI** — browse, search, and manage memories at `http://127.0.0.1:4747` (enabled by default).
+- **Compaction Recovery** — when OpenCode compacts a session, the plugin re-injects relevant memories so context isn't lost.
+- **Deduplication** — detects and merges near-duplicate memories at ingest time (configurable similarity threshold).
 
 ## Configuration
 
-The plugin works with defaults. Customize it in `~/.config/opencode/opencode-mem0.jsonc` when you need a different storage path, web UI settings, retention policy, scoring behavior, or AI provider.
+Config files are loaded in order (project overrides global):
 
-```json
-{
-  "storagePath": "~/.opencode-mem0/data",
-  "webServerEnabled": true,
-  "webServerPort": 4747,
-  "webServerHost": "127.0.0.1",
-  "autoCaptureEnabled": true,
+| Location                                  | Purpose                    |
+| ----------------------------------------- | -------------------------- |
+| `~/.config/opencode/opencode-mem0.jsonc`  | Global defaults            |
+| `~/.config/opencode/opencode-mem0.json`   | Global defaults (alt)      |
+| `<project>/.opencode/opencode-mem0.jsonc` | Project-specific overrides |
 
-  "transcriptStorage": {
-    "enabled": true,
-    "maxAgeDays": 30
-  },
+All settings have sensible defaults — you only need a config file to change behavior. Key options:
 
-  "memoryScoring": {
-    "enabled": true,
-    "recalculationIntervalMinutes": 60,
-    "recencyHalfLifeDays": 7,
-    "utilityHalfLifeDays": 3
-  },
+| Setting                        | Default                      | Description                                                                                         |
+| ------------------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| `webServerEnabled`             | `true`                       | Enable the memory explorer Web UI                                                                   |
+| `webServerPort`                | `4747`                       | Web UI port                                                                                         |
+| `autoCaptureEnabled`           | `true`                       | Auto-extract memories from idle sessions                                                            |
+| `embeddingModel`               | `Xenova/nomic-embed-text-v1` | Local embedding model (runs on CPU, no API key needed)                                              |
+| `embeddingApiUrl`              | —                            | Set to use an OpenAI-compatible embedding API instead of local model                                |
+| `memoryProvider`               | `openai-chat`                | AI provider for memory extraction (`openai-chat`, `openai-responses`, `anthropic`, `google-gemini`) |
+| `similarityThreshold`          | `0.6`                        | Minimum similarity for search results                                                               |
+| `maxMemories`                  | `10`                         | Max memories injected per chat message                                                              |
+| `memoryScoring.enabled`        | `true`                       | Enable 7-factor scoring recalculation                                                               |
+| `memoryLifecycle.stmDecayDays` | `7`                          | Short-term memory decay period                                                                      |
+| `memoryLifecycle.ltmDecayDays` | `90`                         | Long-term memory decay period                                                                       |
+| `storagePath`                  | `~/.opencode-mem0/data`      | SQLite database location                                                                            |
 
-  "memoryLifecycle": {
-    "stmDecayDays": 7,
-    "ltmDecayDays": 90,
-    "promotionThreshold": 0.7,
-    "archiveThreshold": 0.2,
-    "archiveAfterDays": 30,
-    "checkIntervalMinutes": 60
-  },
-
-  "retrieval": {
-    "maxResults": 20,
-    "diversityThreshold": 0.9,
-    "contextBoost": 1.5
-  }
-}
-```
-
-`webServerApiKey` is optional for the default loopback-only web UI. Set it only when exposing the web server beyond your local machine, for example when using `"webServerHost": "0.0.0.0"`.
-
-### Memory Scope
-
-| Scope          | Behavior                           |
-| -------------- | ---------------------------------- |
-| `project`      | Search only the current project.   |
-| `all-projects` | Search across every project shard. |
-
-### Auto-Capture Providers
-
-Use your existing OpenCode auth:
-
-```json
-{
-  "opencodeProvider": "anthropic",
-  "opencodeModel": "claude-haiku-4-5-20251001"
-}
-```
-
-Or any OpenAI-compatible endpoint such as Ollama, vLLM, Groq, or a local model:
-
-```json
-{
-  "memoryApiUrl": "http://localhost:11434/v1",
-  "memoryModel": "llama3.1",
-  "memoryApiKey": "sk-optional"
-}
-```
-
----
-
-## API Endpoints
-
-Open the UI at `http://localhost:4747`.
-
-| Endpoint                        | Method | Description               | Parameters                                  |
-| ------------------------------- | ------ | ------------------------- | ------------------------------------------- |
-| `/api/memories`                 | GET    | List memories             | `tag`, `page`, `pageSize`, `includePrompts` |
-| `/api/search?q=...`             | GET    | Search memories           | `q` (query), `tag`, `page`, `pageSize`      |
-| `/api/memories/search?q=...`    | GET    | Search memories alias     | `q` (query), `tag`, `page`, `pageSize`      |
-| `/api/memories`                 | POST   | Add a memory              | `{ content, containerTag, type, tags }`     |
-| `/api/memories/:id`             | GET    | Get memory by ID          | `id` (path)                                 |
-| `/api/memories/:id`             | DELETE | Delete a memory           | `id` (path), `cascade`                      |
-| `/api/memories/:id`             | PUT    | Update a memory           | `id` (path), `{ content, type, tags }`      |
-| `/api/conflicts`                | GET    | List unresolved conflicts | `resolved`, `limit`                         |
-| `/api/conflicts/:id`            | GET    | Get conflict details      | `id` (path)                                 |
-| `/api/conflicts/:id`            | POST   | Resolve a conflict        | `id` (path), `{ strategy, mergedContent }`  |
-| `/api/transcripts`              | GET    | List transcripts          | `project`, `page`, `pageSize`               |
-| `/api/transcripts/search?q=...` | GET    | Search transcripts        | `q` (query), `page`, `limit`                |
-| `/api/user-profile`             | GET    | Get user profile          | `userId`                                    |
-| `/api/user-profile`             | PUT    | Update user profile       | `{ userId, profileData }`                   |
-| `/api/profile`                  | GET    | User profile alias        | `userId`                                    |
-| `/api/profile`                  | PUT    | User profile alias        | `{ userId, profileData }`                   |
-| `/api/stats`                    | GET    | Memory statistics         | —                                           |
-| `/api/status`                   | GET    | API status                | —                                           |
-| `/api/health`                   | GET    | Health check              | —                                           |
-
-All API endpoints except `/api/health` require the `Authorization: Bearer <webServerApiKey>` header when `webServerApiKey` is configured.
-
----
-
-## Examples
-
-```typescript
-await memoryClient.addMemory("Use bun instead of npm for this project", {
-  scope: "project",
-  type: "preference",
-});
-
-const results = await memoryClient.searchMemories("package manager preference");
-const memories = await memoryClient.listMemories("my-project", 10);
-```
-
-More examples: [`examples/basic-usage.ts`](examples/basic-usage.ts) and [`examples/custom-scoring.ts`](examples/custom-scoring.ts).
-
----
-
-## Migration from v1
-
-Migrating from `opencode-mem` v1 is idempotent and safe to run more than once:
-
-```bash
-bun run scripts/migrate-v1-to-v2.ts ~/.opencode-mem/data
-```
-
-The migration upgrades schema columns, backfills scores, creates transcript/conflict tables, adds indexes, and promotes high-quality existing memories to long-term memory.
-
-### What the migration does
-
-1. **Schema upgrade** — Adds new columns (score factors, lifecycle state, conflict markers)
-2. **Backfill scores** — Calculates 7-factor scores for existing memories
-3. **Create new tables** — Transcript storage, conflict tracking, user profiles
-4. **Add indexes** — FTS5 indexes for full-text search, vector index for semantic search
-5. **Promote memories** — High-quality v1 memories graduate to LTM automatically
-
----
-
-## Development
-
-### Requirements
-
-| Runtime     | Status                                                |
-| ----------- | ----------------------------------------------------- |
-| Bun 1.x     | Recommended runtime and fastest path.                 |
-| Node.js 20+ | Full fallback via `better-sqlite3` and native `http`. |
-
-### Commands
-
-```bash
-# Install dependencies
-bun install          # Bun
-npm install          # Node.js
-
-# Build
-bun run build        # TypeScript compile + copy web assets (Bun)
-npm run build        # TypeScript compile + copy web assets (Node.js)
-
-# Type checking
-bun run typecheck    # tsc --noEmit
-
-# Tests
-bun run test         # Run Vitest suite with Bun
-npm test             # Run Vitest suite with Node.js
-bun run test:coverage # Run Vitest with coverage
-
-# Code quality
-bun run format       # Prettier format
-bun audit            # Security audit
-```
-
-### Test Coverage
-
-- **545 tests** covering memory lifecycle, transcript storage, hybrid search, conflict resolution, web API, and cross-platform runtime abstraction.
-
----
-
-## Current Release
-
-`v2.16` (in development) — Phase 03: Experience & Polish
-
-| Area                   | Improvement                                                              |
-| ---------------------- | ------------------------------------------------------------------------ |
-| Cross-platform runtime | Native Bun support plus Node.js 20+ fallback for Windows, Linux, macOS.  |
-| Storage safety         | Shards are deleted only after successful re-embedding.                   |
-| Concurrency            | Prompt claims reset on early exits to prevent permanent deadlocks.       |
-| Web UI hardening       | Safer pagination boundaries and stricter API authentication behavior.    |
-| Test coverage          | 545 tests across memory lifecycle, transcript storage, search, and APIs. |
-
-For full historical release notes, see [`CHANGELOG.md`](docs/CHANGELOG.md).
-
----
+See [`src/config.ts`](src/config.ts) for the complete list of configurable options and their defaults.
 
 ## License
 

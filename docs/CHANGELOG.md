@@ -54,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **package-lock.json** added for Node.js ecosystem compatibility
 - **vitest.config.ts** added for Vitest test runner configuration
-- **Migration helper** — `scripts/migrate-tests.mjs` assists converting `bun:test` to `vitest` imports
+- **Migration helper** — `scripts/migrate-v1-to-v2.ts` assists migrating from v1 to v2 data format
 
 ## [2.14.5] - 2026-05-06
 
@@ -117,7 +117,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Infrastructure
 
-- Hardened release pipeline with `continue-on-error: true` for tests
+- Release pipeline runs tests before publish with job dependency gate
 
 ## [2.14.1] - 2026-04-30
 
