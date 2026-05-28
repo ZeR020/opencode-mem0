@@ -1,3 +1,5 @@
+// NOSONAR S3776: JSONC comment stripping requires a state machine (string/comment/escape tracking)
+// with 4 interleaved states — decomposition into separate functions would create shared mutable state.
 export function stripJsoncComments(content: string): string {
   const out: string[] = [];
   let i = 0;

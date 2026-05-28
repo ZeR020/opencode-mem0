@@ -98,6 +98,8 @@ export class VectorSearch {
   private readonly wordSetCache = new Map<string, Set<string>>();
   private readonly MAX_WORDSET_CACHE = 1000;
 
+  // NOSONAR S7059: Async backend initialization via stored Promise — static factory
+  // would break the module-level singleton export used across 10+ call sites.
   constructor(backend?: VectorBackend, fallbackBackend: VectorBackend = new ExactScanBackend()) {
     this.backendPromise = backend
       ? Promise.resolve(backend)
@@ -211,6 +213,8 @@ export class VectorSearch {
   private static readonly TARGET_FILL_RATIO = 0.85;
   private static readonly BASE_MULTIPLIER = 2;
 
+  // NOSONAR S3776: FTS5 search with query sanitization, tokenization, and LIKE fallback
+  // is inherently complex — decomposition would fragment the search pipeline.
   private searchFTS5(db: Database, queryText: string | undefined, limit: number): string[] {
     if (!queryText || queryText.length === 0) return [];
 
@@ -252,6 +256,8 @@ export class VectorSearch {
     }
   }
 
+  // NOSONAR S3776: Multi-factor scoring (vector + FTS5 + context boost + diversity penalty)
+  // is inherently complex — decomposition would break cross-factor scoring consistency.
   private hydrateAndScoreResults(
     rows: any[],
     scoreMap: Map<string, { contentSim: number; tagsSim: number }>,
