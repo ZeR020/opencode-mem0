@@ -6,14 +6,14 @@ This guide walks you through installing, configuring, and running opencode-mem0 
 
 ## Prerequisites
 
-| Requirement  | Version   | Notes                                                                                                        |
-| ------------ | --------- | ------------------------------------------------------------------------------------------------------------ |
-| **Bun**      | >= 1.0.0  | Primary runtime. Required for `bun:sqlite` — the fast native SQLite driver.                                  |
-| **Node.js**  | >= 20.0.0 | Fallback runtime. Uses `better-sqlite3` instead of `bun:sqlite`. Full functionality on Bun; partial on Node. |
-| **OpenCode** | latest    | The agent framework this plugin extends. Install via `npm install -g opencode` or your preferred method.     |
-| **Git**      | any       | For cloning the repository.                                                                                  |
+| Requirement  | Version   | Notes                                                                                                                                         |
+| ------------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Bun**      | >= 1.0.0  | Primary runtime (Linux/macOS). Required for `bun:sqlite` — the fast native SQLite driver.                                                     |
+| **Node.js**  | >= 20.0.0 | Fallback runtime (any platform including Windows). Uses `better-sqlite3` instead of `bun:sqlite`. Full functionality on Bun; partial on Node. |
+| **OpenCode** | latest    | The agent framework this plugin extends. Install via `npm install -g opencode` or your preferred method.                                      |
+| **Git**      | any       | For cloning the repository.                                                                                                                   |
 
-> **Bun is strongly recommended.** The plugin probes for `bun:sqlite` at startup and falls back to `better-sqlite3` on Node.js, but the Bun path is faster and is the tested primary target.
+> **Bun is strongly recommended** for best performance. The plugin probes for `bun:sqlite` at startup and falls back to `better-sqlite3` on Node.js (including Windows), but the Bun path is faster and is the tested primary target.
 
 ## Installation Steps
 
@@ -129,6 +129,12 @@ Restart your shell after installation. On Node.js, the plugin works but uses `be
 ```
 
 After the initial download, subsequent runs are near-instant. Alternatively, use a remote embedding API (see [CONFIGURATION.md](CONFIGURATION.md)).
+
+### Running on Windows
+
+**Symptom:** `bun: command not found` on Windows, or `bun:sqlite` probe fails.
+
+**Solution:** Bun does not currently support Windows. Use Node.js >= 20.0.0 instead — the plugin automatically falls back to `better-sqlite3` for SQLite operations. All core features work on Windows via Node.js, though vector operations may be slightly slower than the Bun path.
 
 ### Port 4747 already in use
 

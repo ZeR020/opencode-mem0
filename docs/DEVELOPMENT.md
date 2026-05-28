@@ -42,7 +42,7 @@ bun run typecheck
 
 No `.env.example` or environment variable setup is required for local development. The plugin stores all data locally under `~/.opencode-mem0/` by default.
 
-> **Bun vs Node:** Bun is the preferred runtime. `bun install` is faster and the test suite runs under Bun. Node.js 20+ is supported as a fallback, but `bun:sqlite` is a hard dependency for the core SQLite integration at runtime.
+> **Bun vs Node:** Bun is the preferred runtime (Linux/macOS). `bun install` is faster and the test suite runs under Bun. Node.js 20+ is supported as a fallback on any platform (including Windows) via `better-sqlite3`.
 
 ---
 

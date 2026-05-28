@@ -12,7 +12,7 @@ OpenCode plugin that gives coding agents persistent memory using a local vector 
 npm install opencode-mem0
 ```
 
-Requires **Bun >= 1.0.0** (Linux/macOS) for `bun:sqlite`. Node.js >= 20.0.0 works with partial fallback via `better-sqlite3`.
+Requires **Bun >= 1.0.0** (Linux/macOS) for native `bun:sqlite`, or **Node.js >= 20.0.0** (any platform including Windows) via `better-sqlite3` fallback.
 
 ## Quick Start
 
