@@ -44,7 +44,7 @@ Requires **Bun >= 1.0.0** (Linux/macOS) for native `bun:sqlite`, or **Node.js >=
    ```
 4. Start OpenCode — the plugin warms up automatically, the Web UI launches at `http://127.0.0.1:4747`, and memories are captured from your sessions.
 
-> `memoryProvider` supports `openai-chat` (any OpenAI-compatible API), `openai-responses`, `anthropic`, and `google-gemini`. Alternatively, set `opencodeProvider` + `opencodeModel` to reuse your OpenCode-connected provider (uses your main model). Without a provider, auto-capture silently skips with a log warning.
+> **Recommended:** Use a cheap model (e.g., `gpt-4o-mini`) for memory extraction — it's cost-effective and avoids taxing your main chat model. `memoryProvider` supports `openai-chat` (any OpenAI-compatible API), `openai-responses`, `anthropic`, and `google-gemini`. Alternatively, `opencodeProvider` + `opencodeModel` reuses your OpenCode-connected provider (uses your main model). Without a provider, auto-capture silently skips with a log warning.
 
 ## Usage
 
