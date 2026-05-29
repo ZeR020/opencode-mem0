@@ -354,15 +354,6 @@ export async function applyDecay(): Promise<{
 
         db.run("COMMIT");
         inTxn = false;
-
-        for (const item of toArchive) {
-          try {
-            await vectorSearch.deleteVector(db, item.id, item.shard);
-            shardManager.decrementVectorCount(item.shard.id);
-          } catch (err) {
-            log("applyDecay vector delete error", { memoryId: item.id, error: String(err) });
-          }
-        }
       } catch (error) {
         if (inTxn) {
           try {
