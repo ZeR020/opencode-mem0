@@ -1120,7 +1120,7 @@ export async function handleGetProfileSnapshot(
   try {
     if (!changelogId) return { success: false, error: "changelogId is required" };
     const { userProfileManager } = await import("./user-profile/user-profile-manager.js");
-    const changelogs = userProfileManager.getProfileChangelogs("", 1000);
+    const changelogs = userProfileManager.getProfileChangelogs(changelogId, 50);
     const changelog = changelogs.find((c) => c.id === changelogId);
     if (!changelog) return { success: false, error: "Changelog not found" };
     const profileData = safeJSONParse(changelog.profileDataSnapshot) as
