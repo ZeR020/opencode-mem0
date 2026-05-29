@@ -29,9 +29,7 @@ Requires **Bun >= 1.0.0** (Linux/macOS) for native `bun:sqlite`, or **Node.js >=
 2. Enable the plugin in your `opencode.json` config:
    ```json
    {
-     "plugin": {
-       "opencode-mem0": true
-     }
+     "plugin": ["opencode-mem0"]
    }
    ```
 3. Optionally create a config file at `~/.config/opencode/opencode-mem0.json` (defaults work out of the box):
