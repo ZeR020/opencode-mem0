@@ -711,11 +711,32 @@ export class VectorSearch {
     return (containerTag === "" ? stmt.all(limit) : stmt.all(containerTag, limit)) as any[];
   }
 
-  getAllMemories(db: Database): any[] {
-    return this.getStmt(
+  /**
+   * Get all non-deprecated memories, bounded by a configurable limit.
+   *
+   * DEFAULT 10000: A safe ceiling that prevents OOM on large shards.
+   * Callers that need exhaustive results MUST pass an explicit higher
+   * limit (e.g. migration-service.ts for re-embedding) or implement
+   * chunked iteration via offset/limit pagination.
+   *
+   * Callers:
+   *   - deduplication-service.ts: uses default (MAX_DEDUP_MEMORIES=5000 upstream)
+   *   - migration-service.ts: passes explicit high limit (re-embed needs full scan)
+   */
+  getAllMemories(db: Database, limit: number = 10000): any[] {
+    const rows = this.getStmt(
       db,
-      "SELECT * FROM memories WHERE is_deprecated = 0 ORDER BY created_at DESC"
-    ).all() as any[];
+      "SELECT * FROM memories WHERE is_deprecated = 0 ORDER BY created_at DESC LIMIT ?"
+    ).all(limit) as any[];
+
+    if (rows.length === limit) {
+      log("getAllMemories: result truncated at limit", {
+        returned: rows.length,
+        limit,
+      });
+    }
+
+    return rows;
   }
 
   getMemoryById(db: Database, memoryId: string): any {

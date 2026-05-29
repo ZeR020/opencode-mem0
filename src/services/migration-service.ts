@@ -304,7 +304,9 @@ export class MigrationService {
 
       try {
         const db = connectionManager.getConnection(shardInfo.dbPath);
-        const memories = vectorSearch.getAllMemories(db);
+        // Re-embedding needs a full scan — pass an explicit high limit.
+        // Default 10000 is too low for shards with large memory counts.
+        const memories = vectorSearch.getAllMemories(db, 1_000_000);
         const tempMemories = this._backupMemories(memories);
         let shardHadFailures = false;
 
