@@ -13,6 +13,7 @@ import {
   computeStrength,
 } from "./memory-scoring.js";
 import type { ScoreComponents } from "./memory-scoring.js";
+import type { Database } from "./sqlite/sqlite-bootstrap.js";
 import { safeJSONParse } from "./utils/safe-transforms.js";
 
 let scoringInterval: NodeJS.Timeout | null = null;
@@ -35,8 +36,27 @@ function findConflictingMemories(content: string, allContents: string[]): string
     .slice(0, 10);
 }
 
+interface ScoringMemoryRow {
+  id: string;
+  content: string;
+  type: string | null;
+  created_at: number;
+  access_count: number;
+  last_accessed: number | null;
+  recency_score: number;
+  frequency_score: number;
+  importance_score: number;
+  utility_score: number;
+  novelty_score: number;
+  confidence_score: number;
+  interference_penalty: number;
+  strength: number;
+  metadata: string | null;
+  container_tag: string;
+}
+
 function recalculateSingleMemory(
-  memory: any,
+  memory: ScoringMemoryRow,
   allContents: string[],
   recalculateNoveltyAndInterference: boolean
 ): ScoreComponents & { strength: number } {
@@ -46,8 +66,8 @@ function recalculateSingleMemory(
   const lastAccessed = memory.last_accessed ? Number(memory.last_accessed) : null;
   const type = memory.type || undefined;
 
-  const metadata = (safeJSONParse(memory.metadata) as Record<string, any>) ?? {};
-  const source = metadata.source || undefined;
+  const metadata = (safeJSONParse(memory.metadata) as Record<string, unknown>) ?? {};
+  const source = typeof metadata.source === "string" ? metadata.source : undefined;
 
   const recency = calculateRecency(createdAt, CONFIG.memoryScoring.recencyHalfLifeDays);
   const frequency = calculateFrequency(accessCount);
@@ -94,7 +114,7 @@ export function recalculateAllScores(recalculateNoveltyAndInterference: boolean 
     const allShards = getAllShards();
 
     for (const shard of allShards) {
-      let db: any = null;
+      let db: Database | null = null;
       let inTxn = false;
       try {
         db = connectionManager.getConnection(shard.dbPath);
@@ -106,7 +126,7 @@ export function recalculateAllScores(recalculateNoveltyAndInterference: boolean 
                     metadata, container_tag
              FROM memories`
           )
-          .all() as any[];
+          .all() as ScoringMemoryRow[];
 
         if (memories.length === 0) continue;
 
@@ -155,7 +175,7 @@ export function recalculateAllScores(recalculateNoveltyAndInterference: boolean 
       } catch (error) {
         if (inTxn) {
           try {
-            db.run("ROLLBACK");
+            db!.run("ROLLBACK");
           } catch (rollbackErr) {
             log("Score recalculation rollback failed", { error: String(rollbackErr) });
           }

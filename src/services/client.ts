@@ -7,7 +7,7 @@ import { connectionManager } from "./sqlite/connection-manager.js";
 import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
 import type { MemoryType } from "../types/index.js";
-import type { MemoryRecord } from "./sqlite/types.js";
+import type { MemoryRecord, SearchResult } from "./sqlite/types.js";
 import { calculateAllScores } from "./memory-scoring.js";
 import { classifyMemory } from "./memory-lifecycle.js";
 import { detectConflicts } from "./memory-conflicts.js";
@@ -30,7 +30,45 @@ function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function rowToMemoryListItem(r: any) {
+interface MemoryRow {
+  id: string;
+  content: string;
+  created_at: number;
+  metadata: string | null;
+  display_name: string | null;
+  user_name: string | null;
+  user_email: string | null;
+  project_path: string | null;
+  project_name: string | null;
+  git_repo_url: string | null;
+  strength: number;
+  recency_score: number;
+  frequency_score: number;
+  importance_score: number;
+  utility_score: number;
+  novelty_score: number;
+  confidence_score: number;
+  interference_penalty: number;
+  access_count: number;
+  is_pinned: number;
+}
+
+interface SessionSearchRow {
+  id: string;
+  content: string;
+  tags: string | null;
+  metadata: string | null;
+  container_tag: string;
+  display_name: string | null;
+  user_name: string | null;
+  user_email: string | null;
+  project_path: string | null;
+  project_name: string | null;
+  git_repo_url: string | null;
+  created_at: number;
+}
+
+function rowToMemoryListItem(r: MemoryRow) {
   return {
     id: r.id,
     summary: r.content,
@@ -55,20 +93,25 @@ function rowToMemoryListItem(r: any) {
   };
 }
 
-function rowToSessionSearchResult(row: any) {
+function rowToSessionSearchResult(row: SessionSearchRow) {
   return {
     id: row.id,
     memory: row.content,
     similarity: 1,
-    tags: row.tags || [],
-    metadata: row.metadata || {},
+    tags: row.tags
+      ? row.tags
+          .split(",")
+          .map((t: string) => t.trim())
+          .filter(Boolean)
+      : [],
+    metadata: row.metadata ? (safeJSONParse(row.metadata) as Record<string, unknown>) : {},
     containerTag: row.container_tag,
-    displayName: row.display_name,
-    userName: row.user_name,
-    userEmail: row.user_email,
-    projectPath: row.project_path,
-    projectName: row.project_name,
-    gitRepoUrl: row.git_repo_url,
+    displayName: row.display_name ?? undefined,
+    userName: row.user_name ?? undefined,
+    userEmail: row.user_email ?? undefined,
+    projectPath: row.project_path ?? undefined,
+    projectName: row.project_name ?? undefined,
+    gitRepoUrl: row.git_repo_url ?? undefined,
     createdAt: row.created_at,
   };
 }
@@ -106,7 +149,9 @@ export class LocalMemoryClient {
     return this.initPromise;
   }
 
-  async warmup(progressCallback?: (progress: any) => void): Promise<void> {
+  async warmup(
+    progressCallback?: (progress: { phase: string; current: number; total: number }) => void
+  ): Promise<void> {
     await this.initialize();
     try {
       await embeddingService.warmup(progressCallback);
@@ -274,7 +319,7 @@ export class LocalMemoryClient {
 
       try {
         const existingMemories = vectorSearch.listMemories(db, containerTag, 50);
-        existingContents = existingMemories.map((m: any) => m.content || "");
+        existingContents = existingMemories.map((m: MemoryRow) => m.content || "");
 
         // Check for potential conflicts (simplified: memories with similar content)
         conflictingMemories = existingContents
@@ -398,7 +443,7 @@ export class LocalMemoryClient {
         };
       }
 
-      const allMemories: any[] = [];
+      const allMemories: MemoryRow[] = [];
 
       for (const shard of shards) {
         const db = connectionManager.getConnection(shard.dbPath);
@@ -406,7 +451,7 @@ export class LocalMemoryClient {
           db,
           scope === "all-projects" ? "" : containerTag,
           limit * 2
-        );
+        ) as MemoryRow[];
         allMemories.push(...memories);
       }
 
@@ -449,11 +494,11 @@ export class LocalMemoryClient {
         return { success: true as const, results: [], total: 0, timing: 0 };
       }
 
-      const allMemories: any[] = [];
+      const allMemories: SessionSearchRow[] = [];
 
       for (const shard of shards) {
         const db = connectionManager.getConnection(shard.dbPath);
-        const memories = vectorSearch.getMemoriesBySessionID(db, sessionID);
+        const memories = vectorSearch.getMemoriesBySessionID(db, sessionID) as SessionSearchRow[];
         allMemories.push(...memories);
       }
 

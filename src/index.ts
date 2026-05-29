@@ -336,7 +336,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
           projectMemories = {
             results: memories.map((m) => ({
               similarity: 1,
-              memory: (m as Record<string, string>).summary || "",
+              memory: (m as unknown as Record<string, string>).summary || "",
             })),
             total: memories.length,
             timing: 0,
@@ -555,9 +555,9 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
               success: true,
               count: listRes.memories?.length,
               memories: listRes.memories?.map((m) => ({
-                id: (m as Record<string, string>).id,
-                content: (m as Record<string, string>).summary,
-                createdAt: (m as Record<string, string>).createdAt,
+                id: (m as unknown as Record<string, string>).id,
+                content: (m as unknown as Record<string, string>).summary,
+                createdAt: (m as unknown as Record<string, string>).createdAt,
               })),
             });
           }

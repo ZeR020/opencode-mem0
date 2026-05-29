@@ -3,6 +3,7 @@ import { vectorSearch } from "./sqlite/vector-search.js";
 import { connectionManager } from "./sqlite/connection-manager.js";
 import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
+import type { ShardInfo } from "./sqlite/types.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
 
 interface CleanupResult {
@@ -24,18 +25,20 @@ export class CleanupService {
     return CONFIG.autoCleanupEnabled && !this.isRunning && now - this.lastCleanupTime >= oneDayMs;
   }
 
-  private _collectPinnedMemoryIds(allShards: any[]): Set<string> {
+  private _collectPinnedMemoryIds(allShards: ShardInfo[]): Set<string> {
     const pinnedMemoryIds = new Set<string>();
     for (const shard of allShards) {
       const db = connectionManager.getConnection(shard.dbPath);
-      const pinned = db.prepare("SELECT id FROM memories WHERE is_pinned = 1").all() as any[];
+      const pinned = db.prepare("SELECT id FROM memories WHERE is_pinned = 1").all() as {
+        id: string;
+      }[];
       pinned.forEach((row) => pinnedMemoryIds.add(row.id));
     }
     return pinnedMemoryIds;
   }
 
   private async _cleanupShard(
-    shard: any,
+    shard: ShardInfo,
     cutoffTime: number,
     protectedMemoryIds: Set<string>
   ): Promise<{
@@ -48,7 +51,7 @@ export class CleanupService {
     const db = connectionManager.getConnection(shard.dbPath);
     const oldMemories = db
       .prepare("SELECT id, container_tag, is_pinned FROM memories WHERE updated_at < ?")
-      .all(cutoffTime) as any[];
+      .all(cutoffTime) as { id: string; container_tag: string; is_pinned: number }[];
 
     let totalDeleted = 0;
     let userDeleted = 0;

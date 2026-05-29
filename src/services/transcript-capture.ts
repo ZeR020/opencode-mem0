@@ -4,6 +4,19 @@ import { getTags } from "./tags.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 
+interface TranscriptMessagePart {
+  type: string;
+  text?: string;
+  tool?: string;
+  synthetic?: boolean;
+  state?: { status?: string; input?: unknown; output?: unknown };
+}
+
+interface TranscriptMessage {
+  info?: { role?: string; id?: string; timestamp?: number };
+  parts?: TranscriptMessagePart[];
+}
+
 const captureLocks = new Set<string>();
 
 /**
@@ -43,13 +56,13 @@ export async function performTranscriptCapture(
 
     // Strip out internal parts that are already tracked as memories to avoid bloat
     // We keep all user/assistant messages and tool calls, but skip synthetic parts
-    const filteredMessages = messages.map((msg: any) => ({
+    const filteredMessages = messages.map((msg: TranscriptMessage) => ({
       role: msg.info?.role,
       id: msg.info?.id,
       timestamp: msg.info?.timestamp,
       parts: msg.parts
-        ?.filter((p: any) => !p.synthetic)
-        .map((p: any) => ({
+        ?.filter((p) => !p.synthetic)
+        .map((p) => ({
           type: p.type,
           text: p.text,
           tool: p.tool,

@@ -225,11 +225,11 @@ export class WebServer {
 
   // --- HTTP request handling ---
 
-  private redactPII(obj: any): any {
+  private redactPII(obj: unknown): unknown {
     if (!obj || typeof obj !== "object") return obj;
     if (Array.isArray(obj)) return obj.map((item) => this.redactPII(item));
 
-    const newObj: any = {};
+    const newObj: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       if (SENSITIVE_KEYS.has(key)) {
         newObj[key] = value !== undefined && value !== null && value !== "" ? "[REDACTED]" : value;
@@ -418,7 +418,7 @@ export class WebServer {
   }
 
   private async _apiAddMemory(req: Request, isLocal: boolean): Promise<Response> {
-    const body = (await req.json()) as any;
+    const body = (await req.json()) as Parameters<typeof handleAddMemory>[0];
     const result = await handleAddMemory(body);
     return this.jsonResponse(result, 200, !isLocal);
   }
@@ -448,13 +448,13 @@ export class WebServer {
       return this.jsonResponse({ success: false, error: "Invalid ID" });
     }
     const id = parts[3];
-    const body = (await req.json()) as any;
+    const body = (await req.json()) as { content?: string; tags?: string[] };
     const result = await handleUpdateMemory(id, body);
     return this.jsonResponse(result, 200, !isLocal);
   }
 
   private async _apiBulkDeleteMemories(req: Request, isLocal: boolean): Promise<Response> {
-    const body = (await req.json()) as any;
+    const body = (await req.json()) as { ids?: string[]; cascade?: boolean };
     const cascade = body.cascade !== false;
     const result = await handleBulkDelete(body.ids || [], cascade);
     return this.jsonResponse(result, 200, !isLocal);
@@ -524,8 +524,15 @@ export class WebServer {
     if (!conflictId) {
       return this.jsonResponse({ success: false, error: "Invalid conflict ID" });
     }
-    const body = (await req.json().catch(() => ({}))) as any;
-    const result = await handleResolveConflict(conflictId, body.strategy, body.mergedContent);
+    const body = (await req.json().catch(() => ({}))) as {
+      strategy?: string;
+      mergedContent?: string;
+    };
+    const result = await handleResolveConflict(
+      conflictId,
+      body.strategy || "keep-newer",
+      body.mergedContent
+    );
     return this.jsonResponse(result, 200, !isLocal);
   }
 
@@ -555,7 +562,7 @@ export class WebServer {
 
   private async _apiPinAction(
     path: string,
-    handler: (id: string) => any,
+    handler: (id: string) => unknown,
     isLocal: boolean
   ): Promise<Response> {
     const id = this._extractIdFromPath(path);
@@ -587,7 +594,7 @@ export class WebServer {
   }
 
   private async _apiRunTagMigration(req: Request, isLocal: boolean): Promise<Response> {
-    const body = (await req.json()) as any;
+    const body = (await req.json()) as { batchSize?: number };
     const batchSize = body?.batchSize || 5;
     const result = await handleRunTagMigrationBatch(batchSize);
     return this.jsonResponse(result, 200, !isLocal);
@@ -599,7 +606,7 @@ export class WebServer {
   }
 
   private async _apiRunMigration(req: Request, isLocal: boolean): Promise<Response> {
-    const body = (await req.json()) as any;
+    const body = (await req.json()) as { strategy?: string };
     const strategy = body.strategy || "fresh-start";
     if (strategy !== "fresh-start" && strategy !== "re-embed") {
       return this.jsonResponse({ success: false, error: "Invalid strategy" });
@@ -619,7 +626,7 @@ export class WebServer {
   }
 
   private async _apiBulkDeletePrompts(req: Request, isLocal: boolean): Promise<Response> {
-    const body = (await req.json()) as any;
+    const body = (await req.json()) as { ids?: string[]; cascade?: boolean };
     const cascade = body.cascade !== false;
     const result = await handleBulkDeletePrompts(body.ids || [], cascade);
     return this.jsonResponse(result, 200, !isLocal);
@@ -665,7 +672,7 @@ export class WebServer {
   }
 
   private async _apiRefreshProfile(req: Request, isLocal: boolean): Promise<Response> {
-    const body = (await req.json().catch(() => ({}))) as any;
+    const body = (await req.json().catch(() => ({}))) as { userId?: string };
     const userId = body.userId || undefined;
     const result = await handleRefreshProfile(userId);
     return this.jsonResponse(result, 200, !isLocal);
@@ -717,7 +724,7 @@ export class WebServer {
     return id;
   }
 
-  private jsonResponse(data: any, status: number = 200, redact: boolean = false): Response {
+  private jsonResponse(data: unknown, status: number = 200, redact: boolean = false): Response {
     const finalData = redact ? this.redactPII(data) : data;
     return new Response(JSON.stringify(finalData), {
       status,

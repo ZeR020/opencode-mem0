@@ -52,14 +52,26 @@ class CaptureMutex {
 
 const captureMutex = new CaptureMutex();
 
-function findPromptMessages(messages: any[], promptMessageId: string): any[] {
-  const promptIndex = messages.findIndex((m: any) => m.info?.id === promptMessageId);
+interface PromptMessage {
+  info?: { id?: string; role?: string };
+  parts?: Array<{
+    type: string;
+    text?: string;
+    tool?: string;
+    id?: string;
+    input?: unknown;
+    state?: { status?: string; input?: unknown; output?: unknown };
+  }>;
+}
+
+function findPromptMessages(messages: PromptMessage[], promptMessageId: string): PromptMessage[] {
+  const promptIndex = messages.findIndex((m) => m.info?.id === promptMessageId);
   if (promptIndex === -1) return [];
   return messages.slice(promptIndex + 1);
 }
 
 async function processCaptureResult(
-  prompt: any,
+  prompt: { id: string },
   summaryResult: { summary: string; type: string; tags: string[] } | null,
   ctx: PluginInput,
   directory: string,
@@ -73,8 +85,8 @@ async function processCaptureResult(
 
   const tags = getTags(directory);
   const result = await memoryClient.addMemory(summaryResult.summary, tags.project.tag, {
-    source: "auto-capture" as any,
-    type: summaryResult.type as any,
+    source: "auto-capture",
+    type: summaryResult.type,
     tags: summaryResult.tags,
     sessionID,
     promptId: prompt.id,
@@ -193,7 +205,7 @@ export async function performAutoCapture(
   }
 }
 
-function extractAIContent(messages: any[]): {
+function extractAIContent(messages: PromptMessage[]): {
   textResponses: string[];
   toolCalls: ToolCallInfo[];
 } {
@@ -205,15 +217,15 @@ function extractAIContent(messages: any[]): {
 
     if (!msg.parts || !Array.isArray(msg.parts)) continue;
 
-    const textParts = msg.parts.filter((p: any) => p.type === "text" && p.text);
+    const textParts = msg.parts.filter((p) => p.type === "text" && p.text);
     if (textParts.length > 0) {
-      const text = textParts.map((p: any) => p.text).join("\n");
+      const text = textParts.map((p) => p.text!).join("\n");
       if (text.trim()) {
         textResponses.push(text.trim());
       }
     }
 
-    const toolParts = msg.parts.filter((p: any) => p.type === "tool");
+    const toolParts = msg.parts.filter((p) => p.type === "tool");
     for (const tool of toolParts) {
       const name = tool.tool || "unknown";
       let input = "";
