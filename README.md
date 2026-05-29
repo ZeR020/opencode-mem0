@@ -4,21 +4,13 @@
 
 # OpenCode-Mem0
 
----
-
-</div>
-
-<div align="center">
-
 OpenCode plugin that gives coding agents persistent memory using a local vector database (SQLite + usearch). No cloud services required — all data stays on your machine.
-
-</div>
-
-<div align="center">
 
 [![npm version](https://img.shields.io/npm/v/opencode-mem0.svg)](https://www.npmjs.com/package/opencode-mem0) [![npm downloads](https://img.shields.io/npm/dm/opencode-mem0.svg)](https://www.npmjs.com/package/opencode-mem0) [![Bun](https://img.shields.io/badge/runtime-Bun-fbf0df?logo=bun&logoColor=black)](https://bun.sh) [![Node.js](https://img.shields.io/badge/runtime-Node.js-339933?logo=node.js&logoColor=white)](https://nodejs.org) [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ZeR020/opencode-mem0)
 
 </div>
+
+---
 
 ## Installation
 
@@ -123,14 +115,8 @@ See [`src/config.ts`](src/config.ts) for the complete list of configurable optio
 
 MIT License. See [`LICENSE`](LICENSE).
 
-**Repository:** [github.com/ZeR020/opencode-mem0](https://github.com/ZeR020/opencode-mem0)
-
-**Author:** ZeR020
-
-**Original project:** [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem) — `opencode-mem0` is a cognitive enhancement fork. Currently ongoing development.
+**Repository:** [github.com/ZeR020/opencode-mem0](https://github.com/ZeR020/opencode-mem0) · **Author:** ZeR020 · **Original:** [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem)
 
 ---
 
-<p align="center">
-  <sub>Built with ❤️ for privacy-first agent memory.</sub>
-</p>
+<p align="center"><sub>Built with ❤️ for privacy-first agent memory.</sub></p>
