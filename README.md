@@ -43,12 +43,14 @@ Requires **Bun >= 1.0.0** (Linux/macOS) for native `bun:sqlite`, or **Node.js >=
 
 > **LLM provider required for AI features:** Auto-capture, conflict resolution, and user-profile analysis need an LLM to extract and process memories. Configure **one of**:
 >
-> - **Option A (recommended):** Set `opencodeProvider` + `opencodeModel` to reuse your OpenCode-connected provider (e.g., the same provider you chat with). No extra API key needed.
-> - **Option B:** Set `memoryProvider` + `memoryModel` + `memoryApiUrl` + `memoryApiKey` to use a standalone AI provider just for memory extraction.
+> - **Option A (recommended):** Use a cheap OpenAI-compatible endpoint (e.g., `gpt-4o-mini`, local LLM, Ollama) via `memoryProvider` + `memoryModel` + `memoryApiUrl` + `memoryApiKey`. This keeps memory extraction costs minimal and separate from your main chat model.
+> - **Option B:** Set `opencodeProvider` + `opencodeModel` to reuse your OpenCode-connected provider. Convenient but uses your main (often more expensive) model.
 >
-> Without either option, auto-capture silently skips with a log warning.
+> `memoryProvider` supports `openai-chat` (any OpenAI-compatible API), `openai-responses`, `anthropic`, and `google-gemini`. Without a provider, auto-capture silently skips with a log warning.
 
 ## Usage
+
+Memories are captured automatically from conversations via auto-capture (enabled by default). The agent tool below is for explicit memory operations — most users never need to invoke it manually.
 
 ### Agent Tool — Memory Commands
 
