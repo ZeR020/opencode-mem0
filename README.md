@@ -2,7 +2,7 @@
 
 <div align="center">
 
-# OpenCode-Mem0
+# <u>OpenCode-Mem0</u>
 
 </div>
 
