@@ -26,14 +26,22 @@ Requires **Bun >= 1.0.0** (Linux/macOS) for native `bun:sqlite`, or **Node.js >=
    ```bash
    npm install opencode-mem0
    ```
-2. Create a config file at `~/.config/opencode/opencode-mem0.json` (optional — defaults work out of the box):
+2. Enable the plugin in your `opencode.json` config:
+   ```json
+   {
+     "plugin": {
+       "opencode-mem0": true
+     }
+   }
+   ```
+3. Optionally create a config file at `~/.config/opencode/opencode-mem0.json` (defaults work out of the box):
    ```json
    {
      "webServerEnabled": true,
      "autoCaptureEnabled": true
    }
    ```
-3. Start OpenCode — the plugin warms up automatically, the Web UI launches at `http://127.0.0.1:4747`, and memories are captured from your sessions.
+4. Start OpenCode — the plugin warms up automatically, the Web UI launches at `http://127.0.0.1:4747`, and memories are captured from your sessions.
 
 ## Usage Examples
 
@@ -111,11 +119,17 @@ All settings have sensible defaults — you only need a config file to change be
 
 See [`src/config.ts`](src/config.ts) for the complete list of configurable options and their defaults.
 
+---
+
+> **OpenCode-Mem0** is a cognitive enhancement fork of [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem), featuring 7-factor memory scoring, STM/LTM dual-store lifecycle, intelligent conflict resolution, hybrid search, transcript storage, and more. Active development ongoing.
+
+---
+
 ## License
 
 MIT License. See [`LICENSE`](LICENSE).
 
-**Repository:** [github.com/ZeR020/opencode-mem0](https://github.com/ZeR020/opencode-mem0) · **Author:** ZeR020 · **Original:** [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem)
+**Repository:** [github.com/ZeR020/opencode-mem0](https://github.com/ZeR020/opencode-mem0) · **Author:** ZeR020
 
 ---
 
