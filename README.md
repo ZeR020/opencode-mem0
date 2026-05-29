@@ -41,7 +41,14 @@ Requires **Bun >= 1.0.0** (Linux/macOS) for native `bun:sqlite`, or **Node.js >=
    ```
 4. Start OpenCode — the plugin warms up automatically, the Web UI launches at `http://127.0.0.1:4747`, and memories are captured from your sessions.
 
-## Usage Examples
+> **LLM provider required for AI features:** Auto-capture, conflict resolution, and user-profile analysis need an LLM to extract and process memories. Configure **one of**:
+>
+> - **Option A (recommended):** Set `opencodeProvider` + `opencodeModel` to reuse your OpenCode-connected provider (e.g., the same provider you chat with). No extra API key needed.
+> - **Option B:** Set `memoryProvider` + `memoryModel` + `memoryApiUrl` + `memoryApiKey` to use a standalone AI provider just for memory extraction.
+>
+> Without either option, auto-capture silently skips with a log warning.
+
+## Usage
 
 ### Agent Tool — Memory Commands
 
