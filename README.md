@@ -32,21 +32,19 @@ Requires **Bun >= 1.0.0** (Linux/macOS) for native `bun:sqlite`, or **Node.js >=
      "plugin": ["opencode-mem0"]
    }
    ```
-3. Optionally create a config file at `~/.config/opencode/opencode-mem0.jsonc` (defaults work out of the box):
-   ```json
+3. Configure a memory provider for auto-capture (e.g., a cheap OpenAI-compatible endpoint):
+   ```jsonc
+   // ~/.config/opencode/opencode-mem0.jsonc
    {
-     "webServerEnabled": true,
-     "autoCaptureEnabled": true
+     "memoryProvider": "openai-chat",
+     "memoryModel": "gpt-4o-mini",
+     "memoryApiUrl": "https://api.openai.com/v1",
+     "memoryApiKey": "sk-...",
    }
    ```
 4. Start OpenCode — the plugin warms up automatically, the Web UI launches at `http://127.0.0.1:4747`, and memories are captured from your sessions.
 
-> **LLM provider required for AI features:** Auto-capture, conflict resolution, and user-profile analysis need an LLM to extract and process memories. Configure **one of**:
->
-> - **Option A (recommended):** Use a cheap OpenAI-compatible endpoint (e.g., `gpt-4o-mini`, local LLM, Ollama) via `memoryProvider` + `memoryModel` + `memoryApiUrl` + `memoryApiKey`. This keeps memory extraction costs minimal and separate from your main chat model.
-> - **Option B:** Set `opencodeProvider` + `opencodeModel` to reuse your OpenCode-connected provider. Convenient but uses your main (often more expensive) model.
->
-> `memoryProvider` supports `openai-chat` (any OpenAI-compatible API), `openai-responses`, `anthropic`, and `google-gemini`. Without a provider, auto-capture silently skips with a log warning.
+> `memoryProvider` supports `openai-chat` (any OpenAI-compatible API), `openai-responses`, `anthropic`, and `google-gemini`. Alternatively, set `opencodeProvider` + `opencodeModel` to reuse your OpenCode-connected provider (uses your main model). Without a provider, auto-capture silently skips with a log warning.
 
 ## Usage
 
