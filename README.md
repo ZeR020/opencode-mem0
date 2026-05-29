@@ -32,7 +32,7 @@ Requires **Bun >= 1.0.0** (Linux/macOS) for native `bun:sqlite`, or **Node.js >=
      "plugin": ["opencode-mem0"]
    }
    ```
-3. Optionally create a config file at `~/.config/opencode/opencode-mem0.json` (defaults work out of the box):
+3. Optionally create a config file at `~/.config/opencode/opencode-mem0.jsonc` (defaults work out of the box):
    ```json
    {
      "webServerEnabled": true,
@@ -69,10 +69,9 @@ Agent:  memory mode=add content="API base URL is https://api.example.com/v2" tag
 ### Programmatic API
 
 ```typescript
-import plugin from "opencode-mem0/server";
-
-// The plugin auto-registers with OpenCode when loaded
-// Configure via opencode.json (see Configuration section)
+import pluginModule from "opencode-mem0/server";
+// pluginModule = { id: "opencode-mem0", server: OpenCodeMemPlugin }
+// OpenCode loads this automatically when the plugin is enabled in opencode.json
 ```
 
 ## Key Features
@@ -92,30 +91,180 @@ import plugin from "opencode-mem0/server";
 
 Config files are loaded in order (project overrides global):
 
-| Location                                  | Purpose                    |
-| ----------------------------------------- | -------------------------- |
-| `~/.config/opencode/opencode-mem0.jsonc`  | Global defaults            |
-| `~/.config/opencode/opencode-mem0.json`   | Global defaults (alt)      |
-| `<project>/.opencode/opencode-mem0.jsonc` | Project-specific overrides |
+| Location                                  | Purpose                          |
+| ----------------------------------------- | -------------------------------- |
+| `~/.config/opencode/opencode-mem0.jsonc`  | Global defaults                  |
+| `~/.config/opencode/opencode-mem0.json`   | Global defaults (alt)            |
+| `<project>/.opencode/opencode-mem0.jsonc` | Project-specific overrides       |
+| `<project>/.opencode/opencode-mem0.json`  | Project-specific overrides (alt) |
 
-All settings have sensible defaults — you only need a config file to change behavior. Key options:
+All settings have sensible defaults — you only need a config file to change behavior.
 
-| Setting                        | Default                      | Description                                                                                         |
-| ------------------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------- |
-| `webServerEnabled`             | `true`                       | Enable the memory explorer Web UI                                                                   |
-| `webServerPort`                | `4747`                       | Web UI port                                                                                         |
-| `autoCaptureEnabled`           | `true`                       | Auto-extract memories from idle sessions                                                            |
-| `embeddingModel`               | `Xenova/nomic-embed-text-v1` | Local embedding model (runs on CPU, no API key needed)                                              |
-| `embeddingApiUrl`              | —                            | Set to use an OpenAI-compatible embedding API instead of local model                                |
-| `memoryProvider`               | `openai-chat`                | AI provider for memory extraction (`openai-chat`, `openai-responses`, `anthropic`, `google-gemini`) |
-| `similarityThreshold`          | `0.6`                        | Minimum similarity for search results                                                               |
-| `maxMemories`                  | `10`                         | Max memories injected per chat message                                                              |
-| `memoryScoring.enabled`        | `true`                       | Enable 7-factor scoring recalculation                                                               |
-| `memoryLifecycle.stmDecayDays` | `7`                          | Short-term memory decay period                                                                      |
-| `memoryLifecycle.ltmDecayDays` | `90`                         | Long-term memory decay period                                                                       |
-| `storagePath`                  | `~/.opencode-mem0/data`      | SQLite database location                                                                            |
+### Core Settings
 
-See [`src/config.ts`](src/config.ts) for the complete list of configurable options and their defaults.
+| Setting           | Default                 | Description                                          |
+| ----------------- | ----------------------- | ---------------------------------------------------- |
+| `storagePath`     | `~/.opencode-mem0/data` | SQLite database location                             |
+| `logLevel`        | `info`                  | Logging verbosity (`debug`, `info`, `warn`, `error`) |
+| `warmupTimeoutMs` | `30000`                 | Maximum time (ms) to wait for embedding model warmup |
+
+### Memory & Search
+
+| Setting               | Default         | Description                                                      |
+| --------------------- | --------------- | ---------------------------------------------------------------- |
+| `similarityThreshold` | `0.6`           | Minimum similarity for search results (0–1)                      |
+| `maxMemories`         | `10`            | Max memories returned per search                                 |
+| `vectorBackend`       | `usearch-first` | Vector search backend (`usearch-first`, `usearch`, `exact-scan`) |
+| `maxVectorsPerShard`  | `50000`         | Maximum vectors per database shard                               |
+| `containerTagPrefix`  | `opencode`      | Prefix for memory container tags                                 |
+| `memory.defaultScope` | `project`       | Default search scope (`project` or `all-projects`)               |
+
+### Embedding
+
+| Setting               | Default                      | Description                                                                                                  |
+| --------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `embeddingModel`      | `Xenova/nomic-embed-text-v1` | Local embedding model (runs on CPU, no API key needed)                                                       |
+| `embeddingDimensions` | `768`                        | Embedding vector dimensions (auto-detected from model name if omitted)                                       |
+| `embeddingApiUrl`     | —                            | Set to use an OpenAI-compatible embedding API instead of local model                                         |
+| `embeddingApiKey`     | —                            | API key for remote embedding endpoint (falls back to `OPENAI_API_KEY` env var when `embeddingApiUrl` is set) |
+
+### AI Provider (Memory Extraction)
+
+| Setting             | Default       | Description                                                                                         |
+| ------------------- | ------------- | --------------------------------------------------------------------------------------------------- |
+| `memoryProvider`    | `openai-chat` | AI provider for memory extraction (`openai-chat`, `openai-responses`, `anthropic`, `google-gemini`) |
+| `memoryModel`       | —             | Model name for the chosen provider                                                                  |
+| `memoryApiUrl`      | —             | Custom API base URL for the provider                                                                |
+| `memoryApiKey`      | —             | API key (resolved via secret resolver)                                                              |
+| `memoryTemperature` | —             | Sampling temperature, or `false` to disable                                                         |
+| `memoryExtraParams` | —             | Additional provider-specific parameters (key-value object)                                          |
+| `opencodeProvider`  | —             | Override which OpenCode-connected provider to use                                                   |
+| `opencodeModel`     | —             | Override which model to use from the connected provider                                             |
+
+### Web UI
+
+| Setting            | Default     | Description                        |
+| ------------------ | ----------- | ---------------------------------- |
+| `webServerEnabled` | `true`      | Enable the memory explorer Web UI  |
+| `webServerPort`    | `4747`      | Web UI port                        |
+| `webServerHost`    | `127.0.0.1` | Web UI bind address                |
+| `webServerApiKey`  | —           | API key required for Web UI access |
+
+### Auto-Capture
+
+| Setting                       | Default | Description                                             |
+| ----------------------------- | ------- | ------------------------------------------------------- |
+| `autoCaptureEnabled`          | `true`  | Auto-extract memories from idle sessions                |
+| `autoCaptureMaxIterations`    | `5`     | Max capture iterations per idle session                 |
+| `autoCaptureIterationTimeout` | `30000` | Timeout (ms) per capture iteration                      |
+| `autoCaptureLanguage`         | —       | Language hint for auto-capture (e.g., `en`, `de`, `zh`) |
+
+### Memory Scoring
+
+| Setting                                      | Default | Description                                  |
+| -------------------------------------------- | ------- | -------------------------------------------- |
+| `memoryScoring.enabled`                      | `true`  | Enable 7-factor scoring recalculation        |
+| `memoryScoring.recalculationIntervalMinutes` | `60`    | How often (min) to recalculate memory scores |
+| `memoryScoring.recencyHalfLifeDays`          | `7`     | Half-life for recency factor decay           |
+| `memoryScoring.utilityHalfLifeDays`          | `3`     | Half-life for utility factor decay           |
+
+### Memory Lifecycle
+
+| Setting                                | Default | Description                                            |
+| -------------------------------------- | ------- | ------------------------------------------------------ |
+| `memoryLifecycle.stmDecayDays`         | `7`     | Short-term memory decay period                         |
+| `memoryLifecycle.ltmDecayDays`         | `90`    | Long-term memory decay period                          |
+| `memoryLifecycle.promotionThreshold`   | `0.7`   | Strength score threshold for STM → LTM promotion (0–1) |
+| `memoryLifecycle.archiveThreshold`     | `0.2`   | Strength score threshold for archiving (0–1)           |
+| `memoryLifecycle.archiveAfterDays`     | `30`    | Days of inactivity before archival                     |
+| `memoryLifecycle.checkIntervalMinutes` | `60`    | How often (min) to run lifecycle maintenance           |
+
+### Chat Message Injection
+
+| Setting                             | Default    | Description                                                      |
+| ----------------------------------- | ---------- | ---------------------------------------------------------------- |
+| `chatMessage.enabled`               | `true`     | Inject relevant memories into chat messages                      |
+| `chatMessage.maxMemories`           | `3`        | Max memories injected per chat message                           |
+| `chatMessage.excludeCurrentSession` | `true`     | Exclude memories from the current session                        |
+| `chatMessage.maxAgeDays`            | —          | Only inject memories newer than this many days                   |
+| `chatMessage.injectOn`              | `first`    | When to inject: `first` (first user message) or `always`         |
+| `chatMessage.mode`                  | `relevant` | Injection mode: `relevant` (search-based) or `fast` (list-based) |
+
+### Retrieval & Injection
+
+| Setting                         | Default | Description                                         |
+| ------------------------------- | ------- | --------------------------------------------------- |
+| `retrieval.maxResults`          | `20`    | Max search results from retrieval                   |
+| `retrieval.diversityThreshold`  | `0.9`   | Diversity filter threshold (0–1)                    |
+| `retrieval.contextBoost`        | `1.5`   | Context similarity boost multiplier                 |
+| `injection.tokenBudget`         | `4000`  | Max tokens for injected memory context              |
+| `injection.format`              | `plain` | Output format: `plain`, `xml`, or `yaml`            |
+| `injection.queryAwareFiltering` | `true`  | Filter memories by relevance to the current query   |
+| `injection.relevanceThreshold`  | `0.3`   | Minimum relevance score for injected memories (0–1) |
+
+### Contextual Decay
+
+| Setting                               | Default | Description                       |
+| ------------------------------------- | ------- | --------------------------------- |
+| `contextualDecay.enabled`             | `true`  | Enable context-aware memory decay |
+| `contextualDecay.baseDecayRate`       | `0.05`  | Base decay rate per cycle (0–1)   |
+| `contextualDecay.strengthBoostFactor` | `0.5`   | Strength boost factor (0–1)       |
+| `contextualDecay.accessBoostFactor`   | `0.3`   | Access boost factor (0–1)         |
+| `contextualDecay.minDecayRate`        | `0.005` | Minimum decay rate (0–1)          |
+| `contextualDecay.maxDecayRate`        | `0.15`  | Maximum decay rate (0–1)          |
+
+### Compaction Recovery
+
+| Setting                  | Default | Description                                    |
+| ------------------------ | ------- | ---------------------------------------------- |
+| `compaction.enabled`     | `true`  | Re-inject memories after session compaction    |
+| `compaction.memoryLimit` | `10`    | Max memories to re-inject per compaction event |
+
+### Transcript Storage
+
+| Setting                        | Default | Description                                      |
+| ------------------------------ | ------- | ------------------------------------------------ |
+| `transcriptStorage.enabled`    | `true`  | Store session transcripts for search             |
+| `transcriptStorage.maxAgeDays` | `30`    | Maximum age (days) before transcripts are pruned |
+
+### Deduplication
+
+| Setting                            | Default | Description                              |
+| ---------------------------------- | ------- | ---------------------------------------- |
+| `deduplicationEnabled`             | `true`  | Enable deduplication of similar memories |
+| `deduplicationSimilarityThreshold` | `0.9`   | Similarity threshold for merge (0–1)     |
+| `deduplicationIngestEnabled`       | `true`  | Run deduplication at ingest time         |
+
+### Auto-Cleanup
+
+| Setting                    | Default | Description                       |
+| -------------------------- | ------- | --------------------------------- |
+| `autoCleanupEnabled`       | `true`  | Automatically clean up stale data |
+| `autoCleanupRetentionDays` | `30`    | Days to retain before cleanup     |
+
+### User Profiles
+
+| Setting                              | Default | Description                              |
+| ------------------------------------ | ------- | ---------------------------------------- |
+| `injectProfile`                      | `true`  | Inject user profile into agent context   |
+| `maxProfileItems`                    | `5`     | Max profile items injected               |
+| `userProfileAnalysisInterval`        | `10`    | Sessions between profile re-analysis     |
+| `userProfileMaxPreferences`          | `20`    | Max stored user preferences              |
+| `userProfileMaxPatterns`             | `15`    | Max stored behavioral patterns           |
+| `userProfileMaxWorkflows`            | `10`    | Max stored workflow descriptions         |
+| `userProfileConfidenceDecayDays`     | `30`    | Days before profile confidence decays    |
+| `userProfileChangelogRetentionCount` | `5`     | Max profile changelog entries retained   |
+| `userEmailOverride`                  | —       | Override user email for profile identity |
+| `userNameOverride`                   | —       | Override user name for profile identity  |
+
+### AI Session & Toasts
+
+| Setting                  | Default | Description                         |
+| ------------------------ | ------- | ----------------------------------- |
+| `aiSessionRetentionDays` | `7`     | Days to retain AI provider sessions |
+| `showAutoCaptureToasts`  | `true`  | Show toast when auto-capture runs   |
+| `showUserProfileToasts`  | `true`  | Show toast when profile is updated  |
+| `showErrorToasts`        | `true`  | Show toast on memory system errors  |
 
 ---
 
