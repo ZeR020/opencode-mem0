@@ -107,6 +107,8 @@ export function recalculateAllScores(recalculateNoveltyAndInterference: boolean 
   duration: number;
 } {
   const startTime = Date.now();
+  const batchSize = CONFIG.memoryScoring.recalculationBatchSize ?? 500;
+  let totalProcessed = 0;
   let totalUpdated = 0;
   let shardsProcessed = 0;
 
@@ -118,19 +120,26 @@ export function recalculateAllScores(recalculateNoveltyAndInterference: boolean 
       let inTxn = false;
       try {
         db = connectionManager.getConnection(shard.dbPath);
-        const memories = db
-          .prepare(
-            `SELECT id, content, type, created_at, access_count, last_accessed,
-                    recency_score, frequency_score, importance_score, utility_score,
-                    novelty_score, confidence_score, interference_penalty, strength,
-                    metadata, container_tag
-             FROM memories`
-          )
-          .all() as ScoringMemoryRow[];
 
-        if (memories.length === 0) continue;
+        // Count total memories in this shard for progress tracking
+        const countRow = db.prepare("SELECT COUNT(*) as cnt FROM memories").get() as {
+          cnt: number;
+        };
+        const totalInShard = countRow.cnt;
+        if (totalInShard === 0) continue;
 
-        const allContents = memories.map((m) => m.content || "");
+        const totalBatches = Math.ceil(totalInShard / batchSize);
+
+        const selectStmt = db.prepare(
+          `SELECT id, content, type, created_at, access_count, last_accessed,
+                  recency_score, frequency_score, importance_score, utility_score,
+                  novelty_score, confidence_score, interference_penalty, strength,
+                  metadata, container_tag
+           FROM memories
+           ORDER BY rowid
+           LIMIT ? OFFSET ?`
+        );
+
         const updateStmt = db.prepare(`
           UPDATE memories
           SET recency_score = ?,
@@ -144,33 +153,51 @@ export function recalculateAllScores(recalculateNoveltyAndInterference: boolean 
           WHERE id = ?
         `);
 
-        db.run("BEGIN TRANSACTION");
-        inTxn = true;
+        let chunkIndex = 0;
 
-        for (const memory of memories) {
-          const scores = recalculateSingleMemory(
-            memory,
-            allContents,
-            recalculateNoveltyAndInterference
-          );
+        for (let offset = 0; offset < totalInShard; offset += batchSize) {
+          chunkIndex++;
+          const chunk = selectStmt.all(batchSize, offset) as ScoringMemoryRow[];
 
-          updateStmt.run(
-            scores.recency,
-            scores.frequency,
-            scores.importance,
-            scores.utility,
-            scores.novelty,
-            scores.confidence,
-            scores.interference,
-            scores.strength,
-            memory.id
-          );
+          if (chunk.length === 0) break;
 
-          totalUpdated++;
+          const allContents = chunk.map((m) => m.content || "");
+
+          db.run("BEGIN TRANSACTION");
+          inTxn = true;
+
+          for (const memory of chunk) {
+            const scores = recalculateSingleMemory(
+              memory,
+              allContents,
+              recalculateNoveltyAndInterference
+            );
+
+            updateStmt.run(
+              scores.recency,
+              scores.frequency,
+              scores.importance,
+              scores.utility,
+              scores.novelty,
+              scores.confidence,
+              scores.interference,
+              scores.strength,
+              memory.id
+            );
+
+            totalUpdated++;
+          }
+
+          db.run("COMMIT");
+          inTxn = false;
+          totalProcessed += chunk.length;
+
+          log(`recalculateAllScores chunk ${chunkIndex}/${totalBatches} (shard ${shard.id})`, {
+            chunkSize: chunk.length,
+            totalUpdated: totalUpdated,
+          });
         }
 
-        db.run("COMMIT");
-        inTxn = false;
         shardsProcessed++;
       } catch (error) {
         if (inTxn) {
@@ -190,6 +217,7 @@ export function recalculateAllScores(recalculateNoveltyAndInterference: boolean 
     const duration = Date.now() - startTime;
     log("Memory score recalculation complete", {
       updated: totalUpdated,
+      processed: totalProcessed,
       shards: shardsProcessed,
       duration: `${duration}ms`,
     });

@@ -72,6 +72,7 @@ interface OpenCodeMemConfig {
   memoryScoring?: {
     enabled?: boolean;
     recalculationIntervalMinutes?: number;
+    recalculationBatchSize?: number;
     recencyHalfLifeDays?: number;
     utilityHalfLifeDays?: number;
   };
@@ -181,6 +182,7 @@ const OpenCodeMemConfigSchema = z.object({
     .object({
       enabled: z.boolean().optional(),
       recalculationIntervalMinutes: z.number().positive().optional(),
+      recalculationBatchSize: z.number().positive().optional(),
       recencyHalfLifeDays: z.number().positive().optional(),
       utilityHalfLifeDays: z.number().positive().optional(),
     })
@@ -322,6 +324,7 @@ const DEFAULTS: Required<
   memoryScoring: {
     enabled: true,
     recalculationIntervalMinutes: 60,
+    recalculationBatchSize: 500,
     recencyHalfLifeDays: 7,
     utilityHalfLifeDays: 3,
   },
@@ -446,6 +449,8 @@ function buildScoringConfig(f: OpenCodeMemConfig) {
     recalculationIntervalMinutes:
       f.memoryScoring?.recalculationIntervalMinutes ??
       DEFAULTS.memoryScoring.recalculationIntervalMinutes,
+    recalculationBatchSize:
+      f.memoryScoring?.recalculationBatchSize ?? DEFAULTS.memoryScoring.recalculationBatchSize,
     recencyHalfLifeDays:
       f.memoryScoring?.recencyHalfLifeDays ?? DEFAULTS.memoryScoring.recencyHalfLifeDays,
     utilityHalfLifeDays:
