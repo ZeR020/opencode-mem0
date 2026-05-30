@@ -6,7 +6,12 @@ import { log } from "../logger.js";
 import { userPromptManager, type UserPrompt } from "../user-prompt/user-prompt-manager.js";
 import { safeToISOString, safeJSONParse } from "../utils/safe-transforms.js";
 import type { SearchResult } from "../sqlite/types.js";
-import { sanitizeListParams, extractScopeFromTag, getProjectPathFromTag } from "./shared.js";
+import {
+  sanitizeListParams,
+  extractScopeFromTag,
+  getProjectPathFromTag,
+  MAX_SEARCH_RESULTS,
+} from "./shared.js";
 import type { ApiResponse, PaginatedResponse } from "./shared-types.js";
 
 interface FormattedPrompt {
@@ -83,7 +88,6 @@ async function searchMemoriesByTag(
       log("Shard search error", { shardId: shard.id, error: String(error) });
     }
   }
-  const MAX_SEARCH_RESULTS = 2000;
   if (memoryResults.length > MAX_SEARCH_RESULTS) {
     memoryResults = memoryResults.slice(0, MAX_SEARCH_RESULTS);
   }
@@ -118,7 +122,6 @@ async function searchMemoriesGlobal(
       log("Shard search error", { shardId: shard.id, error: String(error) });
     }
   }
-  const MAX_SEARCH_RESULTS = 2000;
   if (memoryResults.length > MAX_SEARCH_RESULTS) {
     memoryResults = memoryResults.slice(0, MAX_SEARCH_RESULTS);
   }

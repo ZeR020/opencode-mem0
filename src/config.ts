@@ -1,3 +1,4 @@
+/** Known tech debt (2026-05-29 audit): 85+ 'as' casts on SQL results from bun:sqlite .all() returning unknown[]. */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";

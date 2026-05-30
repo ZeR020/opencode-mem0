@@ -12,6 +12,11 @@ function sha256(input: string): string {
 // Memoization caches — git config values don't change during a session
 let cachedGitEmail: string | null | undefined;
 let cachedGitName: string | null | undefined;
+/** Guard that returns null when the directory doesn't exist on disk. */
+function requireGitDirectory(directory: string): true | null {
+  return existsSync(directory) ? true : null;
+}
+
 const gitRepoUrlCache = new Map<string, string | null>();
 const gitCommonDirCache = new Map<string, string | null>();
 const gitTopLevelCache = new Map<string, string | null>();
@@ -92,9 +97,7 @@ export function getGitName(): string | null {
 }
 
 export function getGitRepoUrl(directory: string): string | null {
-  if (!existsSync(directory)) {
-    return null;
-  }
+  if (!requireGitDirectory(directory)) return null;
   const cached = gitRepoUrlCache.get(directory);
   if (cached !== undefined) return cached;
   const result = execGitCommand(["config", "--get", "remote.origin.url"], { cwd: directory });
@@ -103,9 +106,7 @@ export function getGitRepoUrl(directory: string): string | null {
 }
 
 export function getGitCommonDir(directory: string): string | null {
-  if (!existsSync(directory)) {
-    return null;
-  }
+  if (!requireGitDirectory(directory)) return null;
   const cached = gitCommonDirCache.get(directory);
   if (cached !== undefined) return cached;
   const commonDir = execGitCommand(["rev-parse", "--git-common-dir"], { cwd: directory });
@@ -129,9 +130,7 @@ export function getGitCommonDir(directory: string): string | null {
 }
 
 export function getGitTopLevel(directory: string): string | null {
-  if (!existsSync(directory)) {
-    return null;
-  }
+  if (!requireGitDirectory(directory)) return null;
   const cached = gitTopLevelCache.get(directory);
   if (cached !== undefined) return cached;
   const result = execGitCommand(["rev-parse", "--show-toplevel"], { cwd: directory });

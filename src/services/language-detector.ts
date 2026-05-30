@@ -1,5 +1,6 @@
 import { franc } from "franc-min";
 import { iso6393, iso6393To1 } from "iso-639-3";
+import { log } from "./logger.js";
 
 type ISO6393Entry = { iso6391?: string; iso6393: string; name: string };
 
@@ -14,6 +15,9 @@ const nameByCode1 = new Map<string, string>();
 const nameByCode3 = new Map<string, string>();
 for (const entry of iso6393 as ISO6393Entry[]) {
   if (entry.iso6391) nameByCode1.set(entry.iso6391, entry.name);
+  if (nameByCode3.has(entry.iso6393)) {
+    log("warn", `Duplicate ISO 639-3 code: ${entry.iso6393}`);
+  }
   nameByCode3.set(entry.iso6393, entry.name);
 }
 

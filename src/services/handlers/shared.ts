@@ -22,6 +22,19 @@ import { userPromptManager } from "../user-prompt/user-prompt-manager.js";
 export type { RawMemoryRow } from "./shared-types.js";
 export type { ShardInfo } from "../sqlite/types.js";
 
+// ── Named limits (replaces inline magic numbers) ──────────────────────────────
+
+/** Maximum memories returned in a list-memories query. */
+export const MAX_LIST_MEMORIES = 2000;
+
+/** Maximum items in a paginated timeline before truncation. */
+export const MAX_TIMELINE_ITEMS = 2500;
+
+/** Maximum search results before truncation. Also referenced by search.ts. */
+export const MAX_SEARCH_RESULTS = 2000;
+
+// ── Shared helpers ───────────────────────────────────────────────────────────
+
 export const extractScopeFromTag = (tag: string) => extractScopeFromContainerTag(tag, "project");
 
 export function sanitizeListParams(
@@ -79,7 +92,6 @@ export function fetchMemoriesForList(
       allMemories.push(...memories.filter((m) => m.container_tag?.includes("_project_")));
     }
   }
-  const MAX_LIST_MEMORIES = 2000;
   if (allMemories.length > MAX_LIST_MEMORIES) {
     allMemories = allMemories.slice(0, MAX_LIST_MEMORIES);
   }
@@ -132,7 +144,6 @@ export function buildPaginatedTimeline(
     timeline = [...memoriesWithType, ...promptsWithType];
   }
 
-  const MAX_TIMELINE_ITEMS = 2500;
   if (timeline.length > MAX_TIMELINE_ITEMS) {
     timeline = timeline.slice(0, MAX_TIMELINE_ITEMS);
   }
