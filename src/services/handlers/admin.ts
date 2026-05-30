@@ -6,6 +6,9 @@ import { log } from "../logger.js";
 import { CONFIG } from "../../config.js";
 import { userPromptManager } from "../user-prompt/user-prompt-manager.js";
 import { safeToISOString, safeJSONParse } from "../utils/safe-transforms.js";
+import { scoringSkippedCycles, scoringLastDurationMs } from "../memory-scoring-service.js";
+import { getLifecycleStats } from "../memory-lifecycle.js";
+import { cleanupService } from "../cleanup-service.js";
 import type { RawMemoryRow } from "./shared-types.js";
 import type { ShardInfo, SearchResult } from "../sqlite/types.js";
 import type { ApiResponse } from "./shared-types.js";
@@ -244,6 +247,11 @@ export function handleStats(): ApiResponse<{
   total: number;
   byScope: { user: number; project: number };
   byType: Record<string, number>;
+  backgroundJobs: {
+    scoring: { skippedCycles: number; lastDurationMs: number };
+    lifecycle: { skippedCycles: number; lastDurationMs: number };
+    cleanup: { skippedCycles: number; lastDurationMs: number };
+  };
 }> {
   try {
     const allShards = getAllShards();
@@ -271,12 +279,25 @@ export function handleStats(): ApiResponse<{
         }
       }
     }
+    const lifecycleStats = getLifecycleStats();
+    const cleanupStatus = cleanupService.getStatus();
     return {
       success: true,
       data: {
         total: userCount + projectCount,
         byScope: { user: userCount, project: projectCount },
         byType: typeCount,
+        backgroundJobs: {
+          scoring: { skippedCycles: scoringSkippedCycles, lastDurationMs: scoringLastDurationMs },
+          lifecycle: {
+            skippedCycles: lifecycleStats.skippedCycles,
+            lastDurationMs: lifecycleStats.lastDurationMs,
+          },
+          cleanup: {
+            skippedCycles: cleanupStatus.skippedCycles,
+            lastDurationMs: cleanupStatus.lastDurationMs,
+          },
+        },
       },
     };
   } catch (error) {

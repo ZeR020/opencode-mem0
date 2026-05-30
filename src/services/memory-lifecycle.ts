@@ -10,6 +10,8 @@ let _lifecycleIsRunning = false;
 
 class LifecycleManager {
   private timeout: NodeJS.Timeout | null = null;
+  skippedCycles = 0;
+  lastDurationMs = 0;
 
   start(): void {
     if (this.timeout) return;
@@ -22,16 +24,26 @@ class LifecycleManager {
   private scheduleNext(): void {
     const intervalMs = (CONFIG.memoryLifecycle?.checkIntervalMinutes ?? 60) * 60 * 1000;
     this.timeout = setTimeout(async () => {
-      if (!_lifecycleIsRunning) {
-        _lifecycleIsRunning = true;
-        try {
-          await applyDecay();
-          scanAndPromote();
-        } catch (error) {
-          log("Lifecycle job error", { error: String(error) });
-        } finally {
-          _lifecycleIsRunning = false;
+      if (_lifecycleIsRunning) {
+        this.skippedCycles++;
+        if (this.skippedCycles % 10 === 0) {
+          log("Lifecycle job falling behind — skipped cycles accumulating", {
+            skippedCycles: this.skippedCycles,
+          });
         }
+        this.scheduleNext();
+        return;
+      }
+      _lifecycleIsRunning = true;
+      const cycleStart = Date.now();
+      try {
+        await applyDecay();
+        scanAndPromote();
+      } catch (error) {
+        log("Lifecycle job error", { error: String(error) });
+      } finally {
+        this.lastDurationMs = Date.now() - cycleStart;
+        _lifecycleIsRunning = false;
       }
       this.scheduleNext();
     }, intervalMs);
@@ -533,6 +545,16 @@ export function scanAndPromote(): { scanned: number; promoted: number } {
     log("scanAndPromote error", { error: String(error) });
     return { scanned, promoted };
   }
+}
+
+/**
+ * Get lifecycle background job stats for the Web UI.
+ */
+export function getLifecycleStats(): { skippedCycles: number; lastDurationMs: number } {
+  return {
+    skippedCycles: lifecycleManager.skippedCycles,
+    lastDurationMs: lifecycleManager.lastDurationMs,
+  };
 }
 
 /**

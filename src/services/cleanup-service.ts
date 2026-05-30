@@ -18,6 +18,8 @@ interface CleanupResult {
 export class CleanupService {
   private lastCleanupTime = 0;
   private isRunning = false;
+  skippedCycles = 0;
+  lastDurationMs = 0;
 
   shouldRunCleanup(): boolean {
     const now = Date.now();
@@ -90,10 +92,12 @@ export class CleanupService {
 
   async runCleanup(): Promise<CleanupResult> {
     if (this.isRunning) {
+      this.skippedCycles++;
       throw new Error("Cleanup already running");
     }
 
     this.isRunning = true;
+    const cycleStart = Date.now();
 
     try {
       const cutoffTime = Date.now() - CONFIG.autoCleanupRetentionDays * 24 * 60 * 60 * 1000;
@@ -137,6 +141,7 @@ export class CleanupService {
         pinnedMemoriesSkipped: pinnedSkipped,
       };
       this.lastCleanupTime = Date.now();
+      this.lastDurationMs = Date.now() - cycleStart;
       return result;
     } finally {
       this.isRunning = false;
@@ -149,6 +154,8 @@ export class CleanupService {
       retentionDays: CONFIG.autoCleanupRetentionDays,
       lastCleanupTime: this.lastCleanupTime,
       isRunning: this.isRunning,
+      skippedCycles: this.skippedCycles,
+      lastDurationMs: this.lastDurationMs,
     };
   }
 }

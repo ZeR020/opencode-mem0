@@ -20,6 +20,8 @@ function logDegradation(
 
 class FallbackAwareBackend implements VectorBackend {
   private activeBackend: VectorBackend;
+  private errorCount = 0;
+  private lastErrorTime = 0;
 
   constructor(
     private readonly strategy: "usearch-first" | "usearch" | "nsw-first" | "nsw",
@@ -47,8 +49,28 @@ class FallbackAwareBackend implements VectorBackend {
 
   async search(args: Parameters<VectorBackend["search"]>[0]) {
     try {
-      return await this.activeBackend.search(args);
+      const result = await this.activeBackend.search(args);
+      // Recovery window: reset error count after 60s of error-free operation
+      if (this.errorCount > 0 && Date.now() - this.lastErrorTime > 60000) {
+        log("Vector backend recovered — resetting error count", {
+          previousErrorCount: this.errorCount,
+          lastErrorTime: new Date(this.lastErrorTime).toISOString(),
+        });
+        this.errorCount = 0;
+      }
+      return result;
     } catch (error) {
+      this.errorCount++;
+      this.lastErrorTime = Date.now();
+      if (this.errorCount <= 3) {
+        log("Vector backend transient error — retrying primary backend", {
+          errorCount: this.errorCount,
+          maxRetries: 3,
+          error: String(error),
+        });
+        // Retry with the primary backend (still active)
+        return this.activeBackend.search(args);
+      }
       this.logDegrade("search", error);
       this.activeBackend = this.fallback;
       return this.fallback.search(args);
@@ -58,7 +80,21 @@ class FallbackAwareBackend implements VectorBackend {
   async rebuildFromShard(args: Parameters<VectorBackend["rebuildFromShard"]>[0]): Promise<void> {
     try {
       await this.activeBackend.rebuildFromShard(args);
+      // Recovery window: reset error count after 60s of error-free operation
+      if (this.errorCount > 0 && Date.now() - this.lastErrorTime > 60000) {
+        this.errorCount = 0;
+      }
     } catch (error) {
+      this.errorCount++;
+      this.lastErrorTime = Date.now();
+      if (this.errorCount <= 3) {
+        log("Vector backend transient error — retrying primary backend", {
+          errorCount: this.errorCount,
+          maxRetries: 3,
+          error: String(error),
+        });
+        return this.activeBackend.rebuildFromShard(args);
+      }
       this.logDegrade("rebuild", error);
       this.activeBackend = this.fallback;
       await this.fallback.rebuildFromShard(args);

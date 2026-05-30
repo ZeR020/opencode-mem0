@@ -18,6 +18,8 @@ import { safeJSONParse } from "./utils/safe-transforms.js";
 
 let scoringInterval: NodeJS.Timeout | null = null;
 let isRunning = false;
+export let scoringSkippedCycles = 0;
+export let scoringLastDurationMs = 0;
 
 /**
  * Recalculate scores for all memories in all shards.
@@ -242,9 +244,18 @@ export function startScoringRecalculation(): void {
   let cycleCount = 0;
 
   scoringInterval = setInterval(() => {
-    if (isRunning) return;
+    if (isRunning) {
+      scoringSkippedCycles++;
+      if (scoringSkippedCycles % 10 === 0) {
+        log("Scoring recalculation falling behind — skipped cycles accumulating", {
+          skippedCycles: scoringSkippedCycles,
+        });
+      }
+      return;
+    }
     isRunning = true;
 
+    const cycleStart = Date.now();
     try {
       cycleCount++;
       const fullRecalc = cycleCount % 4 === 0; // Full recalc every 4 cycles
@@ -252,6 +263,7 @@ export function startScoringRecalculation(): void {
     } catch (error) {
       log("Background scoring recalculation error", { error: String(error) });
     } finally {
+      scoringLastDurationMs = Date.now() - cycleStart;
       isRunning = false;
     }
   }, intervalMs);
