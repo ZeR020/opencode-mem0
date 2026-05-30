@@ -4,6 +4,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
 import { serve, type PlatformServer } from "./platform-server.js";
+import { CONFIG } from "../config.js";
 import type { UserProfileData } from "./user-profile/types.js";
 import {
   handleListTags,
@@ -72,6 +73,8 @@ export class WebServer {
   private startPromise: Promise<void> | null = null;
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private onTakeoverCallback: (() => Promise<void>) | null = null;
+  private _currentRequestProtocol: string | null = null;
+  private rateLimitBuckets = new Map<string, { tokens: number; lastRefill: number }>();
 
   constructor(config: WebServerConfig) {
     this.config = config;
@@ -247,6 +250,8 @@ export class WebServer {
     const path = url.pathname;
     const method = req.method;
 
+    this._currentRequestProtocol = url.protocol;
+
     try {
       const remoteIp = this.server?.requestIP(req)?.address;
       const isLocal = remoteIp ? LOCAL_HOSTS.has(remoteIp) : false;
@@ -311,6 +316,24 @@ export class WebServer {
     isLocal: boolean
   ): Promise<Response> {
     const route = `${method} ${path}`;
+
+    // Rate limiting: skip for health endpoint and local loopback
+    if (CONFIG.rateLimitEnabled !== false && !isLocal && path !== "/api/health") {
+      const now = Date.now();
+      let bucket = this.rateLimitBuckets.get(route);
+      if (!bucket) {
+        bucket = { tokens: 120, lastRefill: now };
+        this.rateLimitBuckets.set(route, bucket);
+      }
+      // Token bucket refill: 2 tokens/second, max 120
+      const elapsed = (now - bucket.lastRefill) / 1000;
+      bucket.tokens = Math.min(120, bucket.tokens + elapsed * 2);
+      bucket.lastRefill = now;
+      if (bucket.tokens < 1) {
+        return this.jsonResponse({ success: false, error: "Rate limit exceeded" }, 429);
+      }
+      bucket.tokens--;
+    }
 
     switch (route) {
       case "GET /api/tags":
@@ -684,11 +707,19 @@ export class WebServer {
     try {
       const isImage = contentType.startsWith("image/");
       const content = isImage ? readFileSync(filePath) : readFileSync(filePath, "utf-8");
+      const headers: Record<string, string> = {
+        "Content-Type": contentType,
+        "Cache-Control": isImage ? "public, max-age=86400" : "no-cache",
+        "Content-Security-Policy":
+          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+      };
+      if (this._currentRequestProtocol === "https:") {
+        headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains";
+      }
       return new Response(content, {
-        headers: {
-          "Content-Type": contentType,
-          "Cache-Control": isImage ? "public, max-age=86400" : "no-cache",
-        },
+        headers,
       });
     } catch (error) {
       log("Static file serve error", { path: filePath, error: String(error) });
@@ -726,11 +757,19 @@ export class WebServer {
 
   private jsonResponse(data: unknown, status: number = 200, redact: boolean = false): Response {
     const finalData = redact ? this.redactPII(data) : data;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Content-Security-Policy":
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY",
+    };
+    if (this._currentRequestProtocol === "https:") {
+      headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains";
+    }
     return new Response(JSON.stringify(finalData), {
       status,
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
     });
   }
 }

@@ -117,6 +117,7 @@ interface OpenCodeMemConfig {
   };
   logLevel?: "debug" | "info" | "warn" | "error";
   warmupTimeoutMs?: number;
+  rateLimitEnabled?: boolean;
 }
 
 const OpenCodeMemConfigSchema = z.object({
@@ -240,6 +241,7 @@ const OpenCodeMemConfigSchema = z.object({
     .optional(),
   logLevel: z.enum(["debug", "info", "warn", "error"]).optional(),
   warmupTimeoutMs: z.number().positive().optional(),
+  rateLimitEnabled: z.boolean().optional(),
 });
 
 const DEFAULTS: Required<
@@ -369,6 +371,7 @@ const DEFAULTS: Required<
   },
   logLevel: "info",
   warmupTimeoutMs: 30000,
+  rateLimitEnabled: true,
 };
 
 function expandPath(path: string): string {
@@ -584,6 +587,7 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
     contextualDecay: buildDecayConfig(cfg),
     logLevel: cfg.logLevel ?? defaults.logLevel,
     warmupTimeoutMs: cfg.warmupTimeoutMs ?? defaults.warmupTimeoutMs,
+    rateLimitEnabled: cfg.rateLimitEnabled ?? defaults.rateLimitEnabled,
   };
 }
 

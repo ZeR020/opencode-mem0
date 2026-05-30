@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 
 vi.mock("../src/services/logger.js", () => ({
   log: () => {},
+  setLogLevel: () => {},
 }));
 
 vi.mock("../src/services/api-handlers.js", () => ({
