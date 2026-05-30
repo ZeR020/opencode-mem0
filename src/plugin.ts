@@ -5,7 +5,7 @@ const { OpenCodeMemPlugin } = await (async () => {
   try {
     return await import("./index.js");
   } catch (e) {
-    console.error("Failed to load OpenCodeMemPlugin:", e);
+    console.error("Failed to load OpenCodeMemPlugin:", e); // skipcq JS-0002
     throw e;
   }
 })();
