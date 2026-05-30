@@ -90,6 +90,45 @@ describe("EmbeddingService graceful degradation", () => {
     (embeddingService as any).pipe = null;
   });
 
+  it("does NOT set embeddingAvailable=false on AbortError (timeout)", async () => {
+    (embeddingService as any).isWarmedUp = true;
+    (embeddingService as any).initPromise = null;
+    (embeddingService as any).embeddingAvailable = true;
+    (embeddingService as any).cachedModelName = "Xenova/nomic-embed-text-v1";
+
+    // Create an AbortError — in Bun, AbortSignal.timeout sets error.name = "AbortError"
+    const abortError = new Error("The operation was aborted");
+    abortError.name = "AbortError";
+
+    // Mock pipe to reject with AbortError
+    (embeddingService as any).pipe = vi.fn().mockRejectedValue(abortError);
+
+    // embedWithTimeout rethrows the error from embed
+    await expect(embeddingService.embedWithTimeout("test-timeout")).rejects.toThrow("aborted");
+
+    // AbortError should NOT permanently disable embeddings
+    expect(embeddingService.embeddingAvailable).toBe(true);
+
+    (embeddingService as any).pipe = null;
+  });
+
+  it("still sets embeddingAvailable=false on non-AbortError failures", async () => {
+    (embeddingService as any).isWarmedUp = true;
+    (embeddingService as any).initPromise = null;
+    (embeddingService as any).embeddingAvailable = true;
+    (embeddingService as any).cachedModelName = "Xenova/nomic-embed-text-v1";
+
+    // Mock pipe to reject with a non-abort error
+    (embeddingService as any).pipe = vi.fn().mockRejectedValue(new Error("model crash"));
+
+    await expect(embeddingService.embedWithTimeout("test-crash")).rejects.toThrow("model crash");
+
+    // Genuine failure should still disable
+    expect(embeddingService.embeddingAvailable).toBe(false);
+
+    (embeddingService as any).pipe = null;
+  });
+
   it("memoryClient.isReady() returns true in degraded mode", async () => {
     const { memoryClient } = await import("../src/services/client.js");
 

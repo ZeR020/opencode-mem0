@@ -599,6 +599,51 @@ describe("Memory Engine Integration", () => {
       expect(notPromoted.promoted).toBe(false);
     });
 
+    it("promoteToLTM skips getAllShards scan when shard is provided (N+1 fix)", () => {
+      const db = makeDb("/tmp/shard-provided.db");
+      dbByPath.set("/tmp/shard-provided.db", db);
+
+      const shard = makeShard("shard-provided");
+
+      // Verify prepare/.get is NOT called since we should hit this shard directly
+      db.prepare = (sql: string) => ({
+        all: () => {
+          throw new Error("getAllShards should NOT be called when shard is provided");
+        },
+        get: (...args: any[]) => {
+          if (sql.includes("store_type, strength, access_count") && args[0] === "mem-1") {
+            return { id: "mem-1", store_type: "stm", strength: 0.8, access_count: 5 };
+          }
+          return null;
+        },
+        run: () => ({ changes: 1 }),
+      });
+
+      const result = promoteToLTM("mem-1", shard);
+      expect(result.success).toBe(true);
+      expect(result.promoted).toBe(true);
+    });
+
+    it("promoteToLTM falls back to getAllShards when shard is not provided (backward compat)", () => {
+      const db = dbByPath.get("/tmp/shard-current.db") || makeDb("/tmp/shard-current.db");
+      dbByPath.set("/tmp/shard-current.db", db);
+
+      db.prepare = (sql: string) => ({
+        all: () => [],
+        get: (...args: any[]) => {
+          if (sql.includes("store_type, strength, access_count") && args[0] === "promote-me") {
+            return { id: "promote-me", store_type: "stm", strength: 0.8, access_count: 5 };
+          }
+          return null;
+        },
+        run: () => ({ changes: 1 }),
+      });
+
+      const result = promoteToLTM("promote-me");
+      expect(result.success).toBe(true);
+      expect(result.promoted).toBe(true);
+    });
+
     it("applyDecay skips pinned memories", async () => {
       dbByPath.clear();
       const db = makeDb("/tmp/shard-current.db");
