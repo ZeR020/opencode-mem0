@@ -11,6 +11,7 @@ vi.mock("../src/services/api-handlers.js", () => ({
     data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
   }),
   handleAddMemory: () => ({ success: true, data: { id: "mem-1" } }),
+  handleGetMemory: () => ({ success: true, data: { id: "mem-1", content: "test" } }),
   handleDeleteMemory: () => ({ success: true, data: { deletedPrompt: false } }),
   handleBulkDelete: () => ({ success: true, data: { deleted: 1 } }),
   handleUpdateMemory: () => ({ success: true }),
@@ -76,6 +77,19 @@ vi.mock("../src/services/api-handlers.js", () => ({
   handleEmbeddingCacheStats: () => ({
     success: true,
     data: { size: 0, maxSize: 1000, hits: 0, misses: 0, rate: 0 },
+  }),
+  handleUpdateUserProfile: () => ({ success: true, data: { message: "ok" } }),
+  handleSearchTranscripts: () => ({
+    success: true,
+    data: { items: [], total: 0 },
+  }),
+  handleListTranscripts: () => ({
+    success: true,
+    data: { items: [], total: 0 },
+  }),
+  handleApiStatus: () => ({
+    success: true,
+    data: { status: "ok", version: "1.0.0" },
   }),
 }));
 
@@ -166,5 +180,109 @@ describe("WebServer", () => {
     const server = new WebServer({ port: 4754, host: "127.0.0.1", enabled: false });
     const available = await server.checkServerAvailable();
     expect(available).toBe(false);
+  });
+
+  // ── Security header tests ──
+
+  it("jsonResponse includes CSP, X-Content-Type-Options, X-Frame-Options", () => {
+    const server = new WebServer({ port: 4755, host: "127.0.0.1", enabled: false });
+    const response = (server as any).jsonResponse({ success: true });
+    expect(response.headers.get("Content-Security-Policy")).toBe(
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    );
+    expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect(response.headers.get("X-Frame-Options")).toBe("DENY");
+  });
+
+  it("jsonResponse includes HSTS when request protocol is https", () => {
+    const server = new WebServer({ port: 4756, host: "127.0.0.1", enabled: false });
+    (server as any)._currentRequestProtocol = "https:";
+    const response = (server as any).jsonResponse({ success: true });
+    expect(response.headers.get("Strict-Transport-Security")).toBe(
+      "max-age=63072000; includeSubDomains"
+    );
+  });
+
+  it("jsonResponse skips HSTS when request protocol is http", () => {
+    const server = new WebServer({ port: 4757, host: "127.0.0.1", enabled: false });
+    (server as any)._currentRequestProtocol = "http:";
+    const response = (server as any).jsonResponse({ success: true });
+    expect(response.headers.get("Strict-Transport-Security")).toBeNull();
+  });
+
+  // ── Rate limiting tests ──
+
+  it("returns 429 when rate limit exceeded for an endpoint", async () => {
+    const server = new WebServer({
+      port: 4758,
+      host: "127.0.0.1",
+      enabled: false,
+      apiKey: "test-key",
+    });
+    // Remove apiKey so auth is skipped (rate limiting still active)
+    (server as any).config.apiKey = undefined;
+    const req = new Request("http://localhost:4758/api/tags", { method: "GET" });
+    const url = new URL(req.url);
+
+    let hit429 = false;
+    for (let i = 0; i < 130; i++) {
+      const resp = await (server as any)._dispatchApiRoute(req, url, "/api/tags", "GET", false);
+      if (resp.status === 429) {
+        hit429 = true;
+        const body = await resp.json();
+        expect(body.success).toBe(false);
+        expect(body.error).toBe("Rate limit exceeded");
+        break;
+      }
+    }
+    expect(hit429).toBe(true);
+  });
+
+  it("health endpoint is rate limit exempt", async () => {
+    const server = new WebServer({
+      port: 4759,
+      host: "127.0.0.1",
+      enabled: false,
+      apiKey: "test-key",
+    });
+    (server as any).config.apiKey = undefined;
+    const req = new Request("http://localhost:4759/api/health", { method: "GET" });
+    const url = new URL(req.url);
+
+    for (let i = 0; i < 130; i++) {
+      const resp = await (server as any)._dispatchApiRoute(req, url, "/api/health", "GET", false);
+      expect(resp.status).not.toBe(429);
+    }
+  });
+
+  it("rate limit is per-endpoint, not global", async () => {
+    const server = new WebServer({
+      port: 4760,
+      host: "127.0.0.1",
+      enabled: false,
+      apiKey: "test-key",
+    });
+    (server as any).config.apiKey = undefined;
+
+    // Exhaust /api/tags rate limit
+    const tagsReq = new Request("http://localhost:4760/api/tags", { method: "GET" });
+    const tagsUrl = new URL(tagsReq.url);
+    for (let i = 0; i < 130; i++) {
+      await (server as any)._dispatchApiRoute(tagsReq, tagsUrl, "/api/tags", "GET", false);
+    }
+
+    // /api/search should still work (not rate limited from tags exhaustion)
+    const searchReq = new Request("http://localhost:4760/api/search?q=test", {
+      method: "GET",
+    });
+    const searchUrl = new URL(searchReq.url);
+    const searchResp = await (server as any)._dispatchApiRoute(
+      searchReq,
+      searchUrl,
+      "/api/search",
+      "GET",
+      false
+    );
+    expect(searchResp.status).not.toBe(429);
   });
 });
