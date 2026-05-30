@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect } from "vitest";
 import {
   TECHNICAL_KEYWORDS,
   NEGATION_PATTERNS,

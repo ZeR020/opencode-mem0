@@ -333,14 +333,13 @@ const {
 } = await import("../src/services/memory-scoring.js");
 const { classifyMemory, promoteToLTM, applyDecay } =
   await import("../src/services/memory-lifecycle.js");
-const { calculateContextBoost, calculateDiversityPenalty, contextTracker } =
+const { calculateContextBoost, calculateDiversityPenalty } =
   await import("../src/services/retrieval-context.js");
 const { TranscriptManager } = await import("../src/services/sqlite/transcript-manager.js");
 const { detectConflicts, resolveConflict } = await import("../src/services/memory-conflicts.js");
 
 beforeEach(async () => {
   dbByPath.clear();
-  contextTracker.clear();
   const { CONFIG } = await import("../src/config.js");
   if (CONFIG?.transcriptStorage) {
     CONFIG.transcriptStorage.enabled = true;
@@ -729,12 +728,10 @@ describe("Memory Engine Integration", () => {
       expect(penalty).toBe(0);
     });
 
-    it("tracks recent queries and files", () => {
-      contextTracker.addQuery("database optimization");
-      contextTracker.addFiles(["src/db.ts", "src/schema.prisma"]);
-      const ctx = contextTracker.getContext("/project", "my-project");
-      expect(ctx.recentQueries).toContain("database optimization");
-      expect(ctx.recentFiles).toContain("src/db.ts");
+    // NOTE: contextTracker was removed as dead code in Phase 04.
+    // Context tracking is now internal to retrieval-context.ts.
+    it.skip("tracks recent queries and files", () => {
+      // This test depended on the removed contextTracker singleton.
     });
   });
 

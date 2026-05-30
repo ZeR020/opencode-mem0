@@ -32,6 +32,7 @@ vi.mock("../src/config.js", () => ({
       recencyHalfLifeDays: 7,
       utilityHalfLifeDays: 30,
       recalculationIntervalMinutes: 60,
+      recalculationBatchSize: 500,
     },
   },
 }));
@@ -56,6 +57,13 @@ function makeMockDb(memories: any[] = [], throwOnTransaction = false) {
   const mockAll = vi.fn();
 
   mockPrepare.mockImplementation((sql: string) => {
+    if (sql.includes("SELECT COUNT") && sql.includes("FROM memories")) {
+      return {
+        get: vi.fn().mockReturnValue({ cnt: memories.length }),
+        all: mockAll,
+        run: mockRun,
+      };
+    }
     if (sql.includes("SELECT") && sql.includes("FROM memories")) {
       return {
         all: mockAll.mockReturnValue(memories),
@@ -105,8 +113,8 @@ function makeMemory(id: string, content: string, createdAt = Date.now() - 360000
 
 describe("memory-scoring-service", () => {
   beforeEach(() => {
-    vi.mocked(shardManager.getAllShards).mockReturnValue([]);
-    vi.mocked(connectionManager.getConnection).mockReset();
+    (shardManager.getAllShards as any).mockReturnValue([]);
+    (connectionManager.getConnection as any).mockReset();
     (CONFIG as any).memoryScoring = {
       enabled: true,
       recencyHalfLifeDays: 7,
@@ -121,7 +129,7 @@ describe("memory-scoring-service", () => {
 
   describe("recalculateAllScores", () => {
     it("returns empty result when no shards exist", () => {
-      vi.mocked(shardManager.getAllShards).mockReturnValue([]);
+      (shardManager.getAllShards as any).mockReturnValue([]);
       const result = recalculateAllScores();
       expect(result.updated).toBe(0);
       expect(result.shards).toBe(0);
@@ -129,10 +137,10 @@ describe("memory-scoring-service", () => {
 
     it("skips shards with no memories", () => {
       const { mockDb } = makeMockDb([]);
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
+      (connectionManager.getConnection as any).mockReturnValue(mockDb as any);
 
       const result = recalculateAllScores();
       expect(result.updated).toBe(0);
@@ -145,10 +153,10 @@ describe("memory-scoring-service", () => {
         makeMemory("mem-2", "another memory entry here", Date.now() - 172800000),
       ];
       const { mockDb, mockRun } = makeMockDb(memories);
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
+      (connectionManager.getConnection as any).mockReturnValue(mockDb as any);
 
       const result = recalculateAllScores(false);
       expect(result.updated).toBe(4);
@@ -160,10 +168,10 @@ describe("memory-scoring-service", () => {
       const memory = makeMemory("mem-meta", "content with metadata");
       memory.metadata = JSON.stringify({ source: "manual", sessionID: "s1" });
       const { mockDb } = makeMockDb([memory]);
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
+      (connectionManager.getConnection as any).mockReturnValue(mockDb as any);
 
       const result = recalculateAllScores(false);
       expect(result.updated).toBe(2);
@@ -173,10 +181,10 @@ describe("memory-scoring-service", () => {
       const memory = makeMemory("mem-bad", "bad metadata");
       memory.metadata = "{invalid json";
       const { mockDb } = makeMockDb([memory]);
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
+      (connectionManager.getConnection as any).mockReturnValue(mockDb as any);
 
       const result = recalculateAllScores(false);
       expect(result.updated).toBe(2);
@@ -186,10 +194,10 @@ describe("memory-scoring-service", () => {
       const memory = makeMemory("mem-null", "null metadata");
       memory.metadata = null;
       const { mockDb } = makeMockDb([memory]);
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
+      (connectionManager.getConnection as any).mockReturnValue(mockDb as any);
 
       const result = recalculateAllScores(false);
       expect(result.updated).toBe(2);
@@ -199,10 +207,10 @@ describe("memory-scoring-service", () => {
       const memory = makeMemory("mem-no-la", "no last accessed");
       memory.last_accessed = null;
       const { mockDb } = makeMockDb([memory]);
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
+      (connectionManager.getConnection as any).mockReturnValue(mockDb as any);
 
       const result = recalculateAllScores(false);
       expect(result.updated).toBe(2);
@@ -212,10 +220,10 @@ describe("memory-scoring-service", () => {
       const memory = makeMemory("mem-zero", "zero accesses");
       memory.access_count = 0;
       const { mockDb } = makeMockDb([memory]);
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
+      (connectionManager.getConnection as any).mockReturnValue(mockDb as any);
 
       const result = recalculateAllScores(false);
       expect(result.updated).toBe(2);
@@ -227,10 +235,10 @@ describe("memory-scoring-service", () => {
         makeMemory("mem-b", "const x = test();"),
       ];
       const { mockDb } = makeMockDb(memories);
-      vi.mocked(shardManager.getAllShards).mockReturnValue([
+      (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
       ]);
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
+      (connectionManager.getConnection as any).mockReturnValue(mockDb as any);
 
       const result = recalculateAllScores(true);
       expect(result.updated).toBe(4);
@@ -242,13 +250,13 @@ describe("memory-scoring-service", () => {
       const { mockDb: db1 } = makeMockDb(mem1);
       const { mockDb: db2 } = makeMockDb(mem2);
 
-      vi.mocked(connectionManager.getConnection).mockReturnValueOnce(db1 as any);
-      vi.mocked(connectionManager.getConnection).mockReturnValueOnce(db2 as any);
+      (connectionManager.getConnection as any).mockReturnValueOnce(db1 as any);
+      (connectionManager.getConnection as any).mockReturnValueOnce(db2 as any);
 
-      vi.mocked(shardManager.getAllShards).mockReturnValueOnce([
+      (shardManager.getAllShards as any).mockReturnValueOnce([
         { id: "user-shard", dbPath: "/tmp/user.db" },
       ]);
-      vi.mocked(shardManager.getAllShards).mockReturnValueOnce([
+      (shardManager.getAllShards as any).mockReturnValueOnce([
         { id: "proj-shard", dbPath: "/tmp/proj.db" },
       ]);
 
@@ -292,7 +300,7 @@ describe("memory-scoring-service", () => {
 
   describe("runOneTimeScoringRecalculation", () => {
     it("calls recalculateAllScores with full recalculation", () => {
-      vi.mocked(shardManager.getAllShards).mockReturnValue([]);
+      (shardManager.getAllShards as any).mockReturnValue([]);
       const result = runOneTimeScoringRecalculation();
       expect(result).toHaveProperty("updated");
       expect(result).toHaveProperty("shards");
