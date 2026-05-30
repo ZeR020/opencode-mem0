@@ -21,6 +21,26 @@ let cachedGitPath: string | null | undefined;
 
 function getGitExecutable(): string | null {
   if (cachedGitPath !== undefined) return cachedGitPath;
+
+  // Try PATH lookup first via `which git`
+  try {
+    const result = spawnSync("which", ["git"], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 2000,
+    });
+    if (result.status === 0 && result.stdout) {
+      const resolved = result.stdout.trim();
+      if (resolved && existsSync(resolved)) {
+        cachedGitPath = resolved;
+        return cachedGitPath;
+      }
+    }
+  } catch {
+    // Fall through to hardcoded paths
+  }
+
+  // Fallback to hardcoded trusted paths
   cachedGitPath = TRUSTED_GIT_PATHS.find((path) => existsSync(path)) ?? null;
   return cachedGitPath;
 }

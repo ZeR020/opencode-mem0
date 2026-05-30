@@ -83,6 +83,7 @@ interface OpenCodeMemConfig {
     archiveThreshold?: number;
     archiveAfterDays?: number;
     checkIntervalMinutes?: number;
+    decayBatchSize?: number;
   };
   compaction?: {
     enabled?: boolean;
@@ -196,6 +197,7 @@ const OpenCodeMemConfigSchema = z.object({
       archiveThreshold: z.number().min(0).max(1).optional(),
       archiveAfterDays: z.number().positive().optional(),
       checkIntervalMinutes: z.number().positive().optional(),
+      decayBatchSize: z.number().positive().optional(),
     })
     .optional(),
   compaction: z
@@ -337,6 +339,7 @@ const DEFAULTS: Required<
     archiveThreshold: 0.2,
     archiveAfterDays: 30,
     checkIntervalMinutes: 60,
+    decayBatchSize: 5000,
   },
   compaction: {
     enabled: true,
@@ -473,6 +476,7 @@ function buildLifecycleConfig(f: OpenCodeMemConfig) {
       f.memoryLifecycle?.archiveAfterDays ?? DEFAULTS.memoryLifecycle.archiveAfterDays,
     checkIntervalMinutes:
       f.memoryLifecycle?.checkIntervalMinutes ?? DEFAULTS.memoryLifecycle.checkIntervalMinutes,
+    decayBatchSize: f.memoryLifecycle?.decayBatchSize ?? DEFAULTS.memoryLifecycle.decayBatchSize,
   };
 }
 
@@ -609,6 +613,13 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
 }
 
 const _globalFileConfig = loadConfigFromPaths(CONFIG_FILES);
+
+/**
+ * Global CONFIG singleton — resolves from opencode-mem0.json and env.
+ * TODO (future refactor): Replace with dependency injection so services
+ * can be tested without global mutable state. See deferred item in
+ * .planning/phases/04-code-audit-bug-fixes/04-CONTEXT.md.
+ */
 export const CONFIG = buildConfig(_globalFileConfig);
 
 function isPlainObject(value: unknown): value is object {

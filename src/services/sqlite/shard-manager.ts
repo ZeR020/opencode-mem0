@@ -386,12 +386,26 @@ let shardManagerInstance: ShardManager | null = null;
 let shardManagerStoragePath: string | null = null;
 
 export function getShardManager(): ShardManager {
-  if (!shardManagerInstance || shardManagerStoragePath !== CONFIG.storagePath) {
-    shardManagerInstance?.close();
+  if (
+    shardManagerInstance &&
+    shardManagerStoragePath !== null &&
+    shardManagerStoragePath !== CONFIG.storagePath
+  ) {
+    throw new Error(
+      "Storage path changed — shardManager must be explicitly closed before reinitializing"
+    );
+  }
+  if (!shardManagerInstance) {
     shardManagerInstance = new ShardManager();
     shardManagerStoragePath = CONFIG.storagePath;
   }
   return shardManagerInstance;
+}
+
+export function closeShardManager(): void {
+  shardManagerInstance?.close();
+  shardManagerInstance = null;
+  shardManagerStoragePath = null;
 }
 
 export const shardManager = new Proxy({} as ShardManager, {

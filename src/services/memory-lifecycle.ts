@@ -322,13 +322,23 @@ export async function applyDecay(): Promise<{
       const toArchive: Array<{ id: string; shard: any }> = [];
       try {
         db = connectionManager.getConnection(shard.dbPath);
+        const decayBatchSize = CONFIG.memoryLifecycle?.decayBatchSize ?? 5000;
         const memories = db
           .prepare(
             `SELECT id, strength, decay_rate, created_at, last_decay_at, store_type, access_count, type, is_pinned
              FROM memories
-             WHERE (store_type = 'stm' OR (store_type = 'ltm' AND decay_rate > 0)) AND is_pinned = 0`
+             WHERE (store_type = 'stm' OR (store_type = 'ltm' AND decay_rate > 0)) AND is_pinned = 0
+             LIMIT ?`
           )
-          .all() as any[];
+          .all(decayBatchSize) as any[];
+
+        if (memories.length >= decayBatchSize) {
+          log("applyDecay LIMIT reached — remaining memories will be processed on next cycle", {
+            shardId: shard.id,
+            batchSize: decayBatchSize,
+            limit: memories.length,
+          });
+        }
 
         if (memories.length === 0) continue;
 
