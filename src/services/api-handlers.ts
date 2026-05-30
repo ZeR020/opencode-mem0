@@ -357,7 +357,7 @@ export async function handleListTags(): Promise<ApiResponse<{ project: TagInfo[]
     return { success: true, data: { project: projectTags } };
   } catch (error) {
     log("handleListTags: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleListTags" };
   }
 }
 
@@ -386,7 +386,7 @@ export async function handleListMemories(
     };
   } catch (error) {
     log("handleListMemories: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleListMemories" };
   }
 }
 
@@ -448,7 +448,7 @@ export async function handleAddMemory(data: {
     return { success: true, data: { id } };
   } catch (error) {
     log("handleAddMemory: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleAddMemory" };
   }
 }
 
@@ -460,7 +460,7 @@ export function handleGetMemory(id: string): ApiResponse<unknown> {
     return { success: true, data: formatTimelineItem(mapRawMemoryToTyped(found.memory)) };
   } catch (error) {
     log("handleGetMemory: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleGetMemory" };
   }
 }
 
@@ -486,7 +486,7 @@ export async function handleDeleteMemory(
     };
   } catch (error) {
     log("handleDeleteMemory: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleDeleteMemory" };
   }
 }
 
@@ -504,7 +504,7 @@ export async function handleBulkDelete(
     return { success: true, data: { deleted } };
   } catch (error) {
     log("handleBulkDelete: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleBulkDelete" };
   }
 }
 
@@ -551,7 +551,7 @@ export async function handleUpdateMemory(
     return { success: true };
   } catch (error) {
     log("handleUpdateMemory: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleUpdateMemory" };
   }
 }
 
@@ -829,7 +829,7 @@ export async function handleSearch(
     };
   } catch (error) {
     log("handleSearch: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleSearch" };
   }
 }
 
@@ -845,7 +845,7 @@ export function handleEmbeddingCacheStats(): ApiResponse<{
     return { success: true, data: stats };
   } catch (error) {
     log("handleEmbeddingCacheStats: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleEmbeddingCacheStats" };
   }
 }
 
@@ -890,7 +890,7 @@ export function handleStats(): ApiResponse<{
     };
   } catch (error) {
     log("handleStats: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleStats" };
   }
 }
 
@@ -904,7 +904,7 @@ export function handlePinMemory(id: string): ApiResponse<void> {
     return { success: true };
   } catch (error) {
     log("handlePinMemory: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handlePinMemory" };
   }
 }
 
@@ -918,7 +918,7 @@ export function handleUnpinMemory(id: string): ApiResponse<void> {
     return { success: true };
   } catch (error) {
     log("handleUnpinMemory: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleUnpinMemory" };
   }
 }
 
@@ -931,7 +931,7 @@ export async function handleRunCleanup(): Promise<
     return { success: true, data: result };
   } catch (error) {
     log("handleRunCleanup: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleRunCleanup" };
   }
 }
 
@@ -944,7 +944,7 @@ export async function handleRunDeduplication(): Promise<
     return { success: true, data: result };
   } catch (error) {
     log("handleRunDeduplication: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleRunDeduplication" };
   }
 }
 
@@ -962,7 +962,7 @@ export async function handleDetectMigration(): Promise<
     return { success: true, data: result };
   } catch (error) {
     log("handleDetectMigration: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleDetectMigration" };
   }
 }
 
@@ -982,7 +982,7 @@ export async function handleRunMigration(strategy: "fresh-start" | "re-embed"): 
     return { success: result.success, data: result };
   } catch (error) {
     log("handleRunMigration: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleRunMigration" };
   }
 }
 
@@ -1003,7 +1003,7 @@ export async function handleDeletePrompt(
     return { success: true, data: { deletedMemory } };
   } catch (error) {
     log("handleDeletePrompt: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleDeletePrompt" };
   }
 }
 
@@ -1021,7 +1021,7 @@ export async function handleBulkDeletePrompts(
     return { success: true, data: { deleted } };
   } catch (error) {
     log("handleBulkDeletePrompts: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleBulkDeletePrompts" };
   }
 }
 
@@ -1065,7 +1065,7 @@ export async function handleGetUserProfile(
     };
   } catch (error) {
     log("handleGetUserProfile: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleGetUserProfile" };
   }
 }
 
@@ -1110,7 +1110,7 @@ export async function handleGetProfileChangelog(
     return { success: true, data: formattedChangelogs };
   } catch (error) {
     log("handleGetProfileChangelog: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleGetProfileChangelog" };
   }
 }
 
@@ -1136,7 +1136,7 @@ export async function handleGetProfileSnapshot(
     };
   } catch (error) {
     log("handleGetProfileSnapshot: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleGetProfileSnapshot" };
   }
 }
 
@@ -1157,7 +1157,7 @@ export async function handleRefreshProfile(
     };
   } catch (error) {
     log("handleRefreshProfile: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleRefreshProfile" };
   }
 }
 
@@ -1178,7 +1178,7 @@ export function handleDetectTagMigration(): ApiResponse<{
     return { success: true, data: { needsMigration: untaggedCount > 0, count: untaggedCount } };
   } catch (error) {
     log("Tag migration detection failed", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleDetectTagMigration" };
   }
 }
 
@@ -1334,7 +1334,7 @@ export async function handleRunTagMigrationBatch(
     };
   } catch (error) {
     log("Tag migration batch failed", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleRunTagMigrationBatch" };
   }
 }
 
@@ -1365,7 +1365,7 @@ export function handleListConflicts(
     return { success: true, data: formatted };
   } catch (error) {
     log("handleListConflicts: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleListConflicts" };
   }
 }
 
@@ -1400,7 +1400,7 @@ export async function handleResolveConflict(
     return { success: true, data: { mergedMemoryId: result.mergedMemoryId } };
   } catch (error) {
     log("handleResolveConflict: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleResolveConflict" };
   }
 }
 
@@ -1420,7 +1420,7 @@ export function handleConflictStats(): ApiResponse<{ unresolved: number; resolve
     return { success: true, data: { unresolved: unresolved.length, resolved } };
   } catch (error) {
     log("handleConflictStats: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleConflictStats" };
   }
 }
 
@@ -1444,7 +1444,7 @@ export function handleApiStatus(): ApiResponse<{
     return { success: true, data: { mode, warmedUp, ready } };
   } catch (error) {
     log("handleApiStatus: error", { error: String(error) });
-    return { success: false, error: "Internal error" };
+    return { success: false, error: "Internal error in handleApiStatus" };
   }
 }
 

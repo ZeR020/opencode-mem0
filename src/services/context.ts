@@ -2,7 +2,7 @@ import { CONFIG } from "../config.js";
 import { getUserProfileContext } from "./user-profile/profile-context.js";
 import { analyzeQueryIntent, scoreMemoryRelevance } from "./retrieval-context.js";
 
-const injectionConfig = (CONFIG as any).injection ?? {};
+const injectionConfig = CONFIG.injection ?? {};
 
 export interface MemoryResultMinimal {
   id?: string;

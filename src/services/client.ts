@@ -282,7 +282,7 @@ export class LocalMemoryClient {
       const { scope, hash } = extractScopeFromContainerTag(containerTag);
       const shard = shardManager.getWriteShard(scope, hash);
 
-      // Check for near-duplicate at ingest time
+      // Check for near-duplicate at ingest time (fast-path read, no transaction needed)
       const dedupResult = deduplicationService.checkDuplicateAtIngest(
         content,
         containerTag,
@@ -383,6 +383,24 @@ export class LocalMemoryClient {
         storeType,
         decayRate,
       };
+
+      // Re-check dedup immediately before insertVector to minimize race window.
+      // insertVector($$) internally uses BEGIN IMMEDIATE/COMMIT around the write;
+      // this re-check catches any insert that snuck in between our initial check
+      // and insertVector acquiring the RESERVED lock.
+      const recheckResult = deduplicationService.checkDuplicateAtIngest(
+        content,
+        containerTag,
+        vector,
+        metadata
+      );
+      if (recheckResult.isDuplicate && recheckResult.existingId) {
+        return {
+          success: true as const,
+          id: recheckResult.existingId,
+          duplicate: true,
+        };
+      }
 
       await vectorSearch.insertVector(db, record, shard);
       shardManager.incrementVectorCount(shard.id);

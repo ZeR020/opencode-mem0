@@ -599,7 +599,7 @@ describe("api-handlers", () => {
       });
       const result = await handleDetectTagMigration();
       expect(result.success).toBe(false);
-      expect(result.error).toBe("Internal error");
+      expect(result.error).toBe("Internal error in handleDetectTagMigration");
       spy.mockRestore();
     });
   });
@@ -620,7 +620,7 @@ describe("api-handlers", () => {
       });
       const result = await handleRunTagMigrationBatch();
       expect(result.success).toBe(false);
-      expect(result.error).toBe("Internal error");
+      expect(result.error).toBe("Internal error in handleRunTagMigrationBatch");
       spy.mockRestore();
     });
   });
