@@ -144,7 +144,7 @@ export function formatContextForPrompt(
   const scoredMemories = scoreMemoriesForQuery(memories, query);
   const parts = buildContextParts(scoredMemories, userId, format, tokenBudget);
 
-  if (parts.length === 1) {
+  if (parts.length <= 1) {
     return "";
   }
 

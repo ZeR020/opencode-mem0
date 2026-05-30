@@ -266,8 +266,6 @@ class ContextTracker {
   }
 }
 
-export const contextTracker = new ContextTracker();
-
 /**
  * Calculate a context-based score boost for a memory result.
  * Boosts scores when the memory's project path, project name, or metadata

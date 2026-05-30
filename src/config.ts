@@ -246,47 +246,10 @@ const OpenCodeMemConfigSchema = z.object({
   rateLimitEnabled: z.boolean().optional(),
 });
 
-const DEFAULTS: Required<
-  Omit<
-    OpenCodeMemConfig,
-    | "embeddingApiUrl"
-    | "embeddingApiKey"
-    | "memoryModel"
-    | "memoryApiUrl"
-    | "memoryApiKey"
-    | "memoryProvider"
-    | "memoryTemperature"
-    | "memoryExtraParams"
-    | "webServerApiKey"
-    | "opencodeProvider"
-    | "opencodeModel"
-    | "autoCaptureLanguage"
-    | "userEmailOverride"
-    | "userNameOverride"
-  >
-> & {
-  embeddingApiUrl?: string;
-  embeddingApiKey?: string;
-  memoryModel?: string;
-  memoryApiUrl?: string;
-  memoryApiKey?: string;
-  memoryProvider?: AIProviderType;
-  memoryTemperature?: number | false;
-  memoryExtraParams?: Record<string, unknown>;
-  opencodeProvider?: string;
-  opencodeModel?: string;
-  vectorBackend?: VectorBackendConfig;
-  autoCaptureLanguage?: string;
-  memory?: {
-    defaultScope?: "project" | "all-projects";
-  };
-  injection?: {
-    tokenBudget?: number;
-    format?: "plain" | "xml" | "yaml";
-    queryAwareFiltering?: boolean;
-    relevanceThreshold?: number;
-  };
-} = {
+// DEFAULTS uses Partial<OpenCodeMemConfig> for simplicity. The object literal
+// guarantees every key is populated, so non-null assertions in build helpers
+// below are safe — they assert against the Partial type, not runtime nulls.
+const DEFAULTS: Partial<OpenCodeMemConfig> = {
   storagePath: join(DATA_DIR, "data"),
   embeddingModel: "Xenova/nomic-embed-text-v1",
   embeddingDimensions: 768,
@@ -432,99 +395,105 @@ function getEmbeddingDimensions(model: string): number {
 }
 
 function buildMemoryConfig(f: OpenCodeMemConfig) {
-  return { defaultScope: f.memory?.defaultScope ?? DEFAULTS.memory.defaultScope };
+  const D = DEFAULTS as Required<OpenCodeMemConfig>;
+  return { defaultScope: f.memory?.defaultScope ?? D.memory!.defaultScope };
 }
 
 function buildCompactionConfig(f: OpenCodeMemConfig) {
+  const D = DEFAULTS as Required<OpenCodeMemConfig>;
   return {
-    enabled: f.compaction?.enabled ?? DEFAULTS.compaction.enabled,
-    memoryLimit: f.compaction?.memoryLimit ?? DEFAULTS.compaction.memoryLimit,
+    enabled: f.compaction?.enabled ?? D.compaction!.enabled,
+    memoryLimit: f.compaction?.memoryLimit ?? D.compaction!.memoryLimit,
   };
 }
 
 function buildTranscriptConfig(f: OpenCodeMemConfig) {
+  const D = DEFAULTS as Required<OpenCodeMemConfig>;
   return {
-    enabled: f.transcriptStorage?.enabled ?? DEFAULTS.transcriptStorage.enabled,
-    maxAgeDays: f.transcriptStorage?.maxAgeDays ?? DEFAULTS.transcriptStorage.maxAgeDays,
+    enabled: f.transcriptStorage?.enabled ?? D.transcriptStorage!.enabled,
+    maxAgeDays: f.transcriptStorage?.maxAgeDays ?? D.transcriptStorage!.maxAgeDays,
   };
 }
 
 function buildScoringConfig(f: OpenCodeMemConfig) {
+  const D = DEFAULTS as Required<OpenCodeMemConfig>;
   return {
-    enabled: f.memoryScoring?.enabled ?? DEFAULTS.memoryScoring.enabled,
+    enabled: f.memoryScoring?.enabled ?? D.memoryScoring!.enabled,
     recalculationIntervalMinutes:
       f.memoryScoring?.recalculationIntervalMinutes ??
-      DEFAULTS.memoryScoring.recalculationIntervalMinutes,
+      D.memoryScoring!.recalculationIntervalMinutes,
     recalculationBatchSize:
-      f.memoryScoring?.recalculationBatchSize ?? DEFAULTS.memoryScoring.recalculationBatchSize,
+      f.memoryScoring?.recalculationBatchSize ?? D.memoryScoring!.recalculationBatchSize,
     recencyHalfLifeDays:
-      f.memoryScoring?.recencyHalfLifeDays ?? DEFAULTS.memoryScoring.recencyHalfLifeDays,
+      f.memoryScoring?.recencyHalfLifeDays ?? D.memoryScoring!.recencyHalfLifeDays,
     utilityHalfLifeDays:
-      f.memoryScoring?.utilityHalfLifeDays ?? DEFAULTS.memoryScoring.utilityHalfLifeDays,
+      f.memoryScoring?.utilityHalfLifeDays ?? D.memoryScoring!.utilityHalfLifeDays,
   };
 }
 
 function buildLifecycleConfig(f: OpenCodeMemConfig) {
+  const D = DEFAULTS as Required<OpenCodeMemConfig>;
   return {
-    stmDecayDays: f.memoryLifecycle?.stmDecayDays ?? DEFAULTS.memoryLifecycle.stmDecayDays,
-    ltmDecayDays: f.memoryLifecycle?.ltmDecayDays ?? DEFAULTS.memoryLifecycle.ltmDecayDays,
+    stmDecayDays: f.memoryLifecycle?.stmDecayDays ?? D.memoryLifecycle!.stmDecayDays,
+    ltmDecayDays: f.memoryLifecycle?.ltmDecayDays ?? D.memoryLifecycle!.ltmDecayDays,
     promotionThreshold:
-      f.memoryLifecycle?.promotionThreshold ?? DEFAULTS.memoryLifecycle.promotionThreshold,
-    archiveThreshold:
-      f.memoryLifecycle?.archiveThreshold ?? DEFAULTS.memoryLifecycle.archiveThreshold,
-    archiveAfterDays:
-      f.memoryLifecycle?.archiveAfterDays ?? DEFAULTS.memoryLifecycle.archiveAfterDays,
+      f.memoryLifecycle?.promotionThreshold ?? D.memoryLifecycle!.promotionThreshold,
+    archiveThreshold: f.memoryLifecycle?.archiveThreshold ?? D.memoryLifecycle!.archiveThreshold,
+    archiveAfterDays: f.memoryLifecycle?.archiveAfterDays ?? D.memoryLifecycle!.archiveAfterDays,
     checkIntervalMinutes:
-      f.memoryLifecycle?.checkIntervalMinutes ?? DEFAULTS.memoryLifecycle.checkIntervalMinutes,
-    decayBatchSize: f.memoryLifecycle?.decayBatchSize ?? DEFAULTS.memoryLifecycle.decayBatchSize,
+      f.memoryLifecycle?.checkIntervalMinutes ?? D.memoryLifecycle!.checkIntervalMinutes,
+    decayBatchSize: f.memoryLifecycle?.decayBatchSize ?? D.memoryLifecycle!.decayBatchSize,
   };
 }
 
 function buildChatConfig(f: OpenCodeMemConfig) {
+  const D = DEFAULTS as Required<OpenCodeMemConfig>;
   return {
-    enabled: f.chatMessage?.enabled ?? DEFAULTS.chatMessage.enabled,
-    maxMemories: f.chatMessage?.maxMemories ?? DEFAULTS.chatMessage.maxMemories,
+    enabled: f.chatMessage?.enabled ?? D.chatMessage!.enabled,
+    maxMemories: f.chatMessage?.maxMemories ?? D.chatMessage!.maxMemories,
     excludeCurrentSession:
-      f.chatMessage?.excludeCurrentSession ?? DEFAULTS.chatMessage.excludeCurrentSession,
+      f.chatMessage?.excludeCurrentSession ?? D.chatMessage!.excludeCurrentSession,
     maxAgeDays: f.chatMessage?.maxAgeDays,
-    injectOn: (f.chatMessage?.injectOn ?? DEFAULTS.chatMessage.injectOn) as "first" | "always",
-    mode: (f.chatMessage?.mode ?? DEFAULTS.chatMessage.mode) as "relevant" | "fast",
+    injectOn: (f.chatMessage?.injectOn ?? D.chatMessage!.injectOn) as "first" | "always",
+    mode: (f.chatMessage?.mode ?? D.chatMessage!.mode) as "relevant" | "fast",
   };
 }
 
 function buildRetrievalConfig(f: OpenCodeMemConfig) {
+  const D = DEFAULTS as Required<OpenCodeMemConfig>;
   return {
-    maxResults: f.retrieval?.maxResults ?? DEFAULTS.retrieval.maxResults,
-    diversityThreshold: f.retrieval?.diversityThreshold ?? DEFAULTS.retrieval.diversityThreshold,
-    contextBoost: f.retrieval?.contextBoost ?? DEFAULTS.retrieval.contextBoost,
+    maxResults: f.retrieval?.maxResults ?? D.retrieval!.maxResults,
+    diversityThreshold: f.retrieval?.diversityThreshold ?? D.retrieval!.diversityThreshold,
+    contextBoost: f.retrieval?.contextBoost ?? D.retrieval!.contextBoost,
   };
 }
 
 function buildInjectionConfig(f: OpenCodeMemConfig) {
+  const D = DEFAULTS as Required<OpenCodeMemConfig>;
   return {
-    tokenBudget: f.injection?.tokenBudget ?? DEFAULTS.injection.tokenBudget,
-    format: f.injection?.format ?? DEFAULTS.injection.format,
-    queryAwareFiltering: f.injection?.queryAwareFiltering ?? DEFAULTS.injection.queryAwareFiltering,
-    relevanceThreshold: f.injection?.relevanceThreshold ?? DEFAULTS.injection.relevanceThreshold,
+    tokenBudget: f.injection?.tokenBudget ?? D.injection!.tokenBudget,
+    format: f.injection?.format ?? D.injection!.format,
+    queryAwareFiltering: f.injection?.queryAwareFiltering ?? D.injection!.queryAwareFiltering,
+    relevanceThreshold: f.injection?.relevanceThreshold ?? D.injection!.relevanceThreshold,
   };
 }
 
 function buildDecayConfig(f: OpenCodeMemConfig) {
+  const D = DEFAULTS as Required<OpenCodeMemConfig>;
   return {
-    enabled: f.contextualDecay?.enabled ?? DEFAULTS.contextualDecay.enabled,
-    baseDecayRate: f.contextualDecay?.baseDecayRate ?? DEFAULTS.contextualDecay.baseDecayRate,
+    enabled: f.contextualDecay?.enabled ?? D.contextualDecay!.enabled,
+    baseDecayRate: f.contextualDecay?.baseDecayRate ?? D.contextualDecay!.baseDecayRate,
     strengthBoostFactor:
-      f.contextualDecay?.strengthBoostFactor ?? DEFAULTS.contextualDecay.strengthBoostFactor,
-    accessBoostFactor:
-      f.contextualDecay?.accessBoostFactor ?? DEFAULTS.contextualDecay.accessBoostFactor,
-    minDecayRate: f.contextualDecay?.minDecayRate ?? DEFAULTS.contextualDecay.minDecayRate,
-    maxDecayRate: f.contextualDecay?.maxDecayRate ?? DEFAULTS.contextualDecay.maxDecayRate,
+      f.contextualDecay?.strengthBoostFactor ?? D.contextualDecay!.strengthBoostFactor,
+    accessBoostFactor: f.contextualDecay?.accessBoostFactor ?? D.contextualDecay!.accessBoostFactor,
+    minDecayRate: f.contextualDecay?.minDecayRate ?? D.contextualDecay!.minDecayRate,
+    maxDecayRate: f.contextualDecay?.maxDecayRate ?? D.contextualDecay!.maxDecayRate,
   };
 }
 
 function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
   const cfg = fileConfig;
-  const defaults = DEFAULTS;
+  const defaults = DEFAULTS as Required<OpenCodeMemConfig>;
   return {
     storagePath: expandPath(cfg.storagePath ?? defaults.storagePath),
     userEmailOverride: cfg.userEmailOverride,
@@ -534,9 +503,9 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
       cfg.embeddingDimensions ??
       getEmbeddingDimensions(cfg.embeddingModel ?? defaults.embeddingModel),
     embeddingApiUrl: cfg.embeddingApiUrl,
-    embeddingApiKey: cfg.embeddingApiUrl
-      ? resolveSecretValue(cfg.embeddingApiKey ?? process.env.OPENAI_API_KEY)
-      : undefined,
+    embeddingApiKey: cfg.embeddingApiKey
+      ? resolveSecretValue(cfg.embeddingApiKey)
+      : resolveSecretValue(process.env.OPENAI_API_KEY),
     similarityThreshold: cfg.similarityThreshold ?? defaults.similarityThreshold,
     maxMemories: cfg.maxMemories ?? defaults.maxMemories,
     maxProfileItems: cfg.maxProfileItems ?? defaults.maxProfileItems,
