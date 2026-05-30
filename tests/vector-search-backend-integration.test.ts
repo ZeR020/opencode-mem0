@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -219,5 +219,183 @@ describe("vector search backend integration", () => {
 
     expect(results.map((r) => r.id)).toEqual(["a", "b"]);
     expect(typeof results[0]?.similarity).toBe("number");
+  });
+
+  describe("dirty-flag index rebuilds", () => {
+    const tempDirsFlag: string[] = [];
+
+    afterEach(() => {
+      while (tempDirsFlag.length > 0) {
+        const dir = tempDirsFlag.pop();
+        if (dir) rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    function setupDb() {
+      const tempDir = mkdtempSync(join(tmpdir(), "vector-search-dirty-"));
+      tempDirsFlag.push(tempDir);
+      const dbPath = join(tempDir, "test.db");
+      const db = new Database(dbPath);
+
+      db.run(`
+        CREATE TABLE memories (
+          id TEXT PRIMARY KEY,
+          content TEXT NOT NULL,
+          vector BLOB NOT NULL,
+          tags_vector BLOB,
+          container_tag TEXT NOT NULL,
+          tags TEXT,
+          type TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          metadata TEXT,
+          display_name TEXT,
+          user_name TEXT,
+          user_email TEXT,
+          project_path TEXT,
+          project_name TEXT,
+          git_repo_url TEXT,
+          is_pinned INTEGER DEFAULT 0,
+          is_deprecated INTEGER DEFAULT 0,
+          recency_score REAL DEFAULT 0.5,
+          frequency_score REAL DEFAULT 0.5,
+          importance_score REAL DEFAULT 0.5,
+          utility_score REAL DEFAULT 0.5,
+          novelty_score REAL DEFAULT 0.5,
+          confidence_score REAL DEFAULT 0.5,
+          interference_penalty REAL DEFAULT 0,
+          strength REAL DEFAULT 0.5,
+          access_count INTEGER DEFAULT 0,
+          last_accessed INTEGER,
+          store_type TEXT,
+          decay_rate REAL
+        )
+      `);
+
+      return { db, dbPath };
+    }
+
+    function makeShard(dbPath: string) {
+      return {
+        id: 1,
+        scope: "project" as const,
+        scopeHash: "hash",
+        shardIndex: 0,
+        dbPath,
+        vectorCount: 2,
+        isActive: true,
+        createdAt: Date.now(),
+      };
+    }
+
+    it("skips rebuildFromShard on second search when no new inserts (dirty-flag gate)", async () => {
+      const { db, dbPath } = setupDb();
+      const backend = new ExactScanBackend();
+      const rebuildSpy = vi.spyOn(backend, "rebuildFromShard");
+      const vectorSearch = new VectorSearch(backend);
+      const shard = makeShard(dbPath);
+
+      // Insert a record so there's something to search
+      await vectorSearch.insertVector(
+        db,
+        {
+          id: "mem-1",
+          content: "test memory",
+          vector: new Float32Array([1, 0, 0]),
+          tagsVector: new Float32Array([0, 1, 0]),
+          containerTag: "opencode_project_hash",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+        shard
+      );
+
+      // First search — rebuildFromShard should be called (dirty after insert)
+      const firstCallCount = rebuildSpy.mock.calls.length;
+      await vectorSearch.searchInShard(
+        shard,
+        new Float32Array([1, 0, 0]),
+        "opencode_project_hash",
+        5
+      );
+
+      // Rebuild should have been called during first search
+      expect(rebuildSpy.mock.calls.length).toBeGreaterThan(firstCallCount);
+
+      // Second search on SAME shard with NO new inserts — rebuildFromShard should NOT be called
+      const afterFirstSearch = rebuildSpy.mock.calls.length;
+      await vectorSearch.searchInShard(
+        shard,
+        new Float32Array([1, 0, 0]),
+        "opencode_project_hash",
+        5
+      );
+
+      // No additional rebuild calls — dirty flag was cleared
+      expect(rebuildSpy.mock.calls.length).toBe(afterFirstSearch);
+
+      rebuildSpy.mockRestore();
+    });
+
+    it("triggers rebuildFromShard after batchInsertVectors (dirty-flag set)", async () => {
+      const { db, dbPath } = setupDb();
+      const backend = new ExactScanBackend();
+      const rebuildSpy = vi.spyOn(backend, "rebuildFromShard");
+      const vectorSearch = new VectorSearch(backend);
+      const shard = makeShard(dbPath);
+
+      // Insert first record and search to clear dirty flag
+      await vectorSearch.insertVector(
+        db,
+        {
+          id: "mem-1",
+          content: "first memory",
+          vector: new Float32Array([1, 0, 0]),
+          tagsVector: new Float32Array([0, 1, 0]),
+          containerTag: "opencode_project_hash",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+        shard
+      );
+
+      await vectorSearch.searchInShard(
+        shard,
+        new Float32Array([1, 0, 0]),
+        "opencode_project_hash",
+        5
+      );
+
+      const callsAfterClear = rebuildSpy.mock.calls.length;
+
+      // Now insert more vectors via batchInsertVectors — should set dirty flag
+      await vectorSearch.batchInsertVectors(
+        db,
+        [
+          {
+            id: "mem-2",
+            content: "second memory",
+            vector: new Float32Array([0, 1, 1]),
+            tagsVector: new Float32Array([1, 0, 1]),
+            containerTag: "opencode_project_hash",
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        ],
+        shard
+      );
+
+      // Search again — rebuildFromShard should be called because dirty flag was set
+      await vectorSearch.searchInShard(
+        shard,
+        new Float32Array([0, 1, 0]),
+        "opencode_project_hash",
+        5
+      );
+
+      expect(rebuildSpy.mock.calls.length).toBeGreaterThan(callsAfterClear);
+
+      rebuildSpy.mockRestore();
+    });
   });
 });
