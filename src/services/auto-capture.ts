@@ -181,7 +181,12 @@ export async function performAutoCapture(
       err.message.includes("not available") ||
       err.message.includes("not connected");
 
-    if (!isConfigError && CONFIG.showAutoCaptureToasts && ctx.client?.tui) {
+    if (isConfigError) {
+      log("Auto-capture skipped — configuration not ready", { error: err.message });
+      return;
+    }
+
+    if (CONFIG.showAutoCaptureToasts && ctx.client?.tui) {
       await ctx.client.tui
         .showToast({
           body: {

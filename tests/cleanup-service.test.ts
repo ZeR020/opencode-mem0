@@ -265,6 +265,8 @@ describe("CleanupService", () => {
         retentionDays: 30,
         lastCleanupTime: 0,
         isRunning: false,
+        skippedCycles: 0,
+        lastDurationMs: 0,
       });
     });
   });

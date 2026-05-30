@@ -82,14 +82,16 @@ export function fetchMemoriesForList(
     for (const shard of shards) {
       const db = connectionManager.getConnection(shard.dbPath);
       const memories = vectorSearch.listMemories(db, tag, perShardLimit) as RawMemoryRow[];
-      allMemories.push(...memories);
+      allMemories = allMemories.concat(memories);
     }
   } else {
     const shards = shardManager.getAllShards("project", "");
     for (const shard of shards) {
       const db = connectionManager.getConnection(shard.dbPath);
       const memories = vectorSearch.listMemories(db, "", perShardLimit) as RawMemoryRow[];
-      allMemories.push(...memories.filter((m) => m.container_tag?.includes("_project_")));
+      allMemories = allMemories.concat(
+        memories.filter((m) => m.container_tag?.includes("_project_"))
+      );
     }
   }
   if (allMemories.length > MAX_LIST_MEMORIES) {
@@ -170,7 +172,7 @@ export function buildPaginatedTimeline(
     }
   }
 
-  const sortedTimeline: TimelineItem[] = [];
+  let sortedTimeline: TimelineItem[] = [];
   const pairs = Array.from(linkedPairs.values())
     .filter((p): p is { memory: TimelineMemoryItem; prompt: TimelinePromptItem } =>
       Boolean(p.memory && p.prompt)
@@ -181,7 +183,7 @@ export function buildPaginatedTimeline(
     sortedTimeline.push(pair.prompt);
   }
   standalone.sort((a, b) => b.createdAt - a.createdAt);
-  sortedTimeline.push(...standalone);
+  sortedTimeline = sortedTimeline.concat(standalone);
 
   const total = sortedTimeline.length;
   const totalPages = Math.ceil(total / safePageSize);

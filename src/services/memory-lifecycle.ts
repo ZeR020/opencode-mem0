@@ -271,13 +271,15 @@ function processSingleMemoryDecay(
       memory.is_pinned === 1
     );
     if (contextualRate !== storedDecayRate) {
-      log("Contextual decay rate applied", {
-        memoryId: memory.id,
-        oldRate: storedDecayRate,
-        newRate: contextualRate,
-        strength: currentStrength,
-        accessCount: memory.access_count,
-      });
+      if (process.env.DEBUG_DECAY) {
+        log("Contextual decay rate applied", {
+          memoryId: memory.id,
+          oldRate: storedDecayRate,
+          newRate: contextualRate,
+          strength: currentStrength,
+          accessCount: memory.access_count,
+        });
+      }
     }
     decayRate = contextualRate;
   }

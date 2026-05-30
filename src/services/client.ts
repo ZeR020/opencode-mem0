@@ -419,7 +419,7 @@ export class LocalMemoryClient {
         };
       }
 
-      const allMemories: MemoryRow[] = [];
+      let allMemories: MemoryRow[] = [];
 
       for (const shard of shards) {
         const db = connectionManager.getConnection(shard.dbPath);
@@ -428,7 +428,7 @@ export class LocalMemoryClient {
           scope === "all-projects" ? "" : containerTag,
           limit * 2
         ) as MemoryRow[];
-        allMemories.push(...memories);
+        allMemories = allMemories.concat(memories);
       }
 
       // Sort by pinned first, then strength, then recency
@@ -470,12 +470,12 @@ export class LocalMemoryClient {
         return { success: true as const, results: [], total: 0, timing: 0 };
       }
 
-      const allMemories: SessionSearchRow[] = [];
+      let allMemories: SessionSearchRow[] = [];
 
       for (const shard of shards) {
         const db = connectionManager.getConnection(shard.dbPath);
         const memories = vectorSearch.getMemoriesBySessionID(db, sessionID) as SessionSearchRow[];
-        allMemories.push(...memories);
+        allMemories = allMemories.concat(memories);
       }
 
       allMemories.sort((a, b) => b.created_at - a.created_at);

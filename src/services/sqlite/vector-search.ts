@@ -785,6 +785,27 @@ export class VectorSearch {
       const rows = stmt.all(sessionID) as any[];
       return rows.map((row: any) => this.mapRowToResult(row));
     } catch {
+      // Try FTS5 exact phrase match on sessionID before falling to LIKE full scan
+      try {
+        const ftsQuery = `"sessionID":"${sessionID}"`;
+        const quotedFts = `"${ftsQuery}"`;
+        const ftsRows = db
+          .prepare(
+            `
+          SELECT memories.* FROM memories
+          JOIN memories_fts ON memories.id = memories_fts.id
+          WHERE memories_fts MATCH ? AND memories.is_deprecated = 0
+          ORDER BY memories.created_at DESC
+        `
+          )
+          .all(quotedFts) as any[];
+        if (ftsRows.length > 0) {
+          return ftsRows.map((row: any) => this.mapRowToResult(row));
+        }
+      } catch {
+        // FTS5 fallback failed — continue to LIKE fallback
+      }
+
       const likeEscaped = sessionID.replace(/[\\%_]/g, String.raw`\$&`);
       const likeStmt = this.getStmt(
         db,

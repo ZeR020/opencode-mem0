@@ -48,57 +48,69 @@ class FallbackAwareBackend implements VectorBackend {
   }
 
   async search(args: Parameters<VectorBackend["search"]>[0]) {
-    try {
-      const result = await this.activeBackend.search(args);
-      // Recovery window: reset error count after 60s of error-free operation
-      if (this.errorCount > 0 && Date.now() - this.lastErrorTime > 60000) {
-        log("Vector backend recovered — resetting error count", {
-          previousErrorCount: this.errorCount,
-          lastErrorTime: new Date(this.lastErrorTime).toISOString(),
-        });
-        this.errorCount = 0;
+    // Retry loop: allow up to 3 transient errors before falling back
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      try {
+        const result = await this.activeBackend.search(args);
+        // Recovery window: reset error count after 60s of error-free operation
+        if (this.errorCount > 0 && Date.now() - this.lastErrorTime > 60000) {
+          log("Vector backend recovered — resetting error count", {
+            previousErrorCount: this.errorCount,
+            lastErrorTime: new Date(this.lastErrorTime).toISOString(),
+          });
+          this.errorCount = 0;
+        }
+        return result;
+      } catch (error) {
+        this.errorCount++;
+        this.lastErrorTime = Date.now();
+        if (this.errorCount <= 3) {
+          log("Vector backend transient error — retrying primary backend", {
+            attempt: attempt + 1,
+            errorCount: this.errorCount,
+            maxRetries: 3,
+            error: String(error),
+          });
+          continue; // retry with primary
+        }
+        // Exceeded retry limit — degrade to fallback
+        this.logDegrade("search", error);
+        this.activeBackend = this.fallback;
+        return this.fallback.search(args);
       }
-      return result;
-    } catch (error) {
-      this.errorCount++;
-      this.lastErrorTime = Date.now();
-      if (this.errorCount <= 3) {
-        log("Vector backend transient error — retrying primary backend", {
-          errorCount: this.errorCount,
-          maxRetries: 3,
-          error: String(error),
-        });
-        // Retry with the primary backend (still active)
-        return this.activeBackend.search(args);
-      }
-      this.logDegrade("search", error);
-      this.activeBackend = this.fallback;
-      return this.fallback.search(args);
     }
+    // Unreachable (loop always returns or degrades)
+    return this.fallback.search(args);
   }
 
   async rebuildFromShard(args: Parameters<VectorBackend["rebuildFromShard"]>[0]): Promise<void> {
-    try {
-      await this.activeBackend.rebuildFromShard(args);
-      // Recovery window: reset error count after 60s of error-free operation
-      if (this.errorCount > 0 && Date.now() - this.lastErrorTime > 60000) {
-        this.errorCount = 0;
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      try {
+        await this.activeBackend.rebuildFromShard(args);
+        // Recovery window: reset error count after 60s of error-free operation
+        if (this.errorCount > 0 && Date.now() - this.lastErrorTime > 60000) {
+          this.errorCount = 0;
+        }
+        return;
+      } catch (error) {
+        this.errorCount++;
+        this.lastErrorTime = Date.now();
+        if (this.errorCount <= 3) {
+          log("Vector backend transient error — retrying primary backend", {
+            attempt: attempt + 1,
+            errorCount: this.errorCount,
+            maxRetries: 3,
+            error: String(error),
+          });
+          continue;
+        }
+        this.logDegrade("rebuild", error);
+        this.activeBackend = this.fallback;
+        await this.fallback.rebuildFromShard(args);
+        return;
       }
-    } catch (error) {
-      this.errorCount++;
-      this.lastErrorTime = Date.now();
-      if (this.errorCount <= 3) {
-        log("Vector backend transient error — retrying primary backend", {
-          errorCount: this.errorCount,
-          maxRetries: 3,
-          error: String(error),
-        });
-        return this.activeBackend.rebuildFromShard(args);
-      }
-      this.logDegrade("rebuild", error);
-      this.activeBackend = this.fallback;
-      await this.fallback.rebuildFromShard(args);
     }
+    // Unreachable — fallback always called on last retry
   }
 
   async deleteShardIndexes(

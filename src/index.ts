@@ -254,6 +254,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   AIProviderFactory.startCleanupSchedule(3600 * 1000);
 
   const shutdownHandler = async () => {
+    delete (globalThis as any)[Symbol.for("opencode-mem0.shutdown")];
     try {
       clearInterval(sessionIdleSweep);
       stopScoringRecalculation();

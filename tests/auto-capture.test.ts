@@ -145,9 +145,8 @@ describe("auto-capture helpers", () => {
     mockUserPromptManager.claimPrompt.mockReturnValue(true);
 
     const ctxNoClient = { client: null } as any;
-    await expect(performAutoCapture(ctxNoClient, "sess-1", "/test")).rejects.toThrow(
-      "Client not available"
-    );
+    // Config errors no longer re-throw — they return cleanly
+    await expect(performAutoCapture(ctxNoClient, "sess-1", "/test")).resolves.toBeUndefined();
 
     // Second call: should proceed past the mutex check because it was released
     const ctx2 = {
@@ -176,10 +175,8 @@ describe("auto-capture helpers", () => {
     });
     mockMemoryClient.listMemories.mockResolvedValue({ success: false, memories: [] });
 
-    // This should throw "External API not configured" — proving it got past the mutex check
-    await expect(performAutoCapture(ctx2, "sess-1", "/test")).rejects.toThrow(
-      "External API not configured for auto-capture"
-    );
+    // Proves it got past the mutex check — config errors no longer re-throw
+    await expect(performAutoCapture(ctx2, "sess-1", "/test")).resolves.toBeUndefined();
   });
 
   it("returns early when no uncaptured prompt", async () => {
@@ -199,16 +196,17 @@ describe("auto-capture helpers", () => {
     expect(mockMemoryClient.addMemory).not.toHaveBeenCalled();
   });
 
-  it("throws when client is not available", async () => {
+  it("returns gracefully when client is not available", async () => {
     mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
       id: "p1",
       messageId: "m1",
       content: "test",
     });
     mockUserPromptManager.claimPrompt.mockReturnValue(true);
-    await expect(performAutoCapture({ client: null } as any, "sess-1", "/test")).rejects.toThrow(
-      "Client not available"
-    );
+    // Config errors no longer re-throw — they return cleanly
+    await expect(
+      performAutoCapture({ client: null } as any, "sess-1", "/test")
+    ).resolves.toBeUndefined();
   });
 
   it("returns early when prompt message not found in session", async () => {
@@ -331,9 +329,8 @@ describe("auto-capture helpers", () => {
         gitRepoUrl: null,
       },
     });
-    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
-      "External API not configured for auto-capture"
-    );
+    // Config errors no longer re-throw — they return cleanly
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).resolves.toBeUndefined();
   });
 
   it("processes through when all data is valid (falls through to generateSummary error)", async () => {
@@ -370,10 +367,8 @@ describe("auto-capture helpers", () => {
         gitRepoUrl: null,
       },
     });
-    // generateSummary will fail because no API configured — error is caught by finally
-    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
-      "External API not configured for auto-capture"
-    );
+    // generateSummary fails because no API configured — config errors no longer re-throw
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).resolves.toBeUndefined();
   });
 
   it("includes latest memory context when available", async () => {
@@ -413,9 +408,7 @@ describe("auto-capture helpers", () => {
         gitRepoUrl: null,
       },
     });
-    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
-      "External API not configured for auto-capture"
-    );
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).resolves.toBeUndefined();
   });
 
   it("truncates long latest memory content", async () => {
@@ -456,9 +449,7 @@ describe("auto-capture helpers", () => {
         gitRepoUrl: null,
       },
     });
-    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
-      "External API not configured for auto-capture"
-    );
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).resolves.toBeUndefined();
   });
 
   it("extracts tool call input from object state", async () => {
@@ -502,9 +493,7 @@ describe("auto-capture helpers", () => {
         gitRepoUrl: null,
       },
     });
-    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
-      "External API not configured for auto-capture"
-    );
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).resolves.toBeUndefined();
   });
 
   it("extracts tool call input from string parameter", async () => {
@@ -548,9 +537,7 @@ describe("auto-capture helpers", () => {
         gitRepoUrl: null,
       },
     });
-    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
-      "External API not configured for auto-capture"
-    );
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).resolves.toBeUndefined();
   });
 
   it("handles non-assistant role messages gracefully", async () => {
@@ -588,9 +575,7 @@ describe("auto-capture helpers", () => {
         gitRepoUrl: null,
       },
     });
-    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
-      "External API not configured for auto-capture"
-    );
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).resolves.toBeUndefined();
   });
 
   it("handles messages without parts array", async () => {
@@ -628,9 +613,7 @@ describe("auto-capture helpers", () => {
         gitRepoUrl: null,
       },
     });
-    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
-      "External API not configured for auto-capture"
-    );
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).resolves.toBeUndefined();
   });
 
   it("truncates long tool input", async () => {
@@ -671,9 +654,7 @@ describe("auto-capture helpers", () => {
         gitRepoUrl: null,
       },
     });
-    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
-      "External API not configured for auto-capture"
-    );
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).resolves.toBeUndefined();
   });
 
   it("skips capture with log warning when no LLM is configured", async () => {
@@ -768,8 +749,8 @@ describe("auto-capture helpers", () => {
     CONFIG.memoryModel = "gpt-4";
     CONFIG.memoryApiUrl = "http://test";
 
-    // Should proceed and throw from generateSummary (provider path)
-    await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow();
+    // Config errors no longer re-throw; provider setup failure returns cleanly
+    await expect(performAutoCapture(ctx, "sess-1", "/test")).resolves.toBeUndefined();
     expect(mockWarn).not.toHaveBeenCalled();
   });
 
