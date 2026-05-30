@@ -1,4 +1,5 @@
 import { CONFIG } from "../config.js";
+import { TECHNICAL_KEYWORDS } from "./utils/text-analysis.js";
 
 export interface RetrievalContext {
   projectPath?: string;
@@ -28,35 +29,6 @@ const TROUBLESHOOTING_KEYWORDS = [
 const RECALL_KEYWORDS = ["what", "did", "decide", "remember", "last time", "previously"];
 const IMPLEMENTATION_KEYWORDS = ["implement", "create", "add", "build", "write", "code"];
 const EXPLORATION_KEYWORDS = ["explore", "try", "experiment", "test", "options"];
-
-const TECHNICAL_KEYWORDS = [
-  "function",
-  "class",
-  "api",
-  "database",
-  "server",
-  "bug",
-  "error",
-  "typescript",
-  "test",
-  "code",
-  "program",
-  "software",
-  "component",
-  "module",
-  "library",
-  "framework",
-  "service",
-  "endpoint",
-  "query",
-  "cache",
-  "caching",
-  "network",
-  "protocol",
-  "async",
-  "await",
-  "deploy",
-];
 
 const STOP_WORDS = new Set([
   "the",

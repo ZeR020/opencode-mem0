@@ -1,3 +1,5 @@
+import { TECHNICAL_KEYWORDS, NEGATION_PATTERNS, tokenizeWords } from "./utils/text-analysis.js";
+
 export interface ScoreComponents {
   recency: number;
   frequency: number;
@@ -20,194 +22,11 @@ const DEFAULT_WEIGHTS: MemoryScoringWeights = {
   interference: -0.1,
 };
 
-// Technical keywords that indicate high-importance memories
-const TECHNICAL_KEYWORDS = [
-  "function",
-  "class",
-  "interface",
-  "type",
-  "import",
-  "export",
-  "const",
-  "let",
-  "async",
-  "await",
-  "promise",
-  "error",
-  "bug",
-  "fix",
-  "refactor",
-  "implement",
-  "feature",
-  "test",
-  "build",
-  "deploy",
-  "api",
-  "database",
-  "schema",
-  "migration",
-  "query",
-  "endpoint",
-  "route",
-  "middleware",
-  "component",
-  "hook",
-  "state",
-  "props",
-  "context",
-  "reducer",
-  "action",
-  "dispatch",
-  "store",
-  "config",
-  "setting",
-  "environment",
-  "variable",
-  "docker",
-  "container",
-  "kubernetes",
-  "k8s",
-  "ci",
-  "cd",
-  "pipeline",
-  "github",
-  "git",
-  "commit",
-  "branch",
-  "merge",
-  "pull",
-  "request",
-  "review",
-  "lint",
-  "format",
-  "typescript",
-  "javascript",
-  "python",
-  "rust",
-  "go",
-  "sql",
-  "json",
-  "yaml",
-  "xml",
-  "html",
-  "css",
-  "scss",
-  "webpack",
-  "vite",
-  "esbuild",
-  "rollup",
-  "babel",
-  "eslint",
-  "prettier",
-  "jest",
-  "vitest",
-  "cypress",
-  "playwright",
-  "unit",
-  "integration",
-  "e2e",
-  "performance",
-  "optimization",
-  "cache",
-  "memory",
-  "leak",
-  "race",
-  "condition",
-  "deadlock",
-  "concurrent",
-  "thread",
-  "process",
-  "worker",
-  "event",
-  "listener",
-  "callback",
-  "handler",
-  "middleware",
-  "auth",
-  "authentication",
-  "authorization",
-  "permission",
-  "role",
-  "token",
-  "jwt",
-  "oauth",
-  "session",
-  "cookie",
-  "csrf",
-  "xss",
-  "sql injection",
-  "security",
-  "vulnerability",
-  "encrypt",
-  "hash",
-  "salt",
-  "certificate",
-  "ssl",
-  "tls",
-  "https",
-  "proxy",
-  "load",
-  "balancer",
-  "nginx",
-  "apache",
-  "server",
-  "client",
-  "frontend",
-  "backend",
-  "fullstack",
-  "rest",
-  "graphql",
-  "grpc",
-  "websocket",
-  "sse",
-  "event sourcing",
-  "cqrs",
-  "microservice",
-  "monolith",
-  "architecture",
-  "pattern",
-  "singleton",
-  "factory",
-  "observer",
-  "strategy",
-  "decorator",
-  "dependency injection",
-  "ioc",
-  "orm",
-  "odm",
-  "prisma",
-  "typeorm",
-  "sequelize",
-  "mongoose",
-  "mongodb",
-  "postgres",
-  "mysql",
-  "sqlite",
-  "redis",
-  "elastic",
-  "s3",
-  "blob",
-  "storage",
-];
-
 // Pre-compile a single regex for all technical keywords to avoid 200+ individual regex compiles per call
 const TECHNICAL_KEYWORDS_RE = new RegExp(
   String.raw`\b(${TECHNICAL_KEYWORDS.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)).join("|")})\b`,
   "gi"
 );
-const WORD_SPLIT_RE = /\s+/;
-
-// Negation patterns for interference detection
-// NOTE: Using /i (case-insensitive) without /g to avoid lastIndex state bugs
-// when .test() is called multiple times on the same regex instance
-const NEGATION_PATTERNS = [
-  /\b(not|no|never|none|nothing|nobody|nowhere|neither|nor)\b/i,
-  /\b(don't|doesn't|didn't|won't|wouldn't|shouldn't|couldn't|can't|cannot)\b/i,
-  /\b(removed|deleted|reverted|undone|cancelled|canceled|disabled|turned off)\b/i,
-  /\b(un|dis|mis|non)[a-z]+\b/i,
-  /\b(false|incorrect|wrong|invalid|failed|error)\b/i,
-];
-
 // Positive/action patterns
 const ACTION_PATTERNS = [
   /\b(added|created|implemented|built|developed|wrote|configured|enabled|fixed|resolved|solved)\b/i,
@@ -224,12 +43,6 @@ const HIGH_IMPORTANCE_TYPES = new Set([
 ]);
 const MEDIUM_IMPORTANCE_TYPES = new Set(["analysis", "configuration", "optimization", "security"]);
 const LOW_IMPORTANCE_TYPES = new Set(["greeting", "chat", "casual", "meta"]);
-
-function countWords(text: string): number {
-  const trimmed = text.trim();
-  if (!trimmed) return 0;
-  return trimmed.split(WORD_SPLIT_RE).length;
-}
 
 /**
  * Calculate recency score using exponential decay.
@@ -303,7 +116,7 @@ export function calculateImportance(content: string, type?: string): number {
   score += scoreCodeBlocks(content);
   score += scoreTechnicalKeywords(content);
 
-  const wordCount = countWords(content);
+  const wordCount = tokenizeWords(content).length;
   score += scoreLength(wordCount);
 
   if (type) {

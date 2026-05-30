@@ -11,6 +11,7 @@ import { embeddingService } from "./embedding.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 import type { MemoryConflict } from "./sqlite/types.js";
+import { NEGATION_PATTERNS, getWordSet } from "./utils/text-analysis.js";
 
 function rowToConflict(row: any): MemoryConflict {
   return {
@@ -142,44 +143,17 @@ async function checkContradictionWithLLM(
  * @param b - Second memory content
  * @returns true if a likely contradiction is detected
  */
-const NEGATION_PATTERNS = [
-  /not\s+/i,
-  /never\s+/i,
-  /no\s+/i,
-  /disable/i,
-  /remove/i,
-  /delete/i,
-  /false/i,
-  /deprecated/i,
-  /obsolete/i,
-];
-
-function getWords(text: string): string[] {
-  const words: string[] = [];
-  let current = "";
-  for (const ch of text) {
-    if (ch <= " ") {
-      if (current.length > 3) words.push(current.toLowerCase());
-      current = "";
-    } else {
-      current += ch;
-    }
-  }
-  if (current.length > 3) words.push(current.toLowerCase());
-  return words;
-}
-
 function checkContradictionHeuristic(a: string, b: string): boolean {
-  const aWords = getWords(a);
-  const bWords = getWords(b);
+  const aWordSet = getWordSet(a);
+  const bWordSet = getWordSet(b);
 
   const aHasNegation = NEGATION_PATTERNS.some((p) => p.test(a));
   const bHasNegation = NEGATION_PATTERNS.some((p) => p.test(b));
 
   // If one has negation and other doesn't, check for key concept overlap
   if (aHasNegation !== bHasNegation) {
-    const commonWords = aWords.filter((w) => bWords.includes(w));
-    const uniqueRatio = commonWords.length / Math.max(aWords.length, bWords.length);
+    const commonWords = [...aWordSet].filter((w) => bWordSet.has(w));
+    const uniqueRatio = commonWords.length / Math.max(aWordSet.size, bWordSet.size);
     return uniqueRatio > 0.3;
   }
 
