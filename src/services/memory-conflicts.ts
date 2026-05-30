@@ -12,21 +12,7 @@ import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 import type { MemoryConflict } from "./sqlite/types.js";
 import { NEGATION_PATTERNS, getWordSet } from "./utils/text-analysis.js";
-
-function rowToConflict(row: any): MemoryConflict {
-  return {
-    id: row.id,
-    memoryId1: row.memory_id_1,
-    memoryId2: row.memory_id_2,
-    similarityScore: row.similarity_score,
-    detectedAt: row.detected_at,
-    resolved: row.resolved,
-    resolutionType: row.resolution_type,
-    resolvedAt: row.resolved_at,
-    resolutionData: row.resolution_data,
-    containerTag: row.container_tag,
-  };
-}
+import { mapDbRowToConflict } from "./utils/memory-mapper.js";
 
 class ConflictCheckLock {
   private running = new Set<string>();
@@ -395,7 +381,7 @@ function findExistingConflict(
 
   if (!row) return null;
 
-  return rowToConflict(row);
+  return mapDbRowToConflict(row);
 }
 
 /**
@@ -475,7 +461,7 @@ export async function resolveConflict(
 
       if (!row) continue;
 
-      const conflict = rowToConflict(row);
+      const conflict = mapDbRowToConflict(row);
 
       const now = Date.now();
 
@@ -623,7 +609,7 @@ export function getConflicts(
     .all(resolved ? 1 : 0, limit) as any[];
 
   return rows.map((r) => ({
-    ...rowToConflict(r),
+    ...mapDbRowToConflict(r),
     memory1Content: r.m1_content,
     memory2Content: r.m2_content,
   }));

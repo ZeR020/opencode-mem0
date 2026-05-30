@@ -12,6 +12,7 @@ import { calculateAllScores } from "./memory-scoring.js";
 import { classifyMemory } from "./memory-lifecycle.js";
 import { detectConflicts } from "./memory-conflicts.js";
 import { safeToISOString, safeJSONParse } from "./utils/safe-transforms.js";
+import { mapDbRowToListItem, mapDbRowToSessionResult } from "./utils/memory-mapper.js";
 import { deduplicationService } from "./deduplication-service.js";
 
 export type MemoryScope = "project" | "all-projects";
@@ -51,6 +52,7 @@ interface MemoryRow {
   interference_penalty: number;
   access_count: number;
   is_pinned: number;
+  [key: string]: unknown;
 }
 
 interface SessionSearchRow {
@@ -66,55 +68,11 @@ interface SessionSearchRow {
   project_name: string | null;
   git_repo_url: string | null;
   created_at: number;
+  [key: string]: unknown;
 }
 
-function rowToMemoryListItem(r: MemoryRow) {
-  return {
-    id: r.id,
-    summary: r.content,
-    createdAt: safeToISOString(r.created_at),
-    metadata: safeJSONParse(r.metadata),
-    displayName: r.display_name,
-    userName: r.user_name,
-    userEmail: r.user_email,
-    projectPath: r.project_path,
-    projectName: r.project_name,
-    gitRepoUrl: r.git_repo_url,
-    strength: r.strength,
-    recencyScore: r.recency_score,
-    frequencyScore: r.frequency_score,
-    importanceScore: r.importance_score,
-    utilityScore: r.utility_score,
-    noveltyScore: r.novelty_score,
-    confidenceScore: r.confidence_score,
-    interferencePenalty: r.interference_penalty,
-    accessCount: r.access_count,
-    isPinned: r.is_pinned,
-  };
-}
-
-function rowToSessionSearchResult(row: SessionSearchRow) {
-  return {
-    id: row.id,
-    memory: row.content,
-    similarity: 1,
-    tags: row.tags
-      ? row.tags
-          .split(",")
-          .map((t: string) => t.trim())
-          .filter(Boolean)
-      : [],
-    metadata: row.metadata ? (safeJSONParse(row.metadata) as Record<string, unknown>) : {},
-    containerTag: row.container_tag,
-    displayName: row.display_name ?? undefined,
-    userName: row.user_name ?? undefined,
-    userEmail: row.user_email ?? undefined,
-    projectPath: row.project_path ?? undefined,
-    projectName: row.project_name ?? undefined,
-    gitRepoUrl: row.git_repo_url ?? undefined,
-    createdAt: row.created_at,
-  };
-}
+// rowToMemoryListItem and rowToSessionSearchResult replaced by
+// mapDbRowToListItem / mapDbRowToSessionResult from memory-mapper.ts
 
 export class LocalMemoryClient {
   private initPromise: Promise<void> | null = null;
@@ -482,7 +440,7 @@ export class LocalMemoryClient {
         return (b.recency_score || 0) - (a.recency_score || 0);
       });
 
-      const memories = allMemories.slice(0, limit).map(rowToMemoryListItem);
+      const memories = allMemories.slice(0, limit).map(mapDbRowToListItem);
 
       return {
         success: true as const,
@@ -522,7 +480,7 @@ export class LocalMemoryClient {
 
       allMemories.sort((a, b) => b.created_at - a.created_at);
 
-      const results = allMemories.slice(0, limit).map(rowToSessionSearchResult);
+      const results = allMemories.slice(0, limit).map(mapDbRowToSessionResult);
 
       return { success: true as const, results, total: results.length, timing: 0 };
     } catch (error) {

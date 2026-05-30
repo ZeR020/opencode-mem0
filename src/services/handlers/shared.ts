@@ -6,6 +6,7 @@ import {
 import { vectorSearch } from "../sqlite/vector-search.js";
 import { connectionManager } from "../sqlite/connection-manager.js";
 import { safeToISOString, safeJSONParse } from "../utils/safe-transforms.js";
+import { mapDbRow } from "../utils/memory-mapper.js";
 import type {
   RawMemoryRow,
   TimelineMemoryItem,
@@ -86,25 +87,25 @@ export function fetchMemoriesForList(
 }
 
 export function mapRawMemoryToTyped(r: RawMemoryRow): TimelineMemoryItem {
-  const metadata = safeJSONParse(r.metadata) as Record<string, unknown> | undefined;
-  const linkedPromptId = metadata?.promptId;
+  const base = mapDbRow(r as unknown as Record<string, unknown>);
+  const linkedPromptId = base.metadata?.promptId;
   return {
     type: "memory",
     id: r.id,
-    content: r.content,
-    memoryType: r.type,
-    tags: r.tags ? r.tags.split(",").map((t: string) => t.trim()) : [],
+    content: base.content,
+    memoryType: base.type,
+    tags: base.tags || [],
     createdAt: Number(r.created_at),
     updatedAt: r.updated_at ? Number(r.updated_at) : undefined,
-    metadata,
+    metadata: base.metadata,
     linkedPromptId: typeof linkedPromptId === "string" ? linkedPromptId : undefined,
-    displayName: r.display_name,
-    userName: r.user_name,
-    userEmail: r.user_email,
-    projectPath: r.project_path,
-    projectName: r.project_name,
-    gitRepoUrl: r.git_repo_url,
-    isPinned: r.is_pinned === 1,
+    displayName: base.displayName,
+    userName: base.userName,
+    userEmail: base.userEmail,
+    projectPath: base.projectPath,
+    projectName: base.projectName,
+    gitRepoUrl: base.gitRepoUrl,
+    isPinned: base.isPinned,
   };
 }
 
