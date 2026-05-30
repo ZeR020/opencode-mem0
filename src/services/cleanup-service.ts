@@ -123,7 +123,10 @@ export class CleanupService {
         pinnedSkipped += result.pinnedSkipped;
       }
 
-      const promptsDeleted = promptCleanupResult.deleted - linkedMemoryIds.size;
+      // All old prompts are deleted unconditionally by deleteOldPrompts.
+      // linkedMemoryIds is used only to protect linked memories from shard cleanup.
+      // promptsDeleted reflects actual prompt row deletions, not a memory-ID subtraction.
+      const promptsDeleted = promptCleanupResult.deleted;
 
       const result = {
         deletedCount: totalDeleted,

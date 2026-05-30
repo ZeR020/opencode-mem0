@@ -126,9 +126,19 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
 
   const sessionIdleSweep = setInterval(() => {
     if (sessionIdleTimers.size > 10000) {
-      log("sessionIdleTimers exceeded 10k entries — clearing all pending timers");
-      sessionIdleTimers.forEach((timer) => clearTimeout(timer));
-      sessionIdleTimers.clear();
+      // LRU eviction: evict the oldest entries (Map iterates in insertion order).
+      // Evict 10% more than needed to create headroom and reduce frequency.
+      const evictCount = Math.ceil((sessionIdleTimers.size - 10000) * 1.1);
+      let evicted = 0;
+      for (const [key, timer] of sessionIdleTimers) {
+        if (evicted >= evictCount) break;
+        clearTimeout(timer);
+        sessionIdleTimers.delete(key);
+        evicted++;
+      }
+      log(
+        `sessionIdleTimers sweep — evicted ${evicted} oldest entries, ${sessionIdleTimers.size} remaining`
+      );
     }
   }, 3600_000);
 
