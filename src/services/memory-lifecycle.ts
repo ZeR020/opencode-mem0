@@ -4,6 +4,7 @@ import { connectionManager } from "./sqlite/connection-manager.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 import { calculateRecency } from "./memory-scoring.js";
+import type { ShardInfo } from "./sqlite/types.js";
 
 let _lifecycleIsRunning = false;
 
@@ -152,9 +153,12 @@ export function calculateContextualDecayRate(
  * - access_count > 3
  * Only STM memories are candidates.
  */
-export function promoteToLTM(memoryId: string): { success: boolean; promoted: boolean } {
+export function promoteToLTM(
+  memoryId: string,
+  targetShard?: ShardInfo
+): { success: boolean; promoted: boolean } {
   try {
-    const allShards = getAllShards();
+    const allShards = targetShard ? [targetShard] : getAllShards();
 
     const threshold = CONFIG.memoryLifecycle?.promotionThreshold ?? 0.7;
 
@@ -505,7 +509,7 @@ export function scanAndPromote(): { scanned: number; promoted: number } {
         scanned += candidates.length;
 
         for (const candidate of candidates) {
-          const result = promoteToLTM(candidate.id);
+          const result = promoteToLTM(candidate.id, shard);
           if (result.promoted) promoted++;
         }
       } catch (error) {

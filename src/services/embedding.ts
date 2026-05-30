@@ -151,6 +151,12 @@ export class EmbeddingService {
         result = new Float32Array(output.data);
       }
     } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        // Timeout — don't permanently disable; log and rethrow
+        log("Embedding timed out after 30s — will retry on next request");
+        throw error;
+      }
+      // Genuine failure — disable fallback
       this.embeddingAvailable = false;
       log("Embedding failed — falling back to text-only search", { error: String(error) });
       throw error;
