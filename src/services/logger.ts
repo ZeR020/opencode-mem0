@@ -54,6 +54,8 @@ export function getLogLevel(): LogLevel {
 }
 
 let writeQueue: Promise<void> = Promise.resolve();
+let pendingWrites = 0;
+const MAX_QUEUE_LENGTH = 1000;
 
 function logWithLevel(level: LogLevel, message: string, data?: unknown) {
   if (LOG_LEVEL_PRIORITY[level] < LOG_LEVEL_PRIORITY[currentLogLevel]) return;
@@ -70,14 +72,23 @@ function logWithLevel(level: LogLevel, message: string, data?: unknown) {
     (globalThis as any)[GLOBAL_LOGGER_KEY] = true;
   }
 
+  if (pendingWrites >= MAX_QUEUE_LENGTH) {
+    console.error("[opencode-mem0] Log queue full — dropping entry");
+    return;
+  }
+
   const timestamp = new Date().toISOString();
   const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
   const line = data ? `${prefix} ${message}: ${safeStringify(data)}\n` : `${prefix} ${message}\n`;
 
+  pendingWrites++;
   writeQueue = writeQueue
     .then(async () => {
       await mkdir(dirname(logFile), { recursive: true });
       await appendFile(logFile, line);
+    })
+    .finally(() => {
+      pendingWrites--;
     })
     .catch((err: unknown) => {
       if (err instanceof Error && "code" in err && err.code === "ENOENT") return;

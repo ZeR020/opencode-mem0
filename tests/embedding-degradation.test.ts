@@ -337,6 +337,10 @@ describe("VectorSearch FTS5 fallback when embedding unavailable", () => {
       createdAt: Date.now(),
     };
 
+    // Set dirty flags so rebuildFromShard is called on search
+    (vectorSearch as any).rebuildDirty.set("1:content", true);
+    (vectorSearch as any).rebuildDirty.set("1:tags", true);
+
     const queryVector = new Float32Array(768);
     const results = await vectorSearch.searchInShard(shard, queryVector, "", 10);
 

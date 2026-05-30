@@ -97,6 +97,7 @@ export class VectorSearch {
   private readonly stmtCache = new WeakMap<Database, Map<string, any>>();
   private readonly wordSetCache = new Map<string, Set<string>>();
   private readonly MAX_WORDSET_CACHE = 1000;
+  private readonly rebuildDirty = new Map<string, boolean>();
 
   constructor(backend?: VectorBackend, fallbackBackend: VectorBackend = new ExactScanBackend()) {
     this.backendPromise = backend
@@ -133,6 +134,19 @@ export class VectorSearch {
     return this.backendPromise;
   }
 
+  private async maybeRebuild(
+    backend: VectorBackend,
+    db: Database,
+    shard: ShardInfo,
+    kind: "content" | "tags"
+  ): Promise<void> {
+    const key = `${shard.id}:${kind}`;
+    if (this.rebuildDirty.get(key)) {
+      await backend.rebuildFromShard({ db, shard, kind });
+      this.rebuildDirty.set(key, false);
+    }
+  }
+
   async insertVector(db: Database, record: MemoryRecord, shard?: ShardInfo): Promise<void> {
     const insertMemory = this.getStmt(db, MEMORIES_INSERT_SQL);
 
@@ -149,6 +163,11 @@ export class VectorSearch {
       }
 
       db.run("COMMIT");
+
+      if (shard) {
+        this.rebuildDirty.set(`${shard.id}:content`, true);
+        this.rebuildDirty.set(`${shard.id}:tags`, true);
+      }
     } catch (error) {
       try {
         db.run("ROLLBACK");
@@ -204,6 +223,8 @@ export class VectorSearch {
         shardId: shard.id,
       });
     }
+    this.rebuildDirty.set(`${shard.id}:content`, true);
+    this.rebuildDirty.set(`${shard.id}:tags`, true);
   }
 
   private static readonly MIN_OVER_FETCH = 1.5;
@@ -377,8 +398,8 @@ export class VectorSearch {
 
     if (queryVector) {
       try {
-        await backend.rebuildFromShard({ db, shard, kind: "content" });
-        await backend.rebuildFromShard({ db, shard, kind: "tags" });
+        await this.maybeRebuild(backend, db, shard, "content");
+        await this.maybeRebuild(backend, db, shard, "tags");
 
         contentResults = await backend.search({
           db,
@@ -401,8 +422,8 @@ export class VectorSearch {
           error: String(error),
         });
 
-        await this.fallbackBackend.rebuildFromShard({ db, shard, kind: "content" });
-        await this.fallbackBackend.rebuildFromShard({ db, shard, kind: "tags" });
+        await this.maybeRebuild(this.fallbackBackend, db, shard, "content");
+        await this.maybeRebuild(this.fallbackBackend, db, shard, "tags");
         contentResults = await this.fallbackBackend.search({
           db,
           shard,
