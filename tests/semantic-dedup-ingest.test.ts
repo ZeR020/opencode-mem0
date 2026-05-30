@@ -220,4 +220,38 @@ describe("semantic deduplication at ingest", () => {
     const count = await countMemories(containerTag);
     expect(count).toBe(2);
   });
+
+  it("should atomically deduplicate concurrent identical adds", async () => {
+    const content = "concurrent race condition test memory";
+    const containerTag = "opencode_project_testhash_g";
+
+    // Fire two addMemory calls via Promise.all to exercise the race path.
+    // In single-threaded Bun, these may serialize, but the transaction barrier
+    // added for I3 prevents the race window in multi-process scenarios.
+    const [result1, result2] = await Promise.all([
+      client.addMemory(content, containerTag),
+      client.addMemory(content, containerTag),
+    ]);
+
+    // Both should succeed without errors
+    expect(result1.success).toBe(true);
+    expect(result2.success).toBe(true);
+
+    // At least one should be flagged as duplicate, or both return the same ID
+    const hasDuplicate = (result1 as any).duplicate === true || (result2 as any).duplicate === true;
+    const sameId = result1.id === result2.id;
+
+    expect(hasDuplicate || sameId).toBe(true);
+
+    // Only one record should exist in the database
+    const count = await countMemories(containerTag);
+    expect(count).toBe(1);
+
+    // Both should reference the same ID
+    if (sameId) {
+      const mem = getMemoryById(result1.id!, containerTag);
+      expect(mem).toBeTruthy();
+      expect(mem.content).toBe(content);
+    }
+  });
 });
