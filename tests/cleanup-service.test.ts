@@ -108,8 +108,8 @@ describe("CleanupService", () => {
     });
 
     it("returns zero counts when no shards exist", async () => {
-      vi.mocked(shardManager.getAllShards).mockReturnValue([]);
-      vi.mocked(userPromptManager.deleteOldPrompts).mockReturnValue({
+      (shardManager.getAllShards as any).mockReturnValue([]);
+      (userPromptManager.deleteOldPrompts as any).mockReturnValue({
         deleted: 0,
         linkedMemoryIds: [],
       });
@@ -132,13 +132,13 @@ describe("CleanupService", () => {
         oldMemories: [{ id: "mem-1", container_tag: "project_test", is_pinned: 1 }],
       });
 
-      vi.mocked(shardManager.getAllShards).mockImplementation((type: string) =>
+      (shardManager.getAllShards as any).mockImplementation((type: string) =>
         type === "project"
           ? [{ id: "shard-1", dbPath: "/test/db.sqlite", tag: `${type}_test` }]
           : []
       );
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
-      vi.mocked(userPromptManager.deleteOldPrompts).mockReturnValue({
+      (connectionManager.getConnection as any).mockReturnValue(mockDb as any);
+      (userPromptManager.deleteOldPrompts as any).mockReturnValue({
         deleted: 0,
         linkedMemoryIds: [],
       });
@@ -158,14 +158,14 @@ describe("CleanupService", () => {
         ],
       });
 
-      vi.mocked(shardManager.getAllShards).mockImplementation((type: string) =>
+      (shardManager.getAllShards as any).mockImplementation((type: string) =>
         type === "project"
           ? [{ id: "shard-1", dbPath: "/test/db.sqlite", tag: `${type}_test` }]
           : []
       );
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
-      vi.mocked(vectorSearch.deleteVector).mockResolvedValue(undefined);
-      vi.mocked(userPromptManager.deleteOldPrompts).mockReturnValue({
+      (connectionManager.getConnection as any).mockReturnValue(mockDb as any);
+      (vectorSearch.deleteVector as any).mockResolvedValue(undefined);
+      (userPromptManager.deleteOldPrompts as any).mockReturnValue({
         deleted: 0,
         linkedMemoryIds: [],
       });
@@ -187,13 +187,13 @@ describe("CleanupService", () => {
         ],
       });
 
-      vi.mocked(shardManager.getAllShards).mockImplementation((type: string) =>
+      (shardManager.getAllShards as any).mockImplementation((type: string) =>
         type === "project"
           ? [{ id: "shard-1", dbPath: "/test/db.sqlite", tag: `${type}_test` }]
           : []
       );
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
-      vi.mocked(userPromptManager.deleteOldPrompts).mockReturnValue({
+      (connectionManager.getConnection as any).mockReturnValue(mockDb as any);
+      (userPromptManager.deleteOldPrompts as any).mockReturnValue({
         deleted: 2,
         linkedMemoryIds: ["linked-mem-1"],
       });
@@ -204,20 +204,48 @@ describe("CleanupService", () => {
       expect(result.deletedCount).toBe(1);
     });
 
+    it("promptsDeleted equals actual prompt deletions, not minus linkedMemoryIds", async () => {
+      const mockDb = makeMockDb({
+        pinned: [],
+        oldMemories: [
+          { id: "mem-1", container_tag: "project_test", is_pinned: 0 },
+          { id: "mem-2", container_tag: "project_test", is_pinned: 0 },
+        ],
+      });
+
+      (shardManager.getAllShards as any).mockImplementation((type: string) =>
+        type === "project"
+          ? [{ id: "shard-1", dbPath: "/test/db.sqlite", tag: `${type}_test` }]
+          : []
+      );
+      (connectionManager.getConnection as any).mockReturnValue(mockDb as any);
+      (vectorSearch.deleteVector as any).mockResolvedValue(undefined);
+      // 3 prompts deleted, 1 had a linked memory (so linkedMemoryIds.size=1)
+      (userPromptManager.deleteOldPrompts as any).mockReturnValue({
+        deleted: 3,
+        linkedMemoryIds: ["linked-mem-1"],
+      });
+
+      const result = await service.runCleanup();
+
+      // promptsDeleted should be 3 (actual prompt deletions), not 2 (3-1)
+      expect(result.promptsDeleted).toBe(3);
+    });
+
     it("handles errors during memory deletion gracefully", async () => {
       const mockDb = makeMockDb({
         pinned: [],
         oldMemories: [{ id: "err-mem-1", container_tag: "project_test", is_pinned: 0 }],
       });
 
-      vi.mocked(shardManager.getAllShards).mockImplementation((type: string) =>
+      (shardManager.getAllShards as any).mockImplementation((type: string) =>
         type === "project"
           ? [{ id: "shard-1", dbPath: "/test/db.sqlite", tag: `${type}_test` }]
           : []
       );
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
-      vi.mocked(vectorSearch.deleteVector).mockRejectedValue(new Error("DB error"));
-      vi.mocked(userPromptManager.deleteOldPrompts).mockReturnValue({
+      (connectionManager.getConnection as any).mockReturnValue(mockDb as any);
+      (vectorSearch.deleteVector as any).mockRejectedValue(new Error("DB error"));
+      (userPromptManager.deleteOldPrompts as any).mockReturnValue({
         deleted: 0,
         linkedMemoryIds: [],
       });
