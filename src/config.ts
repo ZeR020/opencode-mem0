@@ -617,6 +617,17 @@ export function initConfig(directory: string): void {
   ];
   const globalConfig = loadConfigFromPaths(CONFIG_FILES);
   const projectConfig = loadConfigFromPaths(projectPaths);
+
+  // Guard: if neither global nor project config files were found (transient I/O
+  // failure, race condition, or missing files), do NOT rebuild the entire CONFIG
+  // from scratch. Calling buildConfig({}) with an empty object fills every field
+  // with hardcoded defaults — silently overwriting user-configured embedding
+  // dimensions, model, and API endpoint. The CONFIG singleton already carries
+  // the correct values from module-level initialization (line 593).
+  if (Object.keys(globalConfig).length === 0 && Object.keys(projectConfig).length === 0) {
+    return;
+  }
+
   const merged = deepMerge(globalConfig, projectConfig);
   Object.assign(CONFIG, buildConfig(merged));
 }
