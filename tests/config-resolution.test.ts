@@ -81,4 +81,24 @@ describe("project-scoped config resolution", () => {
     expect(CONFIG.autoCaptureEnabled).toBe(true); // default value
     expect(CONFIG.opencodeProvider).toBeUndefined();
   });
+
+  it("uses the last known global config when config paths are temporarily unavailable", () => {
+    (globalThis as any).__mockFs.existsSync = (p: unknown) => {
+      const path = String(p);
+      return path.includes(".config/opencode/opencode-mem0");
+    };
+    (globalThis as any).__mockFs.readFileSync = () =>
+      JSON.stringify({
+        embeddingModel: "text-embedding-3-small",
+        embeddingDimensions: 1536,
+      });
+    initConfig("/some/project");
+    expect(CONFIG.embeddingModel).toBe("text-embedding-3-small");
+    expect(CONFIG.embeddingDimensions).toBe(1536);
+
+    (globalThis as any).__mockFs.existsSync = () => false;
+    initConfig("/some/project");
+    expect(CONFIG.embeddingModel).toBe("text-embedding-3-small");
+    expect(CONFIG.embeddingDimensions).toBe(1536);
+  });
 });

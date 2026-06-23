@@ -583,6 +583,21 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
 }
 
 const _globalFileConfig = loadConfigFromPaths(CONFIG_FILES);
+let lastKnownGlobalConfig = _globalFileConfig;
+
+function isCurrentConfigFromLastKnownGlobal(): boolean {
+  if (Object.keys(lastKnownGlobalConfig).length === 0) return false;
+  const globalConfig = buildConfig(lastKnownGlobalConfig);
+  return (
+    CONFIG.embeddingModel === globalConfig.embeddingModel &&
+    CONFIG.embeddingDimensions === globalConfig.embeddingDimensions &&
+    CONFIG.embeddingApiUrl === globalConfig.embeddingApiUrl &&
+    CONFIG.embeddingApiKey === globalConfig.embeddingApiKey &&
+    CONFIG.opencodeProvider === globalConfig.opencodeProvider &&
+    CONFIG.opencodeModel === globalConfig.opencodeModel &&
+    CONFIG.autoCaptureEnabled === globalConfig.autoCaptureEnabled
+  );
+}
 
 /**
  * Global CONFIG singleton — resolves from opencode-mem0.json and env.
@@ -617,6 +632,17 @@ export function initConfig(directory: string): void {
   ];
   const globalConfig = loadConfigFromPaths(CONFIG_FILES);
   const projectConfig = loadConfigFromPaths(projectPaths);
+  if (Object.keys(globalConfig).length > 0) {
+    lastKnownGlobalConfig = globalConfig;
+  }
+  if (Object.keys(globalConfig).length === 0 && Object.keys(projectConfig).length === 0) {
+    if (isCurrentConfigFromLastKnownGlobal()) {
+      Object.assign(CONFIG, buildConfig(lastKnownGlobalConfig));
+    } else {
+      Object.assign(CONFIG, buildConfig({}));
+    }
+    return;
+  }
   const merged = deepMerge(globalConfig, projectConfig);
   Object.assign(CONFIG, buildConfig(merged));
 }
