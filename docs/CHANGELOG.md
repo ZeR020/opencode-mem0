@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.17.1] - 2026-06-28
+
 ### Fixed
 
 - **Path traversal in `migrate-v1-to-v2.ts`** — CLI storage path is now resolved to absolute and constrained to the user's home directory, rejecting `..` traversal and out-of-home escape attempts from untrusted CLI args (SonarCloud `tssecurity:S8707`). An LLM passing a malicious `--storagePath` can no longer point the migration at arbitrary filesystem locations like `/etc` or `/var`.
