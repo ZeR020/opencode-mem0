@@ -6,10 +6,13 @@ set -euo pipefail
 
 echo "=== opencode-mem0 test VM setup ==="
 
-# Build tools for native modules (better-sqlite3 fallback). The typescript-node
-# base image ships node 22 + npm + node-gyp; python feature adds pip + JupyterLab.
-echo "→ Ensuring native-build toolchain..."
-sudo apt-get update -qq && sudo apt-get install -y -qq build-essential pkg-config >/dev/null
+# Build tools + JupyterLab. The typescript-node base image ships node 22 +
+# npm + node-gyp and has python3, but lacks build tools, pip, and JupyterLab.
+echo "→ Ensuring native-build toolchain + JupyterLab..."
+sudo apt-get update -qq && sudo apt-get install -y -qq build-essential pkg-config python3-pip >/dev/null
+# JupyterLab into system Python (Codespaces "Open in JupyterLab" needs it).
+# --break-system-packages is safe on a throwaway codespace VM (PEP 668).
+sudo pip3 install --break-system-packages jupyterlab >/dev/null 2>&1
 
 # --- bun (primary runtime for this project) ---
 echo "→ Installing bun..."
