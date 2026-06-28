@@ -6,13 +6,10 @@ set -euo pipefail
 
 echo "=== opencode-mem0 test VM setup ==="
 
-# Build tools + JupyterLab. The typescript-node base image ships node 22 +
-# npm + node-gyp and has python3, but lacks build tools, pip, and JupyterLab.
-echo "→ Ensuring native-build toolchain + JupyterLab..."
+# Build tools for native modules (better-sqlite3 fallback). The typescript-node
+# base image ships node 22 + npm + node-gyp and has python3, but lacks build tools.
+echo "→ Ensuring native-build toolchain..."
 sudo apt-get update -qq && sudo apt-get install -y -qq build-essential pkg-config python3-pip >/dev/null
-# JupyterLab into system Python (Codespaces "Open in JupyterLab" needs it).
-# --break-system-packages is safe on a throwaway codespace VM (PEP 668).
-sudo pip3 install --break-system-packages jupyterlab >/dev/null 2>&1
 
 # --- bun (primary runtime for this project) ---
 echo "→ Installing bun..."
@@ -42,7 +39,12 @@ bun run build
 echo "→ Linking opencode-mem0..."
 bun link
 
-echo ""
+# --- JupyterLab (Codespaces "Open in JupyterLab" needs it) ---
+# Installed last so the critical toolchain + plugin build complete first,
+# even if this slow pip install eats the postCreateCommand timeout budget.
+# --break-system-packages is safe on a throwaway codespace VM (PEP 668).
+echo "→ Installing JupyterLab..."
+sudo pip3 install --break-system-packages jupyterlab >/dev/null 2>&1 || echo "  (jupyterlab install deferred — run 'sudo pip3 install --break-system-packages jupyterlab' manually if needed)"
 echo "=== Setup complete ==="
 echo "bun:       $(bun --version)"
 echo "node:      $(node --version)"
