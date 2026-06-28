@@ -59,11 +59,6 @@ describe("AnthropicMessagesProvider", () => {
   it("returns provider name", () => {
     expect(provider.getProviderName()).toBe("anthropic");
   });
-
-  it("supports sessions", () => {
-    expect(provider.supportsSession()).toBe(true);
-  });
-
   it("creates new session when none exists", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

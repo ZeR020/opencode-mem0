@@ -167,7 +167,6 @@ src/
 │   │   ├── types.ts               # UserProfile, UserProfileData types
 │   │   ├── user-profile-manager.ts  # Profile CRUD, merge, confidence decay
 │   │   ├── profile-context.ts     # Profile context extraction for injection
-│   │   └── profile-utils.ts       # Profile utility functions
 │   ├── user-prompt/
 │   │   └── user-prompt-manager.ts  # User prompt storage and retrieval for learning
 │   └── utils/

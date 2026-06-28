@@ -40,10 +40,6 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
     return "anthropic";
   }
 
-  supportsSession(): boolean {
-    return true;
-  }
-
   private _buildAnthropicMessages(
     session: any,
     systemPrompt: string,

@@ -51,10 +51,6 @@ describe("OpenAIResponsesProvider", () => {
     expect(provider.getProviderName()).toBe("openai-responses");
   });
 
-  it("supports sessions", () => {
-    expect(provider.supportsSession()).toBe(true);
-  });
-
   it("creates new session when none exists", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

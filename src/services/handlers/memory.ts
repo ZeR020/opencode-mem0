@@ -4,6 +4,8 @@ import { shardManager } from "../sqlite/shard-manager.js";
 import { vectorSearch } from "../sqlite/vector-search.js";
 import { connectionManager } from "../sqlite/connection-manager.js";
 import { log } from "../logger.js";
+import { safeJSONParse } from "../utils/safe-transforms.js";
+import { userPromptManager } from "../user-prompt/user-prompt-manager.js";
 import type { MemoryType } from "../../types/index.js";
 import type { SearchResult } from "../sqlite/types.js";
 import {
@@ -163,11 +165,9 @@ export async function handleDeleteMemory(
     if (!id) return { success: false, error: "id is required" };
     const found = findMemoryInShards(id);
     if (!found) return { success: false, error: "Memory not found" };
-    const { safeJSONParse } = await import("../utils/safe-transforms.js");
     const metadata = safeJSONParse(found.memory.metadata) as Record<string, unknown> | undefined;
     const linkedPromptId = metadata?.promptId as string | undefined;
     if (cascade && linkedPromptId) {
-      const { userPromptManager } = await import("../user-prompt/user-prompt-manager.js");
       userPromptManager.deletePrompt(linkedPromptId);
     }
     const db = connectionManager.getConnection(found.shard.dbPath);

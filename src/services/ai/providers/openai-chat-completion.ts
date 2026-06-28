@@ -85,10 +85,6 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     return "openai-chat";
   }
 
-  supportsSession(): boolean {
-    return true;
-  }
-
   private addToolResponse(
     sessionId: string,
     messages: APIMessage[],

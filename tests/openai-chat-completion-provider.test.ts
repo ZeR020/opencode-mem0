@@ -95,11 +95,6 @@ describe("OpenAIChatCompletionProvider", () => {
   it("getProviderName returns openai-chat", () => {
     expect(makeProvider().getProviderName()).toBe("openai-chat");
   });
-
-  it("supportsSession returns true", () => {
-    expect(makeProvider().supportsSession()).toBe(true);
-  });
-
   it("keeps complete tool call sequences", () => {
     const messages: AIMessage[] = [
       {

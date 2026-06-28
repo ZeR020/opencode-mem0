@@ -1,81 +1,73 @@
-# dependencies (bun install)
-node_modules
+# ─── Dependencies ──────────────────────────────────────────────
+node_modules/
 package-lock.json
 
-# output
-out
-dist
+# ─── Build & output artifacts ──────────────────────────────────
+dist/
+out/
+build/
+builds/
+release/
+releases/
 *.tgz
-
-# code coverage
-coverage
-*.lcov
-
-# logs
-logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
-
-# dotenv environment variable files
-.env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
-
-# caches
-.eslintcache
-.cache
 *.tsbuildinfo
 
-# IntelliJ based IDEs
-.idea
-
-# Finder (MacOS) folder config
-.DS_Store
-
-# local design and implementation plans
-docs/plans/
-.sisyphus
-
-# CodeRabbit configuration (optional AI code review tool)
-.coderabbit.yaml
-
-# test artifacts & temporary databases
+# ─── Test & coverage artifacts ─────────────────────────────────
+coverage/
+.nyc_output/
+htmlcov/
+*.lcov
 *.test.db
 *.tmp.db
 /test-databases/
 /test-data/
-temp/
-tmp/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
 *.sqlite-shm
 
-# migration backups
+# ─── Environment & secrets ─────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.secret
+*.token
+
+# ─── Logs & diagnostics ────────────────────────────────────────
+logs/
+*.log
+*.log.*
+
+# ─── Migration & backup files ──────────────────────────────────
 *.migrate-backup
+*.bak
+*.orig
+*.swp
+*.swo
+*~
 
-# coverage reports (already covered by coverage/, but belt-and-suspenders)
-*.lcov
-
-# graphify knowledge graph (development artifacts, auto-generated)
-graphify-out/
-src/graphify-out/
-
-# opencode plugin development artifacts
-.opencode/command/gsd-graphify.md
-.opencode/get-shit-done/bin/lib/graphify.cjs
-.opencode/plugins/graphify.js
-
-# personal agent configuration and tooling (not for public repos)
-.opencode/
+# ─── Agent & work files (never commit) ─────────────────────────
+# DOX hierarchy, agent configs, personal tooling
 AGENTS.md
-
-# internal security audits, planning documents, and support tickets
-# These contain personal info, vulnerability assessments, and internal workflows
-# that must NEVER be pushed to public repositories
+.claude/
+.cursor/
+.cursorrules
+CLAUDE.md
+.opencode/
+# AI-generated reports and analysis
+*.report.md
+# Work artifacts from internal tooling runs
+REVIEW.md
+GSD_SDK_GUIDE.md
+check-vi-internal.ts
+deepsource-*.json
+AGENTS.md.bak.md
+# Internal planning, audits, support tickets (may contain PII)
 .planning/
+.sisyphus
+docs/plans/
 *-SUPPORT_TICKET*
 *-support-ticket*
 *-CONCERNS*
@@ -83,187 +75,32 @@ AGENTS.md
 *-AUDIT*
 *-audit*
 
-# AI-generated reports and temporary analysis files
-*.report.md
-claude report.md
-
-# Personal development files that should never be committed
-*.personal
-*.private
-*.internal
-*.draft
-*.wip
-*.scratch
-*.notes
-*.todo
-*.temp
-
-# Common credential and secret file patterns
-*.secret
-*.credentials
-*.token
-*.tokens
-*.password
-*.passwd
-*.pwd
-*.apikey
-*.api-key
-*.accesskey
-*.access-key
-*.private-key
-*.privatekey
-*.ssh-key
-*.sshkey
-*.deploy-key
-*.deploykey
-
-# Backup and recovery files
-*.backup
-*.bak
-*.old
-*.orig
-*.save
-*.swp
-*.swo
-*~
-
-# Database dumps and exports
-*.dump
-*.dump.gz
-*.dump.bz2
-*.dump.xz
-*.sql.gz
-*.sql.bz2
-*.sql.xz
-*.export
-*.export.gz
-*.export.bz2
-*.export.xz
-
-# IDE and editor workspace files
-*.code-workspace
-*.sublime-project
-*.sublime-workspace
-*.komodoproject
-*.kpf
-*.tmproj
-*.tmproject
-*.geany
-*.geanyprj
-*.c9revisions
-*.c9
-*.project
-*.workspace
-*.nbproject
-*.classpath
-*.settings
-*.factorypath
-*.buildpath
-*.target
-*.springBeans
-*.gradle
-*.gradletasknamecache
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-
-# Temporary and cache directories
+# ─── Caches & temp directories ─────────────────────────────────
 .cache/
 .temp/
 .tmp/
 .scratch/
-.draft/
-.wip/
-
-# Node/npm specific (beyond node_modules)
-.npm
-.npm-debug.log*
-.yarn-integrity
-.yarn-metadata.json
-.pnpm-debug.log*
 .eslintcache
 .stylelintcache
-.parcel-cache
 .vite
-.vitepress
-.cache-loader
+.parcel-cache
+temp/
+tmp/
 
-# Build and distribution artifacts
-build/
-builds/
-dist/
-distribution/
-releases/
-release/
-out/
-output/
+# ─── Graphify dev artifacts ────────────────────────────────────
+graphify-out/
+src/graphify-out/
 
-# Test and coverage artifacts
-coverage/
-.nyc_output/
-.coverage/
-.coverage-cache/
-htmlcov/
-.tox/
-.nox/
+# ─── IDE ───────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.code-workspace
 
-# Logs and diagnostics
-*.log
-*.log.*
-logs/
-log/
-*.diag
-*.diagnostic
-*.trace
-*.prof
-*.profile
-
-# Local configuration overrides (never commit local configs)
-*.local
-*.local.json
-*.local.yaml
-*.local.yml
-*.dev
-*.dev.json
-*.dev.yaml
-*.dev.yml
-*.development
-*.development.json
-*.development.yaml
-*.development.yml
-*.prod
-*.prod.json
-*.prod.yaml
-*.prod.yml
-*.production
-*.production.json
-*.production.yaml
-*.production.yml
-*.staging
-*.staging.json
-*.staging.yaml
-*.staging.yml
-*.test
-*.test.json
-*.test.yaml
-*.test.yml
-*.testing
-*.testing.json
-*.testing.yaml
-*.testing.yml
-.graphifyignore
-.config/
-bin/
-  deepsource-*.json
-  REVIEW.md
-  GSD_SDK_GUIDE.md
-  check-vi-internal.ts
-  AGENTS.md.bak.md
+# ─── OS files ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+._*
+.Spotlight-V100
+.Trashes

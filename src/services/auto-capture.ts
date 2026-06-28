@@ -4,6 +4,7 @@ import { getTags } from "./tags.js";
 import { log, warn } from "./logger.js";
 import { CONFIG } from "../config.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
+import { detectLanguage, getLanguageName } from "./language-detector.js";
 
 interface ToolCallInfo {
   name: string;
@@ -296,8 +297,7 @@ function buildMarkdownContext(
   return sections.join("\n");
 }
 
-async function detectTargetLanguage(userPrompt: string): Promise<{ lang: string; name: string }> {
-  const { detectLanguage, getLanguageName } = await import("./language-detector.js");
+function detectTargetLanguage(userPrompt: string): { lang: string; name: string } {
   const targetLang =
     CONFIG.autoCaptureLanguage === "auto" || !CONFIG.autoCaptureLanguage
       ? detectLanguage(userPrompt)
@@ -325,7 +325,7 @@ async function generateSummaryViaOpencode(
     );
   }
 
-  const { name: langName } = await detectTargetLanguage(userPrompt);
+  const { name: langName } = detectTargetLanguage(userPrompt);
 
   const { z } = await import("zod");
   const schema = z.object({
@@ -361,7 +361,7 @@ async function generateSummaryViaProvider(
 
   const providerConfig = buildMemoryProviderConfig(CONFIG);
   const provider = AIProviderFactory.createProvider(CONFIG.memoryProvider, providerConfig);
-  const { name: langName } = await detectTargetLanguage(userPrompt);
+  const { name: langName } = detectTargetLanguage(userPrompt);
 
   const toolSchema = {
     type: "function" as const,

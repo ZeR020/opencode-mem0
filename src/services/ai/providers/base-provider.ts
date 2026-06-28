@@ -54,6 +54,4 @@ export abstract class BaseAIProvider {
   ): Promise<ToolCallResult>;
 
   abstract getProviderName(): string;
-
-  abstract supportsSession(): boolean;
 }

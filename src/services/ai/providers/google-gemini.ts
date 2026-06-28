@@ -30,10 +30,6 @@ export class GoogleGeminiProvider extends BaseAIProvider {
     return "google-gemini";
   }
 
-  supportsSession(): boolean {
-    return true;
-  }
-
   private addToolResponse(
     sessionId: string,
     messages: any[],

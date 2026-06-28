@@ -44,10 +44,6 @@ describe("GoogleGeminiProvider", () => {
     expect(provider.getProviderName()).toBe("google-gemini");
   });
 
-  it("supports session", () => {
-    expect(provider.supportsSession()).toBe(true);
-  });
-
   it("creates new session if none exists", async () => {
     mockSessionManager.getSession.mockReturnValue(null);
     mockSessionManager.createSession.mockReturnValue({

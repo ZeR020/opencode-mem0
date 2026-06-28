@@ -40,10 +40,6 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
     return "openai-responses";
   }
 
-  supportsSession(): boolean {
-    return true;
-  }
-
   private _buildResponsesRequestBody(
     currentPrompt: string,
     conversationId: string | undefined,
