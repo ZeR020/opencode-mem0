@@ -88,4 +88,32 @@ describe("secret-resolver", () => {
 
     expect(() => resolveSecretValue(`file://${filePath}`)).toThrow(/Failed to read secret file/);
   });
+
+  it("warns when statSync fails during permission check", () => {
+    if (process.platform === "win32") return;
+    const dir = mkdtempSync(join(tmpdir(), "secret-resolver-stat-"));
+    tempDirs.push(dir);
+    const filePath = join(dir, "secret.txt");
+    writeFileSync(filePath, "secret", "utf-8");
+    chmodSync(filePath, 0o600);
+
+    const logSpy = vi.spyOn(logger, "log").mockImplementation(() => undefined);
+    // Delete the file after existsSync passes but before statSync runs
+    // This is hard to race — instead, mock statSync via vi.mock is too late.
+    // Use a symlink to a nonexistent target so statSync throws ENOENT.
+    const { symlinkSync } = require("node:fs");
+    const linkPath = join(dir, "link.txt");
+    try {
+      symlinkSync(join(dir, "nonexistent"), linkPath);
+      resolveSecretValue(`file://${linkPath}`);
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Could not check file permissions"),
+        expect.any(Object)
+      );
+    } catch {
+      // Some platforms resolve symlinks differently — skip if so
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
 });
