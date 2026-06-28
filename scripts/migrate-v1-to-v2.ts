@@ -1,6 +1,6 @@
 import { getDatabase } from "../src/services/sqlite/sqlite-bootstrap.ts";
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, resolve, relative, isAbsolute } from "node:path";
 import { homedir } from "node:os";
 import { log } from "../src/services/logger.ts";
 
@@ -310,6 +310,29 @@ function discoverDatabases(storagePath: string): string[] {
 }
 
 /**
+ * Resolve and validate a storage path supplied on the CLI.
+ *
+ * Resolves relative paths against cwd, then constrains the result to the
+ * user's home directory — the legitimate base for all opencode-mem0 data.
+ * This prevents untrusted CLI args (e.g. from an LLM) from pointing the
+ * migration at arbitrary filesystem locations like `/etc` or `/var`.
+ *
+ * @param raw - Raw path from argv (may be relative or absolute).
+ * @returns Absolute, normalized path under the user's home directory.
+ * @throws Error if the resolved path escapes the home directory.
+ */
+function resolveStoragePath(raw: string): string {
+  const resolved = resolve(raw);
+  const home = homedir();
+  const rel = relative(home, resolved);
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    throw new Error(
+      `Refusing to migrate: storage path "${raw}" resolves outside the home directory (${home})`
+    );
+  }
+  return resolved;
+}
+/**
  * Main migration entry point.
  *
  * Usage:
@@ -391,8 +414,9 @@ const print = (msg: string): void => process.stdout.write(`${msg}\n`);
 const printerr = (msg: string): void => process.stderr.write(`${msg}\n`);
 
 // CLI entry point
-const storagePath = process.argv[2] || join(homedir(), ".opencode-mem", "data");
+const rawStoragePath = process.argv[2] || join(homedir(), ".opencode-mem", "data");
 try {
+  const storagePath = resolveStoragePath(rawStoragePath);
   const result = migrate(storagePath);
   print("\n=== Migration Results ===");
   print(`Databases processed:     ${result.databases}`);
