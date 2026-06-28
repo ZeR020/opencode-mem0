@@ -10,3 +10,9 @@ updates:
     commit-message:
       prefix: "chore"
       include: scope
+    # Only minor and patch updates by default — major bumps require manual
+    # review since they often break types or APIs (e.g. TypeScript 6 removed
+    # implicit Bun globals, @ai-sdk/openai 4 changed LanguageModel type).
+    update-types:
+      - "version-update:semver-minor"
+      - "version-update:semver-patch"
