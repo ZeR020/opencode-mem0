@@ -42,6 +42,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#36](https://github.com/ZeR020/opencode-mem0/pull/36) — Guard `initConfig` against silent config reset on empty file load (approach applied directly)
 - [#37](https://github.com/ZeR020/opencode-mem0/pull/37) — Preserve global config during transient init misses (closed, over-engineered)
 
+### Contributors
+
+Thanks to the community contributors who reported issues and submitted fixes:
+
+- @boyxil — Reported [#34](https://github.com/ZeR020/opencode-mem0/issues/34)
+- @bob56621517 — Reported [#35](https://github.com/ZeR020/opencode-mem0/issues/35) and opened [#36](https://github.com/ZeR020/opencode-mem0/pull/36)
+- @kingrubic — Opened [#37](https://github.com/ZeR020/opencode-mem0/pull/37)
+
 ## [2.15.1] - 2026-05-07
 
 ### Security & Reliability

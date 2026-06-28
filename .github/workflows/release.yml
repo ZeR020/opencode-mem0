@@ -70,12 +70,27 @@ jobs:
         run: |
           echo "${{ steps.release_state.outputs.package_name }}@${{ steps.release_state.outputs.package_version }} is already published; skipping npm publish."
 
+      - name: Extract changelog for release
+        if: steps.release_state.outputs.github_release_exists == 'false'
+        id: changelog
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          # Extract the changelog section for this version
+          body=$(awk -v ver="## \[${version}]" '
+            $0 ~ ver { found=1; next }
+            /^## \[/ && found { exit }
+            found { print }
+          ' docs/CHANGELOG.md)
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$body" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         if: steps.release_state.outputs.github_release_exists == 'false'
         uses: softprops/action-gh-release@v3
         with:
+          body: ${{ steps.changelog.outputs.body }}
           generate_release_notes: true
-
       - name: Skip GitHub Release
         if: steps.release_state.outputs.github_release_exists == 'true'
         run: |
