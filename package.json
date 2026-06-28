@@ -59,7 +59,7 @@
     "@huggingface/transformers": "^4.2.0",
     "@opencode-ai/plugin": "^1.14.31",
     "@opencode-ai/sdk": "^1.14.31",
-    "ai": "^6.0.172",
+    "ai": "^7.0.4",
     "better-sqlite3": "^12.1.0",
     "franc-min": "^6.2.0",
     "iso-639-3": "^3.0.1",
