@@ -18,7 +18,7 @@ GitHub repository configuration: CI/CD workflows, release automation, and issue/
 - `CONTRIBUTING.md` — Contributor guide including Release Process, Contributor Credits, and Version Numbering sections; the canonical contributor reference is `docs/DEVELOPMENT.md` + `docs/TESTING.md`
 - `SECURITY.md` — Private vulnerability reporting policy (GitHub security advisory or direct contact to @ZeR020). Supported versions and disclosure timeline
 - `CODE_OF_CONDUCT.md` — Contributor Covenant
-- `banner.png`, `screenshot-*.png` — README assets
+- README assets (banner, screenshots) moved to `docs/assets/`
 
 ## Local Contracts
 
