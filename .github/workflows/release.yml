@@ -75,9 +75,11 @@ jobs:
         id: changelog
         run: |
           version="${GITHUB_REF_NAME#v}"
-          # Extract the changelog section for this version
-          body=$(awk -v ver="## \[${version}]" '
-            $0 ~ ver { found=1; next }
+          # Extract the changelog section for this version.
+          # Use index() string match, not a regex: the version contains a literal "["
+          # that a regex would interpret as a character class, matching wrong sections.
+          body=$(awk -v needle="## [${version}]" '
+            index($0, needle) == 1 && (length($0) == length(needle) || substr($0, length(needle)+1, 1) ~ /[ -]/) { found=1; next }
             /^## \[/ && found { exit }
             found { print }
           ' docs/CHANGELOG.md)
