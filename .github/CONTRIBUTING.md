@@ -158,6 +158,35 @@ test(scoring): add edge case for negative recency boost
    - Request review from maintainers.
    - Be responsive to feedback. Changes may be requested before merging.
 
+
+---
+
+## Release Process
+
+Releases are automated via GitHub Actions (`.github/workflows/release.yml`), triggered by pushing a `v*` tag. The workflow runs typecheck → build → test → npm publish → GitHub release.
+
+### How releases are prepared
+
+1. All changes are delivered via PRs to `main` (no direct commits)
+2. The maintainer bumps the version in `package.json` and writes a changelog entry in `docs/CHANGELOG.md`
+3. The changelog entry includes: **Added**, **Fixed**, **Removed**, **Changed**, **Closed** sections, and a **Contributors** section crediting community contributors by GitHub username
+4. A `vX.Y.Z` tag is pushed, which triggers the release workflow
+5. The GitHub release body is extracted from `docs/CHANGELOG.md`, with auto-generated PR references appended
+
+### Contributor Credits
+
+Community contributors who report issues or submit PRs are credited in:
+- The `docs/CHANGELOG.md` **Contributors** section for the release that includes their contribution
+- The GitHub release notes (auto-generated from PRs, manually added for issue reporters)
+
+If you report an issue that gets fixed, you will be credited by your GitHub username in the release that ships the fix.
+
+### Version Numbering
+
+This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
+- **Major (X.0.0):** Breaking changes to the public API or config schema
+- **Minor (X.Y.0):** New features, bug fixes, dead code removal (safe if removed APIs had zero consumers)
+- **Patch (X.Y.Z):** Bug fixes only
 ---
 
 ## Areas Needing Contributions

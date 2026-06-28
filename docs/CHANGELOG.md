@@ -50,6 +50,68 @@ Thanks to the community contributors who reported issues and submitted fixes:
 - @bob56621517 — Reported [#35](https://github.com/ZeR020/opencode-mem0/issues/35) and opened [#36](https://github.com/ZeR020/opencode-mem0/pull/36)
 - @kingrubic — Opened [#37](https://github.com/ZeR020/opencode-mem0/pull/37)
 
+## [2.16.2] - 2026-05-29
+
+### Fixed
+
+- **Type safety:** Replace explicit `any` types with proper TypeScript interfaces across the codebase
+
+### Changed
+
+- **CI:** Exclude `shard-manager.ts` and other untestable files from SonarCloud coverage gate
+- **Docs:** Comprehensive README overhaul — add plugin enable step, fork note, complete config reference, copyright year update, recommend cheap memory provider model, clean up layout and formatting
+
+## [2.16.1] - 2026-05-28
+
+### Fixed
+
+- **Reliability:** Await async calls and replace explicit `any` types in profile/transcript handlers
+- **Security:** Escape all interpolated values in `innerHTML` templates to prevent XSS
+- **Config:** Remove startup migration and import-time side effects from `config.ts`
+- **Security:** Harden web API and storage initialization
+
+### Changed
+
+- **Code quality:** Replace explicit `any` types with proper TypeScript interfaces across the codebase
+- **Refactor:** Extract duplicated `getAllShards` and `extractScopeFromContainerTag` into `shard-manager.ts`
+- **CI:** Resolve audit failure and SonarCloud quality gate
+- **Docs:** Add npm downloads and DeepWiki badges, clarify Windows support
+
+## [2.16.0] - 2026-05-17
+
+### Major Release: Performance, Reliability, and Quality Overhaul
+
+This release includes 100+ commits of CodeRabbit, DeepSource, and SonarCloud remediation, new features, and comprehensive testing.
+
+### Added
+
+- **WAL batch write API** in ConnectionManager for atomic vector operations
+- **Schema versioning and migration runner** for safe database evolution
+- **LRU embedding cache** with SHA-256 content-hash keys
+- **Adaptive over-fetch multiplier** for search result diversity
+- **NSW vector backend** with fallback chain (`hnsw-first` → `exact-scan`)
+- **Semantic deduplication at ingest time** (≥0.9 cosine similarity threshold)
+- **Query intent analysis** — classifies queries as troubleshooting/recall/exploration/implementation
+- **Token-budget-aware memory injection** with configurable token limits
+- **Structured XML/YAML output formats** for memory injection
+- **Contextual decay rate calculation** — decay rate adjusts based on memory access patterns
+- **Transcript search, timeline, profile editing, and strength visualizer** in Web UI
+- **Heuristic pre-filter** for conflict detection before expensive LLM checks (#22)
+- **Zod config validation** with log levels and deep config merge
+
+### Fixed
+
+- 30+ CodeRabbit findings (CR-01 through CR-08, WR-01 through WR-17): atomicity, mutex, timeout, XSS, path traversal, command injection, vector corruption, config validation, cache leaks
+- 40+ async-without-await issues resolved across the codebase
+- DeepSource and SonarCloud quality gate blockers resolved
+
+### Changed
+
+- **README fully rewritten** with comprehensive configuration docs
+- **DeepSource and SonarCloud** integrated for continuous quality analysis
+- **Pre-push hook** added for local DeepSource-equivalent lint checks
+- **Complexity reduction** — extracted helpers from high-complexity functions across web-server, api-handlers, deduplication, lifecycle, scoring, auto-capture, and context services
+
 ## [2.15.1] - 2026-05-07
 
 ### Security & Reliability
