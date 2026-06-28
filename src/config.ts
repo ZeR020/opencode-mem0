@@ -617,6 +617,13 @@ export function initConfig(directory: string): void {
   ];
   const globalConfig = loadConfigFromPaths(CONFIG_FILES);
   const projectConfig = loadConfigFromPaths(projectPaths);
+
+  // Guard: if neither config source loaded (transient I/O failure), preserve
+  // the existing CONFIG from module-level init instead of rebuilding from defaults.
+  if (Object.keys(globalConfig).length === 0 && Object.keys(projectConfig).length === 0) {
+    return;
+  }
+
   const merged = deepMerge(globalConfig, projectConfig);
   Object.assign(CONFIG, buildConfig(merged));
 }

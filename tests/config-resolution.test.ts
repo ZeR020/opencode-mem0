@@ -23,9 +23,16 @@ vi.mock("node:fs", async (importOriginal) => {
 
 describe("project-scoped config resolution", () => {
   afterEach(() => {
-    (globalThis as any).__mockFs.existsSync = () => false;
-    (globalThis as any).__mockFs.readFileSync = () => "{}";
-    // Reset to global-only config
+    const mockFs = (
+      globalThis as {
+        __mockFs?: { existsSync: (p: unknown) => boolean; readFileSync: () => string };
+      }
+    ).__mockFs;
+    if (!mockFs) return;
+    // Provide a non-empty global config so the empty-config guard doesn't fire;
+    // buildConfig({autoCaptureEnabled: true}) produces all defaults.
+    mockFs.existsSync = (p: unknown) => String(p).includes(".config/opencode/opencode-mem0");
+    mockFs.readFileSync = () => JSON.stringify({ autoCaptureEnabled: true });
     initConfig("/nonexistent-project");
   });
 
@@ -75,10 +82,26 @@ describe("project-scoped config resolution", () => {
     expect(CONFIG.autoCaptureEnabled).toBe(false);
   });
 
-  it("falls back to defaults when neither global nor project config exists", () => {
-    (globalThis as any).__mockFs.existsSync = () => false;
-    initConfig("/no/config/project");
-    expect(CONFIG.autoCaptureEnabled).toBe(true); // default value
-    expect(CONFIG.opencodeProvider).toBeUndefined();
+  it("preserves existing CONFIG when both config sources are empty (transient I/O failure)", () => {
+    const mockFs = (
+      globalThis as {
+        __mockFs?: { existsSync: (p: unknown) => boolean; readFileSync: () => string };
+      }
+    ).__mockFs;
+    if (!mockFs) return;
+    // Load a non-default config first
+    mockFs.existsSync = (p: unknown) => String(p).includes(".config/opencode/opencode-mem0");
+    mockFs.readFileSync = () =>
+      JSON.stringify({ embeddingModel: "test-model", embeddingDimensions: 1024 });
+    initConfig("/some/project");
+    expect(CONFIG.embeddingModel).toBe("test-model");
+    expect(CONFIG.embeddingDimensions).toBe(1024);
+
+    // Simulate transient I/O failure — both configs return empty
+    mockFs.existsSync = () => false;
+    initConfig("/some/project");
+    // CONFIG must be preserved, NOT reset to defaults
+    expect(CONFIG.embeddingModel).toBe("test-model");
+    expect(CONFIG.embeddingDimensions).toBe(1024);
   });
 });

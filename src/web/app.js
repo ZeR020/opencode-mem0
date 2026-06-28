@@ -47,6 +47,8 @@ function buildApiHeaders(options) {
 function requestApiKey() {
   const apiKey = window.prompt("Enter webServerApiKey for this Memory Explorer instance:");
   if (apiKey) {
+    // ponytail: cleartext in localStorage — accepted risk: server is localhost-only (127.0.0.1:4747).
+    // If server ever binds non-local, move to sessionStorage or SubtleCrypto encrypted storage.
     localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
   }
   return apiKey;

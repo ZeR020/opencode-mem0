@@ -33,7 +33,9 @@ export function resolveSecretValue(value: string | undefined): string | undefine
   if (!value) return undefined;
 
   if (value.startsWith("file://")) {
-    const filePath = normalize(expandPath(fileURLToPath(new URL(value))));
+    const rawPath = value.slice(7);
+    const resolved = rawPath.startsWith("~") ? expandPath(rawPath) : fileURLToPath(new URL(value));
+    const filePath = normalize(expandPath(resolved));
 
     if (filePath.includes("..")) {
       throw new Error(`Secret file path traversal blocked: ${filePath}`);
