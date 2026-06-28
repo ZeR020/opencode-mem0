@@ -1,21 +1,29 @@
+# CodeRabbit configuration — relaxed for a solo-maintainer repo.
+# Reviews are helpful but not blocking. Auto-review only on PRs, never on drafts.
 reviews:
-  profile: assertive
+  profile: chill
   auto_review:
     enabled: true
     drafts: false
+    base_branches: ["main"]
   path_filters:
     - "!**/dist/**"
     - "!**/node_modules/**"
     - "!**/*.lock"
     - "!**/graphify-out/**"
     - "!**/.opencode/**"
+    - "!**/coverage/**"
   path_instructions:
     - path: "src/services/**/*.ts"
       instructions: |
         Focus on memory management, SQLite operations, and vector
         search correctness. Flag unhandled promise rejections or
-        missing error handling.
+        missing error handling. Do not nitpick style — Prettier
+        and DeepSource already enforce formatting and lint rules.
     - path: "tests/**/*.ts"
       instructions: |
         Ensure tests use proper vitest patterns and mock cleanup.
         Check for test isolation — no shared state between tests.
+        Do not request tests for trivial one-liners.
+chat:
+  auto_reply: false
