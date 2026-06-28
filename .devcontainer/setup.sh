@@ -17,16 +17,14 @@ curl -fsSL https://bun.sh/install | bash
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
-# --- opencode CLI ---
+# --- opencode CLI (via npm — reliable in non-interactive postCreateCommand) ---
 echo "→ Installing opencode..."
-curl -fsSL https://opencode.ai/install | bash
-# opencode installs to ~/.opencode/bin; make it visible to login + non-interactive shells
-export PATH="$HOME/.opencode/bin:$HOME/.bun/bin:$PATH"
+npm install -g opencode-ai
+# npm global bin is already on PATH for node-baked-in images; no extra PATH needed
 
-# Persist PATH so both login (.profile) and interactive (.bashrc) shells find bun + opencode.
-PATH_LINE="export PATH=\"\$HOME/.opencode/bin:\$HOME/.bun/bin:\$PATH\""
-grep -qxF "$PATH_LINE" "$HOME/.bashrc" 2>/dev/null || echo "$PATH_LINE" >> "$HOME/.bashrc"
-grep -qxF "$PATH_LINE" "$HOME/.profile" 2>/dev/null || echo "$PATH_LINE" >> "$HOME/.profile"
+# Persist bun PATH for login shells (.profile) — the bun installer only writes .bashrc.
+# opencode is via npm global, already on PATH for node-baked-in images.
+grep -qxF 'export PATH="$HOME/.bun/bin:$PATH"' "$HOME/.profile" 2>/dev/null || echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$HOME/.profile"
 
 # --- project deps + build ---
 cd /workspaces/opencode-mem0
