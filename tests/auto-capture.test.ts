@@ -19,27 +19,35 @@ const mockMemoryClient = {
 
 const mockGetTags = vi.fn();
 const mockWarn = vi.fn();
+const mockLog = vi.fn();
+const mockExecuteToolCall = vi.fn().mockImplementation(() => {
+  throw new Error("External API not configured for auto-capture");
+});
+const mockCreateProvider = vi.fn().mockReturnValue({
+  executeToolCall: (...args: unknown[]) => mockExecuteToolCall(...args),
+});
+const mockDetectLanguage = vi.fn().mockReturnValue("en");
+const mockGetLanguageName = vi.fn().mockReturnValue("English");
+const mockIsProviderConnected = vi.fn().mockReturnValue(true);
+const mockGetStatePath = vi.fn().mockReturnValue("/some/path");
+const mockGenerateStructuredOutput = vi.fn();
 
 vi.mock("../src/services/tags.js", () => ({
   getTags: (...args: any[]) => mockGetTags(...args),
 }));
 
-vi.mock("../src/services/tags.js", () => ({
-  getTags: (...args: any[]) => mockGetTags(...args),
+vi.mock("../src/services/client.js", () => ({
+  memoryClient: mockMemoryClient,
 }));
 
 vi.mock("../src/services/logger.js", () => ({
-  log: () => {},
-  warn: (...args: any[]) => mockWarn(...args),
+  log: (...args: unknown[]) => mockLog(...args),
+  warn: (...args: unknown[]) => mockWarn(...args),
 }));
 
 vi.mock("../src/services/ai/ai-provider-factory.js", () => ({
   AIProviderFactory: {
-    createProvider: () => ({
-      executeToolCall: () => {
-        throw new Error("External API not configured for auto-capture");
-      },
-    }),
+    createProvider: (...args: unknown[]) => mockCreateProvider(...args),
   },
 }));
 
@@ -49,6 +57,16 @@ vi.mock("../src/services/ai/provider-config.js", () => ({
 
 vi.mock("../src/services/user-prompt/user-prompt-manager.js", () => ({
   userPromptManager: mockUserPromptManager,
+}));
+vi.mock("../src/services/ai/opencode-provider.js", () => ({
+  isProviderConnected: (...args: unknown[]) => mockIsProviderConnected(...args),
+  getStatePath: (...args: unknown[]) => mockGetStatePath(...args),
+  generateStructuredOutput: (...args: unknown[]) => mockGenerateStructuredOutput(...args),
+}));
+
+vi.mock("../src/services/language-detector.js", () => ({
+  detectLanguage: (...args: unknown[]) => mockDetectLanguage(...args),
+  getLanguageName: (...args: unknown[]) => mockGetLanguageName(...args),
 }));
 
 vi.mock("../src/config.js", () => ({
@@ -87,10 +105,11 @@ describe("auto-capture helpers", () => {
     mockUserPromptManager.linkMemoryToPrompt.mockReset();
     mockUserPromptManager.markAsCaptured.mockReset();
     mockUserPromptManager.resetPromptClaim.mockReset();
-    mockMemoryClient.addMemory.mockReset();
+    mockMemoryClient.addMemory.mockReset().mockResolvedValue({ success: true, id: "mem1" });
     mockMemoryClient.listMemories.mockReset();
     mockGetTags.mockReset();
     mockWarn.mockReset();
+    mockLog.mockReset();
     // Reset CONFIG to defaults
     CONFIG.opencodeProvider = undefined;
     CONFIG.opencodeModel = undefined;
@@ -98,6 +117,17 @@ describe("auto-capture helpers", () => {
     CONFIG.memoryApiUrl = "http://test";
     CONFIG.memoryProvider = "openai-chat";
     CONFIG.showAutoCaptureToasts = false;
+    mockExecuteToolCall.mockReset().mockImplementation(() => {
+      throw new Error("External API not configured for auto-capture");
+    });
+    mockCreateProvider.mockReset().mockReturnValue({
+      executeToolCall: (...args: unknown[]) => mockExecuteToolCall(...args),
+    });
+    mockDetectLanguage.mockReset().mockReturnValue("en");
+    mockGetLanguageName.mockReset().mockReturnValue("English");
+    mockIsProviderConnected.mockReset().mockReturnValue(true);
+    mockGetStatePath.mockReset().mockReturnValue("/some/path");
+    mockGenerateStructuredOutput.mockReset();
   });
 
   it("acquires mutex and prevents concurrent capture calls", async () => {
@@ -818,5 +848,997 @@ describe("auto-capture helpers", () => {
         }),
       })
     );
+  });
+
+  describe("new coverage branches", () => {
+    describe("generateSummaryViaProvider", () => {
+      it("handles success path, lowercasing and trimming tags", async () => {
+        // ponytail: config and prompt mock
+        CONFIG.opencodeProvider = undefined;
+        CONFIG.opencodeModel = undefined;
+        CONFIG.memoryModel = "test-model";
+        CONFIG.memoryApiUrl = "http://test";
+        CONFIG.memoryProvider = "openai-chat";
+
+        mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+          id: "p1",
+          messageId: "m1",
+          content: "test prompt",
+        });
+        mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+        mockGetTags.mockReturnValue({
+          project: {
+            tag: "mem_project_test",
+            displayName: "Test",
+            userName: null,
+            userEmail: null,
+            projectPath: "/test",
+            projectName: "test",
+            gitRepoUrl: null,
+          },
+        });
+
+        mockMemoryClient.listMemories.mockResolvedValue({
+          success: true,
+          memories: [],
+        });
+
+        const mockMessages = async () => ({
+          data: [
+            { info: { id: "m1" } },
+            {
+              info: { id: "a1", role: "assistant" },
+              parts: [{ type: "text", text: "Done" }],
+            },
+          ],
+        });
+
+        const ctx = {
+          client: {
+            session: {
+              messages: mockMessages,
+            },
+          },
+        } as unknown as PluginInput;
+
+        mockExecuteToolCall.mockResolvedValue({
+          success: true,
+          data: {
+            summary: "Created a new test",
+            type: "feature",
+            tags: [" TEST ", "coverage"],
+          },
+        });
+
+        mockMemoryClient.addMemory.mockResolvedValue({
+          success: true,
+          id: "mem1",
+          type: "feature",
+        });
+
+        await performAutoCapture(ctx, "sess-1", "/test");
+
+        expect(mockExecuteToolCall).toHaveBeenCalled();
+        expect(mockMemoryClient.addMemory).toHaveBeenCalledWith(
+          "Created a new test",
+          "mem_project_test",
+          expect.objectContaining({
+            type: "feature",
+            tags: ["test", "coverage"],
+          })
+        );
+      });
+
+      it("handles failure path where executeToolCall returns success=false", async () => {
+        CONFIG.opencodeProvider = undefined;
+        CONFIG.opencodeModel = undefined;
+        CONFIG.memoryModel = "test-model";
+        CONFIG.memoryApiUrl = "http://test";
+        CONFIG.memoryProvider = "openai-chat";
+
+        mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+          id: "p1",
+          messageId: "m1",
+          content: "test prompt",
+        });
+        mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+        mockGetTags.mockReturnValue({
+          project: {
+            tag: "mem_project_test",
+            displayName: "Test",
+            userName: null,
+            userEmail: null,
+            projectPath: "/test",
+            projectName: "test",
+            gitRepoUrl: null,
+          },
+        });
+
+        mockMemoryClient.listMemories.mockResolvedValue({
+          success: true,
+          memories: [],
+        });
+
+        const mockMessages = async () => ({
+          data: [
+            { info: { id: "m1" } },
+            {
+              info: { id: "a1", role: "assistant" },
+              parts: [{ type: "text", text: "Done" }],
+            },
+          ],
+        });
+
+        const ctx = {
+          client: {
+            session: {
+              messages: mockMessages,
+            },
+          },
+        } as unknown as PluginInput;
+
+        mockExecuteToolCall.mockResolvedValue({
+          success: false,
+          error: "API rate limit reached",
+        });
+
+        await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
+          "API rate limit reached"
+        );
+      });
+
+      it("handles missing data path where executeToolCall returns success=true but data=null", async () => {
+        CONFIG.opencodeProvider = undefined;
+        CONFIG.opencodeModel = undefined;
+        CONFIG.memoryModel = "test-model";
+        CONFIG.memoryApiUrl = "http://test";
+        CONFIG.memoryProvider = "openai-chat";
+
+        mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+          id: "p1",
+          messageId: "m1",
+          content: "test prompt",
+        });
+        mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+        mockGetTags.mockReturnValue({
+          project: {
+            tag: "mem_project_test",
+            displayName: "Test",
+            userName: null,
+            userEmail: null,
+            projectPath: "/test",
+            projectName: "test",
+            gitRepoUrl: null,
+          },
+        });
+
+        mockMemoryClient.listMemories.mockResolvedValue({
+          success: true,
+          memories: [],
+        });
+
+        const mockMessages = async () => ({
+          data: [
+            { info: { id: "m1" } },
+            {
+              info: { id: "a1", role: "assistant" },
+              parts: [{ type: "text", text: "Done" }],
+            },
+          ],
+        });
+
+        const ctx = {
+          client: {
+            session: {
+              messages: mockMessages,
+            },
+          },
+        } as unknown as PluginInput;
+
+        mockExecuteToolCall.mockResolvedValue({
+          success: true,
+          data: null,
+        });
+
+        await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
+          "Failed to generate summary"
+        );
+      });
+    });
+
+    describe("generateSummary branching", () => {
+      it("calls generateSummaryViaOpencode when opencode config is present", async () => {
+        CONFIG.opencodeProvider = "openai";
+        CONFIG.opencodeModel = "gpt-4o";
+
+        mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+          id: "p1",
+          messageId: "m1",
+          content: "test prompt",
+        });
+        mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+        mockGetTags.mockReturnValue({
+          project: {
+            tag: "mem_project_test",
+            displayName: "Test",
+            userName: null,
+            userEmail: null,
+            projectPath: "/test",
+            projectName: "test",
+            gitRepoUrl: null,
+          },
+        });
+
+        mockMemoryClient.listMemories.mockResolvedValue({
+          success: true,
+          memories: [],
+        });
+
+        const mockMessages = async () => ({
+          data: [
+            { info: { id: "m1" } },
+            {
+              info: { id: "a1", role: "assistant" },
+              parts: [{ type: "text", text: "Done" }],
+            },
+          ],
+        });
+
+        const ctx = {
+          client: {
+            session: {
+              messages: mockMessages,
+            },
+          },
+        } as unknown as PluginInput;
+
+        mockIsProviderConnected.mockReturnValue(true);
+        mockGenerateStructuredOutput.mockResolvedValue({
+          summary: "Opencode generated summary",
+          type: "feature",
+          tags: ["opencode"],
+        });
+
+        await performAutoCapture(ctx, "sess-1", "/test");
+
+        expect(mockGenerateStructuredOutput).toHaveBeenCalled();
+        expect(mockExecuteToolCall).not.toHaveBeenCalled();
+      });
+
+      it("calls generateSummaryViaProvider when opencode is missing but provider config is present", async () => {
+        CONFIG.opencodeProvider = undefined;
+        CONFIG.opencodeModel = undefined;
+        CONFIG.memoryModel = "test-model";
+        CONFIG.memoryApiUrl = "http://test";
+        CONFIG.memoryProvider = "openai-chat";
+
+        mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+          id: "p1",
+          messageId: "m1",
+          content: "test prompt",
+        });
+        mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+        mockGetTags.mockReturnValue({
+          project: {
+            tag: "mem_project_test",
+            displayName: "Test",
+            userName: null,
+            userEmail: null,
+            projectPath: "/test",
+            projectName: "test",
+            gitRepoUrl: null,
+          },
+        });
+
+        mockMemoryClient.listMemories.mockResolvedValue({
+          success: true,
+          memories: [],
+        });
+
+        const mockMessages = async () => ({
+          data: [
+            { info: { id: "m1" } },
+            {
+              info: { id: "a1", role: "assistant" },
+              parts: [{ type: "text", text: "Done" }],
+            },
+          ],
+        });
+
+        const ctx = {
+          client: {
+            session: {
+              messages: mockMessages,
+            },
+          },
+        } as unknown as PluginInput;
+
+        mockExecuteToolCall.mockResolvedValue({
+          success: true,
+          data: {
+            summary: "Provider generated summary",
+            type: "feature",
+            tags: ["provider"],
+          },
+        });
+
+        await performAutoCapture(ctx, "sess-1", "/test");
+
+        expect(mockExecuteToolCall).toHaveBeenCalled();
+        expect(mockGenerateStructuredOutput).not.toHaveBeenCalled();
+      });
+
+      it("throws error when neither is configured", async () => {
+        CONFIG.opencodeProvider = undefined;
+        CONFIG.opencodeModel = undefined;
+        CONFIG.memoryModel = "temp-model";
+        CONFIG.memoryApiUrl = "http://temp";
+
+        mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+          id: "p1",
+          messageId: "m1",
+          content: "test prompt",
+        });
+        mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+        mockGetTags.mockImplementation(() => {
+          CONFIG.memoryModel = undefined;
+          CONFIG.memoryApiUrl = undefined;
+          return {
+            project: {
+              tag: "mem_project_test",
+              displayName: "Test",
+              userName: null,
+              userEmail: null,
+              projectPath: "/test",
+              projectName: "test",
+              gitRepoUrl: null,
+            },
+          };
+        });
+
+        mockMemoryClient.listMemories.mockResolvedValue({
+          success: true,
+          memories: [],
+        });
+
+        const mockMessages = async () => ({
+          data: [
+            { info: { id: "m1" } },
+            {
+              info: { id: "a1", role: "assistant" },
+              parts: [{ type: "text", text: "Done" }],
+            },
+          ],
+        });
+
+        const ctx = {
+          client: {
+            session: {
+              messages: mockMessages,
+            },
+          },
+        } as unknown as PluginInput;
+
+        await performAutoCapture(ctx, "sess-1", "/test");
+
+        expect(mockLog).toHaveBeenCalledWith(
+          "Auto-capture skipped — configuration not ready",
+          expect.objectContaining({ error: "External API not configured for auto-capture" })
+        );
+      });
+    });
+
+    describe("generateSummaryViaOpencode", () => {
+      it("handles success path and lowercases tags", async () => {
+        CONFIG.opencodeProvider = "openai";
+        CONFIG.opencodeModel = "gpt-4o";
+
+        mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+          id: "p1",
+          messageId: "m1",
+          content: "test prompt",
+        });
+        mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+        mockGetTags.mockReturnValue({
+          project: {
+            tag: "mem_project_test",
+            displayName: "Test",
+            userName: null,
+            userEmail: null,
+            projectPath: "/test",
+            projectName: "test",
+            gitRepoUrl: null,
+          },
+        });
+
+        mockMemoryClient.listMemories.mockResolvedValue({
+          success: true,
+          memories: [],
+        });
+
+        const mockMessages = async () => ({
+          data: [
+            { info: { id: "m1" } },
+            {
+              info: { id: "a1", role: "assistant" },
+              parts: [{ type: "text", text: "Done" }],
+            },
+          ],
+        });
+
+        const ctx = {
+          client: {
+            session: {
+              messages: mockMessages,
+            },
+          },
+        } as unknown as PluginInput;
+
+        mockIsProviderConnected.mockReturnValue(true);
+        mockGenerateStructuredOutput.mockResolvedValue({
+          summary: "Opencode generated summary",
+          type: "feature",
+          tags: [" OPENCODE ", "test"],
+        });
+
+        await performAutoCapture(ctx, "sess-1", "/test");
+
+        expect(mockMemoryClient.addMemory).toHaveBeenCalledWith(
+          "Opencode generated summary",
+          "mem_project_test",
+          expect.objectContaining({
+            type: "feature",
+            tags: ["opencode", "test"],
+          })
+        );
+      });
+
+      it("throws cleanly when provider is not connected", async () => {
+        CONFIG.opencodeProvider = "openai";
+        CONFIG.opencodeModel = "gpt-4o";
+
+        mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+          id: "p1",
+          messageId: "m1",
+          content: "test prompt",
+        });
+        mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+        mockGetTags.mockReturnValue({
+          project: {
+            tag: "mem_project_test",
+            displayName: "Test",
+            userName: null,
+            userEmail: null,
+            projectPath: "/test",
+            projectName: "test",
+            gitRepoUrl: null,
+          },
+        });
+
+        mockMemoryClient.listMemories.mockResolvedValue({
+          success: true,
+          memories: [],
+        });
+
+        mockIsProviderConnected.mockReturnValue(false);
+
+        const mockMessages = async () => ({
+          data: [
+            { info: { id: "m1" } },
+            {
+              info: { id: "a1", role: "assistant" },
+              parts: [{ type: "text", text: "Done" }],
+            },
+          ],
+        });
+
+        const ctx = {
+          client: {
+            session: {
+              messages: mockMessages,
+            },
+          },
+        } as unknown as PluginInput;
+
+        await performAutoCapture(ctx, "sess-1", "/test");
+
+        expect(mockLog).toHaveBeenCalledWith(
+          "Auto-capture skipped — configuration not ready",
+          expect.objectContaining({
+            error:
+              "opencode provider 'openai' is not connected. Check your opencode provider configuration.",
+          })
+        );
+      });
+    });
+
+    describe("detectTargetLanguage", () => {
+      it("calls detectLanguage when autoCaptureLanguage is auto", async () => {
+        CONFIG.opencodeProvider = undefined;
+        CONFIG.opencodeModel = undefined;
+        CONFIG.memoryModel = "test-model";
+        CONFIG.memoryApiUrl = "http://test";
+        CONFIG.memoryProvider = "openai-chat";
+        CONFIG.autoCaptureLanguage = "auto";
+
+        mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+          id: "p1",
+          messageId: "m1",
+          content: "bonjour tout le monde",
+        });
+        mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+        mockGetTags.mockReturnValue({
+          project: {
+            tag: "mem_project_test",
+            displayName: "Test",
+            userName: null,
+            userEmail: null,
+            projectPath: "/test",
+            projectName: "test",
+            gitRepoUrl: null,
+          },
+        });
+
+        mockMemoryClient.listMemories.mockResolvedValue({
+          success: true,
+          memories: [],
+        });
+
+        const mockMessages = async () => ({
+          data: [
+            { info: { id: "m1" } },
+            {
+              info: { id: "a1", role: "assistant" },
+              parts: [{ type: "text", text: "Done" }],
+            },
+          ],
+        });
+
+        const ctx = {
+          client: {
+            session: {
+              messages: mockMessages,
+            },
+          },
+        } as unknown as PluginInput;
+
+        mockExecuteToolCall.mockResolvedValue({
+          success: true,
+          data: {
+            summary: "Done",
+            type: "feature",
+            tags: [],
+          },
+        });
+
+        await performAutoCapture(ctx, "sess-1", "/test");
+
+        expect(mockDetectLanguage).toHaveBeenCalledWith("bonjour tout le monde");
+        expect(mockGetLanguageName).toHaveBeenCalled();
+      });
+
+      it("returns the configured fixed language directly without calling detectLanguage", async () => {
+        CONFIG.opencodeProvider = undefined;
+        CONFIG.opencodeModel = undefined;
+        CONFIG.memoryModel = "test-model";
+        CONFIG.memoryApiUrl = "http://test";
+        CONFIG.memoryProvider = "openai-chat";
+        CONFIG.autoCaptureLanguage = "fr";
+
+        mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+          id: "p1",
+          messageId: "m1",
+          content: "bonjour tout le monde",
+        });
+        mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+        mockGetTags.mockReturnValue({
+          project: {
+            tag: "mem_project_test",
+            displayName: "Test",
+            userName: null,
+            userEmail: null,
+            projectPath: "/test",
+            projectName: "test",
+            gitRepoUrl: null,
+          },
+        });
+
+        mockMemoryClient.listMemories.mockResolvedValue({
+          success: true,
+          memories: [],
+        });
+
+        const mockMessages = async () => ({
+          data: [
+            { info: { id: "m1" } },
+            {
+              info: { id: "a1", role: "assistant" },
+              parts: [{ type: "text", text: "Done" }],
+            },
+          ],
+        });
+
+        const ctx = {
+          client: {
+            session: {
+              messages: mockMessages,
+            },
+          },
+        } as unknown as PluginInput;
+
+        mockExecuteToolCall.mockResolvedValue({
+          success: true,
+          data: {
+            summary: "Done",
+            type: "feature",
+            tags: [],
+          },
+        });
+
+        await performAutoCapture(ctx, "sess-1", "/test");
+
+        expect(mockDetectLanguage).not.toHaveBeenCalled();
+        expect(mockGetLanguageName).toHaveBeenCalledWith("fr");
+      });
+    });
+
+    describe("getLatestProjectMemory", () => {
+      it("includes short memory content in markdown context", async () => {
+        CONFIG.opencodeProvider = undefined;
+        CONFIG.opencodeModel = undefined;
+        CONFIG.memoryModel = "test-model";
+        CONFIG.memoryApiUrl = "http://test";
+        CONFIG.memoryProvider = "openai-chat";
+
+        mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+          id: "p1",
+          messageId: "m1",
+          content: "test prompt",
+        });
+        mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+        mockGetTags.mockReturnValue({
+          project: {
+            tag: "mem_project_test",
+            displayName: "Test",
+            userName: null,
+            userEmail: null,
+            projectPath: "/test",
+            projectName: "test",
+            gitRepoUrl: null,
+          },
+        });
+
+        mockMemoryClient.listMemories.mockResolvedValue({
+          success: true,
+          memories: [{ summary: "Short previous memory" }],
+        });
+
+        const mockMessages = async () => ({
+          data: [
+            { info: { id: "m1" } },
+            {
+              info: { id: "a1", role: "assistant" },
+              parts: [{ type: "text", text: "Done" }],
+            },
+          ],
+        });
+
+        const ctx = {
+          client: {
+            session: {
+              messages: mockMessages,
+            },
+          },
+        } as unknown as PluginInput;
+
+        mockExecuteToolCall.mockResolvedValue({
+          success: true,
+          data: {
+            summary: "Done",
+            type: "feature",
+            tags: [],
+          },
+        });
+
+        await performAutoCapture(ctx, "sess-1", "/test");
+
+        expect(mockExecuteToolCall).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.stringContaining("Short previous memory"),
+          expect.any(Object),
+          expect.any(String)
+        );
+      });
+
+      it("truncates long memory content > 500 chars in markdown context", async () => {
+        CONFIG.opencodeProvider = undefined;
+        CONFIG.opencodeModel = undefined;
+        CONFIG.memoryModel = "test-model";
+        CONFIG.memoryApiUrl = "http://test";
+        CONFIG.memoryProvider = "openai-chat";
+
+        mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+          id: "p1",
+          messageId: "m1",
+          content: "test prompt",
+        });
+        mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+        mockGetTags.mockReturnValue({
+          project: {
+            tag: "mem_project_test",
+            displayName: "Test",
+            userName: null,
+            userEmail: null,
+            projectPath: "/test",
+            projectName: "test",
+            gitRepoUrl: null,
+          },
+        });
+
+        const longMemory = "a".repeat(600);
+        mockMemoryClient.listMemories.mockResolvedValue({
+          success: true,
+          memories: [{ summary: longMemory }],
+        });
+
+        const mockMessages = async () => ({
+          data: [
+            { info: { id: "m1" } },
+            {
+              info: { id: "a1", role: "assistant" },
+              parts: [{ type: "text", text: "Done" }],
+            },
+          ],
+        });
+
+        const ctx = {
+          client: {
+            session: {
+              messages: mockMessages,
+            },
+          },
+        } as unknown as PluginInput;
+
+        mockExecuteToolCall.mockResolvedValue({
+          success: true,
+          data: {
+            summary: "Done",
+            type: "feature",
+            tags: [],
+          },
+        });
+
+        await performAutoCapture(ctx, "sess-1", "/test");
+
+        const expectedTruncated = "a".repeat(500) + "...";
+        expect(mockExecuteToolCall).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.stringContaining(expectedTruncated),
+          expect.any(Object),
+          expect.any(String)
+        );
+      });
+
+      it("returns null context when memories are empty", async () => {
+        CONFIG.opencodeProvider = undefined;
+        CONFIG.opencodeModel = undefined;
+        CONFIG.memoryModel = "test-model";
+        CONFIG.memoryApiUrl = "http://test";
+        CONFIG.memoryProvider = "openai-chat";
+
+        mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+          id: "p1",
+          messageId: "m1",
+          content: "test prompt",
+        });
+        mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+        mockGetTags.mockReturnValue({
+          project: {
+            tag: "mem_project_test",
+            displayName: "Test",
+            userName: null,
+            userEmail: null,
+            projectPath: "/test",
+            projectName: "test",
+            gitRepoUrl: null,
+          },
+        });
+
+        mockMemoryClient.listMemories.mockResolvedValue({
+          success: true,
+          memories: [],
+        });
+
+        const mockMessages = async () => ({
+          data: [
+            { info: { id: "m1" } },
+            {
+              info: { id: "a1", role: "assistant" },
+              parts: [{ type: "text", text: "Done" }],
+            },
+          ],
+        });
+
+        const ctx = {
+          client: {
+            session: {
+              messages: mockMessages,
+            },
+          },
+        } as unknown as PluginInput;
+
+        mockExecuteToolCall.mockResolvedValue({
+          success: true,
+          data: {
+            summary: "Done",
+            type: "feature",
+            tags: [],
+          },
+        });
+
+        await performAutoCapture(ctx, "sess-1", "/test");
+
+        expect(mockExecuteToolCall).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.not.stringContaining("Previous Memory Context"),
+          expect.any(Object),
+          expect.any(String)
+        );
+      });
+
+      it("returns null context when listMemories fails/throws", async () => {
+        CONFIG.opencodeProvider = undefined;
+        CONFIG.opencodeModel = undefined;
+        CONFIG.memoryModel = "test-model";
+        CONFIG.memoryApiUrl = "http://test";
+        CONFIG.memoryProvider = "openai-chat";
+
+        mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+          id: "p1",
+          messageId: "m1",
+          content: "test prompt",
+        });
+        mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+        mockGetTags.mockReturnValue({
+          project: {
+            tag: "mem_project_test",
+            displayName: "Test",
+            userName: null,
+            userEmail: null,
+            projectPath: "/test",
+            projectName: "test",
+            gitRepoUrl: null,
+          },
+        });
+
+        mockMemoryClient.listMemories.mockRejectedValue(new Error("DB Connection Error"));
+
+        const mockMessages = async () => ({
+          data: [
+            { info: { id: "m1" } },
+            {
+              info: { id: "a1", role: "assistant" },
+              parts: [{ type: "text", text: "Done" }],
+            },
+          ],
+        });
+
+        const ctx = {
+          client: {
+            session: {
+              messages: mockMessages,
+            },
+          },
+        } as unknown as PluginInput;
+
+        mockExecuteToolCall.mockResolvedValue({
+          success: true,
+          data: {
+            summary: "Done",
+            type: "feature",
+            tags: [],
+          },
+        });
+
+        await performAutoCapture(ctx, "sess-1", "/test");
+
+        expect(mockExecuteToolCall).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.not.stringContaining("Previous Memory Context"),
+          expect.any(Object),
+          expect.any(String)
+        );
+      });
+    });
+
+    describe("buildMarkdownContext", () => {
+      it("builds context with all sections present", async () => {
+        CONFIG.opencodeProvider = undefined;
+        CONFIG.opencodeModel = undefined;
+        CONFIG.memoryModel = "test-model";
+        CONFIG.memoryApiUrl = "http://test";
+        CONFIG.memoryProvider = "openai-chat";
+
+        mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+          id: "p1",
+          messageId: "m1",
+          content: "User request text",
+        });
+        mockUserPromptManager.claimPrompt.mockReturnValue(true);
+
+        mockGetTags.mockReturnValue({
+          project: {
+            tag: "mem_project_test",
+            displayName: "Test",
+            userName: null,
+            userEmail: null,
+            projectPath: "/test",
+            projectName: "test",
+            gitRepoUrl: null,
+          },
+        });
+
+        mockMemoryClient.listMemories.mockResolvedValue({
+          success: true,
+          memories: [{ summary: "Previous context text" }],
+        });
+
+        const mockMessages = async () => ({
+          data: [
+            { info: { id: "m1" } },
+            {
+              info: { id: "a1", role: "assistant" },
+              parts: [
+                { type: "text", text: "AI Response text" },
+                { type: "tool", tool: "toolWithInput", state: { input: "arg1" } },
+                { type: "tool", tool: "toolNoInput" },
+              ],
+            },
+          ],
+        });
+
+        const ctx = {
+          client: {
+            session: {
+              messages: mockMessages,
+            },
+          },
+        } as unknown as PluginInput;
+
+        mockExecuteToolCall.mockResolvedValue({
+          success: true,
+          data: {
+            summary: "Done",
+            type: "feature",
+            tags: [],
+          },
+        });
+
+        await performAutoCapture(ctx, "sess-1", "/test");
+
+        expect(mockExecuteToolCall).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.stringContaining(
+            "## Previous Memory Context\n---\nPrevious context text\n---\n\n## User Request\n---\nUser request text\n---\n\n## AI Response\n---\nAI Response text\n---\n\n## Tools Used\n---\n- toolWithInput(arg1)\n- toolNoInput\n---"
+          ),
+          expect.any(Object),
+          expect.any(String)
+        );
+      });
+    });
   });
 });

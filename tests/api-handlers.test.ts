@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { shardManager } from "../src/services/sqlite/shard-manager.js";
+import { connectionManager } from "../src/services/sqlite/connection-manager.js";
 
+const mockState = vi.hoisted(() => ({
+  isWarmedUp: true,
+  embeddingAvailable: true,
+  cacheStats: { size: 100, maxSize: 1000, hits: 50, misses: 50, rate: 0.5 },
+  getCacheStatsError: null as string | null,
+  isWarmedUpError: null as string | null,
+}));
 const mockDbByPath = new Map<string, unknown>();
 
 function makeDb(name: string) {
@@ -143,11 +151,23 @@ vi.mock("../src/services/logger.js", () => ({
 
 vi.mock("../src/services/embedding.js", () => ({
   embeddingService: {
-    isWarmedUp: true,
+    get isWarmedUp() {
+      if (mockState.isWarmedUpError) {
+        throw new Error(mockState.isWarmedUpError);
+      }
+      return mockState.isWarmedUp;
+    },
     warmup: () => Promise.resolve(),
     embedWithTimeout: () => Promise.resolve(new Float32Array([1, 2, 3])),
-    getCacheStats: () => ({ size: 100, maxSize: 1000, hits: 50, misses: 50, rate: 0.5 }),
-    embeddingAvailable: true,
+    getCacheStats: () => {
+      if (mockState.getCacheStatsError) {
+        throw new Error(mockState.getCacheStatsError);
+      }
+      return mockState.cacheStats;
+    },
+    get embeddingAvailable() {
+      return mockState.embeddingAvailable;
+    },
   },
 }));
 
@@ -279,6 +299,7 @@ const {
   handleUpdateMemory,
   handleSearch,
   handleEmbeddingCacheStats,
+  handleApiStatus,
   handleStats,
   handlePinMemory,
   handleUnpinMemory,
@@ -296,6 +317,11 @@ const {
 describe("api-handlers", () => {
   beforeEach(() => {
     mockDbByPath.clear();
+    mockState.isWarmedUp = true;
+    mockState.embeddingAvailable = true;
+    mockState.cacheStats = { size: 100, maxSize: 1000, hits: 50, misses: 50, rate: 0.5 };
+    mockState.getCacheStatsError = null;
+    mockState.isWarmedUpError = null;
   });
 
   describe("handleListTags", () => {
@@ -622,6 +648,116 @@ describe("api-handlers", () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe("Internal error in handleRunTagMigrationBatch");
       spy.mockRestore();
+    });
+  });
+  describe("embedding cache stats and API status", () => {
+    describe("handleEmbeddingCacheStats", () => {
+      it("returns embedding cache statistics on success", async () => {
+        const result = await handleEmbeddingCacheStats();
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual({
+          size: 100,
+          maxSize: 1000,
+          hits: 50,
+          misses: 50,
+          rate: 0.5,
+        });
+      });
+
+      it("returns success: false when getCacheStats throws", async () => {
+        mockState.getCacheStatsError = "Cache service down";
+        const result = await handleEmbeddingCacheStats();
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("Internal error in handleEmbeddingCacheStats");
+      });
+    });
+
+    describe("handleApiStatus", () => {
+      it("returns mode='full', warmedUp=true, ready=true when shards exist", async () => {
+        const db = connectionManager.getConnection(
+          "/tmp/test/metadata.db"
+        ) as unknown as ReturnType<typeof makeDb>;
+        db.prepare = vi.fn().mockImplementation(() => ({
+          get: () => ({ count: 1 }),
+          all: () => [],
+          run: () => ({ changes: 1 }),
+        }));
+
+        const result = await handleApiStatus();
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual({
+          mode: "full",
+          warmedUp: true,
+          ready: true,
+        });
+      });
+
+      it("returns ready=false when shard count is 0", async () => {
+        const db = connectionManager.getConnection(
+          "/tmp/test/metadata.db"
+        ) as unknown as ReturnType<typeof makeDb>;
+        db.prepare = vi.fn().mockImplementation(() => ({
+          get: () => ({ count: 0 }),
+          all: () => [],
+          run: () => ({ changes: 1 }),
+        }));
+
+        const result = await handleApiStatus();
+        expect(result.success).toBe(true);
+        expect(result.data?.ready).toBe(false);
+      });
+
+      it("returns ready=false when db query throws", async () => {
+        const db = connectionManager.getConnection(
+          "/tmp/test/metadata.db"
+        ) as unknown as ReturnType<typeof makeDb>;
+        db.prepare = vi.fn().mockImplementation(() => {
+          throw new Error("DB error");
+        });
+
+        const result = await handleApiStatus();
+        expect(result.success).toBe(true);
+        expect(result.data?.ready).toBe(false);
+      });
+
+      it("returns mode='text-only' when embedding is not available", async () => {
+        mockState.embeddingAvailable = false;
+        const db = connectionManager.getConnection(
+          "/tmp/test/metadata.db"
+        ) as unknown as ReturnType<typeof makeDb>;
+        db.prepare = vi.fn().mockImplementation(() => ({
+          get: () => ({ count: 1 }),
+          all: () => [],
+          run: () => ({ changes: 1 }),
+        }));
+
+        const result = await handleApiStatus();
+        expect(result.success).toBe(true);
+        expect(result.data?.mode).toBe("text-only");
+      });
+
+      it("reflects warmedUp status correctly when isWarmedUp is false", async () => {
+        mockState.isWarmedUp = false;
+        const db = connectionManager.getConnection(
+          "/tmp/test/metadata.db"
+        ) as unknown as ReturnType<typeof makeDb>;
+        db.prepare = vi.fn().mockImplementation(() => ({
+          get: () => ({ count: 1 }),
+          all: () => [],
+          run: () => ({ changes: 1 }),
+        }));
+
+        const result = await handleApiStatus();
+        expect(result.success).toBe(true);
+        expect(result.data?.warmedUp).toBe(false);
+      });
+
+      it("returns success: false when embeddingService lookup throws", async () => {
+        mockState.isWarmedUpError = "Service unavailable";
+        const result = await handleApiStatus();
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("Internal error in handleApiStatus");
+      });
     });
   });
 });
