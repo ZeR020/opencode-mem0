@@ -20,11 +20,11 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 # --- opencode CLI ---
 echo "→ Installing opencode..."
 curl -fsSL https://opencode.ai/install | bash
-# opencode installer adds itself to .bashrc; also make it visible to login + non-interactive shells
-export PATH="$HOME/.local/bin:$PATH"
+# opencode installs to ~/.opencode/bin; make it visible to login + non-interactive shells
+export PATH="$HOME/.opencode/bin:$HOME/.bun/bin:$PATH"
 
 # Persist PATH so both login (.profile) and interactive (.bashrc) shells find bun + opencode.
-PATH_LINE="export PATH=\"\$HOME/.bun/bin:\$HOME/.local/bin:\$PATH\""
+PATH_LINE="export PATH=\"\$HOME/.opencode/bin:\$HOME/.bun/bin:\$PATH\""
 grep -qxF "$PATH_LINE" "$HOME/.bashrc" 2>/dev/null || echo "$PATH_LINE" >> "$HOME/.bashrc"
 grep -qxF "$PATH_LINE" "$HOME/.profile" 2>/dev/null || echo "$PATH_LINE" >> "$HOME/.profile"
 
