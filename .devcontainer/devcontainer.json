@@ -9,10 +9,6 @@
       "version": "latest"
     }
   },
-  "hostRequirements": {
-    "cpus": 16,
-    "memory": "32gb"
-  },
   "postCreateCommand": "bash .devcontainer/setup.sh",
   "forwardPorts": [4096],
   "remoteUser": "codespace"
