@@ -49,9 +49,8 @@ logs/
 *~
 
 # ─── Agent & work files (never commit) ─────────────────────────
-# DOX hierarchy — track AGENTS.md (binding work contracts), ignore personal tooling
+# DOX hierarchy, agent configs, personal tooling (never commit)
 AGENTS.md
-!AGENTS.md
 .claude/
 .cursor/
 .cursorrules
