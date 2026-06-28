@@ -5,18 +5,15 @@ import { normalize, resolve, isAbsolute, basename, dirname } from "node:path";
 import { realpathSync, existsSync } from "node:fs";
 import { log } from "./logger.js";
 
-function sha256(input: string): string {
-  return createHash("sha256").update(input).digest("hex").slice(0, 16);
-}
+const sha256 = (input: string): string =>
+  createHash("sha256").update(input).digest("hex").slice(0, 16);
 
 // Memoization caches — git config values don't change during a session
 let cachedGitEmail: string | null | undefined;
 let cachedGitName: string | null | undefined;
 /** Guard that returns null when the directory doesn't exist on disk. */
-function requireGitDirectory(directory: string): true | null {
-  return existsSync(directory) ? true : null;
-}
-
+const requireGitDirectory = (directory: string): true | null =>
+  existsSync(directory) ? true : null;
 const gitRepoUrlCache = new Map<string, string | null>();
 const gitCommonDirCache = new Map<string, string | null>();
 const gitTopLevelCache = new Map<string, string | null>();
@@ -31,11 +28,11 @@ const TRUSTED_GIT_PATHS = [
 ];
 let cachedGitPath: string | null | undefined;
 
-function getGitExecutable(): string | null {
+const getGitExecutable = (): string | null => {
   if (cachedGitPath !== undefined) return cachedGitPath;
   cachedGitPath = TRUSTED_GIT_PATHS.find((path) => existsSync(path)) ?? null;
   return cachedGitPath;
-}
+};
 
 export interface TagInfo {
   tag: string;
@@ -47,10 +44,10 @@ export interface TagInfo {
   gitRepoUrl?: string;
 }
 
-function execGitCommand(
+const execGitCommand = (
   args: string[],
   options: { cwd?: string; timeout?: number } = {}
-): string | null {
+): string | null => {
   const gitExecutable = getGitExecutable();
   if (!gitExecutable) return null;
 
@@ -69,7 +66,7 @@ function execGitCommand(
     log("Git command failed", { command: args.join(" "), cwd: options.cwd, error: String(err) });
     return null;
   }
-}
+};
 
 export function getGitEmail(): string | null {
   if (cachedGitEmail !== undefined) return cachedGitEmail;

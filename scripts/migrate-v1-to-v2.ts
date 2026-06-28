@@ -4,88 +4,88 @@ import { join, dirname, resolve, relative, isAbsolute } from "node:path";
 import { homedir } from "node:os";
 import { log } from "../src/services/logger.ts";
 
-const Database = getDatabase();
-type DatabaseType = typeof Database.prototype;
+void (function (): void {
+  const Database = getDatabase();
 
-interface ColumnInfo {
-  name: string;
-}
-
-interface MigrationResult {
-  databases: number;
-  columnsAdded: number;
-  memoriesUpdated: number;
-  conflictsTableCreated: number;
-  transcriptsDbCreated: boolean;
-  errors: string[];
-}
-
-/**
- * Detect if a database has the old v1 schema by checking for the absence
- * of key v2 columns (e.g., `store_type`, `strength`).
- */
-function isV1Schema(db: DatabaseType): boolean {
-  const columns = db.prepare("PRAGMA table_info(memories)").all() as ColumnInfo[];
-  const columnNames = new Set(columns.map((c) => c.name));
-  // If store_type or strength is missing, it's v1
-  return !columnNames.has("store_type") || !columnNames.has("strength");
-}
-
-/**
- * Add all v2 scoring and lifecycle columns to an existing memories table.
- * Uses safe `ALTER TABLE ADD COLUMN` with IF NOT EXISTS semantics.
- */
-function addV2Columns(db: DatabaseType): number {
-  const columns = db.prepare("PRAGMA table_info(memories)").all() as ColumnInfo[];
-  const columnNames = new Set(columns.map((c) => c.name));
-  let added = 0;
-
-  const scoringColumns = [
-    { name: "recency_score", type: "REAL DEFAULT 0.5" },
-    { name: "frequency_score", type: "REAL DEFAULT 0.0" },
-    { name: "importance_score", type: "REAL DEFAULT 0.5" },
-    { name: "utility_score", type: "REAL DEFAULT 0.3" },
-    { name: "novelty_score", type: "REAL DEFAULT 0.5" },
-    { name: "confidence_score", type: "REAL DEFAULT 0.7" },
-    { name: "interference_penalty", type: "REAL DEFAULT 0.0" },
-    { name: "strength", type: "REAL DEFAULT 0.5" },
-    { name: "access_count", type: "INTEGER DEFAULT 0" },
-    { name: "last_accessed", type: "INTEGER" },
-    { name: "store_type", type: "TEXT DEFAULT 'stm'" },
-    { name: "decay_rate", type: "REAL DEFAULT 0.05" },
-    { name: "is_deprecated", type: "INTEGER DEFAULT 0" },
-  ];
-
-  for (const col of scoringColumns) {
-    if (!columnNames.has(col.name)) {
-      try {
-        db.run(`ALTER TABLE memories ADD COLUMN ${col.name} ${col.type}`);
-        added++;
-        log(`Migration: added column ${col.name}`);
-      } catch (error) {
-        log(`Migration: failed to add column ${col.name}`, { error: String(error) });
-      }
-    }
+  interface ColumnInfo {
+    name: string;
   }
 
-  return added;
-}
+  interface MigrationResult {
+    databases: number;
+    columnsAdded: number;
+    memoriesUpdated: number;
+    conflictsTableCreated: number;
+    transcriptsDbCreated: boolean;
+    errors: string[];
+  }
 
-/**
- * Backfill default scores for all existing memories that have null/default values.
- * Calculates recency based on created_at, and assigns reasonable defaults
- * for other scores.
- */
-function backfillScores(db: DatabaseType): number {
-  let updated = 0;
+  /**
+   * Detect if a database has the old v1 schema by checking for the absence
+   * of key v2 columns (e.g., `store_type`, `strength`).
+   */
+  function isV1Schema(db: DatabaseType): boolean {
+    const columns = db.prepare("PRAGMA table_info(memories)").all() as ColumnInfo[];
+    const columnNames = new Set(columns.map((c) => c.name));
+    // If store_type or strength is missing, it's v1
+    return !columnNames.has("store_type") || !columnNames.has("strength");
+  }
 
-  try {
-    const now = Date.now();
-    const halfLifeMs = 7 * 24 * 60 * 60 * 1000; // 7 days
-    const lambda = Math.log(2) / halfLifeMs;
+  /**
+   * Add all v2 scoring and lifecycle columns to an existing memories table.
+   * Uses safe `ALTER TABLE ADD COLUMN` with IF NOT EXISTS semantics.
+   */
+  function addV2Columns(db: DatabaseType): number {
+    const columns = db.prepare("PRAGMA table_info(memories)").all() as ColumnInfo[];
+    const columnNames = new Set(columns.map((c) => c.name));
+    let added = 0;
 
-    // Backfill recency based on age
-    const recencyStmt = db.prepare(`
+    const scoringColumns = [
+      { name: "recency_score", type: "REAL DEFAULT 0.5" },
+      { name: "frequency_score", type: "REAL DEFAULT 0.0" },
+      { name: "importance_score", type: "REAL DEFAULT 0.5" },
+      { name: "utility_score", type: "REAL DEFAULT 0.3" },
+      { name: "novelty_score", type: "REAL DEFAULT 0.5" },
+      { name: "confidence_score", type: "REAL DEFAULT 0.7" },
+      { name: "interference_penalty", type: "REAL DEFAULT 0.0" },
+      { name: "strength", type: "REAL DEFAULT 0.5" },
+      { name: "access_count", type: "INTEGER DEFAULT 0" },
+      { name: "last_accessed", type: "INTEGER" },
+      { name: "store_type", type: "TEXT DEFAULT 'stm'" },
+      { name: "decay_rate", type: "REAL DEFAULT 0.05" },
+      { name: "is_deprecated", type: "INTEGER DEFAULT 0" },
+    ];
+
+    for (const col of scoringColumns) {
+      if (!columnNames.has(col.name)) {
+        try {
+          db.run(`ALTER TABLE memories ADD COLUMN ${col.name} ${col.type}`);
+          added++;
+          log(`Migration: added column ${col.name}`);
+        } catch (error) {
+          log(`Migration: failed to add column ${col.name}`, { error: String(error) });
+        }
+      }
+    }
+
+    return added;
+  }
+
+  /**
+   * Backfill default scores for all existing memories that have null/default values.
+   * Calculates recency based on created_at, and assigns reasonable defaults
+   * for other scores.
+   */
+  function backfillScores(db: DatabaseType): number {
+    let updated = 0;
+
+    try {
+      const now = Date.now();
+      const halfLifeMs = 7 * 24 * 60 * 60 * 1000; // 7 days
+      const lambda = Math.log(2) / halfLifeMs;
+
+      // Backfill recency based on age
+      const recencyStmt = db.prepare(`
       UPDATE memories
       SET recency_score = MAX(0.0, MIN(1.0, EXP(-? * (? - created_at)))),
           strength = CASE
@@ -104,11 +104,11 @@ function backfillScores(db: DatabaseType): number {
           is_deprecated = COALESCE(is_deprecated, 0)
       WHERE recency_score IS NULL OR recency_score = 0.5
     `);
-    const recencyResult = recencyStmt.run(lambda, now);
-    updated += Number(recencyResult.changes || 0);
+      const recencyResult = recencyStmt.run(lambda, now);
+      updated += Number(recencyResult.changes || 0);
 
-    // Set store_type to 'ltm' for very old, high-quality memories (heuristic)
-    const ltmStmt = db.prepare(`
+      // Set store_type to 'ltm' for very old, high-quality memories (heuristic)
+      const ltmStmt = db.prepare(`
       UPDATE memories
       SET store_type = 'ltm',
           decay_rate = 0.01
@@ -116,28 +116,28 @@ function backfillScores(db: DatabaseType): number {
         AND (access_count > 3 OR strength > 0.6)
         AND store_type = 'stm'
     `);
-    const cutoff = now - 30 * 24 * 60 * 60 * 1000; // 30 days old
-    ltmStmt.run(cutoff);
+      const cutoff = now - 30 * 24 * 60 * 60 * 1000; // 30 days old
+      ltmStmt.run(cutoff);
 
-    log("Migration: backfilled scores", { updated });
-  } catch (error) {
-    log("Migration: backfillScores error", { error: String(error) });
+      log("Migration: backfilled scores", { updated });
+    } catch (error) {
+      log("Migration: backfillScores error", { error: String(error) });
+    }
+
+    return updated;
   }
 
-  return updated;
-}
+  /**
+   * Create the memory_conflicts table if it doesn't exist.
+   */
+  function createConflictsTable(db: DatabaseType): boolean {
+    try {
+      const exists = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='memory_conflicts'")
+        .get() as { name: string } | undefined;
+      if (exists) return false;
 
-/**
- * Create the memory_conflicts table if it doesn't exist.
- */
-function createConflictsTable(db: DatabaseType): boolean {
-  try {
-    const exists = db
-      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='memory_conflicts'")
-      .get() as { name: string } | undefined;
-    if (exists) return false;
-
-    db.run(`
+      db.run(`
       CREATE TABLE memory_conflicts (
         id TEXT PRIMARY KEY,
         memory_id_1 TEXT NOT NULL,
@@ -153,30 +153,30 @@ function createConflictsTable(db: DatabaseType): boolean {
       )
     `);
 
-    db.run("CREATE INDEX idx_conflict_m1 ON memory_conflicts(memory_id_1)");
-    db.run("CREATE INDEX idx_conflict_m2 ON memory_conflicts(memory_id_2)");
-    db.run("CREATE INDEX idx_conflict_resolved ON memory_conflicts(resolved, detected_at)");
+      db.run("CREATE INDEX idx_conflict_m1 ON memory_conflicts(memory_id_1)");
+      db.run("CREATE INDEX idx_conflict_m2 ON memory_conflicts(memory_id_2)");
+      db.run("CREATE INDEX idx_conflict_resolved ON memory_conflicts(resolved, detected_at)");
 
-    log("Migration: created memory_conflicts table");
-    return true;
-  } catch (error) {
-    log("Migration: createConflictsTable error", { error: String(error) });
-    return false;
+      log("Migration: created memory_conflicts table");
+      return true;
+    } catch (error) {
+      log("Migration: createConflictsTable error", { error: String(error) });
+      return false;
+    }
   }
-}
 
-/**
- * Create the transcripts database with FTS5 support.
- */
-function createTranscriptsDb(storagePath: string): boolean {
-  try {
-    const dbPath = join(storagePath, "transcripts.db");
-    const dir = dirname(dbPath);
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  /**
+   * Create the transcripts database with FTS5 support.
+   */
+  function createTranscriptsDb(storagePath: string): boolean {
+    try {
+      const dbPath = join(storagePath, "transcripts.db");
+      const dir = dirname(dbPath);
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
-    const db = new Database(dbPath);
+      const db = new Database(dbPath);
 
-    db.run(`
+      db.run(`
       CREATE TABLE IF NOT EXISTS transcripts (
         id TEXT PRIMARY KEY,
         session_id TEXT NOT NULL,
@@ -187,18 +187,18 @@ function createTranscriptsDb(storagePath: string): boolean {
       )
     `);
 
-    db.run("CREATE INDEX IF NOT EXISTS idx_transcripts_session ON transcripts(session_id)");
-    db.run("CREATE INDEX IF NOT EXISTS idx_transcripts_created ON transcripts(created_at DESC)");
-    db.run("CREATE INDEX IF NOT EXISTS idx_transcripts_project ON transcripts(project_path)");
+      db.run("CREATE INDEX IF NOT EXISTS idx_transcripts_session ON transcripts(session_id)");
+      db.run("CREATE INDEX IF NOT EXISTS idx_transcripts_created ON transcripts(created_at DESC)");
+      db.run("CREATE INDEX IF NOT EXISTS idx_transcripts_project ON transcripts(project_path)");
 
-    db.run(`
+      db.run(`
       CREATE VIRTUAL TABLE IF NOT EXISTS transcripts_fts USING fts5(
         messages,
         content='transcripts'
       )
     `);
 
-    db.run(`
+      db.run(`
       CREATE TRIGGER IF NOT EXISTS transcripts_fts_insert 
       AFTER INSERT ON transcripts BEGIN
         INSERT INTO transcripts_fts(rowid, messages) 
@@ -206,7 +206,7 @@ function createTranscriptsDb(storagePath: string): boolean {
       END
     `);
 
-    db.run(`
+      db.run(`
       CREATE TRIGGER IF NOT EXISTS transcripts_fts_delete 
       AFTER DELETE ON transcripts BEGIN
         INSERT INTO transcripts_fts(transcripts_fts, rowid, messages) 
@@ -214,7 +214,7 @@ function createTranscriptsDb(storagePath: string): boolean {
       END
     `);
 
-    db.run(`
+      db.run(`
       CREATE TRIGGER IF NOT EXISTS transcripts_fts_update 
       AFTER UPDATE ON transcripts BEGIN
         INSERT INTO transcripts_fts(transcripts_fts, rowid, messages) 
@@ -224,21 +224,21 @@ function createTranscriptsDb(storagePath: string): boolean {
       END
     `);
 
-    db.run(`
+      db.run(`
       CREATE TRIGGER IF NOT EXISTS transcripts_fts_insert
       AFTER INSERT ON transcripts BEGIN
         INSERT INTO transcripts_fts(rowid, messages) VALUES (new.id, new.messages);
       END
     `);
 
-    db.run(`
+      db.run(`
       CREATE TRIGGER IF NOT EXISTS transcripts_fts_delete
       AFTER DELETE ON transcripts BEGIN
         INSERT INTO transcripts_fts(transcripts_fts, rowid, messages) VALUES ('delete', old.id, old.messages);
       END
     `);
 
-    db.run(`
+      db.run(`
       CREATE TRIGGER IF NOT EXISTS transcripts_fts_update
       AFTER UPDATE ON transcripts BEGIN
         INSERT INTO transcripts_fts(transcripts_fts, rowid, messages) VALUES ('delete', old.id, old.messages);
@@ -246,191 +246,194 @@ function createTranscriptsDb(storagePath: string): boolean {
       END
     `);
 
-    db.close();
-    log("Migration: created transcripts database");
-    return true;
-  } catch (error) {
-    log("Migration: createTranscriptsDb error", { error: String(error) });
-    return false;
-  }
-}
-
-/**
- * Add missing indexes for v2 performance.
- */
-function addV2Indexes(db: DatabaseType): void {
-  const indexes = [
-    "CREATE INDEX IF NOT EXISTS idx_strength ON memories(strength DESC)",
-    "CREATE INDEX IF NOT EXISTS idx_recency ON memories(recency_score DESC)",
-    "CREATE INDEX IF NOT EXISTS idx_access_count ON memories(access_count DESC)",
-    "CREATE INDEX IF NOT EXISTS idx_store_type ON memories(store_type)",
-    "CREATE INDEX IF NOT EXISTS idx_decay_strength ON memories(strength, created_at)",
-    "CREATE INDEX IF NOT EXISTS idx_is_deprecated ON memories(is_deprecated)",
-  ];
-
-  for (const idx of indexes) {
-    try {
-      db.run(idx);
+      db.close();
+      log("Migration: created transcripts database");
+      return true;
     } catch (error) {
-      log("Migration: add index failed", { index: idx, error: String(error) });
+      log("Migration: createTranscriptsDb error", { error: String(error) });
+      return false;
     }
   }
-}
 
-/**
- * Discover all shard databases in the storage path.
- */
-function discoverDatabases(storagePath: string): string[] {
-  const dbs: string[] = [];
-  if (!existsSync(storagePath)) return dbs;
+  /**
+   * Add missing indexes for v2 performance.
+   */
+  function addV2Indexes(db: DatabaseType): void {
+    const indexes = [
+      "CREATE INDEX IF NOT EXISTS idx_strength ON memories(strength DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_recency ON memories(recency_score DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_access_count ON memories(access_count DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_store_type ON memories(store_type)",
+      "CREATE INDEX IF NOT EXISTS idx_decay_strength ON memories(strength, created_at)",
+      "CREATE INDEX IF NOT EXISTS idx_is_deprecated ON memories(is_deprecated)",
+    ];
 
-  // Metadata db
-  const metaDb = join(storagePath, "metadata.db");
-  if (existsSync(metaDb)) dbs.push(metaDb);
+    for (const idx of indexes) {
+      try {
+        db.run(idx);
+      } catch (error) {
+        log("Migration: add index failed", { index: idx, error: String(error) });
+      }
+    }
+  }
 
-  // User and project shards
-  for (const subdir of ["users", "projects"]) {
-    const dir = join(storagePath, subdir);
-    if (!existsSync(dir)) continue;
+  /**
+   * Discover all shard databases in the storage path.
+   */
+  function discoverDatabases(storagePath: string): string[] {
+    const dbs: string[] = [];
+    if (!existsSync(storagePath)) return dbs;
 
-    try {
-      const entries = readdirSync(dir);
-      for (const entry of entries) {
-        const fullPath = join(dir, entry);
-        if (entry.endsWith(".db") && statSync(fullPath).isFile()) {
-          dbs.push(fullPath);
+    // Metadata db
+    const metaDb = join(storagePath, "metadata.db");
+    if (existsSync(metaDb)) dbs.push(metaDb);
+
+    // User and project shards
+    for (const subdir of ["users", "projects"]) {
+      const dir = join(storagePath, subdir);
+      if (!existsSync(dir)) continue;
+
+      try {
+        const entries = readdirSync(dir);
+        for (const entry of entries) {
+          const fullPath = join(dir, entry);
+          if (entry.endsWith(".db") && statSync(fullPath).isFile()) {
+            dbs.push(fullPath);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    return dbs;
+  }
+
+  /**
+   * Resolve and validate a storage path supplied on the CLI.
+   *
+   * Resolves relative paths against cwd, then constrains the result to the
+   * user's home directory — the legitimate base for all opencode-mem0 data.
+   * This prevents untrusted CLI args (e.g. from an LLM) from pointing the
+   * migration at arbitrary filesystem locations like `/etc` or `/var`.
+   *
+   * @param raw - Raw path from argv (may be relative or absolute).
+   * @returns Absolute, normalized path under the user's home directory.
+   * @throws Error if the resolved path escapes the home directory.
+   */
+  function resolveStoragePath(raw: string): string {
+    const resolved = resolve(raw);
+    const home = homedir();
+    const rel = relative(home, resolved);
+    if (rel.startsWith("..") || isAbsolute(rel)) {
+      throw new Error(
+        `Refusing to migrate: storage path "${raw}" resolves outside the home directory (${home})`
+      );
+    }
+    return resolved;
+  }
+  /**
+   * Main migration entry point.
+   *
+   * Usage:
+   *   bun run scripts/migrate-v1-to-v2.ts <storagePath>
+   *
+   * Detects v1 databases, adds all v2 columns and tables, backfills
+   * default scores, and creates the transcripts database.
+   */
+  function migrate(storagePath: string): MigrationResult {
+    const result: MigrationResult = {
+      databases: 0,
+      columnsAdded: 0,
+      memoriesUpdated: 0,
+      conflictsTableCreated: 0,
+      transcriptsDbCreated: false,
+      errors: [],
+    };
+
+    log("Starting v1 -> v2 migration", { storagePath });
+
+    const dbs = discoverDatabases(storagePath);
+    log(`Discovered ${dbs.length} databases`);
+
+    for (const dbPath of dbs) {
+      let db: DatabaseType | null = null;
+      try {
+        db = new Database(dbPath);
+        const hasMemories = db
+          .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='memories'")
+          .get() as { name: string } | undefined;
+
+        if (!hasMemories) {
+          db.run("PRAGMA wal_checkpoint(TRUNCATE)");
+          db.close();
+          continue;
+        }
+
+        result.databases++;
+
+        if (isV1Schema(db)) {
+          log(`Migrating v1 database: ${dbPath}`);
+          const added = addV2Columns(db);
+          result.columnsAdded += added;
+        } else {
+          // Still ensure all columns exist (idempotent)
+          const added = addV2Columns(db);
+          result.columnsAdded += added;
+        }
+
+        const updated = backfillScores(db);
+        result.memoriesUpdated += updated;
+
+        const created = createConflictsTable(db);
+        if (created) result.conflictsTableCreated++;
+
+        addV2Indexes(db);
+
+        db.run("PRAGMA wal_checkpoint(TRUNCATE)");
+      } catch (error) {
+        const msg = String(error);
+        result.errors.push(`${dbPath}: ${msg}`);
+        log("Migration: database error", { dbPath, error: msg });
+      } finally {
+        try {
+          db?.close();
+        } catch {
+          // empty
         }
       }
-    } catch {
-      // ignore
     }
+
+    result.transcriptsDbCreated = createTranscriptsDb(storagePath);
+
+    log("Migration complete", result);
+    return result;
   }
 
-  return dbs;
-}
+  const print = (msg: string): void => process.stdout.write(`${msg}\n`);
+  const printerr = (msg: string): void => process.stderr.write(`${msg}\n`);
 
-/**
- * Resolve and validate a storage path supplied on the CLI.
- *
- * Resolves relative paths against cwd, then constrains the result to the
- * user's home directory — the legitimate base for all opencode-mem0 data.
- * This prevents untrusted CLI args (e.g. from an LLM) from pointing the
- * migration at arbitrary filesystem locations like `/etc` or `/var`.
- *
- * @param raw - Raw path from argv (may be relative or absolute).
- * @returns Absolute, normalized path under the user's home directory.
- * @throws Error if the resolved path escapes the home directory.
- */
-function resolveStoragePath(raw: string): string {
-  const resolved = resolve(raw);
-  const home = homedir();
-  const rel = relative(home, resolved);
-  if (rel.startsWith("..") || isAbsolute(rel)) {
-    throw new Error(
-      `Refusing to migrate: storage path "${raw}" resolves outside the home directory (${home})`
+  // CLI entry point
+  const rawStoragePath = process.argv[2] || join(homedir(), ".opencode-mem", "data");
+  try {
+    const storagePath = resolveStoragePath(rawStoragePath);
+    const result = migrate(storagePath);
+    print("\n=== Migration Results ===");
+    print(`Databases processed:     ${result.databases}`);
+    print(`Columns added:           ${result.columnsAdded}`);
+    print(`Memories backfilled:     ${result.memoriesUpdated}`);
+    print(`Conflicts tables created: ${result.conflictsTableCreated}`);
+    print(
+      `Transcripts DB created:   ${result.transcriptsDbCreated ? "yes" : "no (already exists)"}`
     );
-  }
-  return resolved;
-}
-/**
- * Main migration entry point.
- *
- * Usage:
- *   bun run scripts/migrate-v1-to-v2.ts <storagePath>
- *
- * Detects v1 databases, adds all v2 columns and tables, backfills
- * default scores, and creates the transcripts database.
- */
-function migrate(storagePath: string): MigrationResult {
-  const result: MigrationResult = {
-    databases: 0,
-    columnsAdded: 0,
-    memoriesUpdated: 0,
-    conflictsTableCreated: 0,
-    transcriptsDbCreated: false,
-    errors: [],
-  };
-
-  log("Starting v1 -> v2 migration", { storagePath });
-
-  const dbs = discoverDatabases(storagePath);
-  log(`Discovered ${dbs.length} databases`);
-
-  for (const dbPath of dbs) {
-    let db: DatabaseType | null = null;
-    try {
-      db = new Database(dbPath);
-      const hasMemories = db
-        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='memories'")
-        .get() as { name: string } | undefined;
-
-      if (!hasMemories) {
-        db.run("PRAGMA wal_checkpoint(TRUNCATE)");
-        db.close();
-        continue;
-      }
-
-      result.databases++;
-
-      if (isV1Schema(db)) {
-        log(`Migrating v1 database: ${dbPath}`);
-        const added = addV2Columns(db);
-        result.columnsAdded += added;
-      } else {
-        // Still ensure all columns exist (idempotent)
-        const added = addV2Columns(db);
-        result.columnsAdded += added;
-      }
-
-      const updated = backfillScores(db);
-      result.memoriesUpdated += updated;
-
-      const created = createConflictsTable(db);
-      if (created) result.conflictsTableCreated++;
-
-      addV2Indexes(db);
-
-      db.run("PRAGMA wal_checkpoint(TRUNCATE)");
-    } catch (error) {
-      const msg = String(error);
-      result.errors.push(`${dbPath}: ${msg}`);
-      log("Migration: database error", { dbPath, error: msg });
-    } finally {
-      try {
-        db?.close();
-      } catch {
-        // empty
-      }
+    if (result.errors.length > 0) {
+      print(`\nErrors (${result.errors.length}):`);
+      result.errors.forEach((e) => print(`  - ${e}`));
+      process.exit(1);
     }
-  }
-
-  result.transcriptsDbCreated = createTranscriptsDb(storagePath);
-
-  log("Migration complete", result);
-  return result;
-}
-
-const print = (msg: string): void => process.stdout.write(`${msg}\n`);
-const printerr = (msg: string): void => process.stderr.write(`${msg}\n`);
-
-// CLI entry point
-const rawStoragePath = process.argv[2] || join(homedir(), ".opencode-mem", "data");
-try {
-  const storagePath = resolveStoragePath(rawStoragePath);
-  const result = migrate(storagePath);
-  print("\n=== Migration Results ===");
-  print(`Databases processed:     ${result.databases}`);
-  print(`Columns added:           ${result.columnsAdded}`);
-  print(`Memories backfilled:     ${result.memoriesUpdated}`);
-  print(`Conflicts tables created: ${result.conflictsTableCreated}`);
-  print(`Transcripts DB created:   ${result.transcriptsDbCreated ? "yes" : "no (already exists)"}`);
-  if (result.errors.length > 0) {
-    print(`\nErrors (${result.errors.length}):`);
-    result.errors.forEach((e) => print(`  - ${e}`));
+    print("\nMigration completed successfully!");
+  } catch (error) {
+    printerr(`Migration failed: ${String(error)}`);
     process.exit(1);
   }
-  print("\nMigration completed successfully!");
-} catch (error) {
-  printerr(`Migration failed: ${String(error)}`);
-  process.exit(1);
-}
+})();
