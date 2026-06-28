@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.17.0] - 2026-06-28
+
+### Added
+
+- **`file://~/` path expansion in `*ApiKey` config fields** — `file://` references with `~` (home directory) now work on Linux. Previously `new URL()` parsed `~` as the URL host and threw. `~` is now expanded before URL parsing. ([#34](https://github.com/ZeR020/opencode-mem0/issues/34))
+- **`initConfig()` empty-config guard** — When both global and project config sources return empty (transient I/O failure, file lock, race condition), the existing CONFIG singleton is preserved instead of being silently overwritten with hardcoded defaults. ([#35](https://github.com/ZeR020/opencode-mem0/issues/35), [#36](https://github.com/ZeR020/opencode-mem0/pull/36))
+
+### Fixed
+
+- **`initConfig()` silent CONFIG reset** — `buildConfig({})` was called with an empty object when config files were transiently inaccessible, resetting all user-configured values (embedding model, dimensions, API endpoint) to defaults. The guard preserves the existing CONFIG from module-level initialization. ([#35](https://github.com/ZeR020/opencode-mem0/issues/35))
+- **`file://~/` throws on Linux** — `secret-resolver.ts` called `new URL(value)` before expanding `~`, causing `fileURLToPath` to throw "File URL host must be localhost or empty". ([#34](https://github.com/ZeR020/opencode-mem0/issues/34))
+- **Vitest critical CVE (GHSA-5xrq-8626-4rwp)** — Updated `vitest` and `@vitest/coverage-v8` to 3.2.6, fixing arbitrary file read/execute via Vitest UI server. Dev-only dependency, not shipped to users.
+
+### Removed
+
+- **NSW vector backend** — `NSWBackend` (`nsw-backend.ts`, 321 lines) was production-unreachable: the `VectorBackendConfig` enum (`config.ts`) only allows `usearch-first`/`usearch`/`exact-scan`, so `nsw`/`nsw-first` were factory-only dead branches. Removed `NSWBackend`, the `nsw`/`nsw-first` factory branches, the `createNSWBackend` injection seam, and `cosineDistance` (only NSW caller). ([audit](https://github.com/ZeR020/opencode-mem0/commit/bfd1ce4))
+- **`supportsSession()` abstract method** — Removed from `BaseAIProvider` and all 4 provider overrides. Every implementation returned `true` and no code branched on the result. ([commit ffb55d7](https://github.com/ZeR020/opencode-mem0/commit/ffb55d7))
+- **`profile-utils.ts`** — Deleted dead code (`safeArray`/`safeObject` exports with zero importers; `user-profile-manager.ts` has its own local `safeArray`). ([commit ffb55d7](https://github.com/ZeR020/opencode-mem0/commit/ffb55d7))
+- **`aiSessionManager` backward-compatible Proxy export** — Removed redundant singleton surface from `ai-session-manager.ts`. All consumers use `getAISessionManager()` via constructor injection. ([commit bfd1ce4](https://github.com/ZeR020/opencode-mem0/commit/bfd1ce4))
+- **`getSupportedProviders()` on `AIProviderFactory`** — Removed zero-caller method. ([commit bfd1ce4](https://github.com/ZeR020/opencode-mem0/commit/bfd1ce4))
+- **`startCleanupSchedule`/`stopCleanupSchedule` static methods on `AIProviderFactory`** — Inlined as `setInterval`/`clearInterval` in `index.ts`. The factory is a provider factory, not a session-GC owner. ([commit bfd1ce4](https://github.com/ZeR020/opencode-mem0/commit/bfd1ce4))
+- **`ConflictCheckLock` class** — Inlined as a module-level `Set<string>` (single consumer in `detectConflicts`). ([commit bfd1ce4](https://github.com/ZeR020/opencode-mem0/commit/bfd1ce4))
+
+### Changed
+
+- **`iso-639-3` full dataset replaced with `Intl.DisplayNames`** — Language name lookup now uses the native `Intl.DisplayNames` API instead of importing the full ~9000-entry `iso-639-3` dataset. `franc-min` and `iso6393To1` (3→1 code mapping) are retained. ([commit bfd1ce4](https://github.com/ZeR020/opencode-mem0/commit/bfd1ce4))
+- **Dynamic imports converted to static** — `auto-capture.ts` (`detectTargetLanguage` was async solely for `await import`) and `handlers/memory.ts` (`safeJSONParse`, `userPromptManager`) now use static imports, removing unnecessary async overhead. ([commit ffb55d7](https://github.com/ZeR020/opencode-mem0/commit/ffb55d7))
+- **`.gitignore` reorganized** — 280-line catch-all replaced with 73-line categorized file. ([commit ffb55d7](https://github.com/ZeR020/opencode-mem0/commit/ffb55d7))
+- **localStorage API key storage** — Added comment documenting the accepted security tradeoff (cleartext in localStorage is safe for localhost-only server at `127.0.0.1:4747`; escalate to encrypted storage if server ever binds non-local). ([code scanning alert #7](https://github.com/ZeR020/opencode-mem0/security/code-scanning/7))
+
+### Closed
+
+- [#34](https://github.com/ZeR020/opencode-mem0/issues/34) — Support `file://` with `~` expansion in `*ApiKey` config fields
+- [#35](https://github.com/ZeR020/opencode-mem0/issues/35) — `initConfig()` silently resets CONFIG to defaults when global config file is transiently inaccessible
+- [#36](https://github.com/ZeR020/opencode-mem0/pull/36) — Guard `initConfig` against silent config reset on empty file load (approach applied directly)
+- [#37](https://github.com/ZeR020/opencode-mem0/pull/37) — Preserve global config during transient init misses (closed, over-engineered)
+
 ## [2.15.1] - 2026-05-07
 
 ### Security & Reliability

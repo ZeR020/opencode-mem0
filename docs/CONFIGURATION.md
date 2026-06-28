@@ -52,11 +52,11 @@ Project-level config is **deep-merged** on top of global config, so you only nee
 
 API key fields (`embeddingApiKey`, `memoryApiKey`) support three value formats:
 
-| Format           | Example                         | Behavior                                                                                                                                                     |
-| ---------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Plain string     | `"sk-abc123"`                   | Used directly                                                                                                                                                |
-| `env://` prefix  | `"env://OPENAI_API_KEY"`        | Reads the named environment variable at startup. Throws if the variable is not set.                                                                          |
-| `file://` prefix | `"file:///run/secrets/api_key"` | Reads the file contents (trimmed). Checks permissions and warns if group/other readable. Throws if the file doesn't exist or contains path traversal (`..`). |
+| Format           | Example                                                              | Behavior                                                                                                                                                                                  |
+| ---------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plain string     | `"sk-abc123"`                                                        | Used directly                                                                                                                                                                             |
+| `env://` prefix  | `"env://OPENAI_API_KEY"`                                             | Reads the named environment variable at startup. Throws if the variable is not set.                                                                                                       |
+| `file://` prefix | `"file:///run/secrets/api_key"` or `"file://~/.config/opencode/key"` | Reads the file contents (trimmed). Supports `~` home expansion. Checks permissions and warns if group/other readable. Throws if the file doesn't exist or contains path traversal (`..`). |
 
 ## Core Settings
 
