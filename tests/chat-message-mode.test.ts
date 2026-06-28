@@ -83,12 +83,8 @@ vi.mock("../src/services/memory-lifecycle.js", () => ({
   runLifecycleMaintenance: vi.fn().mockResolvedValue(undefined), // skipcq: JS-W1042
 }));
 
-vi.mock("../src/services/ai/ai-provider-factory.js", () => ({
-  AIProviderFactory: {
-    getProvider: vi.fn(),
-    startCleanupSchedule: vi.fn(),
-    stopCleanupSchedule: vi.fn(),
-  },
+vi.mock("../src/services/ai/session/ai-session-manager.js", () => ({
+  getAISessionManager: () => ({ cleanupExpiredSessions: () => 0 }),
 }));
 
 vi.mock("../src/services/embedding.js", () => ({

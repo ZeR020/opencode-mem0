@@ -30,10 +30,6 @@ export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
   return dot / (Math.sqrt(magA) * Math.sqrt(magB));
 }
 
-export function cosineDistance(a: Float32Array, b: Float32Array): number {
-  return 1 - cosineSimilarity(a, b);
-}
-
 export function getIndexKey(shard: ShardInfo, kind: VectorKind): string {
   return `${shard.scope}_${shard.scopeHash}_${shard.shardIndex}_${kind}`;
 }

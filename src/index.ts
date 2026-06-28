@@ -22,7 +22,7 @@ import {
   stopLifecycleJob,
   runLifecycleMaintenance,
 } from "./services/memory-lifecycle.js";
-import { AIProviderFactory } from "./services/ai/ai-provider-factory.js";
+import { getAISessionManager } from "./services/ai/session/ai-session-manager.js";
 import { embeddingService } from "./services/embedding.js";
 
 import { isConfigured, CONFIG, initConfig } from "./config.js";
@@ -250,8 +250,11 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
     log("Initial lifecycle maintenance failed", { error: String(error) });
   });
 
-  // Start cleanup schedule for expired sessions
-  AIProviderFactory.startCleanupSchedule(3600 * 1000);
+  // ponytail: module-level interval, cleared on shutdown. Per-provider schedule if isolation matters.
+  const sessionCleanupTimer = setInterval(
+    () => getAISessionManager().cleanupExpiredSessions(),
+    3600 * 1000
+  );
 
   const shutdownHandler = async () => {
     delete (globalThis as any)[Symbol.for("opencode-mem0.shutdown")];
@@ -259,7 +262,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
       clearInterval(sessionIdleSweep);
       stopScoringRecalculation();
       stopLifecycleJob();
-      AIProviderFactory.stopCleanupSchedule();
+      clearInterval(sessionCleanupTimer);
       if (webServer) {
         webServer.stop();
       }

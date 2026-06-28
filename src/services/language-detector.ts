@@ -1,8 +1,5 @@
 import { franc } from "franc-min";
-import { iso6393, iso6393To1 } from "iso-639-3";
-import { log } from "./logger.js";
-
-type ISO6393Entry = { iso6391?: string; iso6393: string; name: string };
+import { iso6393To1 } from "iso-639-3";
 
 const FALLBACK_MAP: Record<string, string> = {
   cmn: "zh",
@@ -11,15 +8,9 @@ const FALLBACK_MAP: Record<string, string> = {
   hbs: "sr",
 };
 
-const nameByCode1 = new Map<string, string>();
-const nameByCode3 = new Map<string, string>();
-for (const entry of iso6393 as ISO6393Entry[]) {
-  if (entry.iso6391) nameByCode1.set(entry.iso6391, entry.name);
-  if (nameByCode3.has(entry.iso6393)) {
-    log("warn", `Duplicate ISO 639-3 code: ${entry.iso6393}`);
-  }
-  nameByCode3.set(entry.iso6393, entry.name);
-}
+// ponytail: Intl.DisplayNames replaces the full iso-639-3 dataset (~9000 entries).
+// Accepts both ISO 639-1 (2-letter) and 639-3 (3-letter) codes natively.
+const displayNames = new Intl.DisplayNames(["en"], { type: "language", fallback: "code" });
 
 export function detectLanguage(text: string): string {
   if (!text || !text.trim()) return "en";
@@ -29,5 +20,12 @@ export function detectLanguage(text: string): string {
 }
 
 export function getLanguageName(code: string): string {
-  return nameByCode1.get(code) ?? nameByCode3.get(code) ?? "English";
+  if (!code) return "English";
+  try {
+    const name = displayNames.of(code);
+    // Unknown codes fall back to themselves with fallback:'code'; map to English.
+    return name && name !== code ? name : "English";
+  } catch {
+    return "English";
+  }
 }

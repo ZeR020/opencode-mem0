@@ -14,21 +14,8 @@ import type { MemoryConflict } from "./sqlite/types.js";
 import { NEGATION_PATTERNS, getWordSet } from "./utils/text-analysis.js";
 import { mapDbRowToConflict } from "./utils/memory-mapper.js";
 
-class ConflictCheckLock {
-  private running = new Set<string>();
-
-  acquire(key: string): boolean {
-    if (this.running.has(key)) return false;
-    this.running.add(key);
-    return true;
-  }
-
-  release(key: string): void {
-    this.running.delete(key);
-  }
-}
-
-const conflictCheckLock = new ConflictCheckLock();
+// ponytail: module-level Set, single consumer in detectConflicts. Per-key locks if contention matters.
+const conflictChecksRunning = new Set<string>();
 
 /**
  * Check if two memory statements contradict each other using an LLM.
@@ -166,20 +153,20 @@ export async function detectConflicts(
   sessionID?: string
 ): Promise<MemoryConflict[]> {
   const lockKey = `${newMemoryId}:${containerTag}`;
-  if (!conflictCheckLock.acquire(lockKey)) {
+  if (conflictChecksRunning.has(lockKey)) {
     log("detectConflicts: skipping, another check is running", {
       memoryId: newMemoryId,
       containerTag,
     });
     return [];
   }
+  conflictChecksRunning.add(lockKey);
 
   try {
     const { scope, hash } = extractScopeFromContainerTag(containerTag);
     const shards = shardManager.getAllShards(scope, hash);
 
     if (shards.length === 0) return [];
-
     const conflicts: MemoryConflict[] = [];
 
     for (const shard of shards) {
@@ -240,7 +227,7 @@ export async function detectConflicts(
     log("detectConflicts: error", { error: String(error) });
     return [];
   } finally {
-    conflictCheckLock.release(lockKey);
+    conflictChecksRunning.delete(lockKey);
   }
 }
 

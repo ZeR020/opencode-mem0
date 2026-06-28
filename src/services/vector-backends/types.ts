@@ -40,8 +40,7 @@ export interface VectorBackend {
 }
 
 export interface VectorBackendFactoryOptions {
-  vectorBackend: "nsw-first" | "nsw" | "usearch-first" | "usearch" | "exact-scan";
+  vectorBackend: "usearch-first" | "usearch" | "exact-scan";
   probeUSearch?: () => Promise<boolean>;
   createUSearchBackend?: () => VectorBackend;
-  createNSWBackend?: () => VectorBackend;
 }

@@ -300,12 +300,3 @@ let _aiSessionManager: AISessionManager | null = null;
 export function getAISessionManager(): AISessionManager {
   return (_aiSessionManager ??= new AISessionManager());
 }
-
-// Backward-compatible named export (lazy — no side effects at import time)
-export const aiSessionManager: AISessionManager = new Proxy({} as AISessionManager, {
-  get(_target, prop: string) {
-    const manager = getAISessionManager();
-    const value = (manager as any)[prop];
-    return typeof value === "function" ? value.bind(manager) : value;
-  },
-});

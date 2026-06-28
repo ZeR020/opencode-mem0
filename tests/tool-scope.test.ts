@@ -38,7 +38,6 @@ vi.mock("../src/services/ai/session/ai-session-manager.js", () => ({
     updateSession: vi.fn(),
     cleanupExpiredSessions: vi.fn(() => 0),
   })),
-  aiSessionManager: {},
 }));
 
 vi.mock("../src/config.js", () => ({

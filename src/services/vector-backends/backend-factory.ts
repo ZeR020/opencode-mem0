@@ -24,7 +24,7 @@ class FallbackAwareBackend implements VectorBackend {
   private lastErrorTime = 0;
 
   constructor(
-    private readonly strategy: "usearch-first" | "usearch" | "nsw-first" | "nsw",
+    private readonly strategy: "usearch-first" | "usearch",
     private readonly primary: VectorBackend,
     private readonly fallback: VectorBackend
   ) {
@@ -148,38 +148,10 @@ export async function createVectorBackend(
     return exactScanBackend;
   }
 
-  const isNSW = options.vectorBackend === "nsw" || options.vectorBackend === "nsw-first";
-  const isUSearch =
-    options.vectorBackend === "usearch" || options.vectorBackend === "usearch-first";
-
-  if (isNSW) {
-    try {
-      const nswBackend =
-        options.createNSWBackend?.() ??
-        new (await import("./nsw-backend.js")).NSWBackend({
-          dimensions: CONFIG.embeddingDimensions,
-        });
-
-      if (options.vectorBackend === "nsw-first") {
-        return new FallbackAwareBackend(options.vectorBackend, nswBackend, exactScanBackend);
-      }
-      return nswBackend;
-    } catch (error) {
-      logDegradation(
-        options.vectorBackend,
-        options.vectorBackend === "nsw" ? "warning" : "info",
-        "create",
-        error
-      );
-      return exactScanBackend;
-    }
-  }
-
+  // Only usearch strategies reach here; isUSearch is always true.
   const probeUSearch = options.probeUSearch ?? defaultUSearchProbe;
   if (!(await probeUSearch())) {
-    if (isUSearch) {
-      logDegradation(options.vectorBackend, "warning", "probe", "USearch unavailable");
-    }
+    logDegradation(options.vectorBackend, "warning", "probe", "USearch unavailable");
     return exactScanBackend;
   }
 
@@ -193,7 +165,7 @@ export async function createVectorBackend(
 
     return new FallbackAwareBackend(options.vectorBackend, usearchBackend, exactScanBackend);
   } catch (error) {
-    logDegradation(options.vectorBackend, isUSearch ? "warning" : "info", "create", error);
+    logDegradation(options.vectorBackend, "warning", "create", error);
     return exactScanBackend;
   }
 }

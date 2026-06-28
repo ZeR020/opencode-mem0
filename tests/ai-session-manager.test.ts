@@ -249,23 +249,6 @@ describe("AISessionManager", () => {
     expect(messages[0].contentBlocks![0].type).toBe("text");
   });
 
-  it("provides backward-compatible exports", async () => {
-    const { manager } = await makeSessionManager();
-    manager.createSession({
-      sessionId: "sess-13",
-      provider: "openai-chat",
-    });
-
-    const { aiSessionManager } = await import("../src/services/ai/session/ai-session-manager.js");
-    expect(typeof aiSessionManager.createSession).toBe("function");
-    expect(typeof aiSessionManager.getSession).toBe("function");
-    expect(typeof aiSessionManager.addMessage).toBe("function");
-    expect(typeof aiSessionManager.getMessages).toBe("function");
-    expect(typeof aiSessionManager.updateSession).toBe("function");
-    expect(typeof aiSessionManager.cleanupExpiredSessions).toBe("function");
-    expect(typeof aiSessionManager.getLastSequence).toBe("function");
-  });
-
   it("accepts dbPath option to use :memory: SQLite", async () => {
     const { AISessionManager } = await import("../src/services/ai/session/ai-session-manager.js");
     const manager = new AISessionManager({ dbPath: ":memory:" });

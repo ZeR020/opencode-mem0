@@ -19,34 +19,15 @@ const PROVIDERS: Record<AIProviderType, ProviderCtor> = {
 };
 
 export class AIProviderFactory {
-  private static cleanupTimer: NodeJS.Timeout | null = null;
   private static sessionManager: AISessionManager | null = null;
 
   private static getSessionManager(): AISessionManager {
     return (this.sessionManager ??= getAISessionManager());
   }
 
-  static startCleanupSchedule(intervalMs: number = 1000 * 60 * 60) {
-    if (this.cleanupTimer) clearInterval(this.cleanupTimer);
-    this.cleanupTimer = setInterval(() => this.cleanupExpiredSessions(), intervalMs);
-  }
-
-  static stopCleanupSchedule() {
-    if (this.cleanupTimer) clearInterval(this.cleanupTimer);
-    this.cleanupTimer = null;
-  }
-
   static createProvider(providerType: AIProviderType, config: ProviderConfig): BaseAIProvider {
     const Ctor = PROVIDERS[providerType];
     if (!Ctor) throw new Error(`Unknown provider type: ${providerType}`);
     return new Ctor(config, this.getSessionManager());
-  }
-
-  static getSupportedProviders(): AIProviderType[] {
-    return Object.keys(PROVIDERS) as AIProviderType[];
-  }
-
-  static cleanupExpiredSessions(): number {
-    return getAISessionManager().cleanupExpiredSessions();
   }
 }
