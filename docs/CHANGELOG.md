@@ -11,10 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Path traversal in `migrate-v1-to-v2.ts`** — CLI storage path is now resolved to absolute and constrained to the user's home directory, rejecting `..` traversal and out-of-home escape attempts from untrusted CLI args (SonarCloud `tssecurity:S8707`). An LLM passing a malicious `--storagePath` can no longer point the migration at arbitrary filesystem locations like `/etc` or `/var`.
 - **Ambient `PATH` dependency in `tags.ts`** — Git executable is now resolved from a fixed list of trusted, unwriteable locations only (`/usr/bin/git`, `/bin/git`, `/usr/local/bin/git`, `/opt/homebrew/bin/git`, `/usr/local/git/bin/git`). Removed the `which git` ambient-PATH lookup that could resolve a writable-directory binary (SonarCloud `typescript:S4036`). Added `/opt/homebrew/bin/git` for Apple Silicon.
+- **SonarCloud fails on Dependabot PRs** — SonarCloud workflow now skips fork PRs from Dependabot (`if: !startsWith(github.head_ref, 'dependabot/')`). `SONAR_TOKEN` is unavailable to fork PRs, causing "Not authorized" failures on all Dependabot PRs. ([#45](https://github.com/ZeR020/opencode-mem0/pull/45))
 
 ### Changed
 
-- **SonarCloud Quality Gate: coverage lifted to ≥80%** — Added `tests/memory-lifecycle.test.ts` (17 tests covering `promoteToLTM`, `scanAndPromote`, `getArchivedCount`, `runLifecycleMaintenance`, `LifecycleManager` timer/skip logic) and extended `tests/api-handlers.test.ts`, `tests/deduplication-service.test.ts`, and `tests/auto-capture.test.ts` with branch coverage for `handleEmbeddingCacheStats`, `handleApiStatus`, `detectAndRemoveDuplicates` success/oversized-shard paths, `generateSummary` branching, and `getLatestProjectMemory` truncation. New-code coverage projected from 77.3% to ~80.2%.
+- **SonarCloud Quality Gate: coverage lifted to ≥80%** — Added `tests/memory-lifecycle.test.ts` (17 tests) and extended `tests/api-handlers.test.ts`, `tests/deduplication-service.test.ts`, `tests/auto-capture.test.ts`, `tests/secret-resolver.test.ts`, and `tests/logger.test.ts` with branch coverage. New-code coverage projected from 77.3% to ~80.2%.
+- **CI `bun audit` is non-blocking** — `continue-on-error: true` added so dev-only vulnerabilities (vite, esbuild, protobufjs) don't gate CI. ([#45](https://github.com/ZeR020/opencode-mem0/pull/45))
+- **CodeRabbit removed** — `.coderabbit.yaml` deleted, no longer running automated reviews. ([#45](https://github.com/ZeR020/opencode-mem0/pull/45))
+- **DeepSource config cleaned** — Removed unnecessary `react` plugin (no React in project). ([#44](https://github.com/ZeR020/opencode-mem0/pull/44))
+- **SonarCloud pre-push warning less alarming** — Changed from red ❌ to yellow ℹ️ (already non-blocking, exit 0). ([#44](https://github.com/ZeR020/opencode-mem0/pull/44))
+- **Screenshots moved to `docs/assets/`** — Banner and screenshot PNGs moved from `.github/` to `docs/assets/`. ([#44](https://github.com/ZeR020/opencode-mem0/pull/44))
+- **`.gitattributes` cleaned** — Removed dead `graphify-out/` rules, added `dist/`, `coverage/`, `*.lock` as linguist-generated. ([#44](https://github.com/ZeR020/opencode-mem0/pull/44))
+- **Dependabot limited to minor/patch** — Major bumps (TypeScript 6, @ai-sdk/openai 4, @vitest/coverage-v8 4) break types/APIs and require manual migration. ([#45](https://github.com/ZeR020/opencode-mem0/pull/45))
+- **Release workflow uses CHANGELOG.md** — GitHub release body is now extracted from `docs/CHANGELOG.md` instead of auto-generated notes. ([#38](https://github.com/ZeR020/opencode-mem0/pull/38))
+- **CONTRIBUTING.md updated** — Added Release Process, Contributor Credits, and Version Numbering sections. Backfilled changelog entries for v2.16.0, v2.16.1, v2.16.2.
+- **6 backfilled GitHub release notes** — v2.14.0, v2.14.4, v2.14.5, v2.16, v2.16.1, v2.16.2 now have structured content. 3 orphaned draft releases (v2.14.0/2/3) deleted.
+
+### Removed
+
+- **CodeRabbit** — `.coderabbit.yaml` deleted. Not needed for this repo. ([#45](https://github.com/ZeR020/opencode-mem0/pull/45))
+
+### Dependencies
+
+- `ai` bumped from 6.0.214 to 7.0.4 ([#42](https://github.com/ZeR020/opencode-mem0/pull/42))
+- `lint-staged` bumped from 16.4.0 to 17.0.8 ([#40](https://github.com/ZeR020/opencode-mem0/pull/40))
+- `vitest` and `@vitest/coverage-v8` updated to 3.2.6 (fixes critical CVE GHSA-5xrq-8626-4rwp)
 
 ## [2.17.0] - 2026-06-28
 

@@ -167,7 +167,7 @@ Releases are automated via GitHub Actions (`.github/workflows/release.yml`), tri
 
 ### How releases are prepared
 
-1. All changes are delivered via PRs to `main` (no direct commits)
+1. The maintainer commits changes directly to `main` (solo developer, direct push)
 2. The maintainer bumps the version in `package.json` and writes a changelog entry in `docs/CHANGELOG.md`
 3. The changelog entry includes: **Added**, **Fixed**, **Removed**, **Changed**, **Closed** sections, and a **Contributors** section crediting community contributors by GitHub username
 4. A `vX.Y.Z` tag is pushed, which triggers the release workflow
