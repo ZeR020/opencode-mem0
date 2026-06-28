@@ -48,8 +48,8 @@ if [ "$STATUS" = "OK" ]; then
   exit 0
 fi
 
-# Gate is ERROR — show failing conditions
-echo -e "${RED}  ❌ SonarCloud Quality Gate: FAIL${NC}"
+# Gate is ERROR — show failing conditions as informational (non-blocking)
+echo -e "${YELLOW}  ℹ️  SonarCloud Quality Gate: FAIL (non-blocking — does not prevent push)${NC}"
 echo ""
 echo "  Failing conditions:"
 
@@ -66,13 +66,12 @@ for c in conditions:
         if 'rating' in mk:
             actual = rating_map.get(actual, actual)
             thresh = rating_map.get(thresh, thresh)
-            print(f'    ❌ {mk}: {actual} (threshold: {thresh})')
+            print(f'    • {mk}: {actual} (threshold: {thresh})')
         else:
-            print(f'    ❌ {mk}: {actual}% (threshold: {thresh}%)')
+            print(f'    • {mk}: {actual}% (threshold: {thresh}%)')
 " 2>/dev/null
 
 echo ""
-echo -e "${YELLOW}  Fix the failing conditions before pushing to avoid gate failures.${NC}"
 echo "  Dashboard: https://sonarcloud.io/dashboard?id=${PROJECT_KEY}&branch=${BRANCH}"
 
 # Non-blocking: warn but don't prevent the push
