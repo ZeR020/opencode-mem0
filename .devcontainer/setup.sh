@@ -22,9 +22,9 @@ echo "→ Installing opencode..."
 npm install -g opencode-ai
 # npm global bin is already on PATH for node-baked-in images; no extra PATH needed
 
-# Persist bun PATH for login shells (.profile) — the bun installer only writes .bashrc.
-# opencode is via npm global, already on PATH for node-baked-in images.
-grep -qxF 'export PATH="$HOME/.bun/bin:$PATH"' "$HOME/.profile" 2>/dev/null || echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$HOME/.profile"
+# Symlink bun into /usr/local/bin so non-login shells (OMP ssh tool, postCreateCommand) find it
+# without needing a PATH export. .bashrc already has the bun PATH for interactive shells.
+sudo ln -sf "$BUN_INSTALL/bin/bun" /usr/local/bin/bun
 
 # --- project deps + build ---
 cd /workspaces/opencode-mem0
