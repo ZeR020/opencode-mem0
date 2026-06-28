@@ -6,8 +6,10 @@
 
 set -e
 
-echo "🔍 Running pre-push DeepSource checks..."
+echo "🔍 Running pre-push checks..."
 
 bash scripts/lint-deepsource.sh
+
+bash scripts/check-sonarcloud-gate.sh
 
 echo "✅ Pre-push checks passed — pushing..."

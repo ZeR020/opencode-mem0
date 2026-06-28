@@ -107,6 +107,66 @@ else
   echo -e "${GREEN}  ✓ No unannotated any types${NC}"
 fi
 
+
+# 9. Check for top-level function declarations (JS-0067)
+# DeepSource flags function declarations at module top-level as "global scope".
+# In ESM modules this is a false positive, but DeepSource blocks on it.
+# Only check files modified in the current commit (DeepSource only blocks on changed files).
+echo "9️⃣  Checking for top-level function declarations in changed files (JS-0067)..."
+CHANGED_TS=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep '\.ts$' | grep -v 'tests/' | grep -v '\.test\.ts$' || true)
+# Also check unstaged changes if no staged files (running pre-push after commit)
+if [ -z "$CHANGED_TS" ]; then
+  CHANGED_TS=$(git diff --name-only HEAD~1 --diff-filter=ACM 2>/dev/null | grep '\.ts$' | grep -v 'tests/' | grep -v '\.test\.ts$' || true)
+fi
+JS0067_FOUND=0
+for file in $CHANGED_TS; do
+  if [ -f "$file" ]; then
+    # Skip files wrapped in an IIFE (DeepSource JS-0067 accepts IIFE wrapping)
+    if rg -q '^\s*(void\s+)?\(function' "$file" 2>/dev/null; then
+      continue
+    fi
+    # Find function declarations at column 0 (top-level, not nested)
+    GLOBAL_FUNCS=$(rg -n '^function \w+' "$file" 2>/dev/null || true)
+    if [ -n "$GLOBAL_FUNCS" ]; then
+      echo -e "${YELLOW}  ⚠️  JS-0067 in $file:${NC}"
+      echo "$GLOBAL_FUNCS" | head -5
+      JS0067_FOUND=1
+    fi
+  fi
+done
+if [ $JS0067_FOUND -eq 0 ]; then
+  echo -e "${GREEN}  ✓ No top-level function declarations in changed files${NC}"
+else
+  echo -e "${YELLOW}  ⚠️  Top-level function declarations found (DeepSource JS-0067)${NC}"
+  echo "   Convert to const arrow functions or wrap in IIFE."
+  # Warning only - scripts/ is excluded in .deepsource.toml
+fi
+
+# 10. Check cyclomatic complexity (JS-R1005)
+# DeepSource flags functions with cyclomatic complexity > 10 as "medium" risk.
+echo "🔟  Checking for high cyclomatic complexity in changed files (JS-R1005)..."
+JSR1005_FOUND=0
+for file in $CHANGED_TS; do
+  if [ -f "$file" ]; then
+    # Heuristic: count if/else/for/while/switch/case/&&/||/?. per function
+    # A simpler proxy: functions longer than 50 lines with many branches
+    COMPLEX_FUNCS=$(rg -n '(if |else |for |while |switch |case |&&|\|\||\?\.)' "$file" 2>/dev/null | wc -l || true)
+    FUNC_COUNT=$(rg -c '(function |=>)' "$file" 2>/dev/null || echo "1")
+    if [ "$FUNC_COUNT" -gt 0 ] && [ "$COMPLEX_FUNCS" -gt 0 ]; then
+      AVG=$((COMPLEX_FUNCS / FUNC_COUNT))
+      if [ "$AVG" -gt 10 ]; then
+        echo -e "${YELLOW}  ⚠️  JS-R1005 in $file: ~$AVG branches/function${NC}"
+        JSR1005_FOUND=1
+      fi
+    fi
+  fi
+done
+if [ $JSR1005_FOUND -eq 0 ]; then
+  echo -e "${GREEN}  ✓ No high-complexity functions in changed files${NC}"
+else
+  echo -e "${YELLOW}  ⚠️  High cyclomatic complexity found (DeepSource JS-R1005)${NC}"
+  echo "   Consider splitting complex functions."
+fi
 # Summary
 echo ""
 echo "========================================"
