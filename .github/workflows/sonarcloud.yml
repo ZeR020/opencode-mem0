@@ -15,6 +15,9 @@ permissions:
 jobs:
   sonarcloud:
     runs-on: ubuntu-latest
+    # Skip on Dependabot PRs — SONAR_TOKEN isn't available to fork PRs,
+    # causing "Not authorized" failures. Dependabot branches are forks.
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'dependabot/')
     steps:
       - uses: actions/checkout@v5
         with:

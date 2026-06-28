@@ -13,6 +13,7 @@ Project documentation set. User-facing and contributor-facing docs covering setu
 - `DEVELOPMENT.md` — Contributor guide: setup, build commands, code style (Prettier, strict TS, DeepSource lint, JSDoc), branch conventions, PR process, project structure, release process
 - `TESTING.md` — Test framework, running tests, writing new tests, mocking patterns, HOME isolation, coverage, CI integration
 - `CHANGELOG.md` — Keep a Changelog format, Semantic Versioning. **Shipped in the published package** (`package.json` `files`). Updated per release
+- `assets/` — README screenshots and banner images (moved from `.github/`)
 
 ## Local Contracts
 
