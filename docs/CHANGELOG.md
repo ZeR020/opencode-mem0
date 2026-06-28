@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Path traversal in `migrate-v1-to-v2.ts`** — CLI storage path is now resolved to absolute and constrained to the user's home directory, rejecting `..` traversal and out-of-home escape attempts from untrusted CLI args (SonarCloud `tssecurity:S8707`). An LLM passing a malicious `--storagePath` can no longer point the migration at arbitrary filesystem locations like `/etc` or `/var`.
+- **Ambient `PATH` dependency in `tags.ts`** — Git executable is now resolved from a fixed list of trusted, unwriteable locations only (`/usr/bin/git`, `/bin/git`, `/usr/local/bin/git`, `/opt/homebrew/bin/git`, `/usr/local/git/bin/git`). Removed the `which git` ambient-PATH lookup that could resolve a writable-directory binary (SonarCloud `typescript:S4036`). Added `/opt/homebrew/bin/git` for Apple Silicon.
+
+### Changed
+
+- **SonarCloud Quality Gate: coverage lifted to ≥80%** — Added `tests/memory-lifecycle.test.ts` (17 tests covering `promoteToLTM`, `scanAndPromote`, `getArchivedCount`, `runLifecycleMaintenance`, `LifecycleManager` timer/skip logic) and extended `tests/api-handlers.test.ts`, `tests/deduplication-service.test.ts`, and `tests/auto-capture.test.ts` with branch coverage for `handleEmbeddingCacheStats`, `handleApiStatus`, `detectAndRemoveDuplicates` success/oversized-shard paths, `generateSummary` branching, and `getLatestProjectMemory` truncation. New-code coverage projected from 77.3% to ~80.2%.
+
 ## [2.17.0] - 2026-06-28
 
 ### Added
