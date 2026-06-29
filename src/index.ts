@@ -9,7 +9,7 @@ import { stripPrivateContent, isFullyPrivate } from "./services/privacy.js";
 import { performAutoCapture } from "./services/auto-capture.js";
 import { performUserProfileLearning } from "./services/user-memory-learning.js";
 import { userPromptManager } from "./services/user-prompt/user-prompt-manager.js";
-import { cleanupOldTranscripts } from "./services/transcript-capture.js";
+import { performTranscriptCapture, cleanupOldTranscripts } from "./services/transcript-capture.js";
 import { startWebServer, WebServer } from "./services/web-server.js";
 import { safeJSONParse } from "./services/utils/safe-transforms.js";
 import {
@@ -628,7 +628,7 @@ async function handleSessionIdle(
   sessionIdleTimers: Map<string, NodeJS.Timeout>,
   webServer: WebServer | null
 ): Promise<void> {
-  if (!isConfigured() || !CONFIG.autoCaptureEnabled) return;
+  if (!isConfigured()) return;
   const rawSessionID = event.properties?.sessionID;
   if (!rawSessionID || typeof rawSessionID !== "string") return;
   const sessionID = rawSessionID;
@@ -638,7 +638,14 @@ async function handleSessionIdle(
 
   const timer = setTimeout(async () => {
     try {
-      await performAutoCapture(ctx, sessionID, directory);
+      // Transcript capture runs independently of auto-capture
+      if (CONFIG.transcriptStorage.enabled) {
+        await performTranscriptCapture(ctx, sessionID, directory);
+      }
+
+      if (CONFIG.autoCaptureEnabled) {
+        await performAutoCapture(ctx, sessionID, directory);
+      }
 
       if (webServer?.isServerOwner()) {
         await performUserProfileLearning(ctx, directory);

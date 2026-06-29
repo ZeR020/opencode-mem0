@@ -153,7 +153,7 @@ export function buildPaginatedTimeline(
   const linkedPairs = new Map<string, LinkedTimelinePair>();
   const standalone: TimelineItem[] = [];
   for (const item of timeline) {
-    if (item.type === "memory" && item.linkedPromptId) {
+    if (item.type === "memory" && item.linkedPromptId && includePrompts) {
       if (!linkedPairs.has(item.linkedPromptId)) {
         linkedPairs.set(item.linkedPromptId, { memory: item, prompt: null });
       } else {

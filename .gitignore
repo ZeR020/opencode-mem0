@@ -87,10 +87,6 @@ docs/plans/
 temp/
 tmp/
 
-# ─── Graphify dev artifacts ────────────────────────────────────
-graphify-out/
-src/graphify-out/
-
 # ─── IDE ───────────────────────────────────────────────────────
 .idea/
 .vscode/

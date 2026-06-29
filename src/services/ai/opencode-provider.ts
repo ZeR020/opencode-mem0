@@ -302,12 +302,47 @@ export async function generateStructuredOutput<T>(options: {
 }): Promise<T> {
   const auth = readOpencodeAuth(options.statePath, options.providerName);
   const provider = createOpencodeAIProvider(options.providerName, auth, options.statePath);
-  const result = await generateText({
-    model: provider(options.modelId),
-    system: options.systemPrompt,
-    prompt: options.userPrompt,
-    output: Output.object({ schema: options.schema }),
-    temperature: options.temperature ?? 0.3,
-  });
-  return result.output;
+
+  try {
+    const result = await generateText({
+      model: provider(options.modelId),
+      system: options.systemPrompt,
+      prompt: options.userPrompt,
+      output: Output.object({ schema: options.schema }),
+      temperature: options.temperature ?? 0.3,
+      // Some models (e.g. Groq's Anthropic-compatible endpoint, gpt-5.3-codex) emit
+      // tool_use blocks for phase fields like "commentary" that aren't in request.tools.
+      // Repair maps any unknown tool name to the JSON output tool so the call succeeds.
+      experimental_repairToolCall: async ({ toolCall, tools }) => {
+        const toolNames = Object.keys(tools);
+        if (toolNames.length === 0) return null;
+        return {
+          type: "tool-call" as const,
+          toolCallId: toolCall.toolCallId,
+          toolName: toolNames[0]!,
+          input: toolCall.input,
+        };
+      },
+    });
+    return result.output;
+  } catch (error) {
+    // API-level rejection (model emits tool_use for a tool not in request) can't be
+    // repaired post-parse. Retry once with an explicit instruction to use JSON output only.
+    if (error instanceof Error && /tool_use|not in request|unavailable tool/i.test(error.message)) {
+      log("Structured output: tool_use error, retrying with explicit JSON instruction", {
+        provider: options.providerName,
+        model: options.modelId,
+        error: error.message,
+      });
+      const result = await generateText({
+        model: provider(options.modelId),
+        system: `${options.systemPrompt}\n\nIMPORTANT: Respond with a JSON object only. Do not call any tools.`,
+        prompt: options.userPrompt,
+        output: Output.object({ schema: options.schema }),
+        temperature: options.temperature ?? 0.3,
+      });
+      return result.output;
+    }
+    throw error;
+  }
 }

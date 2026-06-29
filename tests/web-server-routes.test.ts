@@ -201,6 +201,28 @@ describe("WebServer Routes", () => {
       expect(handleListMemories).toHaveBeenCalledWith("project-test", 1, 20, true);
     });
 
+    it("GET /api/transcripts/search with empty query calls handleListTranscripts, not FTS search", async () => {
+      vi.mocked(handleListTranscripts).mockReturnValue({
+        success: true,
+        data: { transcripts: [], total: 0, page: 1, totalPages: 0 },
+      });
+      const res = await makeRequest("/api/transcripts/search?limit=20&page=1");
+      expect(res.status).toBe(200);
+      // Empty query must route to list (getRecentTranscripts), not FTS MATCH (throws on "")
+      expect(handleListTranscripts).toHaveBeenCalled();
+      expect(handleSearchTranscripts).not.toHaveBeenCalled();
+    });
+
+    it("GET /api/transcripts/search with query calls handleSearchTranscripts", async () => {
+      vi.mocked(handleSearchTranscripts).mockResolvedValue({
+        success: true,
+        data: { transcripts: [], total: 0, page: 1, totalPages: 0 },
+      });
+      const res = await makeRequest("/api/transcripts/search?q=react&page=1&limit=20");
+      expect(res.status).toBe(200);
+      expect(handleSearchTranscripts).toHaveBeenCalledWith("react", 1, 20);
+    });
+
     it("POST /api/memories calls handleAddMemory", async () => {
       (handleAddMemory as any).mockResolvedValue({ success: true, id: "mem-1" });
       const res = await makeRequest("/api/memories", "POST", { content: "test" });

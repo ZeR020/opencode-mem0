@@ -39,6 +39,7 @@ vi.mock("../src/services/user-prompt/user-prompt-manager.js", () => ({
 }));
 
 vi.mock("../src/services/transcript-capture.js", () => ({
+  performTranscriptCapture: vi.fn(),
   cleanupOldTranscripts: vi.fn(),
 }));
 

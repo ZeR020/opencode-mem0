@@ -353,7 +353,32 @@ describe("api-handlers", () => {
       expect(result.data?.page).toBe(1);
       expect(result.data?.pageSize).toBe(20);
     });
-  });
+
+    it("retains linked memories when includePrompts=false", async () => {
+      // mem-1 has metadata.promptId = "prompt-1" (linkedPromptId). Before the fix,
+      // includePrompts=false caused linked memories to be orphaned in linkedPairs
+      // and filtered out (Boolean(p.memory && p.prompt) → false). They should appear
+      // as standalone items instead.
+      const result = await handleListMemories("tag_project_abc123", 1, 20, false);
+      expect(result.success).toBe(true);
+      const ids = (result.data?.items as Array<Record<string, unknown>>).map(
+        (i) => i.id
+      );
+      expect(ids).toContain("mem-1");
+      expect(ids).toContain("mem-2");
+    });
+
+    it("pairs linked memory with prompt when includePrompts=true", async () => {
+      const result = await handleListMemories("tag_project_abc123", 1, 20, true);
+      expect(result.success).toBe(true);
+      const ids = (result.data?.items as Array<Record<string, unknown>>).map(
+        (i) => i.id
+      );
+      // Both the memory and its linked prompt should appear
+      expect(ids).toContain("mem-1");
+      expect(ids).toContain("prompt-1");
+    });
+   });
 
   describe("handleAddMemory", () => {
     it("adds a memory successfully", async () => {

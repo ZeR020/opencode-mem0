@@ -497,8 +497,14 @@ export class WebServer {
   }
 
   private async _apiSearchTranscripts(url: URL, isLocal: boolean): Promise<Response> {
-    const query = url.searchParams.get("q") || "";
+    const query = (url.searchParams.get("q") || "").trim();
     const { page, pageSize } = this._parsePageParams(url, "page", "limit");
+
+    // Empty query → FTS5 MATCH throws on empty string; use list (getRecentTranscripts) instead
+    if (!query) {
+      const result = handleListTranscripts(page, pageSize);
+      return this.jsonResponse(result, 200, !isLocal);
+    }
 
     const result = await handleSearchTranscripts(query, page, pageSize);
     return this.jsonResponse(result, 200, !isLocal);

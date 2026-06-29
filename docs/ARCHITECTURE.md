@@ -69,7 +69,7 @@ When a memory is added:
 When a session goes idle:
 
 1. **10-second debounce timer** fires after `session.idle` event.
-2. **Transcript capture** — `cleanupOldTranscripts()` prunes old transcripts from the FTS5-indexed transcript database. Raw transcript saving occurs during `session.end` (not idle); idle focuses on knowledge extraction.
+2. **Transcript capture** — `performTranscriptCapture()` saves the raw session transcript to the FTS5-indexed transcript database. Runs independently of auto-capture, gated by `transcriptStorage.enabled`. Old transcripts are pruned by `cleanupOldTranscripts()` during the cleanup phase.
 3. **Auto-capture** — `performAutoCapture()` retrieves recent messages, sends them to an LLM (via OpenCode's provider or a configured AI provider) with a system prompt that extracts technical knowledge, then stores the summary as a new memory.
 4. **Profile learning** — `performUserProfileLearning()` analyzes unanalyzed user prompts to build/update the user profile (preferences, patterns, workflows).
 5. **Cleanup** — Old transcripts pruned, SQLite WAL checkpointed.
