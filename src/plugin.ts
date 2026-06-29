@@ -1,5 +1,5 @@
 import type { PluginModule } from "@opencode-ai/plugin";
-import pkg from "../package.json";
+import pkg from "../package.json" with { type: "json" };
 
 const { OpenCodeMemPlugin } = await (async () => {
   try {
