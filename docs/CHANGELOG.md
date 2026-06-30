@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.17.5] - 2026-06-30
+
 ### Fixed
 
 - **API add-memory bypassed dedup and conflict detection (#feature-9-10)** — `handleAddMemory` (the web API POST `/api/memories` path) re-implemented the embedding/insert orchestration instead of delegating to `memoryClient.addMemory`, so memories added via the Web UI or REST API skipped ingest-time deduplication (`checkDuplicateAtIngest`) and conflict detection (`detectConflicts`) that the in-agent `memory` tool gets. Two near-identical memories added via the API would both be stored; the same content added via the tool would merge. Fixed by routing `handleAddMemory` through `memoryClient.addMemory`, deleting ~45 lines of duplicated orchestration. The API path now returns `{ duplicate: true }` when a near-duplicate is merged, matching the tool path's contract.
