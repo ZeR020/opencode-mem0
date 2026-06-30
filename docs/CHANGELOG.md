@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.17.3] - 2026-06-30
+
+### Fixed
+
+- **README privacy filtering overstatement** — The "Auto-Capture" Key Feature claimed "privacy filtering that strips secrets and PII", implying active secret/PII detection. The actual implementation (`privacy.ts:stripPrivateContent`) only redacts content wrapped in `<private>...</private>` XML tags; it does not detect raw API keys, passwords, emails, or PII in arbitrary text. README corrected to accurately describe the `<private>`-tag redaction mechanism.
+- **Incorrect contributor credits in v2.17.2 release notes** — @boyxil and @bob56621517 were carried forward from v2.17.0/v2.17.1 into the v2.17.2 GitHub release and changelog. Their work shipped in prior releases, not v2.17.2. Credits removed from both surfaces; v2.17.2 notes now correctly state "No community contributors for this release."
+- **Stale `queryAwareFiltering` row in README** — The dead config field was removed from `config.ts` in v2.17.2 but the README config table row was missed. Removed.
+
+### Removed
+
+- **Dead config field `userProfileConfidenceDecayDays`** — Defined in the config interface, Zod schema, defaults, and merge function (4 places in `config.ts`), but its consumer `applyConfidenceDecay()` was deleted in v2.17.2's ponytail cleanup (zero production readers). Removed from all 4 config locations plus `tests/config.test.ts`, `tests/tool-scope.test.ts`, `README.md`, and `docs/CONFIGURATION.md`. Zod schema uses default (strip) behavior, so existing user configs with this key are silently ignored, not rejected.
+- **Stale "confidence decay" references in `docs/ARCHITECTURE.md`** — Two references to confidence decay as a `UserProfileManager` capability removed (the feature no longer exists).
+
+### Contributors
+
+No community contributors for this release. All work by @ZeR020.
+
 ## [2.17.2] - 2026-06-30
 
 ### Fixed

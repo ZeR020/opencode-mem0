@@ -88,7 +88,6 @@ describe("config", () => {
       expect(typeof CONFIG.userProfileMaxPreferences).toBe("number");
       expect(typeof CONFIG.userProfileMaxPatterns).toBe("number");
       expect(typeof CONFIG.userProfileMaxWorkflows).toBe("number");
-      expect(typeof CONFIG.userProfileConfidenceDecayDays).toBe("number");
       expect(typeof CONFIG.userProfileChangelogRetentionCount).toBe("number");
     });
 

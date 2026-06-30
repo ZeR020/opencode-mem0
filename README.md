@@ -88,7 +88,7 @@ import pluginModule from "opencode-mem0/server";
 - **Intelligent Conflict Resolution** — detects contradictions between memories (e.g., "auth uses cookies" vs. "auth uses JWT") using LLM + heuristic analysis and resolves them.
 - **Hybrid Search** — vector similarity (usearch) + full-text search (SQLite FTS5) + multi-factor ranking + context boost + diversity filtering for high-relevance results.
 - **Transcript Storage** — session capture with FTS5 search and configurable retention, so past conversations remain searchable.
-- **Auto-Capture** — extracts important knowledge from idle sessions automatically, with privacy filtering that strips secrets and PII.
+- **Auto-Capture** — extracts important knowledge from idle sessions automatically, with privacy filtering that redacts content wrapped in `<private>` tags before LLM processing.
 - **User Profiles** — learns preferences, patterns, and workflows from session history; stores them per-user for personalized context injection.
 - **Web UI** — browse, search, and manage memories at `http://127.0.0.1:4747` (enabled by default).
 - **Compaction Recovery** — when OpenCode compacts a session, the plugin re-injects relevant memories so context isn't lost.
@@ -257,7 +257,6 @@ All settings have sensible defaults — you only need a config file to change be
 | `userProfileMaxPreferences`          | `20`    | Max stored user preferences              |
 | `userProfileMaxPatterns`             | `15`    | Max stored behavioral patterns           |
 | `userProfileMaxWorkflows`            | `10`    | Max stored workflow descriptions         |
-| `userProfileConfidenceDecayDays`     | `30`    | Days before profile confidence decays    |
 | `userProfileChangelogRetentionCount` | `5`     | Max profile changelog entries retained   |
 | `userEmailOverride`                  | —       | Override user email for profile identity |
 | `userNameOverride`                   | —       | Override user name for profile identity  |

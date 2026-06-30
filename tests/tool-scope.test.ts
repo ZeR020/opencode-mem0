@@ -69,7 +69,6 @@ mockConfig = {
   userProfileMaxPreferences: 20,
   userProfileMaxPatterns: 15,
   userProfileMaxWorkflows: 10,
-  userProfileConfidenceDecayDays: 30,
   userProfileChangelogRetentionCount: 5,
   aiSessionRetentionDays: 7,
   webServerPort: 4747,

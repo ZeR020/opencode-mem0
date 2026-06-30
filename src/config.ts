@@ -60,7 +60,6 @@ interface OpenCodeMemConfig {
   userProfileMaxPreferences?: number;
   userProfileMaxPatterns?: number;
   userProfileMaxWorkflows?: number;
-  userProfileConfidenceDecayDays?: number;
   userProfileChangelogRetentionCount?: number;
   showAutoCaptureToasts?: boolean;
   showUserProfileToasts?: boolean;
@@ -167,7 +166,6 @@ const OpenCodeMemConfigSchema = z.object({
   userProfileMaxPreferences: z.number().positive().optional(),
   userProfileMaxPatterns: z.number().positive().optional(),
   userProfileMaxWorkflows: z.number().positive().optional(),
-  userProfileConfidenceDecayDays: z.number().positive().optional(),
   userProfileChangelogRetentionCount: z.number().positive().optional(),
   showAutoCaptureToasts: z.boolean().optional(),
   showUserProfileToasts: z.boolean().optional(),
@@ -272,7 +270,6 @@ const DEFAULTS: Partial<OpenCodeMemConfig> = {
   userProfileMaxPreferences: 20,
   userProfileMaxPatterns: 15,
   userProfileMaxWorkflows: 10,
-  userProfileConfidenceDecayDays: 30,
   userProfileChangelogRetentionCount: 5,
   showAutoCaptureToasts: true,
   showUserProfileToasts: true,
@@ -535,8 +532,6 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
     userProfileMaxPreferences: cfg.userProfileMaxPreferences ?? defaults.userProfileMaxPreferences,
     userProfileMaxPatterns: cfg.userProfileMaxPatterns ?? defaults.userProfileMaxPatterns,
     userProfileMaxWorkflows: cfg.userProfileMaxWorkflows ?? defaults.userProfileMaxWorkflows,
-    userProfileConfidenceDecayDays:
-      cfg.userProfileConfidenceDecayDays ?? defaults.userProfileConfidenceDecayDays,
     userProfileChangelogRetentionCount:
       cfg.userProfileChangelogRetentionCount ?? defaults.userProfileChangelogRetentionCount,
     showAutoCaptureToasts: cfg.showAutoCaptureToasts ?? defaults.showAutoCaptureToasts,

@@ -251,7 +251,6 @@ Time-based decay with boosts on access and relevance strength.
 | `userProfileMaxPreferences`          | `number`  | `20`    | Maximum preference entries in the user profile.            |
 | `userProfileMaxPatterns`             | `number`  | `15`    | Maximum behavior pattern entries.                          |
 | `userProfileMaxWorkflows`            | `number`  | `10`    | Maximum workflow entries.                                  |
-| `userProfileConfidenceDecayDays`     | `number`  | `30`    | Days before a profile entry's confidence starts decaying.  |
 | `userProfileChangelogRetentionCount` | `number`  | `5`     | Number of profile changelog entries to retain.             |
 | `showUserProfileToasts`              | `boolean` | `true`  | Show toast notifications when the user profile is updated. |
 | `showErrorToasts`                    | `boolean` | `true`  | Show toast notifications for errors.                       |

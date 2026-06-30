@@ -106,7 +106,7 @@ When OpenCode compacts a session (summarizes old messages):
 | `VectorBackend`                                                                    | `src/services/vector-backends/types.ts`             | Interface for pluggable vector index backends. Exported implementations: `USearchBackend`, `ExactScanBackend`. Internal `FallbackAwareBackend` (not exported) wraps primary + fallback via `createVectorBackend()`.              |
 | `AIProviderFactory`                                                                | `src/services/ai/ai-provider-factory.ts`            | Factory for AI providers (openai-chat, openai-responses, anthropic, google-gemini) used by auto-capture and conflict detection.                                                                                                  |
 | `TranscriptManager`                                                                | `src/services/sqlite/transcript-manager.ts`         | Stores raw session transcripts with FTS5 full-text search. Configurable retention via `transcriptStorage.maxAgeDays`.                                                                                                            |
-| `UserProfileManager`                                                               | `src/services/user-profile/user-profile-manager.ts` | Manages user profiles with preferences, patterns, and workflows. Supports merge, versioning, and confidence decay.                                                                                                               |
+| `UserProfileManager`                                                               | `src/services/user-profile/user-profile-manager.ts` | Manages user profiles with preferences, patterns, and workflows. Supports merge and versioning.                                                                                                                                  |
 | `WebServer`                                                                        | `src/services/web-server.ts`                        | HTTP server for the Memory Explorer web UI. Serves static SPA + REST API for CRUD, search, stats, conflicts, deduplication, and migration.                                                                                       |
 
 ## Directory Structure
@@ -165,7 +165,7 @@ src/
 │   │   └── exact-scan-backend.ts  # Brute-force cosine similarity fallback
 │   ├── user-profile/
 │   │   ├── types.ts               # UserProfile, UserProfileData types
-│   │   ├── user-profile-manager.ts  # Profile CRUD, merge, confidence decay
+│   │   ├── user-profile-manager.ts  # Profile CRUD, merge, versioning
 │   │   ├── profile-context.ts     # Profile context extraction for injection
 │   ├── user-prompt/
 │   │   └── user-prompt-manager.ts  # User prompt storage and retrieval for learning
