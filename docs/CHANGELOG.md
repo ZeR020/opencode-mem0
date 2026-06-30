@@ -7,23 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Removed
+## [2.17.2] - 2026-06-30
 
-- **Dead code from repo-wide ponytail-audit** — Removed 15 verified-dead symbols across 33 files (-309 lines net). All deletions were grep-verified and cross-checked with the codebase-memory call graph (`trace_path inbound → []` for zero production callers). The test-fake trap was applied: methods whose only callers were test doubles were identified as test-only and removed with their tests updated, not silently deleted. Categories:
-  - **Dead methods (zero prod + zero test callers):** `MemoryMetadata` interface (`types/index.ts`), `MigrationService.getStatus()`, `MigrationProgressTracker.reset()`, `applyConfidenceDecay`/`deleteProfile`/`getAllActiveProfiles` (`user-profile-manager.ts`), `getArchivedCount` (`memory-lifecycle.ts`). CBM call graph confirmed zero inbound edges.
-  - **Legacy superseded methods (prod migrated, test-only callers):** `AISessionManager.addMessage`/`deleteSession`/`clearMessages` + their legacy prepared statements — production uses `addMessageAtomic` and TTL-based `cleanupExpiredSessions`. Tests updated to use the atomic/TTL paths.
-  - **Test-only production methods:** `insertManyForTest`/`searchForTest` (`usearch-backend.ts`), `getTranscript` (`transcript-manager.ts`), `countUncapturedPrompts`/`getUncapturedPrompts`/`markMultipleAsCaptured` (`user-prompt-manager.ts`). Removed from production classes; tests updated.
-  - **Dead config field:** `injection.queryAwareFiltering` — configured, defaulted, Zod-validated, but never read by any production code. Removed from interface, schema, and defaults; test assertions updated.
-  - **Dead script/tooling:** 4 "warning-only" checks in `scripts/lint-deepsource.sh` (checks #5, #7, #8, #10 — never incremented `ERRORS`, never gated the push). `test:bun` npm script (identical to `test`). `.coderabbit.yaml` entry in `vitest.config.ts` coverage exclude (file deleted in v2.17.1).
+### Fixed
+
+- **Transcript capture independence** — `performTranscriptCapture` now runs on session idle independently of auto-capture (no longer gated by `autoCaptureEnabled`). Previously, disabling auto-capture also silently disabled transcript storage. New test `tests/transcript-idle-wiring.test.ts` verifies the wiring.
+- **Node 22 ESM JSON import** — Added `with { type: "json" }` import attribute to `src/plugin.ts`'s `package.json` import. Without it, Node 22's ESM loader throws `ERR_IMPORT_ATTRIBUTE_MISSING` and opencode silently skips loading the plugin when installed via npm.
+- **Structured output for opencode provider** — Rewrote `generateStructuredOutput` in `opencode-provider.ts` for AI SDK v7 compatibility.
+- **Web server empty-query transcript search** — `GET /api/transcripts/search` with an empty query now calls `handleListTranscripts` instead of crashing FTS5 `MATCH` on an empty string.
+- **Timeline `includePrompts` orphaning** — Linked memories are now retained when `includePrompts=false`. Previously they were orphaned in `linkedPairs` and filtered out by `Boolean(p.memory && p.prompt)`.
+- **Latent SQL ESCAPE bug in `vector-search.ts`** — Template literal `ESCAPE '\'` produced an empty escape character (`ESCAPE ''`), causing SQLite "ESCAPE expression must be a single character" errors in the `getMemoriesBySessionID` LIKE fallback path. Fixed to `ESCAPE '\\'` which produces a valid single-backslash escape char.
+- **Release workflow changelog extraction** — The `awk` regex `## []` used an unescaped `[` (character-class opener), matching `## 7` inside `#### 7-Factor Memory Scoring` instead of the actual version header. Every release since v2.16.1 published v2.14.0's changelog content on the GitHub release page. Replaced with `index()` string matching plus a boundary check.
 
 ### Changed
 
-- **`runOneTimeScoringRecalculation` inlined** — 1-line wrapper in `memory-scoring-service.ts` inlined at its single caller (`index.ts`); `recalculateAllScores(true)` called directly. The now-dead wrapper definition was deleted.
-- **`DeduplicationService.cosineSimilarity` deduplicated** — Private copy replaced with import of the shared `cosineSimilarity` from `vector-backends/shared.ts` (already used by `exact-scan-backend.ts`).
+- **Ponytail-audit round 1** (`0683461`) — Dead code removed (graph-confirmed zero callers): `ensureShardTables`/`getShardByPath` (`shard-manager.ts`), `countVectors` (`vector-search.ts`), `getMessagesByRoleStmt` (`ai-session-manager.ts`), `maxProfileItems` config field + docs, 6 duplicate FTS5 triggers in `migrate-v1-to-v2.ts`, 6 dead i18n keys, `sessionIdleSweep` speculative LRU guard. `fetchWithTimeout()` + `apiErrorResponse()` hoisted to `BaseAIProvider`. Hand-rolled `UserProfileValidator` (107 lines) → zod schema. Dynamic `await import("zod")` → static imports. 22 files, net -92 lines.
+- **Ponytail-audit round 2** (`d8329b4`) — 13 verified-dead symbols removed across 35 files (-308 lines net). All deletions grep-verified and cross-checked with the codebase-memory call graph (`trace_path inbound → []`). `DeduplicationService.cosineSimilarity` → import shared from `vector-backends/shared.ts`. `runOneTimeScoringRecalculation` inlined at sole caller. See Removed section for the full dead-code list.
+- **DeepSource JS-0356 remediation** (`35df08e`) — Removed dead imports (`safeToISOString`, `SearchResult` type, `writeFileSync`, `isAbsolute`) and dead code (`ContextTracker` class 72 lines, `MIN_OVER_FETCH` constant). Prefixed intentional unused params with `_`.
+- **DeepSource JS-W1041/JS-0331/JS-R1004 remediation** (`8322924`) — Simplified complex boolean returns (`hasNonEmptyChoices`), removed redundant explicit type declarations on trivially-inferible defaults, converted useless template literals to regular strings.
+- **DeepSource skipcq annotations** (`6262f73`) — Annotated intentional mutable exports (`scoringSkippedCycles`/`scoringLastDurationMs`) and lazy-load shim with `skipcq JS-E1009`. Removed unused catch bindings, `let`→`const` for non-reassigned vars, shorthand properties.
 
-### Audit false positive corrected
+### Removed
 
-- **`src/types/usearch.d.ts` retained** — Audit finding flagged this file as dead (`usearch` ships its own `.d.ts`). Verified load-bearing: the ambient `declare module "usearch"` declaration shadows the shipped types with a permissive module, making `metric: "cos"` assignable to `MetricKind` and `bigint[]` compatible with `BigUint64Array`. Deleting it exposed the stricter shipped types and broke typecheck. File restored.
+- **Dead methods (zero prod + zero test callers):** `MemoryMetadata` interface (`types/index.ts`), `MigrationService.getStatus()`, `MigrationProgressTracker.reset()`, `applyConfidenceDecay`/`deleteProfile`/`getAllActiveProfiles` (`user-profile-manager.ts`), `getArchivedCount` (`memory-lifecycle.ts`).
+- **Legacy superseded methods:** `AISessionManager.addMessage`/`deleteSession`/`clearMessages` + legacy prepared statements — production uses `addMessageAtomic` and TTL-based `cleanupExpiredSessions`.
+- **Test-only production methods:** `insertManyForTest`/`searchForTest` (`usearch-backend.ts`), `getTranscript` (`transcript-manager.ts`), `countUncapturedPrompts`/`getUncapturedPrompts`/`markMultipleAsCaptured` (`user-prompt-manager.ts`). Removed from production classes; tests updated.
+- **Dead config field:** `injection.queryAwareFiltering` — configured, defaulted, Zod-validated, but never read by any production code. Removed from interface, schema, defaults, and `docs/CONFIGURATION.md`.
+- **Dead script/tooling:** 4 warning-only checks in `scripts/lint-deepsource.sh` (never gated push), `test:bun` npm script (identical to `test`), `.coderabbit.yaml` entry in `vitest.config.ts` coverage exclude.
+
+### Infrastructure
+
+- **Minimal Codespace devcontainer** — `.devcontainer/devcontainer.json` (`typescript-node:22` base, sshd feature, port 4096). No `setup.sh` — the user installs tooling manually after codespace creation. After pushing devcontainer changes, delete + recreate the codespace (`gh codespace rebuild --full` does not reliably pull latest main).
+
+### Notes
+
+- **`src/types/usearch.d.ts` retained** — Audit flagged this file as dead (`usearch` ships its own `.d.ts`). Verified load-bearing: the ambient `declare module "usearch"` declaration shadows the shipped types with a permissive module, making `metric: "cos"` assignable to `MetricKind`. Deleting it broke typecheck. File restored.
+- **DeepSource: JavaScript check** remains in a pre-existing failure state (Documentation Coverage metric at 13.8%). This release resolved 27 issues and introduced 0 new ones per the DeepSource run. The failure predates this release.
+
+### Contributors
+
+Thanks to the community contributors who reported issues and submitted fixes:
+
+- @boyxil — Reported [#34](https://github.com/ZeR020/opencode-mem0/issues/34) (prior release, carried forward)
+- @bob56621517 — Reported [#35](https://github.com/ZeR020/opencode-mem0/issues/35) and opened [#36](https://github.com/ZeR020/opencode-mem0/pull/36) (prior release, carried forward)
 
 ## [2.17.1] - 2026-06-28
 
