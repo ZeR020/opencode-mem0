@@ -46,10 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Contributors
 
-Thanks to the community contributors who reported issues and submitted fixes:
-
-- @boyxil — Reported [#34](https://github.com/ZeR020/opencode-mem0/issues/34) (prior release, carried forward)
-- @bob56621517 — Reported [#35](https://github.com/ZeR020/opencode-mem0/issues/35) and opened [#36](https://github.com/ZeR020/opencode-mem0/pull/36) (prior release, carried forward)
+No community contributors for this release. All work by @ZeR020.
 
 ## [2.17.1] - 2026-06-28
 
