@@ -227,7 +227,6 @@ export class VectorSearch {
     this.rebuildDirty.set(`${shard.id}:tags`, true);
   }
 
-  private static readonly MIN_OVER_FETCH = 1.5;
   private static readonly MAX_OVER_FETCH = 8;
   private static readonly TARGET_FILL_RATIO = 0.85;
   private static readonly BASE_MULTIPLIER = 2;

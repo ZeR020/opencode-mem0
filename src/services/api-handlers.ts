@@ -3,7 +3,6 @@ import { embeddingService } from "./embedding.js";
 import { connectionManager } from "./sqlite/connection-manager.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
-import { safeToISOString } from "./utils/safe-transforms.js";
 
 // ── Re-export all domain handlers ───────────────────────────────────────────
 

@@ -494,8 +494,6 @@ export function getArchivedCount(): number {
   try {
     const allShards = getAllShards();
 
-    const threshold = CONFIG.memoryLifecycle?.promotionThreshold ?? 0.7;
-
     for (const shard of allShards) {
       const db = connectionManager.getConnection(shard.dbPath);
       count += getShardArchivedCount(db);

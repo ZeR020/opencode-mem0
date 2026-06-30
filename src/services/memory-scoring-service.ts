@@ -1,4 +1,4 @@
-import { shardManager, getAllShards } from "./sqlite/shard-manager.js";
+import { getAllShards } from "./sqlite/shard-manager.js";
 import { connectionManager } from "./sqlite/connection-manager.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";

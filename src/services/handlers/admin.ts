@@ -5,12 +5,11 @@ import { connectionManager } from "../sqlite/connection-manager.js";
 import { log } from "../logger.js";
 import { CONFIG } from "../../config.js";
 import { userPromptManager } from "../user-prompt/user-prompt-manager.js";
-import { safeToISOString, safeJSONParse } from "../utils/safe-transforms.js";
 import { scoringSkippedCycles, scoringLastDurationMs } from "../memory-scoring-service.js";
 import { getLifecycleStats } from "../memory-lifecycle.js";
 import { cleanupService } from "../cleanup-service.js";
 import type { RawMemoryRow } from "./shared-types.js";
-import type { ShardInfo, SearchResult } from "../sqlite/types.js";
+import type { ShardInfo } from "../sqlite/types.js";
 import type { ApiResponse } from "./shared-types.js";
 import { handleDeleteMemory } from "./memory.js";
 

@@ -1,4 +1,4 @@
-import { writeFileSync, existsSync, mkdirSync, statSync, renameSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, statSync, renameSync, unlinkSync } from "node:fs";
 import { appendFile, mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";

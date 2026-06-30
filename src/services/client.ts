@@ -7,11 +7,10 @@ import { connectionManager } from "./sqlite/connection-manager.js";
 import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
 import type { MemoryType } from "../types/index.js";
-import type { MemoryRecord, SearchResult } from "./sqlite/types.js";
+import type { MemoryRecord } from "./sqlite/types.js";
 import { calculateAllScores } from "./memory-scoring.js";
 import { classifyMemory } from "./memory-lifecycle.js";
 import { detectConflicts } from "./memory-conflicts.js";
-import { safeToISOString, safeJSONParse } from "./utils/safe-transforms.js";
 import { mapDbRowToListItem, mapDbRowToSessionResult } from "./utils/memory-mapper.js";
 import { deduplicationService } from "./deduplication-service.js";
 

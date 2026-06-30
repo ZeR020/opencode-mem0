@@ -42,7 +42,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
 
   private _buildAnthropicMessages(
     session: any,
-    systemPrompt: string,
+    _systemPrompt: string,
     userPrompt: string
   ): AnthropicMessage[] {
     const storedMessages = this.aiSessionManager.getMessages(session.id);

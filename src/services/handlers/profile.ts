@@ -119,7 +119,7 @@ export async function handleGetProfileSnapshot(
 }
 
 export async function handleRefreshProfile(
-  userId?: string
+  _userId?: string
 ): Promise<ApiResponse<Record<string, unknown>>> {
   try {
     const { userPromptManager } = await import("../user-prompt/user-prompt-manager.js");
