@@ -1,7 +1,7 @@
 import type { PluginModule } from "@opencode-ai/plugin";
 import pkg from "../package.json" with { type: "json" };
 
-let OpenCodeMemPlugin: (typeof import("./index.js"))["OpenCodeMemPlugin"];
+let OpenCodeMemPlugin: (typeof import("./index.js"))["OpenCodeMemPlugin"]; // skipcq JS-E1009
 try {
   ({ OpenCodeMemPlugin } = await import("./index.js"));
 } catch (e) {

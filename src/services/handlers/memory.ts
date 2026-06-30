@@ -7,7 +7,6 @@ import { log } from "../logger.js";
 import { safeJSONParse } from "../utils/safe-transforms.js";
 import { userPromptManager } from "../user-prompt/user-prompt-manager.js";
 import type { MemoryType } from "../../types/index.js";
-import type { SearchResult } from "../sqlite/types.js";
 import {
   extractScopeFromTag,
   sanitizeListParams,

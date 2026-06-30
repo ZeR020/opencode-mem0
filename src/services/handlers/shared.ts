@@ -5,7 +5,7 @@ import {
 } from "../sqlite/shard-manager.js";
 import { vectorSearch } from "../sqlite/vector-search.js";
 import { connectionManager } from "../sqlite/connection-manager.js";
-import { safeToISOString, safeJSONParse } from "../utils/safe-transforms.js";
+import { safeToISOString } from "../utils/safe-transforms.js";
 import { mapDbRow } from "../utils/memory-mapper.js";
 import type {
   RawMemoryRow,

@@ -392,7 +392,6 @@ export class VectorSearch {
     const backend = await this.getBackend();
     let contentResults: { id: string; distance: number }[] = [];
     let tagsResults: { id: string; distance: number }[] = [];
-    let embeddingDegraded = false;
 
     const searchLimit = Math.ceil(limit * overFetchMultiplier);
 
@@ -440,7 +439,6 @@ export class VectorSearch {
         });
       }
     } else {
-      embeddingDegraded = true;
       contentResults = [];
       tagsResults = [];
     }
@@ -811,7 +809,7 @@ export class VectorSearch {
         db,
         `
         SELECT * FROM memories
-        WHERE metadata LIKE ? ESCAPE '\' AND is_deprecated = 0
+        WHERE metadata LIKE ? ESCAPE '\\' AND is_deprecated = 0
         ORDER BY created_at DESC
       `
       );

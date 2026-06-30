@@ -18,8 +18,8 @@ import { safeJSONParse } from "./utils/safe-transforms.js";
 
 let scoringInterval: NodeJS.Timeout | null = null;
 let isRunning = false;
-export let scoringSkippedCycles = 0;
-export let scoringLastDurationMs = 0;
+export let scoringSkippedCycles = 0; // skipcq JS-E1009
+export let scoringLastDurationMs = 0; // skipcq JS-E1009
 
 /**
  * Recalculate scores for all memories in all shards.
@@ -196,7 +196,7 @@ export function recalculateAllScores(recalculateNoveltyAndInterference: boolean 
 
           log(`recalculateAllScores chunk ${chunkIndex}/${totalBatches} (shard ${shard.id})`, {
             chunkSize: chunk.length,
-            totalUpdated: totalUpdated,
+            totalUpdated,
           });
         }
 

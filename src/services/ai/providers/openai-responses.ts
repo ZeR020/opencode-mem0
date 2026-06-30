@@ -73,7 +73,7 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
     iterations: number,
     userPrompt: string
   ): { result: ToolCallResult | null; conversationId: string; retryPrompt: string } {
-    let conversationId = data.conversation || session.conversationId;
+    const conversationId = data.conversation || session.conversationId;
 
     if (iterations === 1) {
       this.aiSessionManager.addMessageAtomic({

@@ -1550,7 +1550,7 @@ function renderTranscripts() {
             .join("<br/>");
           if (msgs.length > 2) preview += "<br/><em>...more...</em>";
         }
-      } catch (e) {
+      } catch {
         preview = escapeHtml(t.messages.substring(0, 200));
       }
 
@@ -1690,7 +1690,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const parsed = jsonrepair(content);
       const formatted = JSON.stringify(JSON.parse(parsed), null, 2);
       document.getElementById("edit-profile-content").value = formatted;
-    } catch (e) {
+    } catch {
       showToast("Invalid JSON to format", "error");
     }
   });
@@ -1701,7 +1701,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       const content = document.getElementById("edit-profile-content").value;
       parsedData = JSON.parse(jsonrepair(content));
-    } catch (err) {
+    } catch {
       showToast("Invalid JSON format", "error");
       return;
     }
