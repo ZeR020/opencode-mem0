@@ -199,15 +199,14 @@ All settings have sensible defaults — you only need a config file to change be
 
 ### Retrieval & Injection
 
-| Setting                         | Default | Description                                         |
-| ------------------------------- | ------- | --------------------------------------------------- |
-| `retrieval.maxResults`          | `20`    | Max search results from retrieval                   |
-| `retrieval.diversityThreshold`  | `0.9`   | Diversity filter threshold (0–1)                    |
-| `retrieval.contextBoost`        | `1.5`   | Context similarity boost multiplier                 |
-| `injection.tokenBudget`         | `4000`  | Max tokens for injected memory context              |
-| `injection.format`              | `plain` | Output format: `plain`, `xml`, or `yaml`            |
-| `injection.queryAwareFiltering` | `true`  | Filter memories by relevance to the current query   |
-| `injection.relevanceThreshold`  | `0.3`   | Minimum relevance score for injected memories (0–1) |
+| Setting                        | Default | Description                                         |
+| ------------------------------ | ------- | --------------------------------------------------- |
+| `retrieval.maxResults`         | `20`    | Max search results from retrieval                   |
+| `retrieval.diversityThreshold` | `0.9`   | Diversity filter threshold (0–1)                    |
+| `retrieval.contextBoost`       | `1.5`   | Context similarity boost multiplier                 |
+| `injection.tokenBudget`        | `4000`  | Max tokens for injected memory context              |
+| `injection.format`             | `plain` | Output format: `plain`, `xml`, or `yaml`            |
+| `injection.relevanceThreshold` | `0.3`   | Minimum relevance score for injected memories (0–1) |
 
 ### Contextual Decay
 
