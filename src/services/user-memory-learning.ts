@@ -8,6 +8,7 @@ import type { UserPrompt } from "./user-prompt/user-prompt-manager.js";
 import { userProfileManager } from "./user-profile/user-profile-manager.js";
 import type { UserProfile, UserProfileData } from "./user-profile/types.js";
 import { safeJSONParse } from "./utils/safe-transforms.js";
+import { z } from "zod";
 
 const USER_PROFILE_SYSTEM_PROMPT = (
   existingProfile: boolean
@@ -213,7 +214,6 @@ async function analyzeUserProfile(
       );
     }
 
-    const { z } = await import("zod");
     const schema = z.object({
       preferences: z.array(
         z.object({

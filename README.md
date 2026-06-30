@@ -254,7 +254,6 @@ All settings have sensible defaults — you only need a config file to change be
 | Setting                              | Default | Description                              |
 | ------------------------------------ | ------- | ---------------------------------------- |
 | `injectProfile`                      | `true`  | Inject user profile into agent context   |
-| `maxProfileItems`                    | `5`     | Max profile items injected               |
 | `userProfileAnalysisInterval`        | `10`    | Sessions between profile re-analysis     |
 | `userProfileMaxPreferences`          | `20`    | Max stored user preferences              |
 | `userProfileMaxPatterns`             | `15`    | Max stored behavioral patterns           |

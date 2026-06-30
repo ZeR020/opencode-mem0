@@ -30,7 +30,6 @@ interface OpenCodeMemConfig {
   embeddingApiKey?: string;
   similarityThreshold?: number;
   maxMemories?: number;
-  maxProfileItems?: number;
   injectProfile?: boolean;
   containerTagPrefix?: string;
   autoCaptureEnabled?: boolean;
@@ -137,7 +136,6 @@ const OpenCodeMemConfigSchema = z.object({
   embeddingApiKey: z.string().optional(),
   similarityThreshold: z.number().min(0).max(1).optional(),
   maxMemories: z.number().positive().optional(),
-  maxProfileItems: z.number().positive().optional(),
   injectProfile: z.boolean().optional(),
   containerTagPrefix: z.string().optional(),
   autoCaptureEnabled: z.boolean().optional(),
@@ -256,7 +254,6 @@ const DEFAULTS: Partial<OpenCodeMemConfig> = {
   embeddingDimensions: 768,
   similarityThreshold: 0.6,
   maxMemories: 10,
-  maxProfileItems: 5,
   injectProfile: true,
   containerTagPrefix: "opencode",
   autoCaptureEnabled: true,
@@ -509,7 +506,6 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
       : resolveSecretValue(process.env.OPENAI_API_KEY),
     similarityThreshold: cfg.similarityThreshold ?? defaults.similarityThreshold,
     maxMemories: cfg.maxMemories ?? defaults.maxMemories,
-    maxProfileItems: cfg.maxProfileItems ?? defaults.maxProfileItems,
     injectProfile: cfg.injectProfile ?? defaults.injectProfile,
     containerTagPrefix: cfg.containerTagPrefix ?? defaults.containerTagPrefix,
     autoCaptureEnabled: cfg.autoCaptureEnabled ?? defaults.autoCaptureEnabled,

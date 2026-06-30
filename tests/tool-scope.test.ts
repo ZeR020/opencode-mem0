@@ -59,7 +59,6 @@ mockConfig = {
   vectorBackend: "exact-scan",
   similarityThreshold: 0.6,
   maxMemories: 10,
-  maxProfileItems: 5,
   injectProfile: false,
   containerTagPrefix: "opencode",
   embeddingModel: "Xenova/nomic-embed-text-v1",

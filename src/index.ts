@@ -124,24 +124,6 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   let webServer: WebServer | null = null;
   const sessionIdleTimers = new Map<string, NodeJS.Timeout>();
 
-  const sessionIdleSweep = setInterval(() => {
-    if (sessionIdleTimers.size > 10000) {
-      // LRU eviction: evict the oldest entries (Map iterates in insertion order).
-      // Evict 10% more than needed to create headroom and reduce frequency.
-      const evictCount = Math.ceil((sessionIdleTimers.size - 10000) * 1.1);
-      let evicted = 0;
-      for (const [key, timer] of sessionIdleTimers) {
-        if (evicted >= evictCount) break;
-        clearTimeout(timer);
-        sessionIdleTimers.delete(key);
-        evicted++;
-      }
-      log(
-        `sessionIdleTimers sweep — evicted ${evicted} oldest entries, ${sessionIdleTimers.size} remaining`
-      );
-    }
-  }, 3600_000);
-
   const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("opencode-mem0.plugin.warmedup");
 
   if (!(globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] && isConfigured()) {
@@ -259,7 +241,6 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   const shutdownHandler = async () => {
     delete (globalThis as any)[Symbol.for("opencode-mem0.shutdown")];
     try {
-      clearInterval(sessionIdleSweep);
       stopScoringRecalculation();
       stopLifecycleJob();
       clearInterval(sessionCleanupTimer);

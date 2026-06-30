@@ -5,6 +5,7 @@ import { log, warn } from "./logger.js";
 import { CONFIG } from "../config.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
 import { detectLanguage, getLanguageName } from "./language-detector.js";
+import { z } from "zod";
 
 interface ToolCallInfo {
   name: string;
@@ -327,7 +328,6 @@ async function generateSummaryViaOpencode(
 
   const { name: langName } = detectTargetLanguage(userPrompt);
 
-  const { z } = await import("zod");
   const schema = z.object({
     summary: z.string(),
     type: z.string(),

@@ -8,6 +8,7 @@ import {
 } from "./sqlite/shard-manager.js";
 import { vectorSearch } from "./sqlite/vector-search.js";
 import { embeddingService } from "./embedding.js";
+import { z } from "zod";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 import type { MemoryConflict } from "./sqlite/types.js";
@@ -40,7 +41,6 @@ async function checkContradictionWithLLM(
         await import("./ai/opencode-provider.js");
 
       if (isProviderConnected(CONFIG.opencodeProvider)) {
-        const { z } = await import("zod");
         const schema = z.object({
           contradicts: z.enum(["YES", "NO"]),
         });

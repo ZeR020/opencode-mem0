@@ -92,7 +92,15 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
 
       const validation = UserProfileValidator.validate(toolCall);
       if (!validation.valid) {
-        throw new Error(validation.errors.join(", "));
+        return {
+          result: {
+            success: false,
+            error: validation.errors.join(", "),
+            iterations,
+          },
+          conversationId,
+          retryPrompt: "",
+        };
       }
 
       return {
@@ -137,78 +145,51 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
     while (iterations < maxIterations) {
       iterations++;
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), iterationTimeout);
+      const tool = ToolSchemaConverter.toResponsesAPI(toolSchema);
+      const requestBody = this._buildResponsesRequestBody(
+        currentPrompt,
+        conversationId,
+        systemPrompt,
+        tool
+      );
 
-      try {
-        const tool = ToolSchemaConverter.toResponsesAPI(toolSchema);
-        const requestBody = this._buildResponsesRequestBody(
-          currentPrompt,
-          conversationId,
-          systemPrompt,
-          tool
-        );
-
-        const response = await fetch(`${this.config.apiUrl}/responses`, {
+      const fetchResult = await this.fetchWithTimeout(
+        `${this.config.apiUrl}/responses`,
+        {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${this.config.apiKey}`,
           },
           body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        });
+        },
+        iterationTimeout,
+        iterations
+      );
+      if ("error" in fetchResult) return fetchResult.error;
+      const response = fetchResult.response;
 
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => response.statusText);
-          log("OpenAI Responses API error", {
-            provider: this.getProviderName(),
-            model: this.config.model,
-            status: response.status,
-            error: errorText,
-            iteration: iterations,
-          });
-          return {
-            success: false,
-            error: `API error: ${response.status} - ${errorText}`,
-            iterations,
-          };
-        }
-
-        const data = (await response.json()) as ResponsesAPIOutput;
-        const {
-          result,
-          conversationId: nextConversationId,
-          retryPrompt,
-        } = this._handleResponsesResponse(
-          data,
-          session,
-          sessionId,
-          toolSchema,
-          iterations,
-          userPrompt
-        );
-
-        if (result) return result;
-        conversationId = nextConversationId;
-        currentPrompt = retryPrompt;
-      } catch (error) {
-        clearTimeout(timeout);
-        if (error instanceof Error && error.name === "AbortError") {
-          return {
-            success: false,
-            error: `API request timeout (${iterationTimeout}ms)`,
-            iterations,
-          };
-        }
-        return {
-          success: false,
-          error: String(error),
-          iterations,
-        };
+      if (!response.ok) {
+        return this.apiErrorResponse(response, iterations, "OpenAI Responses");
       }
+
+      const data = (await response.json()) as ResponsesAPIOutput;
+      const {
+        result,
+        conversationId: nextConversationId,
+        retryPrompt,
+      } = this._handleResponsesResponse(
+        data,
+        session,
+        sessionId,
+        toolSchema,
+        iterations,
+        userPrompt
+      );
+
+      if (result) return result;
+      conversationId = nextConversationId;
+      currentPrompt = retryPrompt;
     }
 
     return {

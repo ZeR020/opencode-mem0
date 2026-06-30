@@ -372,94 +372,79 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     while (iterations < maxIterations) {
       iterations++;
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), iterationTimeout);
+      const requestBody = this._buildChatRequestBody(toolSchema);
+      requestBody.messages = messages;
 
-      try {
-        const requestBody = this._buildChatRequestBody(toolSchema);
-        requestBody.messages = messages;
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
 
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        };
+      if (this.config.apiKey) {
+        headers.Authorization = `Bearer ${this.config.apiKey}`;
+      }
 
-        if (this.config.apiKey) {
-          headers.Authorization = `Bearer ${this.config.apiKey}`;
-        }
-
-        const response = await fetch(`${this.config.apiUrl}/chat/completions`, {
+      const fetchResult = await this.fetchWithTimeout(
+        `${this.config.apiUrl}/chat/completions`,
+        {
           method: "POST",
           headers,
           body: JSON.stringify(requestBody),
-          signal: controller.signal,
+        },
+        iterationTimeout,
+        iterations
+      );
+      if ("error" in fetchResult) return fetchResult.error;
+      const response = fetchResult.response;
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => response.statusText);
+        log("OpenAI Chat Completion API error", {
+          provider: this.getProviderName(),
+          model: this.config.model,
+          status: response.status,
+          error: errorText,
+          iteration: iterations,
         });
 
-        clearTimeout(timeout);
+        let errorMessage = `API error: ${response.status} - ${errorText}`;
 
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => response.statusText);
-          log("OpenAI Chat Completion API error", {
-            provider: this.getProviderName(),
-            model: this.config.model,
-            status: response.status,
-            error: errorText,
-            iteration: iterations,
-          });
-
-          let errorMessage = `API error: ${response.status} - ${errorText}`;
-
-          if (
-            response.status === 400 &&
-            errorText.includes("unsupported_value") &&
-            errorText.includes("temperature")
-          ) {
-            errorMessage =
-              'Your model does not support the temperature parameter. Add "memoryTemperature": false to your config file to disable it.';
-          }
-
-          return {
-            success: false,
-            error: errorMessage,
-            iterations,
-          };
+        if (
+          response.status === 400 &&
+          errorText.includes("unsupported_value") &&
+          errorText.includes("temperature")
+        ) {
+          errorMessage =
+            'Your model does not support the temperature parameter. Add "memoryTemperature": false to your config file to disable it.';
         }
 
-        const result = await this._processChatResponse(
-          response,
-          session,
-          messages,
-          toolSchema,
-          iterations
-        );
-        if (result !== null && result !== undefined) {
-          return result;
-        }
-
-        const retryPrompt =
-          "Please use the save_memories tool to extract and save the memories from the conversation as instructed.";
-
-        this.aiSessionManager.addMessageAtomic({
-          aiSessionId: session.id,
-          role: "user",
-          content: retryPrompt,
-        });
-
-        messages.push({ role: "user", content: retryPrompt });
-      } catch (error) {
-        clearTimeout(timeout);
-        if (error instanceof Error && error.name === "AbortError") {
-          return {
-            success: false,
-            error: `API request timeout (${iterationTimeout}ms)`,
-            iterations,
-          };
-        }
         return {
           success: false,
-          error: String(error),
+          error: errorMessage,
           iterations,
         };
       }
+
+      const result = await this._processChatResponse(
+        response,
+        session,
+        messages,
+        toolSchema,
+        iterations
+      );
+      if (result !== null && result !== undefined) {
+        return result;
+      }
+
+      const retryPrompt =
+        "Please use the save_memories tool to extract and save the memories from the conversation as instructed.";
+
+      this.aiSessionManager.addMessageAtomic({
+        aiSessionId: session.id,
+        role: "user",
+        content: retryPrompt,
+      });
+
+      messages.push({ role: "user", content: retryPrompt });
     }
 
     return {

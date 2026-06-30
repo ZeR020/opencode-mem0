@@ -24,7 +24,6 @@ export class AISessionManager {
   private readonly getLastSequenceStmt: any;
   private readonly cleanupExpiredStmt: any;
   private readonly deleteSessionStmt: any;
-  private readonly getMessagesByRoleStmt: any;
   private readonly addMessageStmt: any;
   private readonly getNextSeqStmt: any;
   private readonly clearMessagesStmt: any;
@@ -53,9 +52,6 @@ export class AISessionManager {
     this.cleanupExpiredStmt = this.db.prepare("DELETE FROM ai_sessions WHERE expires_at < ?");
     this.deleteSessionStmt = this.db.prepare(
       "DELETE FROM ai_sessions WHERE session_id = ? AND provider = ?"
-    );
-    this.getMessagesByRoleStmt = this.db.prepare(
-      "SELECT * FROM ai_messages WHERE ai_session_id = ? AND role = ? ORDER BY sequence ASC"
     );
     this.addMessageStmt = this.db.prepare(`
       INSERT INTO ai_messages (

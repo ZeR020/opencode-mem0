@@ -1,3 +1,4 @@
+import { log } from "../../logger.js";
 export interface ToolCallResult {
   success: boolean;
   data?: any;
@@ -54,4 +55,65 @@ export abstract class BaseAIProvider {
   ): Promise<ToolCallResult>;
 
   abstract getProviderName(): string;
+
+  /**
+   * Fetch with AbortController-based timeout. Captures the shared
+   * controller/timeout/clearTimeout/AbortError pattern used by all providers.
+   * @returns the Response on success, or a ToolCallResult error on timeout/failure.
+   */
+  protected async fetchWithTimeout(
+    url: string,
+    options: RequestInit,
+    iterationTimeout: number,
+    iterations: number
+  ): Promise<{ response: Response } | { error: ToolCallResult }> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), iterationTimeout);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeout);
+      return { response };
+    } catch (error) {
+      clearTimeout(timeout);
+      if (error instanceof Error && error.name === "AbortError") {
+        return {
+          error: {
+            success: false,
+            error: `API request timeout (${iterationTimeout}ms)`,
+            iterations,
+          },
+        };
+      }
+      return {
+        error: {
+          success: false,
+          error: String(error),
+          iterations,
+        },
+      };
+    }
+  }
+
+  /**
+   * Handle a non-OK HTTP response. Logs the error and returns a failure ToolCallResult.
+   */
+  protected async apiErrorResponse(
+    response: Response,
+    iterations: number,
+    providerLabel: string
+  ): Promise<ToolCallResult> {
+    const errorText = await response.text().catch(() => response.statusText);
+    log(`${providerLabel} API error`, {
+      provider: this.getProviderName(),
+      model: this.config.model,
+      status: response.status,
+      error: errorText,
+      iteration: iterations,
+    });
+    return {
+      success: false,
+      error: `API error: ${response.status} - ${errorText}`,
+      iterations,
+    };
+  }
 }

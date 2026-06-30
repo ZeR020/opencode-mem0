@@ -295,15 +295,6 @@ export class ShardManager {
     }
   }
 
-  private ensureShardTables(shard: ShardInfo): void {
-    try {
-      const db = connectionManager.getConnection(shard.dbPath);
-      this.initShardDb(db);
-    } catch (error) {
-      log("Error ensuring shard tables", { dbPath: shard.dbPath, error: String(error) });
-    }
-  }
-
   getWriteShard(scope: "user" | "project", scopeHash: string): ShardInfo {
     const shard = this.getActiveShard(scope, scopeHash);
 
@@ -351,14 +342,6 @@ export class ShardManager {
         "UPDATE shards SET vector_count = vector_count - 1 WHERE id = ? AND vector_count > 0"
       )
       .run(shardId);
-  }
-
-  getShardByPath(dbPath: string): ShardInfo | null {
-    const fileName = basename(dbPath);
-    const row = this.metadataDb
-      .prepare("SELECT * FROM shards WHERE db_path LIKE '%' || ?")
-      .get(fileName) as any;
-    return row ? this.toShardInfo(row) : null;
   }
 
   async deleteShard(shardId: number): Promise<void> {

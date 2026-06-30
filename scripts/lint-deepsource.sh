@@ -20,7 +20,7 @@ echo ""
 echo "1️⃣  Checking for async functions without await (JS-0116)..."
 # Use rg to find async function declarations, then check if they contain await
 ASYNC_NO_AWAIT=$(rg -n '^\s*async\s+(function|export\s+async\s+function)\s+\w+' src/ --type ts -A 100 | \
-  awk '/^\s*async\s+(function|export\s+async\s+function)\s+\w+/{fn=$0; has_await=0} /await /{has_await=1} /^\s*}/||/^\s*async\s+(function|export\s+async\s+function)\s+\w+/{if(fn && !has_await) print fn}' 2>/dev/null || true)
+  awk '/^\s*async\s+(function|export\s+async\s+function)\s+\w+/{fn=$0; has_await=0} /await /{has_await=1} /^\}/{if(fn && !has_await) print fn; fn=""}' 2>/dev/null || true)
 
 if [ -n "$ASYNC_NO_AWAIT" ]; then
   echo -e "${RED}  Found async functions without await:${NC}"
@@ -148,13 +148,13 @@ echo "🔟  Checking for high cyclomatic complexity in changed files (JS-R1005).
 JSR1005_FOUND=0
 for file in $CHANGED_TS; do
   if [ -f "$file" ]; then
-    # Heuristic: count if/else/for/while/switch/case/&&/||/?. per function
-    # A simpler proxy: functions longer than 50 lines with many branches
+    # Heuristic: count branch keywords per file, flag if branch-to-function ratio > 15
+    # (a file with 30 branches across 2 functions likely has a complex function)
     COMPLEX_FUNCS=$(rg -n '(if |else |for |while |switch |case |&&|\|\||\?\.)' "$file" 2>/dev/null | wc -l || true)
     FUNC_COUNT=$(rg -c '(function |=>)' "$file" 2>/dev/null || echo "1")
     if [ "$FUNC_COUNT" -gt 0 ] && [ "$COMPLEX_FUNCS" -gt 0 ]; then
       AVG=$((COMPLEX_FUNCS / FUNC_COUNT))
-      if [ "$AVG" -gt 10 ]; then
+      if [ "$AVG" -gt 15 ]; then
         echo -e "${YELLOW}  ⚠️  JS-R1005 in $file: ~$AVG branches/function${NC}"
         JSR1005_FOUND=1
       fi

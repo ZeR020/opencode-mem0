@@ -820,14 +820,6 @@ export class VectorSearch {
     }
   }
 
-  countVectors(db: Database, containerTag: string): number {
-    const result = this.getStmt(
-      db,
-      "SELECT COUNT(*) as count FROM memories WHERE container_tag = ? AND is_deprecated = 0"
-    ).get(containerTag);
-    return result.count;
-  }
-
   countAllVectors(db: Database): number {
     const result = this.getStmt(
       db,

@@ -224,28 +224,6 @@ void (function (): void {
       END
     `);
 
-      db.run(`
-      CREATE TRIGGER IF NOT EXISTS transcripts_fts_insert
-      AFTER INSERT ON transcripts BEGIN
-        INSERT INTO transcripts_fts(rowid, messages) VALUES (new.id, new.messages);
-      END
-    `);
-
-      db.run(`
-      CREATE TRIGGER IF NOT EXISTS transcripts_fts_delete
-      AFTER DELETE ON transcripts BEGIN
-        INSERT INTO transcripts_fts(transcripts_fts, rowid, messages) VALUES ('delete', old.id, old.messages);
-      END
-    `);
-
-      db.run(`
-      CREATE TRIGGER IF NOT EXISTS transcripts_fts_update
-      AFTER UPDATE ON transcripts BEGIN
-        INSERT INTO transcripts_fts(transcripts_fts, rowid, messages) VALUES ('delete', old.id, old.messages);
-        INSERT INTO transcripts_fts(rowid, messages) VALUES (new.id, new.messages);
-      END
-    `);
-
       db.close();
       log("Migration: created transcripts database");
       return true;

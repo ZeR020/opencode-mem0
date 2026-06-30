@@ -136,83 +136,50 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
     while (iterations < maxIterations) {
       iterations++;
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), iterationTimeout);
+      const tool = ToolSchemaConverter.toAnthropic(toolSchema);
 
-      try {
-        const tool = ToolSchemaConverter.toAnthropic(toolSchema);
+      const requestBody = {
+        model: this.config.model,
+        max_tokens: this.config.maxTokens ?? 4096,
+        system: systemPrompt,
+        messages,
+        tools: [tool],
+      };
 
-        const requestBody = {
-          model: this.config.model,
-          max_tokens: this.config.maxTokens ?? 4096,
-          system: systemPrompt,
-          messages,
-          tools: [tool],
-        };
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01",
+      };
 
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-          "anthropic-version": "2023-06-01",
-        };
+      if (this.config.apiKey) {
+        headers["x-api-key"] = this.config.apiKey;
+      }
 
-        if (this.config.apiKey) {
-          headers["x-api-key"] = this.config.apiKey;
-        }
-
-        const response = await fetch(`${this.config.apiUrl}/messages`, {
+      const fetchResult = await this.fetchWithTimeout(
+        `${this.config.apiUrl}/messages`,
+        {
           method: "POST",
           headers,
           body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        });
+        },
+        iterationTimeout,
+        iterations
+      );
+      if ("error" in fetchResult) return fetchResult.error;
+      const response = fetchResult.response;
 
-        clearTimeout(timeout);
+      if (!response.ok) {
+        return this.apiErrorResponse(response, iterations, "Anthropic Messages");
+      }
 
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => response.statusText);
-          log("Anthropic Messages API error", {
-            provider: this.getProviderName(),
-            model: this.config.model,
-            status: response.status,
-            error: errorText,
-            iteration: iterations,
-          });
-          return {
-            success: false,
-            error: `API error: ${response.status} - ${errorText}`,
-            iterations,
-          };
-        }
+      const data = (await response.json()) as AnthropicResponse;
+      const result = this._handleAnthropicResponse(data, session, messages, toolSchema, iterations);
+      if (result) return result;
 
-        const data = (await response.json()) as AnthropicResponse;
-        const result = this._handleAnthropicResponse(
-          data,
-          session,
-          messages,
-          toolSchema,
-          iterations
-        );
-        if (result) return result;
-
-        if (data.stop_reason === "end_turn") {
-          this._appendRetryMessage(session, messages);
-        } else {
-          break;
-        }
-      } catch (error) {
-        clearTimeout(timeout);
-        if (error instanceof Error && error.name === "AbortError") {
-          return {
-            success: false,
-            error: `API request timeout (${iterationTimeout}ms)`,
-            iterations,
-          };
-        }
-        return {
-          success: false,
-          error: String(error),
-          iterations,
-        };
+      if (data.stop_reason === "end_turn") {
+        this._appendRetryMessage(session, messages);
+      } else {
+        break;
       }
     }
 

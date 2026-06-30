@@ -26,8 +26,6 @@ const state = {
 marked.setOptions({
   gfm: true,
   breaks: true,
-  headerIds: false,
-  mangle: false,
 });
 
 function renderMarkdown(markdown) {

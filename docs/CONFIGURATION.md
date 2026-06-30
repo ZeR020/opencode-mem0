@@ -75,7 +75,6 @@ API key fields (`embeddingApiKey`, `memoryApiKey`) support three value formats:
 | --------------------- | ----------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `memory.defaultScope` | `"project" \| "all-projects"` | `"project"` | Default scope when storing memories. `"project"` isolates memories per project; `"all-projects"` shares across all projects. |
 | `maxMemories`         | `number`                      | `10`        | Maximum memories injected into a single chat context.                                                                        |
-| `maxProfileItems`     | `number`                      | `5`         | Maximum user profile items injected into context.                                                                            |
 | `injectProfile`       | `boolean`                     | `true`      | Whether to include user profile data in injected context.                                                                    |
 | `similarityThreshold` | `number` (0–1)                | `0.6`       | Minimum cosine similarity for a memory to be considered relevant during search.                                              |
 

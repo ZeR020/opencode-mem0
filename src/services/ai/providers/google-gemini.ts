@@ -249,58 +249,47 @@ export class GoogleGeminiProvider extends BaseAIProvider {
 
     while (iterations < maxIterations) {
       iterations++;
+      const baseUrl = this.config.apiUrl || "https://generativelanguage.googleapis.com/v1beta";
+      const url = `${baseUrl}/models/${this.config.model}:generateContent`;
+      const requestBody = this._buildGeminiRequestBody(contents, systemPrompt, toolSchema);
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), iterationTimeout);
-
-      try {
-        const baseUrl = this.config.apiUrl || "https://generativelanguage.googleapis.com/v1beta";
-        const url = `${baseUrl}/models/${this.config.model}:generateContent`;
-        const requestBody = this._buildGeminiRequestBody(contents, systemPrompt, toolSchema);
-
-        const response = await fetch(url, {
+      const fetchResult = await this.fetchWithTimeout(
+        url,
+        {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             ...(this.config.apiKey ? { "x-goog-api-key": this.config.apiKey } : {}),
           },
           body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        });
+        },
+        iterationTimeout,
+        iterations
+      );
+      if ("error" in fetchResult) return fetchResult.error;
+      const response = fetchResult.response;
 
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => response.statusText);
-          log("Gemini API error", {
-            provider: this.getProviderName(),
-            model: this.config.model,
-            status: response.status,
-            error: errorText,
-            iteration: iterations,
-          });
-          return {
-            success: false,
-            error: `Gemini API error: ${response.status} - ${errorText}`,
-            iterations,
-          };
-        }
-
-        const data = (await response.json()) as any;
-        const result = this._handleGeminiResponse(data, session, contents, toolSchema, iterations);
-        if (result) return result;
-
-        const retryPrompt = "Please use the save_memories tool as instructed.";
-        this.aiSessionManager.addMessageAtomic({
-          aiSessionId: session.id,
-          role: "user",
-          content: retryPrompt,
-        });
-        contents.push({ role: "user", parts: [{ text: retryPrompt }] });
-      } catch (error) {
-        clearTimeout(timeout);
-        return { success: false, error: String(error), iterations };
+      if (!response.ok) {
+        return this.apiErrorResponse(response, iterations, "Gemini");
       }
+
+      const data = (await response.json()) as any;
+      const toolResult = this._handleGeminiResponse(
+        data,
+        session,
+        contents,
+        toolSchema,
+        iterations
+      );
+      if (toolResult) return toolResult;
+
+      const retryPrompt = "Please use the save_memories tool as instructed.";
+      this.aiSessionManager.addMessageAtomic({
+        aiSessionId: session.id,
+        role: "user",
+        content: retryPrompt,
+      });
+      contents.push({ role: "user", parts: [{ text: retryPrompt }] });
     }
 
     return { success: false, error: `Max iterations (${maxIterations}) reached`, iterations };

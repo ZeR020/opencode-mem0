@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { UserProfileData } from "../../user-profile/types.js";
 
 export interface ValidationResult {
@@ -6,101 +7,110 @@ export interface ValidationResult {
   data?: UserProfileData;
 }
 
+// ponytail: zod schema replaces 107 lines of hand-rolled type checks.
+// Custom error messages preserve the ValidationResult contract callers rely on.
+const preferenceSchema = z.object({
+  category: z
+    .string({ message: "category is missing or invalid" })
+    .min(1, { message: "category is missing or invalid" }),
+  description: z
+    .string({ message: "description is missing or invalid" })
+    .min(1, { message: "description is missing or invalid" }),
+  confidence: z.number({ message: "confidence is missing or invalid" }),
+  evidence: z
+    .array(z.string(), { message: "evidence must be an array" })
+    .nonempty({ message: "evidence cannot be empty" }),
+});
+
+const patternSchema = z.object({
+  category: z
+    .string({ message: "category is missing or invalid" })
+    .min(1, { message: "category is missing or invalid" }),
+  description: z
+    .string({ message: "description is missing or invalid" })
+    .min(1, { message: "description is missing or invalid" }),
+});
+
+const workflowSchema = z.object({
+  description: z
+    .string({ message: "description is missing or invalid" })
+    .min(1, { message: "description is missing or invalid" }),
+  steps: z
+    .array(z.string(), { message: "steps must be an array" })
+    .nonempty({ message: "steps cannot be empty" }),
+});
+
+const profileSchema = z
+  .object({
+    preferences: z.array(preferenceSchema).optional(),
+    patterns: z.array(patternSchema).optional(),
+    workflows: z.array(workflowSchema).optional(),
+  })
+  .passthrough();
+
+/**
+ * Convert zod issues to the error-message format callers and tests expect.
+ * `preferences[0].category is missing or invalid` / `preferences[0] is not an object`.
+ */
+function formatError(issue: z.ZodIssue): string {
+  if (issue.path.length === 0) return issue.message;
+  const [section, index, ...rest] = issue.path;
+  if (typeof index === "number" && typeof section === "string") {
+    // Array element that isn't an object: "preferences[0] is not an object"
+    if (rest.length === 0 && issue.message.includes("expected object")) {
+      return `${section}[${index}] is not an object`;
+    }
+    const field = rest.join(".");
+    return `${section}[${index}]${field ? `.${field}` : ""} ${issue.message}`;
+  }
+  return issue.message;
+}
+
 export class UserProfileValidator {
-  static validate(data: any): ValidationResult {
-    const errors: string[] = [];
-    if (!data || typeof data !== "object") {
+  static validate(data: unknown): ValidationResult {
+    if (data === null || data === undefined) {
       return { valid: false, errors: ["Response is not an object"] };
     }
     if (Array.isArray(data)) {
       return { valid: false, errors: ["Response cannot be an array"] };
     }
-    const keys = Object.keys(data);
-    if (keys.length === 0) {
+    if (typeof data !== "object") {
+      return { valid: false, errors: ["Response is not an object"] };
+    }
+
+    const obj = data as Record<string, unknown>;
+    if (Object.keys(obj).length === 0) {
       return { valid: false, errors: ["Response object is empty"] };
     }
-    for (const key of keys) {
-      if (data[key] === undefined || data[key] === null) {
-        errors.push(`Field '${key}' is null or undefined`);
+
+    // Reject null/undefined field values at the root level
+    const nullErrors: string[] = [];
+    for (const [key, value] of Object.entries(obj)) {
+      if (value === null || value === undefined) {
+        nullErrors.push(`Field '${key}' is null or undefined`);
       }
     }
-    if (errors.length > 0) {
-      return { valid: false, errors };
+    if (nullErrors.length > 0) {
+      return { valid: false, errors: nullErrors };
     }
-    const sections: Array<{ key: string; validator: (data: any) => string[] }> = [
-      { key: "preferences", validator: (d) => this.validatePreferences(d) },
-      { key: "patterns", validator: (d) => this.validatePatterns(d) },
-      { key: "workflows", validator: (d) => this.validateWorkflows(d) },
-    ];
-    for (const { key, validator } of sections) {
-      if (Object.hasOwn(data, key)) errors.push(...validator(data[key]));
-    }
-    if (errors.length > 0) {
-      return { valid: false, errors };
-    }
-    return { valid: true, errors: [], data: data as UserProfileData };
-  }
 
-  private static validateArraySection(
-    section: any,
-    sectionName: string,
-    fieldChecks: Array<{
-      field: string;
-      type: "string" | "number" | "array";
-      required?: boolean;
-      cannotBeEmpty?: boolean;
-    }>
-  ): string[] {
-    if (!Array.isArray(section)) return [`${sectionName} must be an array`];
+    // Validate section arrays with custom messages
     const errors: string[] = [];
-    for (let i = 0; i < section.length; i++) {
-      const item = section[i];
-      if (!item || typeof item !== "object") {
-        errors.push(`${sectionName}[${i}] is not an object`);
-        continue;
-      }
-      for (const check of fieldChecks) {
-        const value = item[check.field];
-        if (check.type === "string") {
-          if (!value || typeof value !== "string") {
-            errors.push(`${sectionName}[${i}].${check.field} is missing or invalid`);
-          }
-        } else if (check.type === "number") {
-          if (typeof value !== "number") {
-            errors.push(`${sectionName}[${i}].${check.field} is missing or invalid`);
-          }
-        } else if (check.type === "array") {
-          if (!Array.isArray(value)) {
-            errors.push(`${sectionName}[${i}].${check.field} must be an array`);
-          } else if (check.cannotBeEmpty && value.length === 0) {
-            errors.push(`${sectionName}[${i}].${check.field} cannot be empty`);
-          }
-        }
+    for (const section of ["preferences", "patterns", "workflows"] as const) {
+      const value = obj[section];
+      if (value !== undefined && !Array.isArray(value)) {
+        errors.push(`${section} must be an array`);
       }
     }
-    return errors;
-  }
 
-  private static validatePreferences(preferences: any): string[] {
-    return this.validateArraySection(preferences, "preferences", [
-      { field: "category", type: "string" },
-      { field: "description", type: "string" },
-      { field: "confidence", type: "number" },
-      { field: "evidence", type: "array", cannotBeEmpty: true },
-    ]);
-  }
+    const result = profileSchema.safeParse(data);
+    if (!result.success) {
+      errors.push(...result.error.issues.map(formatError));
+    }
 
-  private static validatePatterns(patterns: any): string[] {
-    return this.validateArraySection(patterns, "patterns", [
-      { field: "category", type: "string" },
-      { field: "description", type: "string" },
-    ]);
-  }
-
-  private static validateWorkflows(workflows: any): string[] {
-    return this.validateArraySection(workflows, "workflows", [
-      { field: "description", type: "string" },
-      { field: "steps", type: "array", cannotBeEmpty: true },
-    ]);
+    if (errors.length > 0) {
+      return { valid: false, errors };
+    }
+    return { valid: true, errors: [], data: result.data as unknown as UserProfileData };
   }
 }
