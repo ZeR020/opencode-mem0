@@ -283,14 +283,3 @@ export function stopScoringRecalculation(): void {
     log("Memory scoring recalculation stopped");
   }
 }
-
-/**
- * Run a one-time score recalculation (useful for initial migration or manual trigger).
- */
-export function runOneTimeScoringRecalculation(): {
-  updated: number;
-  shards: number;
-  duration: number;
-} {
-  return recalculateAllScores(true);
-}

@@ -95,7 +95,6 @@ import { shardManager, getAllShards } from "../src/services/sqlite/shard-manager
 import {
   promoteToLTM,
   scanAndPromote,
-  getArchivedCount,
   getLifecycleStats,
   startLifecycleJob,
   stopLifecycleJob,
@@ -315,42 +314,6 @@ describe("memory-lifecycle", () => {
       const res = scanAndPromote();
       expect(res).toEqual({ scanned: 0, promoted: 0 });
       expect(mockState.logCalls.some((c) => c.message === "scanAndPromote error")).toBe(true);
-    });
-  });
-
-  describe("getArchivedCount", () => {
-    it("should return the sum of counts from all shards", () => {
-      mockState.dbPrepare = vi.fn().mockReturnValue({
-        get: vi.fn(() => ({ count: 42 })),
-        all: vi.fn(() => []),
-        run: vi.fn(() => ({ changes: 0, lastInsertRowid: 0 })),
-      } satisfies Statement);
-
-      const res = getArchivedCount();
-      expect(res).toBe(42);
-    });
-
-    it("should return 0 for a shard if the archive table is missing or query throws", () => {
-      mockState.dbPrepare = vi.fn().mockReturnValue({
-        get: vi.fn(() => {
-          throw new Error("no such table");
-        }),
-        all: vi.fn(() => []),
-        run: vi.fn(() => ({ changes: 0, lastInsertRowid: 0 })),
-      } satisfies Statement);
-
-      const res = getArchivedCount();
-      expect(res).toBe(0);
-    });
-
-    it("should log error and return 0 on outer error", () => {
-      vi.mocked(getAllShards).mockImplementationOnce(() => {
-        throw new Error("outer crash");
-      });
-
-      const res = getArchivedCount();
-      expect(res).toBe(0);
-      expect(mockState.logCalls.some((c) => c.message === "getArchivedCount error")).toBe(true);
     });
   });
 

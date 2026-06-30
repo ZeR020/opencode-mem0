@@ -23,7 +23,6 @@ export default defineConfig({
         "**/*.config.js",
         "**/*.d.ts",
         "sonar-project.properties",
-        ".coderabbit.yaml",
         ".gitignore",
         "src/web/**",
         "examples/**",

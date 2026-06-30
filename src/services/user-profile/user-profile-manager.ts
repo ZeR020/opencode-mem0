@@ -242,51 +242,11 @@ export class UserProfileManager {
     return rows.map((row) => this.rowToChangelog(row));
   }
 
-  applyConfidenceDecay(profileId: string): void {
-    const profile = this.getProfileById(profileId);
-    if (!profile) return;
-
-    const parsedProfileData = safeJSONParse(profile.profileData);
-    if (!parsedProfileData) return;
-    const profileData = parsedProfileData as UserProfileData;
-    const now = Date.now();
-    const decayThreshold = CONFIG.userProfileConfidenceDecayDays * 24 * 60 * 60 * 1000;
-
-    let hasChanges = false;
-
-    profileData.preferences = profileData.preferences
-      .map((pref) => {
-        const age = now - pref.lastUpdated;
-        if (age > decayThreshold) {
-          hasChanges = true;
-          const decayFactor = Math.max(0.5, 1 - (age - decayThreshold) / decayThreshold);
-          return { ...pref, confidence: pref.confidence * decayFactor };
-        }
-        return pref;
-      })
-      .filter((pref) => pref.confidence >= 0.3);
-
-    if (hasChanges) {
-      this.updateProfile(profileId, profileData, 0, "Applied confidence decay to preferences");
-    }
-  }
-
-  deleteProfile(profileId: string): void {
-    const stmt = this.db.prepare("DELETE FROM user_profiles WHERE id = ?");
-    stmt.run(profileId);
-  }
-
   getProfileById(profileId: string): UserProfile | null {
     const stmt = this.db.prepare("SELECT * FROM user_profiles WHERE id = ?");
     const row = stmt.get(profileId) as any;
     if (!row) return null;
     return this.rowToProfile(row);
-  }
-
-  getAllActiveProfiles(): UserProfile[] {
-    const stmt = this.db.prepare("SELECT * FROM user_profiles WHERE is_active = 1");
-    const rows = stmt.all() as any[];
-    return rows.map((row) => this.rowToProfile(row));
   }
 
   private rowToProfile(row: any): UserProfile {

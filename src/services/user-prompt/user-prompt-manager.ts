@@ -32,8 +32,6 @@ export class UserPromptManager {
     markCaptured: ReturnType<Database["prepare"]>;
     claimPrompt: ReturnType<Database["prepare"]>;
     resetClaim: ReturnType<Database["prepare"]>;
-    countUncaptured: ReturnType<Database["prepare"]>;
-    getUncaptured: ReturnType<Database["prepare"]>;
     countUnanalyzed: ReturnType<Database["prepare"]>;
     getForUserLearning: ReturnType<Database["prepare"]>;
     markUserLearningCaptured: ReturnType<Database["prepare"]>;
@@ -71,15 +69,6 @@ export class UserPromptManager {
       resetClaim: this.db.prepare(
         "UPDATE user_prompts SET captured = 0 WHERE id = ? AND captured = 2"
       ),
-      countUncaptured: this.db.prepare(
-        "SELECT COUNT(*) as count FROM user_prompts WHERE captured = 0"
-      ),
-      getUncaptured: this.db.prepare(`
-        SELECT * FROM user_prompts 
-        WHERE captured = 0 
-        ORDER BY created_at ASC 
-        LIMIT ?
-      `),
       countUnanalyzed: this.db.prepare(
         "SELECT COUNT(*) as count FROM user_prompts WHERE user_learning_captured = 0"
       ),
@@ -177,20 +166,6 @@ export class UserPromptManager {
 
   resetPromptClaim(promptId: string): void {
     this.stmts.resetClaim.run(promptId);
-  }
-
-  countUncapturedPrompts(): number {
-    const row = this.stmts.countUncaptured.get() as any;
-    return row?.count || 0;
-  }
-
-  getUncapturedPrompts(limit: number): UserPrompt[] {
-    const rows = this.stmts.getUncaptured.all(limit) as any[];
-    return rows.map((row) => this.rowToPrompt(row));
-  }
-
-  markMultipleAsCaptured(promptIds: string[]): void {
-    this.markMultiple(promptIds, "captured", 1);
   }
 
   countUnanalyzedForUserLearning(): number {

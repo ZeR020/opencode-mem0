@@ -7,6 +7,7 @@ import {
   DeduplicationService,
   deduplicationService,
 } from "../src/services/deduplication-service.js";
+import { cosineSimilarity } from "../src/services/vector-backends/shared.js";
 
 vi.mock("../src/services/sqlite/shard-manager.js", () => ({
   shardManager: {
@@ -211,28 +212,28 @@ describe("deduplication-service", () => {
     it("returns 1 for identical vectors", () => {
       const a = new Float32Array([1, 2, 3]);
       const b = new Float32Array([1, 2, 3]);
-      const sim = (deduplicationService as any).cosineSimilarity(a, b);
+      const sim = cosineSimilarity(a, b);
       expect(sim).toBeCloseTo(1, 5);
     });
 
     it("returns 0 for orthogonal vectors", () => {
       const a = new Float32Array([1, 0, 0]);
       const b = new Float32Array([0, 1, 0]);
-      const sim = (deduplicationService as any).cosineSimilarity(a, b);
+      const sim = cosineSimilarity(a, b);
       expect(sim).toBeCloseTo(0, 5);
     });
 
     it("returns 0 for different lengths", () => {
       const a = new Float32Array([1, 2, 3]);
       const b = new Float32Array([1, 2]);
-      const sim = (deduplicationService as any).cosineSimilarity(a, b);
+      const sim = cosineSimilarity(a, b);
       expect(sim).toBe(0);
     });
 
     it("returns 0 when both norms are zero", () => {
       const a = new Float32Array([0, 0, 0]);
       const b = new Float32Array([0, 0, 0]);
-      const sim = (deduplicationService as any).cosineSimilarity(a, b);
+      const sim = cosineSimilarity(a, b);
       expect(sim).toBe(0);
     });
   });

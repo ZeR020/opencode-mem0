@@ -4,6 +4,72 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getDatabase } from "../../src/services/sqlite/sqlite-bootstrap.js";
 import { USearchBackend } from "../../src/services/vector-backends/usearch-backend.js";
+import type {
+  BackendInsertItem,
+  BackendSearchResult,
+} from "../../src/services/vector-backends/types.js";
+import type { ShardInfo } from "../../src/services/sqlite/types.js";
+
+async function insertManyForTest(
+  backend: USearchBackend,
+  indexKey: string,
+  items: BackendInsertItem[]
+): Promise<void> {
+  const parts = indexKey.split("_");
+  const scope = parts[0] as "project" | "user";
+  const scopeHash = parts[1]!;
+  const shardIndex = parseInt(parts[2]!, 10);
+  const kind = parts[3] as "content" | "tags";
+
+  const shard: ShardInfo = {
+    id: 1,
+    scope,
+    scopeHash,
+    shardIndex,
+    dbPath: "",
+    vectorCount: items.length,
+    isActive: true,
+    createdAt: Date.now(),
+  };
+
+  await backend.insertBatch({
+    items,
+    shard,
+    kind,
+  });
+}
+
+async function searchForTest(
+  backend: USearchBackend,
+  indexKey: string,
+  queryVector: Float32Array,
+  limit: number
+): Promise<BackendSearchResult[]> {
+  const parts = indexKey.split("_");
+  const scope = parts[0] as "project" | "user";
+  const scopeHash = parts[1]!;
+  const shardIndex = parseInt(parts[2]!, 10);
+  const kind = parts[3] as "content" | "tags";
+
+  const shard: ShardInfo = {
+    id: 1,
+    scope,
+    scopeHash,
+    shardIndex,
+    dbPath: "",
+    vectorCount: 0,
+    isActive: true,
+    createdAt: Date.now(),
+  };
+
+  return backend.search({
+    db: null,
+    shard,
+    kind,
+    queryVector,
+    limit,
+  });
+}
 
 const Database = getDatabase();
 
@@ -23,13 +89,14 @@ describe("USearchBackend", () => {
 
     const backend = new USearchBackend({ baseDir, dimensions: 4 });
 
-    await backend.insertManyForTest("project_hash_0_content", [
+    await insertManyForTest(backend, "project_hash_0_content", [
       { id: "a", vector: new Float32Array([1, 0, 0, 0]) },
       { id: "b", vector: new Float32Array([0, 1, 0, 0]) },
       { id: "c", vector: new Float32Array([0.9, 0.1, 0, 0]) },
     ]);
 
-    const result = await backend.searchForTest(
+    const result = await searchForTest(
+      backend,
       "project_hash_0_content",
       new Float32Array([1, 0, 0, 0]),
       2

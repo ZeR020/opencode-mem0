@@ -147,27 +147,6 @@ export class TranscriptManager {
     }
   }
 
-  getTranscript(sessionId: string): TranscriptRecord | null {
-    if (!CONFIG.transcriptStorage.enabled) return null;
-
-    try {
-      const db = this.getDb();
-      const row = db
-        .prepare(
-          `
-        SELECT ${TRANSCRIPT_FIELDS}
-        FROM transcripts WHERE session_id = ? ORDER BY created_at DESC LIMIT 1
-      `
-        )
-        .get(sessionId) as any;
-
-      return row ? rowToTranscript(row) : null;
-    } catch (error) {
-      log("getTranscript: error", { sessionId, error: String(error) });
-      return null;
-    }
-  }
-
   getRecentTranscripts(limit: number = 10): TranscriptRecord[] {
     if (!CONFIG.transcriptStorage.enabled) return [];
 

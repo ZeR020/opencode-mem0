@@ -105,7 +105,6 @@ interface OpenCodeMemConfig {
   injection?: {
     tokenBudget?: number;
     format?: "plain" | "xml" | "yaml";
-    queryAwareFiltering?: boolean;
     relevanceThreshold?: number;
   };
   contextualDecay?: {
@@ -226,7 +225,6 @@ const OpenCodeMemConfigSchema = z.object({
     .object({
       tokenBudget: z.number().positive().optional(),
       format: z.enum(["plain", "xml", "yaml"]).optional(),
-      queryAwareFiltering: z.boolean().optional(),
       relevanceThreshold: z.number().min(0).max(1).optional(),
     })
     .optional(),
@@ -322,7 +320,6 @@ const DEFAULTS: Partial<OpenCodeMemConfig> = {
   injection: {
     tokenBudget: 4000,
     format: "plain",
-    queryAwareFiltering: true,
     relevanceThreshold: 0.3,
   },
   contextualDecay: {
@@ -471,7 +468,6 @@ function buildInjectionConfig(f: OpenCodeMemConfig) {
   return {
     tokenBudget: f.injection?.tokenBudget ?? D.injection!.tokenBudget,
     format: f.injection?.format ?? D.injection!.format,
-    queryAwareFiltering: f.injection?.queryAwareFiltering ?? D.injection!.queryAwareFiltering,
     relevanceThreshold: f.injection?.relevanceThreshold ?? D.injection!.relevanceThreshold,
   };
 }

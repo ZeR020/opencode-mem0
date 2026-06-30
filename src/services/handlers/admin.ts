@@ -44,15 +44,6 @@ export class MigrationProgressTracker {
   isComplete = true;
   errors: string[] = [];
 
-  reset(): void {
-    this.processed = 0;
-    this.total = 0;
-    this.currentBatch = 0;
-    this.totalBatches = 0;
-    this.isComplete = true;
-    this.errors = [];
-  }
-
   toJSON() {
     return {
       processed: this.processed,

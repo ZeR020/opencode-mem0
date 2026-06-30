@@ -87,7 +87,7 @@ vi.mock("../src/services/embedding.js", () => ({
 vi.mock("../src/services/memory-scoring-service.js", () => ({
   startScoringRecalculation: vi.fn(),
   stopScoringRecalculation: vi.fn(),
-  runOneTimeScoringRecalculation: vi.fn(),
+  recalculateAllScores: vi.fn(),
 }));
 
 vi.mock("../src/services/memory-lifecycle.js", () => ({
@@ -171,10 +171,6 @@ describe("session.idle transcript capture wiring", () => {
 
     await vi.advanceTimersByTimeAsync(10001);
 
-    expect(mocks.performAutoCapture).toHaveBeenCalledWith(
-      expect.any(Object),
-      "sess-2",
-      "/test"
-    );
+    expect(mocks.performAutoCapture).toHaveBeenCalledWith(expect.any(Object), "sess-2", "/test");
   });
 });

@@ -6,7 +6,7 @@ let lastListScope: string | undefined;
 let mockConfig: any;
 let mockClient: any;
 
-vi.mock("../src/services/logger.js", () => ({ log: () => {} }));
+vi.mock("../src/services/logger.js", () => ({ log: () => {}, flushLogs: () => Promise.resolve() }));
 vi.mock("../src/services/tags.js", () => ({
   getTags: () => ({ project: { tag: "project-tag" }, user: { userEmail: "u@example.com" } }),
 }));
@@ -32,7 +32,6 @@ vi.mock("../src/services/ai/session/ai-session-manager.js", () => ({
   getAISessionManager: vi.fn(() => ({
     createSession: vi.fn(),
     getSession: vi.fn(),
-    addMessage: vi.fn(),
     getMessages: vi.fn(() => []),
     getLastSequence: vi.fn(() => 0),
     updateSession: vi.fn(),

@@ -23,10 +23,8 @@ export class AISessionManager {
   private readonly getMessagesStmt: any;
   private readonly getLastSequenceStmt: any;
   private readonly cleanupExpiredStmt: any;
-  private readonly deleteSessionStmt: any;
   private readonly addMessageStmt: any;
   private readonly getNextSeqStmt: any;
-  private readonly clearMessagesStmt: any;
   private readonly updateConversationIdStmt: any;
   private readonly updateMetadataStmt: any;
   private readonly updateBothStmt: any;
@@ -50,9 +48,6 @@ export class AISessionManager {
       "SELECT MAX(sequence) as max_seq FROM ai_messages WHERE ai_session_id = ?"
     );
     this.cleanupExpiredStmt = this.db.prepare("DELETE FROM ai_sessions WHERE expires_at < ?");
-    this.deleteSessionStmt = this.db.prepare(
-      "DELETE FROM ai_sessions WHERE session_id = ? AND provider = ?"
-    );
     this.addMessageStmt = this.db.prepare(`
       INSERT INTO ai_messages (
         ai_session_id, sequence, role, content, tool_calls, tool_call_id, content_blocks, created_at
@@ -61,7 +56,6 @@ export class AISessionManager {
     this.getNextSeqStmt = this.db.prepare(
       "SELECT COALESCE(MAX(sequence), -1) + 1 as next_seq FROM ai_messages WHERE ai_session_id = ?"
     );
-    this.clearMessagesStmt = this.db.prepare("DELETE FROM ai_messages WHERE ai_session_id = ?");
     this.updateConversationIdStmt = this.db.prepare(
       "UPDATE ai_sessions SET conversation_id = ?, updated_at = ? WHERE session_id = ? AND provider = ?"
     );
@@ -199,23 +193,6 @@ export class AISessionManager {
     return result.changes;
   }
 
-  deleteSession(sessionId: string, provider: AIProviderType): void {
-    this.deleteSessionStmt.run(sessionId, provider);
-  }
-
-  addMessage(message: Omit<AIMessage, "id" | "createdAt">): void {
-    this.addMessageStmt.run(
-      message.aiSessionId,
-      message.sequence,
-      message.role,
-      message.content,
-      message.toolCalls ? JSON.stringify(message.toolCalls) : null,
-      message.toolCallId || null,
-      message.contentBlocks ? JSON.stringify(message.contentBlocks) : null,
-      Date.now()
-    );
-  }
-
   getMessages(aiSessionId: string): AIMessage[] {
     const rows = this.getMessagesStmt.all(aiSessionId) as any[];
     return rows.map((row) => this.rowToMessage(row));
@@ -255,10 +232,6 @@ export class AISessionManager {
       }
       throw error;
     }
-  }
-
-  clearMessages(aiSessionId: string): void {
-    this.clearMessagesStmt.run(aiSessionId);
   }
 
   private rowToSession(row: any): AISession {

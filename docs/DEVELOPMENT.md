@@ -56,7 +56,6 @@ All scripts are defined in `package.json` `scripts`. The primary package manager
 | `bun run dev`           | Run `tsc --watch` for incremental compilation during development                                  |
 | `bun run typecheck`     | Run `tsc --noEmit` — strict type checking without emitting files                                  |
 | `bun run test`          | Run the full Vitest test suite                                                                    |
-| `bun run test:bun`      | Alias for `bun run test` (explicit Bun invocation)                                                |
 | `bun run test:coverage` | Run tests with V8 coverage (text + lcov + HTML in `./coverage/`)                                  |
 | `bun run format`        | Run Prettier on `src/**/*.{ts,js,css,html}`                                                       |
 | `bun run format:check`  | Check Prettier formatting without writing changes                                                 |

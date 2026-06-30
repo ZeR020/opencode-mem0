@@ -107,15 +107,13 @@ describe("AISessionManager", () => {
       sessionId: "sess-6",
       provider: "openai-chat",
     });
-    manager.addMessage({
+    manager.addMessageAtomic({
       aiSessionId: session.id,
-      sequence: 0,
       role: "user",
       content: "Hello",
     });
-    manager.addMessage({
+    manager.addMessageAtomic({
       aiSessionId: session.id,
-      sequence: 1,
       role: "assistant",
       content: "Hi there",
     });
@@ -152,39 +150,12 @@ describe("AISessionManager", () => {
       provider: "openai-chat",
     });
     expect(manager.getLastSequence(session.id)).toBe(-1);
-    manager.addMessage({
+    manager.addMessageAtomic({
       aiSessionId: session.id,
-      sequence: 0,
       role: "user",
       content: "Hello",
     });
     expect(manager.getLastSequence(session.id)).toBe(0);
-  });
-
-  it("clears messages", async () => {
-    const { manager } = await makeSessionManager();
-    const session = manager.createSession({
-      sessionId: "sess-9",
-      provider: "openai-chat",
-    });
-    manager.addMessage({
-      aiSessionId: session.id,
-      sequence: 0,
-      role: "user",
-      content: "Hello",
-    });
-    manager.clearMessages(session.id);
-    expect(manager.getMessages(session.id)).toHaveLength(0);
-  });
-
-  it("deletes session", async () => {
-    const { manager } = await makeSessionManager();
-    manager.createSession({
-      sessionId: "sess-10",
-      provider: "openai-chat",
-    });
-    manager.deleteSession("sess-10", "openai-chat");
-    expect(manager.getSession("sess-10", "openai-chat")).toBeNull();
   });
 
   it("cleans up expired sessions", async () => {
@@ -219,9 +190,8 @@ describe("AISessionManager", () => {
       sessionId: "sess-11",
       provider: "openai-chat",
     });
-    manager.addMessage({
+    manager.addMessageAtomic({
       aiSessionId: session.id,
-      sequence: 0,
       role: "assistant",
       content: "",
       toolCalls: [{ id: "tc-1", type: "function", function: { name: "test", arguments: "{}" } }],
@@ -237,9 +207,8 @@ describe("AISessionManager", () => {
       sessionId: "sess-12",
       provider: "openai-chat",
     });
-    manager.addMessage({
+    manager.addMessageAtomic({
       aiSessionId: session.id,
-      sequence: 0,
       role: "assistant",
       content: "",
       contentBlocks: [{ type: "text", text: "Hello" }],

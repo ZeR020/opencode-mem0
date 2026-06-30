@@ -359,14 +359,6 @@ export class MigrationService {
   private reportProgress(progress: MigrationProgress): void {
     this.progressCallback?.(progress);
   }
-
-  getStatus() {
-    return {
-      isRunning: this.isRunning,
-      configModel: CONFIG.embeddingModel,
-      configDimensions: CONFIG.embeddingDimensions,
-    };
-  }
 }
 
 export const migrationService = new MigrationService();

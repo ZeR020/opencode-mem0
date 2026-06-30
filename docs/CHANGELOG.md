@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **Dead code from repo-wide ponytail-audit** — Removed 15 verified-dead symbols across 33 files (-309 lines net). All deletions were grep-verified and cross-checked with the codebase-memory call graph (`trace_path inbound → []` for zero production callers). The test-fake trap was applied: methods whose only callers were test doubles were identified as test-only and removed with their tests updated, not silently deleted. Categories:
+  - **Dead methods (zero prod + zero test callers):** `MemoryMetadata` interface (`types/index.ts`), `MigrationService.getStatus()`, `MigrationProgressTracker.reset()`, `applyConfidenceDecay`/`deleteProfile`/`getAllActiveProfiles` (`user-profile-manager.ts`), `getArchivedCount` (`memory-lifecycle.ts`). CBM call graph confirmed zero inbound edges.
+  - **Legacy superseded methods (prod migrated, test-only callers):** `AISessionManager.addMessage`/`deleteSession`/`clearMessages` + their legacy prepared statements — production uses `addMessageAtomic` and TTL-based `cleanupExpiredSessions`. Tests updated to use the atomic/TTL paths.
+  - **Test-only production methods:** `insertManyForTest`/`searchForTest` (`usearch-backend.ts`), `getTranscript` (`transcript-manager.ts`), `countUncapturedPrompts`/`getUncapturedPrompts`/`markMultipleAsCaptured` (`user-prompt-manager.ts`). Removed from production classes; tests updated.
+  - **Dead config field:** `injection.queryAwareFiltering` — configured, defaulted, Zod-validated, but never read by any production code. Removed from interface, schema, and defaults; test assertions updated.
+  - **Dead script/tooling:** 4 "warning-only" checks in `scripts/lint-deepsource.sh` (checks #5, #7, #8, #10 — never incremented `ERRORS`, never gated the push). `test:bun` npm script (identical to `test`). `.coderabbit.yaml` entry in `vitest.config.ts` coverage exclude (file deleted in v2.17.1).
+
+### Changed
+
+- **`runOneTimeScoringRecalculation` inlined** — 1-line wrapper in `memory-scoring-service.ts` inlined at its single caller (`index.ts`); `recalculateAllScores(true)` called directly. The now-dead wrapper definition was deleted.
+- **`DeduplicationService.cosineSimilarity` deduplicated** — Private copy replaced with import of the shared `cosineSimilarity` from `vector-backends/shared.ts` (already used by `exact-scan-backend.ts`).
+
+### Audit false positive corrected
+
+- **`src/types/usearch.d.ts` retained** — Audit finding flagged this file as dead (`usearch` ships its own `.d.ts`). Verified load-bearing: the ambient `declare module "usearch"` declaration shadows the shipped types with a permissive module, making `metric: "cos"` assignable to `MetricKind` and `bigint[]` compatible with `BigUint64Array`. Deleting it exposed the stricter shipped types and broke typecheck. File restored.
+
 ## [2.17.1] - 2026-06-28
 
 ### Fixed

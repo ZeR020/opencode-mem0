@@ -200,12 +200,11 @@ Controls how memories are injected into the OpenCode chat context.
 
 Controls the formatting and filtering of injected memory context.
 
-| Setting                         | Type                         | Default   | Description                                                                         |
-| ------------------------------- | ---------------------------- | --------- | ----------------------------------------------------------------------------------- |
-| `injection.tokenBudget`         | `number`                     | `4000`    | Maximum token count for the injected memory context.                                |
-| `injection.format`              | `"plain" \| "xml" \| "yaml"` | `"plain"` | Output format for injected memories.                                                |
-| `injection.queryAwareFiltering` | `boolean`                    | `true`    | Filter injected memories based on relevance to the current query.                   |
-| `injection.relevanceThreshold`  | `number` (0–1)               | `0.3`     | Minimum score for a memory to be included in injection after query-aware filtering. |
+| Setting                        | Type                         | Default   | Description                                                                         |
+| ------------------------------ | ---------------------------- | --------- | ----------------------------------------------------------------------------------- |
+| `injection.tokenBudget`        | `number`                     | `4000`    | Maximum token count for the injected memory context.                                |
+| `injection.format`             | `"plain" \| "xml" \| "yaml"` | `"plain"` | Output format for injected memories.                                                |
+| `injection.relevanceThreshold` | `number` (0–1)               | `0.3`     | Minimum score for a memory to be included in injection after query-aware filtering. |
 
 ## Contextual Decay Settings
 

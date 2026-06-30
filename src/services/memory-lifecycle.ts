@@ -477,35 +477,6 @@ async function archiveMemory(db: any, memoryId: string, shard: any): Promise<voi
 }
 
 /**
- * Get count of archived memories.
- */
-function getShardArchivedCount(db: any): number {
-  try {
-    const result = db.prepare("SELECT COUNT(*) as count FROM memories_archive").get() as any;
-    return result?.count || 0;
-  } catch {
-    return 0;
-  }
-}
-
-export function getArchivedCount(): number {
-  let count = 0;
-
-  try {
-    const allShards = getAllShards();
-
-    for (const shard of allShards) {
-      const db = connectionManager.getConnection(shard.dbPath);
-      count += getShardArchivedCount(db);
-    }
-  } catch (error) {
-    log("getArchivedCount error", { error: String(error) });
-  }
-
-  return count;
-}
-
-/**
  * Scan for promotion candidates and promote eligible STM memories to LTM.
  */
 export function scanAndPromote(): { scanned: number; promoted: number } {

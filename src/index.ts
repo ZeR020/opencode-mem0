@@ -15,7 +15,7 @@ import { safeJSONParse } from "./services/utils/safe-transforms.js";
 import {
   startScoringRecalculation,
   stopScoringRecalculation,
-  runOneTimeScoringRecalculation,
+  recalculateAllScores,
 } from "./services/memory-scoring-service.js";
 import {
   startLifecycleJob,
@@ -219,7 +219,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
     startScoringRecalculation();
     // Run one-time recalculation on startup to ensure existing memories are scored
     try {
-      runOneTimeScoringRecalculation();
+      recalculateAllScores(true);
     } catch (error) {
       log("Initial scoring recalculation failed", { error: String(error) });
     }

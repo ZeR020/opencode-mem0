@@ -45,7 +45,6 @@ import {
   recalculateAllScores,
   startScoringRecalculation,
   stopScoringRecalculation,
-  runOneTimeScoringRecalculation,
 } from "../src/services/memory-scoring-service.js";
 import { shardManager } from "../src/services/sqlite/shard-manager.js";
 import { connectionManager } from "../src/services/sqlite/connection-manager.js";
@@ -295,16 +294,6 @@ describe("memory-scoring-service", () => {
     it("is safe to call when no interval is running", () => {
       stopScoringRecalculation();
       // No error thrown
-    });
-  });
-
-  describe("runOneTimeScoringRecalculation", () => {
-    it("calls recalculateAllScores with full recalculation", () => {
-      (shardManager.getAllShards as any).mockReturnValue([]);
-      const result = runOneTimeScoringRecalculation();
-      expect(result).toHaveProperty("updated");
-      expect(result).toHaveProperty("shards");
-      expect(result).toHaveProperty("duration");
     });
   });
 });

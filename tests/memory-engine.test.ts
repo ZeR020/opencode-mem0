@@ -359,11 +359,12 @@ describe("Memory Engine Integration", () => {
       expect(id).toBeTruthy();
       expect(id.startsWith("tr_")).toBe(true);
 
-      const retrieved = mgr.getTranscript("sess-1");
-      expect(retrieved).not.toBeNull();
-      expect(retrieved!.sessionId).toBe("sess-1");
-      expect(retrieved!.projectPath).toBe("/project/a");
-      expect(retrieved!.tokenCount).toBeGreaterThan(0);
+      const recent = mgr.getRecentTranscripts(1);
+      expect(recent.length).toBe(1);
+      const retrieved = recent[0]!;
+      expect(retrieved.sessionId).toBe("sess-1");
+      expect(retrieved.projectPath).toBe("/project/a");
+      expect(retrieved.tokenCount).toBeGreaterThan(0);
     });
 
     it("returns recent transcripts ordered by time", () => {

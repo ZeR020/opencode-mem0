@@ -152,10 +152,6 @@ describe("structured-format", () => {
       expect(testConfig.injection?.tokenBudget).toBe(4000);
     });
 
-    it("has injection.queryAwareFiltering defaulting to true", () => {
-      expect(testConfig.injection?.queryAwareFiltering).toBe(true);
-    });
-
     it("has injection.relevanceThreshold defaulting to 0.3", () => {
       expect(testConfig.injection?.relevanceThreshold).toBe(0.3);
     });

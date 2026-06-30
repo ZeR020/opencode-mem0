@@ -141,27 +141,6 @@ export class USearchBackend implements VectorBackend {
       this.indexes.delete(indexKey);
     }
   }
-
-  async insertManyForTest(indexKey: string, items: BackendInsertItem[]): Promise<void> {
-    const cache = await this.getOrCreateIndex(indexKey);
-    this.addItems(cache, items);
-    cache.initialized = true;
-  }
-
-  async searchForTest(
-    indexKey: string,
-    queryVector: Float32Array,
-    limit: number
-  ): Promise<BackendSearchResult[]> {
-    const cache = await this.getOrCreateIndex(indexKey);
-    try {
-      const matches = cache.index.search(queryVector, limit);
-      return this.mapSearchResults(cache, matches);
-    } catch (error) {
-      throw new Error(`USearch test search failed for ${indexKey}: ${String(error)}`);
-    }
-  }
-
   private readonly indexLocks = new Map<string, Promise<CachedIndex>>();
   private readonly rebuildLocks = new Map<string, Promise<void>>();
 

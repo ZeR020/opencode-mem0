@@ -63,17 +63,6 @@ else
   echo -e "${GREEN}  ✓ No console usage outside logger${NC}"
 fi
 
-# 5. Check for string concatenation with + (JS-0246 / JS-W1041)
-echo "5️⃣  Checking for string concatenation with + (JS-W1041)..."
-STRING_CONCAT=$(rg -n '["'"'"'].*\+.*["'"'"']|["'"'"'].*\+\s*\w+|\w+\s*\+.*["'"'"']' src/ --type ts | grep -v 'tests/' | grep -v 'skipcq' | head -20 || true)
-if [ -n "$STRING_CONCAT" ]; then
-  echo -e "${YELLOW}  Found potential string concatenation (may be intentional):${NC}"
-  echo "$STRING_CONCAT"
-  # This is a warning, not an error
-else
-  echo -e "${GREEN}  ✓ No string concatenation issues${NC}"
-fi
-
 # 6. Check for catch blocks without error handling (JS-2486 equivalent)
 echo "6️⃣  Checking for empty catch blocks..."
 EMPTY_CATCH=$(rg -n 'catch\s*\([^)]*\)\s*\{\s*\}' src/ --type ts | head -20 || true)
@@ -84,29 +73,6 @@ if [ -n "$EMPTY_CATCH" ]; then
 else
   echo -e "${GREEN}  ✓ No empty catch blocks${NC}"
 fi
-
-# 7. Check for non-null assertions (JS-0339)
-echo "7️⃣  Checking for non-null assertions (!) without skipcq..."
-NON_NULL=$(rg -n '![.;)]' src/ --type ts | grep -v 'skipcq' | grep -v 'tests/' | grep -v 'node_modules/' | head -20 || true)
-if [ -n "$NON_NULL" ]; then
-  echo -e "${YELLOW}  Found non-null assertions (may need skipcq):${NC}"
-  echo "$NON_NULL"
-  # Warning only
-else
-  echo -e "${GREEN}  ✓ No unannotated non-null assertions${NC}"
-fi
-
-# 8. Check for explicit any types without skipcq (JS-0323)
-echo "8️⃣  Checking for explicit any types without skipcq..."
-EXPLICIT_ANY=$(rg -n ':\s*any\b' src/ --type ts | grep -v 'skipcq' | grep -v 'tests/' | head -20 || true)
-if [ -n "$EXPLICIT_ANY" ]; then
-  echo -e "${YELLOW}  Found explicit any types (may need skipcq):${NC}"
-  echo "$EXPLICIT_ANY"
-  # Warning only - too many to fix at once
-else
-  echo -e "${GREEN}  ✓ No unannotated any types${NC}"
-fi
-
 
 # 9. Check for top-level function declarations (JS-0067)
 # DeepSource flags function declarations at module top-level as "global scope".
@@ -142,31 +108,6 @@ else
   # Warning only - scripts/ is excluded in .deepsource.toml
 fi
 
-# 10. Check cyclomatic complexity (JS-R1005)
-# DeepSource flags functions with cyclomatic complexity > 10 as "medium" risk.
-echo "🔟  Checking for high cyclomatic complexity in changed files (JS-R1005)..."
-JSR1005_FOUND=0
-for file in $CHANGED_TS; do
-  if [ -f "$file" ]; then
-    # Heuristic: count branch keywords per file, flag if branch-to-function ratio > 15
-    # (a file with 30 branches across 2 functions likely has a complex function)
-    COMPLEX_FUNCS=$(rg -n '(if |else |for |while |switch |case |&&|\|\||\?\.)' "$file" 2>/dev/null | wc -l || true)
-    FUNC_COUNT=$(rg -c '(function |=>)' "$file" 2>/dev/null || echo "1")
-    if [ "$FUNC_COUNT" -gt 0 ] && [ "$COMPLEX_FUNCS" -gt 0 ]; then
-      AVG=$((COMPLEX_FUNCS / FUNC_COUNT))
-      if [ "$AVG" -gt 15 ]; then
-        echo -e "${YELLOW}  ⚠️  JS-R1005 in $file: ~$AVG branches/function${NC}"
-        JSR1005_FOUND=1
-      fi
-    fi
-  fi
-done
-if [ $JSR1005_FOUND -eq 0 ]; then
-  echo -e "${GREEN}  ✓ No high-complexity functions in changed files${NC}"
-else
-  echo -e "${YELLOW}  ⚠️  High cyclomatic complexity found (DeepSource JS-R1005)${NC}"
-  echo "   Consider splitting complex functions."
-fi
 # Summary
 echo ""
 echo "========================================"

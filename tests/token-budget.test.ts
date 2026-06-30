@@ -13,7 +13,6 @@ vi.mock("../src/config.js", () => ({
     injection: {
       tokenBudget: 4000,
       format: "plain",
-      queryAwareFiltering: true,
       relevanceThreshold: 0.3,
     },
   },

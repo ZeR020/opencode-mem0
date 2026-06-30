@@ -117,7 +117,7 @@ src/
 ├── config.ts             # Configuration loading, validation (Zod), defaults, project/global merge
 ├── plugin.ts             # Plugin export shim
 ├── types/
-│   └── index.ts          # Shared types: MemoryType, MemoryMetadata, AIProviderType
+│   └── index.ts          # Shared types: MemoryType, AIProviderType
 ├── services/
 │   ├── client.ts         # LocalMemoryClient — top-level memory operations
 │   ├── embedding.ts      # EmbeddingService — local/remote embedding with LRU cache
