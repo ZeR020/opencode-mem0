@@ -46,6 +46,74 @@ Requires **Bun >= 1.0.0** (Linux/macOS) for native `bun:sqlite`, or **Node.js >=
 
 > **Recommended:** Use a cheap model (e.g., `gpt-4o-mini`) for memory extraction — it's cost-effective and avoids taxing your main chat model. `memoryProvider` supports `openai-chat` (any OpenAI-compatible API), `openai-responses`, `anthropic`, and `google-gemini`. Alternatively, `opencodeProvider` + `opencodeModel` reuses your OpenCode-connected provider (uses your main model). Without a provider, auto-capture silently skips with a log warning.
 
+## Windows Setup
+
+On Windows the plugin uses `better-sqlite3` (native C++ binding) instead of Bun's built-in SQLite. This requires build tools at install time.
+
+### Prerequisites
+
+1. **Node.js >= 20.0.0** — download from [nodejs.org](https://nodejs.org) (the LTS version is fine)
+2. **Visual Studio Build Tools** (for `better-sqlite3` native compilation):
+   - Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) or full Visual Studio
+   - In the installer, select the **"Desktop development with C++"** workload
+   - This provides the C++ compiler and Windows SDK that `node-gyp` needs
+3. **Python 3.x** (required by `node-gyp`) — install from [python.org](https://www.python.org/downloads/) and ensure it's in your PATH
+
+### Install
+
+```powershell
+npm install opencode-mem0
+```
+
+If `better-sqlite3` fails to build, verify the prerequisites above, then retry. The error usually mentions `node-gyp` or `MSBuild`.
+
+### Config file location
+
+On Windows, paths use `%USERPROFILE%` instead of `~`:
+
+| Location                                             | Purpose                                 |
+| ---------------------------------------------------- | --------------------------------------- |
+| `%USERPROFILE%\.config\opencode\opencode-mem0.jsonc` | Global config                           |
+| `%USERPROFILE%\.opencode-mem0\data`                  | SQLite databases, embedding model cache |
+
+Example config (`%USERPROFILE%\.config\opencode\opencode-mem0.jsonc`):
+
+```jsonc
+{
+  "memoryProvider": "openai-chat",
+  "memoryModel": "gpt-4o-mini",
+  "memoryApiUrl": "https://api.openai.com/v1",
+  "memoryApiKey": "sk-...",
+}
+```
+
+### OpenCode config
+
+Add the plugin to your project's `opencode.json` (or global opencode config):
+
+```json
+{
+  "plugin": ["opencode-mem0"]
+}
+```
+
+### Troubleshooting
+
+| Problem                                                                | Fix                                                                                                                                        |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `node-gyp` / `MSBuild` error during install                            | Install Visual Studio Build Tools with "Desktop development with C++" workload + Python 3                                                  |
+| `better-sqlite3` build still fails after installing tools              | Run `npm install --build-from-source` or try `npx node-gyp rebuild` in the `better-sqlite3` directory                                      |
+| Plugin loads but auto-capture skips with "LLM provider not configured" | Create the config file at `%USERPROFILE%\.config\opencode\opencode-mem0.jsonc` with a `memoryProvider`                                     |
+| Web UI shows "Initializing..." and never loads                         | Ensure `dist/web/vendor/` exists in the plugin install directory — reinstall if missing                                                    |
+| Embedding model download is slow / hangs                               | First run downloads ~547MB (Xenova/nomic-embed-text-v1) — this is cached at `%USERPROFILE%\.opencode-mem0\data\.cache` for subsequent runs |
+| `usearch` native binary missing                                        | The plugin automatically falls back to exact-scan (brute-force cosine) — search still works, just slower on large datasets                 |
+
+> **Tip:** If you have [Bun](https://bun.sh) installed on Windows (via WSL or native), the plugin uses Bun's built-in SQLite and skips `better-sqlite3` entirely — no build tools needed.
+
+## First Run — What to Expect
+
+On first launch (all platforms), the plugin downloads the local embedding model (~547MB, `Xenova/nomic-embed-text-v1`). This is a one-time download cached under `~/.opencode-mem0/data/.cache/` (`%USERPROFILE%\.opencode-mem0\data\.cache\` on Windows). Subsequent starts load from cache in seconds. The Web UI at `http://127.0.0.1:4747` becomes available once warmup completes.
+
 ## Usage
 
 Memories are captured automatically from conversations via auto-capture (enabled by default). The agent tool below is for explicit memory operations — most users never need to invoke it manually.
