@@ -35,7 +35,7 @@ export interface MigrationResult {
 }
 
 export class MigrationService {
-  private isRunning: boolean = false;
+  private isRunning = false;
   private progressCallback?: (progress: MigrationProgress) => void;
 
   detectDimensionMismatch(): DimensionMismatch {

@@ -63,14 +63,11 @@ function hasNonEmptyChoices(data: unknown): data is ToolCallResponse {
 
   const { content, tool_calls } = first.message as { content?: unknown; tool_calls?: unknown };
   const contentIsDefined = content !== undefined && content !== null;
-  const contentIsInvalid = contentIsDefined && typeof content !== "string";
-  if (contentIsInvalid) return false;
-
   const hasToolCalls = tool_calls !== undefined;
-  const toolCallsInvalid = hasToolCalls && !Array.isArray(tool_calls);
-  if (toolCallsInvalid) return false;
-
-  return true;
+  return (
+    !(contentIsDefined && typeof content !== "string") &&
+    !(hasToolCalls && !Array.isArray(tool_calls))
+  );
 }
 
 export class OpenAIChatCompletionProvider extends BaseAIProvider {

@@ -69,7 +69,7 @@ function isLoopbackHost(host: string): boolean {
 export class WebServer {
   private server: PlatformServer | null = null;
   private readonly config: WebServerConfig;
-  private isOwner: boolean = false;
+  private isOwner = false;
   private startPromise: Promise<void> | null = null;
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private onTakeoverCallback: (() => Promise<void>) | null = null;
@@ -735,8 +735,8 @@ export class WebServer {
 
   private _parsePageParams(
     url: URL,
-    pageKey: string = "page",
-    pageSizeKey: string = "pageSize",
+    pageKey = "page",
+    pageSizeKey = "pageSize",
     pageSizeFallbackKey?: string
   ): { page: number; pageSize: number } {
     const rawPage = Number.parseInt(url.searchParams.get(pageKey) || "1");
@@ -761,7 +761,7 @@ export class WebServer {
     return id;
   }
 
-  private jsonResponse(data: unknown, status: number = 200, redact: boolean = false): Response {
+  private jsonResponse(data: unknown, status = 200, redact = false): Response {
     const finalData = redact ? this.redactPII(data) : data;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",

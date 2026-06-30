@@ -25,8 +25,8 @@ async function ensureTransformersLoaded(): Promise<NonNullable<typeof _transform
 export class EmbeddingService {
   private pipe: any = null;
   private initPromise: Promise<void> | null = null;
-  public isWarmedUp: boolean = false;
-  public embeddingAvailable: boolean = true;
+  public isWarmedUp = false;
+  public embeddingAvailable = true;
   private readonly cache = new Map<string, Float32Array>();
   private cachedModelName: string | null = null;
   private cacheHits = 0;

@@ -75,7 +75,7 @@ interface SessionSearchRow {
 
 export class LocalMemoryClient {
   private initPromise: Promise<void> | null = null;
-  private isInitialized: boolean = false;
+  private isInitialized = false;
 
   private async initialize(): Promise<void> {
     if (this.isInitialized) return;

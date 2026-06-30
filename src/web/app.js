@@ -1589,7 +1589,7 @@ async function loadTimeline() {
   container.innerHTML = '<div class="loading">Loading timeline...</div>';
 
   try {
-    const result = await fetchAPI(`/api/memories?page=1&pageSize=100&includePrompts=false`);
+    const result = await fetchAPI("/api/memories?page=1&pageSize=100&includePrompts=false");
     if (result.success) {
       const items = result.data.items;
       if (items.length === 0) {
@@ -1625,7 +1625,7 @@ async function loadTimeline() {
             </div>
           `;
           });
-          html += `</div></div>`;
+          html += "</div></div>";
         });
       html += "</div>";
 
