@@ -4,6 +4,7 @@ import { shardManager } from "../sqlite/shard-manager.js";
 import { vectorSearch } from "../sqlite/vector-search.js";
 import { connectionManager } from "../sqlite/connection-manager.js";
 import { log } from "../logger.js";
+import { memoryClient } from "../client.js";
 import { safeJSONParse } from "../utils/safe-transforms.js";
 import { userPromptManager } from "../user-prompt/user-prompt-manager.js";
 import type { MemoryType } from "../../types/index.js";
@@ -93,55 +94,30 @@ export async function handleAddMemory(data: {
   projectPath?: string;
   projectName?: string;
   gitRepoUrl?: string;
-}): Promise<ApiResponse<{ id: string }>> {
-  try {
-    if (!data.content || !data.containerTag) {
-      return { success: false, error: "content and containerTag are required" };
-    }
-    await embeddingService.warmup();
-    const tags = (data.tags || []).map((t) => t.trim().toLowerCase());
-    const embeddingInput =
-      tags.length > 0 ? `${data.content}\nTags: ${tags.join(", ")}` : data.content;
-
-    const vector = await embeddingService.embedWithTimeout(embeddingInput);
-    let tagsVector: Float32Array | undefined;
-    if (tags.length > 0) {
-      tagsVector = await embeddingService.embedWithTimeout(tags.join(", "));
-    }
-
-    const { scope, hash } = extractScopeFromTag(data.containerTag);
-
-    const shard = shardManager.getWriteShard(scope, hash);
-
-    const id = `mem_${Date.now()}_${randomBytes(5).toString("hex")}`;
-    const now = Date.now();
-
-    const record = {
-      id,
-      content: data.content,
-      vector,
-      tagsVector,
-      containerTag: data.containerTag,
-      tags: tags.length > 0 ? tags.join(",") : undefined,
-      type: data.type,
-      createdAt: now,
-      updatedAt: now,
-      displayName: data.displayName,
-      userName: data.userName,
-      userEmail: data.userEmail,
-      projectPath: data.projectPath,
-      projectName: data.projectName,
-      gitRepoUrl: data.gitRepoUrl,
-      metadata: JSON.stringify({ source: "api" }),
-    };
-    const db = connectionManager.getConnection(shard.dbPath);
-    await vectorSearch.insertVector(db, record, shard);
-    shardManager.incrementVectorCount(shard.id);
-    return { success: true, data: { id } };
-  } catch (error) {
-    log("handleAddMemory: error", { error: String(error) });
-    return { success: false, error: "Internal error in handleAddMemory" };
+}): Promise<ApiResponse<{ id: string; duplicate?: boolean }>> {
+  if (!data.content || !data.containerTag) {
+    return { success: false, error: "content and containerTag are required" };
   }
+  // Delegate to memoryClient so the API path gets the same ingest-time
+  // deduplication (checkDuplicateAtIngest) and conflict detection
+  // (detectConflicts) as the in-agent memory tool. Re-implementing the
+  // embedding/insert here previously bypassed both.
+  const tags = (data.tags || []).map((t) => t.trim().toLowerCase());
+  const result = await memoryClient.addMemory(data.content, data.containerTag, {
+    source: "api",
+    type: data.type,
+    tags,
+    displayName: data.displayName,
+    userName: data.userName,
+    userEmail: data.userEmail,
+    projectPath: data.projectPath,
+    projectName: data.projectName,
+    gitRepoUrl: data.gitRepoUrl,
+  });
+  if (result.success) {
+    return { success: true, data: { id: result.id, duplicate: result.duplicate } };
+  }
+  return { success: false, error: result.error ?? "Internal error in handleAddMemory" };
 }
 
 export function handleGetMemory(id: string): ApiResponse<unknown> {

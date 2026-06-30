@@ -628,5 +628,37 @@ describe("memory-conflicts", () => {
       // So no conflict should be created
       expect(Array.isArray(conflicts)).toBe(true);
     });
+
+    it("detects contradictions with substitution phrases (instead of / replaced by)", async () => {
+      // "instead of" is a substitution signal, not a negation word. Before the
+      // SUBSTITUTION_PATTERNS fix this pair never reached the LLM check because
+      // the heuristic pre-filter returned false.
+      const candidate = {
+        id: "mem-old",
+        content: "Authentication uses JWT tokens for api auth",
+        is_deprecated: 0,
+      };
+      const db = makeMockDb({ likeMemories: [candidate] });
+      (
+        shardManager.getAllShards as unknown as { mockReturnValue: (v: unknown) => void }
+      ).mockReturnValue([{ id: "shard-1", dbPath: "/tmp/test.db" }]);
+      (
+        connectionManager.getConnection as unknown as { mockReturnValue: (v: unknown) => void }
+      ).mockReturnValue(db);
+
+      const conflicts = await detectConflicts(
+        "mem-new",
+        "Authentication uses session cookies instead of JWT tokens for api auth",
+        "mem_project_contra"
+      );
+      // Heuristic passes (substitution on one side + overlapping key words),
+      // and LLM is not configured so detectConflicts falls back to the heuristic
+      // for the final verdict. The result must be a non-empty conflict list —
+      // before the SUBSTITUTION_PATTERNS fix the heuristic gate never opened for
+      // "instead of" (no negation word), so this returned [].
+      expect(conflicts.length).toBeGreaterThanOrEqual(1);
+      expect(conflicts[0]?.memoryId1).toBe("mem-new");
+      expect(conflicts[0]?.memoryId2).toBe("mem-old");
+    });
   });
 });

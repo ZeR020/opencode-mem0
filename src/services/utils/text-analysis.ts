@@ -207,6 +207,16 @@ export const NEGATION_PATTERNS: RegExp[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Substitution Patterns — signal contradiction-by-replacement. Two memories
+// can contradict without negation: "auth uses JWT" vs "auth uses session
+// cookies instead of JWT". These phrases mark a superseding/replacement
+// relationship and are used by conflict detection alongside negation.
+// ---------------------------------------------------------------------------
+export const SUBSTITUTION_PATTERNS: RegExp[] = [
+  /\b(instead of|rather than|replaced by|replaces|switched (?:to|from)|migrated (?:to|from)|no longer|moved (?:to|from))\b/i,
+];
+
+// ---------------------------------------------------------------------------
 // Token splitter — splits on sequences of characters that are NOT
 // lowercase letters, digits, or underscores. Lowercases all output.
 // ---------------------------------------------------------------------------

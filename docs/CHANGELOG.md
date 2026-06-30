@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **API add-memory bypassed dedup and conflict detection (#feature-9-10)** — `handleAddMemory` (the web API POST `/api/memories` path) re-implemented the embedding/insert orchestration instead of delegating to `memoryClient.addMemory`, so memories added via the Web UI or REST API skipped ingest-time deduplication (`checkDuplicateAtIngest`) and conflict detection (`detectConflicts`) that the in-agent `memory` tool gets. Two near-identical memories added via the API would both be stored; the same content added via the tool would merge. Fixed by routing `handleAddMemory` through `memoryClient.addMemory`, deleting ~45 lines of duplicated orchestration. The API path now returns `{ duplicate: true }` when a near-duplicate is merged, matching the tool path's contract.
+- **Conflict heuristic missed substitution-based contradictions (#feature-9)** — `checkContradictionHeuristic` only triggered on negation patterns (`not`, `never`, `removed`, `disabled`, `un-`, etc.). Statements like "Authentication uses JWT tokens **instead of** session cookies" never reached the LLM contradiction check because "instead of" is not a negation word. Added `SUBSTITUTION_PATTERNS` (`instead of`, `replaced by`, `rather than`, `switched to/from`, `migrated to/from`, `no longer`, `moved to/from`) to `text-analysis.ts`; the heuristic now opens the LLM gate when one memory has a substitution phrase and the other shares >30% key-word overlap.
+- **Web UI crashes completely if a vendor script fails to load** — `app.js` called `marked.setOptions()` at top-level script execution (before any function is defined) and `lucide.createIcons()` inside `renderMemories()` / `DOMContentLoaded`. If any vendored library (`lucide`, `marked`, `DOMPurify`, `jsonrepair`) failed to load — missing file, stale install, network race — the `ReferenceError` killed the entire script: no functions defined, no event handlers attached, no API calls made. The UI froze at its initial HTML state ("Initializing...", "Total: 0", all tabs unresponsive). Fixed by guarding all top-level and call-site library accesses (`typeof marked !== "undefined"`, `safeCreateIcons()` wrapper for all 8 `lucide.createIcons()` call sites, `renderMarkdown` falls back to `escapeHtml` when `marked`/`DOMPurify` are missing). The UI now degrades gracefully: memories and transcripts load and display as plain text, tabs work, even without the vendor scripts.
+
+### Contributors
+
+No community contributors for this release. All work by @ZeR020.
+
 ## [2.17.4] - 2026-06-30
 
 ### Fixed

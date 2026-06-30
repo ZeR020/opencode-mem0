@@ -23,14 +23,29 @@ const state = {
   transcriptsTotalItems: 0,
 };
 
-marked.setOptions({
-  gfm: true,
-  breaks: true,
-});
+// Guard top-level library calls so a missing vendor script doesn't crash the
+// entire app before any function is defined or event handler is attached.
+if (typeof marked !== "undefined" && marked.setOptions) {
+  marked.setOptions({
+    gfm: true,
+    breaks: true,
+  });
+}
 
 function renderMarkdown(markdown) {
+  if (typeof marked === "undefined" || typeof DOMPurify === "undefined") {
+    return escapeHtml(markdown);
+  }
   const html = marked.parse(markdown);
   return DOMPurify.sanitize(html);
+}
+
+// Guard lucide so a missing vendor script doesn't throw and abort the caller
+// (renderMemories, DOMContentLoaded, modal openers, etc.).
+function safeCreateIcons() {
+  if (typeof lucide !== "undefined" && lucide.createIcons) {
+    safeCreateIcons();
+  }
 }
 
 function buildApiHeaders(options) {
@@ -140,7 +155,7 @@ function renderMemories() {
     checkbox.addEventListener("change", handleCheckboxChange);
   });
 
-  lucide.createIcons();
+  safeCreateIcons();
 }
 
 function groupMemories(items) {
@@ -732,7 +747,7 @@ function showConfirm(message) {
     const msgEl = document.getElementById("confirm-modal-message");
     msgEl.textContent = message;
     modal.classList.remove("hidden");
-    lucide.createIcons();
+    safeCreateIcons();
   });
 }
 
@@ -923,7 +938,7 @@ function showMigrationWarning(data) {
     shardInfo,
   });
 
-  lucide.createIcons();
+  safeCreateIcons();
 }
 
 function toggleMigrationButtons() {
@@ -1072,7 +1087,7 @@ function renderUserProfile() {
         <p>${escapeHtml(profile ? profile.message : "No profile data available")}</p>
       </div>
     `;
-    lucide.createIcons();
+    safeCreateIcons();
     return;
   }
 
@@ -1255,7 +1270,7 @@ function renderUserProfile() {
   `;
 
   document.getElementById("view-changelog-btn")?.addEventListener("click", showChangelog);
-  lucide.createIcons();
+  safeCreateIcons();
 }
 
 async function showChangelog() {
@@ -1431,7 +1446,7 @@ function renderConflicts() {
     )
     .join("");
 
-  lucide.createIcons();
+  safeCreateIcons();
 }
 
 // skipcq: JS-0128 — Used in HTML template literal: onclick="resolveConflictAction(...)"
@@ -1568,7 +1583,7 @@ function renderTranscripts() {
     })
     .join("");
 
-  lucide.createIcons();
+  safeCreateIcons();
 }
 
 function updateTranscriptsPagination() {
@@ -1807,5 +1822,5 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   startAutoRefresh();
 
-  lucide.createIcons();
+  safeCreateIcons();
 });

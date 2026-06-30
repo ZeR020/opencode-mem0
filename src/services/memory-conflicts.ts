@@ -12,7 +12,7 @@ import { z } from "zod";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 import type { MemoryConflict } from "./sqlite/types.js";
-import { NEGATION_PATTERNS, getWordSet } from "./utils/text-analysis.js";
+import { NEGATION_PATTERNS, SUBSTITUTION_PATTERNS, getWordSet } from "./utils/text-analysis.js";
 import { mapDbRowToConflict } from "./utils/memory-mapper.js";
 
 // ponytail: module-level Set, single consumer in detectConflicts. Per-key locks if contention matters.
@@ -122,9 +122,15 @@ function checkContradictionHeuristic(a: string, b: string): boolean {
 
   const aHasNegation = NEGATION_PATTERNS.some((p) => p.test(a));
   const bHasNegation = NEGATION_PATTERNS.some((p) => p.test(b));
+  // Substitution phrases ("instead of", "replaced by", "no longer") signal a
+  // superseding relationship — two memories can contradict without negation.
+  const aHasSubstitution = SUBSTITUTION_PATTERNS.some((p) => p.test(a));
+  const bHasSubstitution = SUBSTITUTION_PATTERNS.some((p) => p.test(b));
 
-  // If one has negation and other doesn't, check for key concept overlap
-  if (aHasNegation !== bHasNegation) {
+  // Trigger the overlap check when one side negates/substitutes and the other
+  // does not — the asymmetry is the contradiction signal.
+  const asymmetric = aHasNegation !== bHasNegation || aHasSubstitution !== bHasSubstitution;
+  if (asymmetric) {
     const commonWords = [...aWordSet].filter((w) => bWordSet.has(w));
     const uniqueRatio = commonWords.length / Math.max(aWordSet.size, bWordSet.size);
     return uniqueRatio > 0.3;

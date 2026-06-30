@@ -268,6 +268,7 @@ vi.mock("../src/services/user-prompt/user-prompt-manager.js", () => ({
 }));
 
 vi.mock("../src/services/memory-conflicts.js", () => ({
+  detectConflicts: vi.fn().mockResolvedValue([]),
   getAllUnresolvedConflicts: (_limit: number) => [
     {
       id: "conflict-1",
@@ -288,6 +289,9 @@ vi.mock("../src/config.js", () => ({
   CONFIG: {
     memoryProvider: "openai",
     storagePath: "/tmp/test",
+    deduplicationEnabled: true,
+    deduplicationIngestEnabled: true,
+    deduplicationSimilarityThreshold: 0.92,
   },
 }));
 
@@ -313,6 +317,8 @@ const {
   handleGetTagMigrationProgress,
   handleRunTagMigrationBatch,
 } = await import("../src/services/api-handlers.js");
+// vitest: await import after vi.mock ensures the mocked detectConflicts is resolved.
+const { detectConflicts } = await import("../src/services/memory-conflicts.js");
 
 describe("api-handlers", () => {
   beforeEach(() => {
@@ -361,9 +367,7 @@ describe("api-handlers", () => {
       // as standalone items instead.
       const result = await handleListMemories("tag_project_abc123", 1, 20, false);
       expect(result.success).toBe(true);
-      const ids = (result.data?.items as Array<Record<string, unknown>>).map(
-        (i) => i.id
-      );
+      const ids = (result.data?.items as Array<Record<string, unknown>>).map((i) => i.id);
       expect(ids).toContain("mem-1");
       expect(ids).toContain("mem-2");
     });
@@ -371,14 +375,12 @@ describe("api-handlers", () => {
     it("pairs linked memory with prompt when includePrompts=true", async () => {
       const result = await handleListMemories("tag_project_abc123", 1, 20, true);
       expect(result.success).toBe(true);
-      const ids = (result.data?.items as Array<Record<string, unknown>>).map(
-        (i) => i.id
-      );
+      const ids = (result.data?.items as Array<Record<string, unknown>>).map((i) => i.id);
       // Both the memory and its linked prompt should appear
       expect(ids).toContain("mem-1");
       expect(ids).toContain("prompt-1");
     });
-   });
+  });
 
   describe("handleAddMemory", () => {
     it("adds a memory successfully", async () => {
@@ -390,6 +392,27 @@ describe("api-handlers", () => {
       });
       expect(result.success).toBe(true);
       expect(result.data?.id).toMatch(/^mem_/);
+    });
+
+    it("runs conflict detection and dedup on the API path (same as memory tool)", async () => {
+      vi.mocked(detectConflicts).mockClear();
+      const result = await handleAddMemory({
+        content: "Auth uses session cookies instead of JWT tokens",
+        containerTag: "tag_project_abc123",
+        type: "architecture",
+      });
+      expect(result.success).toBe(true);
+      expect(result.data?.id).toMatch(/^mem_/);
+      // detectConflicts is fired asynchronously from memoryClient.addMemory; the
+      // API path must not bypass it (the bug was a re-implemented insert that
+      // skipped both dedup and conflict detection).
+      expect(detectConflicts).toHaveBeenCalledTimes(1);
+      expect(detectConflicts).toHaveBeenCalledWith(
+        expect.stringMatching(/^mem_/),
+        "Auth uses session cookies instead of JWT tokens",
+        "tag_project_abc123",
+        undefined
+      );
     });
 
     it("rejects missing content", async () => {
