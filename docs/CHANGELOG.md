@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.17.4] - 2026-06-30
+
+### Fixed
+
+- **Web UI blank in v2.17.1+ (#47)** — The restrictive CSP added in v2.17.1 blocked the Web UI's CDN script tags (lucide, marked, DOMPurify, jsonrepair), so `marked` was undefined at load and `app.js` crashed before `loadStats()` ran (UI showed "Total: 0", API still served correct data). Fixed by vendoring the four libraries locally into `src/web/vendor/` with pinned versions (lucide@1.22.0, marked@17.0.1, dompurify@3.2.2, jsonrepair@3.14.1), loading them via `/vendor/*.min.js`, and adding those four routes to the static map. The strict CSP (`default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'`) is unchanged — the UI now has zero runtime CDN/outbound network dependency, consistent with the "all data stays local" contract. Reported by @ovizii.
+
+### Security
+
+- **Rejected CDN CSP relaxation** — The issue body suggested relaxing CSP to `script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net`. That would reintroduce untrusted supply-chain code execution (no SRI on floating `@latest` tags) and an outbound network call on every UI load, violating the local-data contract. Vendoring preserves the hardening.
+
+### Contributors
+
+- @ovizii (issue report)
+
 ## [2.17.3] - 2026-06-30
 
 ### Fixed

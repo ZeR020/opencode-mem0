@@ -177,6 +177,21 @@ describe("WebServer Routes", () => {
       const res = await makeRequest("/favicon.ico");
       expect([200, 404]).toContain(res.status);
     });
+
+    // Issue #47: CSP blocked CDN scripts; deps now vendored locally under strict CSP.
+    it.each([
+      "/vendor/lucide.min.js",
+      "/vendor/marked.min.js",
+      "/vendor/dompurify.min.js",
+      "/vendor/jsonrepair.min.js",
+    ])("serves vendored dep %s locally with strict CSP", async (p) => {
+      const res = await makeRequest(p);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toBe("application/javascript");
+      expect(res.headers.get("Content-Security-Policy")).toBe(
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+      );
+    });
   });
 
   describe("API Routes", () => {
