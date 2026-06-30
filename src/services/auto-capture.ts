@@ -14,12 +14,6 @@ interface ToolCallInfo {
 
 const MAX_TOOL_INPUT_LENGTH = 100;
 
-// ponytail: char-based limit (~24k chars ≈ 6k tokens) keeps the summarizer
-// payload within free-tier TPM ceilings (e.g. Groq 8k TPM). No tokenizer
-// dependency — rough 4 chars/token estimate is sufficient for truncation.
-// If a paid tier needs more context, raise this or make it configurable.
-const MAX_CONTEXT_CHARS = 24000;
-
 const AUTO_CAPTURE_SYSTEM_PROMPT_TEMPLATE = (
   langName: string
 ) => `You are a technical memory recorder for a software development project.
@@ -290,18 +284,7 @@ function buildMarkdownContext(
   sections.push("## User Request", "---", userPrompt, "---\n");
 
   if (textResponses.length > 0) {
-    // Truncate AI responses to stay within MAX_CONTEXT_CHARS — the user
-    // prompt and tool calls are kept in full; AI responses are the bulk
-    // and the earliest ones are least relevant for summarization.
-    let responseText = textResponses.join("\n\n");
-    const remaining = MAX_CONTEXT_CHARS - userPrompt.length - (latestMemory?.length ?? 0);
-    if (responseText.length > remaining) {
-      // Keep the most recent responses (end of the conversation)
-      responseText =
-        `...[truncated ${responseText.length - remaining} chars]...\n` +
-        responseText.slice(-remaining);
-    }
-    sections.push("## AI Response", "---", responseText, "---\n");
+    sections.push("## AI Response", "---", textResponses.join("\n\n"), "---\n");
   }
 
   if (toolCalls.length > 0) {
