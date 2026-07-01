@@ -44,7 +44,7 @@ function renderMarkdown(markdown) {
 // (renderMemories, DOMContentLoaded, modal openers, etc.).
 function safeCreateIcons() {
   if (typeof lucide !== "undefined" && lucide.createIcons) {
-    safeCreateIcons();
+    lucide.createIcons();
   }
 }
 
@@ -433,7 +433,7 @@ function updatePagination() {
 
 function updateSectionTitle() {
   const title = state.isSearching
-    ? `└─ SEARCH RESULTS (${state.totalItems}) ──`
+    ? `[+] Search Results (${state.totalItems})`
     : t("section-project", { count: state.totalItems });
   document.getElementById("section-title").textContent = title;
 }
@@ -1007,15 +1007,28 @@ function generateRadarChartSVG(data, size = 300) {
     return `<div class="empty-state">Not enough data for chart (need at least 3 dimensions)</div>`;
 
   const center = size / 2;
-  const radius = (size / 2) * 0.8;
+  const radius = (size / 2) * 0.72;
   const numAxes = data.length;
   const angleStep = (Math.PI * 2) / numAxes;
+  // Padding so axis labels (radius + 24) stay inside the viewBox instead of
+  // being clipped at the top/bottom/sides.
+  const pad = 28;
+  const vb = size + pad * 2;
+
+  // Normalize confidence to 0-1. The extraction prompt asks for 0.5-1.0, but
+  // some LLMs emit 0-100; treat anything >1 as a percentage so the chart
+  // reflects real differences instead of clamping everything to the rim.
+  const norm = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 0;
+    return n > 1 ? Math.max(0, Math.min(1, n / 100)) : Math.max(0, Math.min(1, n));
+  };
 
   // Calculate points for polygon
   const polygonPoints = data
     .map((d, i) => {
       const angle = i * angleStep - Math.PI / 2;
-      const value = Math.max(0, Math.min(1, d.value)); // normalized 0-1
+      const value = norm(d.value); // normalized 0-1
       const x = center + radius * value * Math.cos(angle);
       const y = center + radius * value * Math.sin(angle);
       return `${x},${y}`;
@@ -1034,7 +1047,7 @@ function generateRadarChartSVG(data, size = 300) {
           return `${x},${y}`;
         })
         .join(" ");
-      return `<polygon points="${points}" fill="none" stroke="#ccc" stroke-dasharray="3,3" />`;
+      return `<polygon points="${points}" fill="none" stroke="#9a9898" stroke-dasharray="3,3" />`;
     })
     .join("");
 
@@ -1046,32 +1059,34 @@ function generateRadarChartSVG(data, size = 300) {
       const y2 = center + radius * Math.sin(angle);
 
       // Label position slightly outside
-      const lx = center + (radius + 20) * Math.cos(angle);
-      const ly = center + (radius + 20) * Math.sin(angle);
+      const lx = center + (radius + 24) * Math.cos(angle);
+      const ly = center + (radius + 24) * Math.sin(angle);
 
-      const textAnchor = lx > center + 10 ? "start" : lx < center - 10 ? "end" : "middle";
+      const textAnchor = lx > center + 15 ? "start" : lx < center - 15 ? "end" : "middle";
 
       return `
-      <line x1="${center}" y1="${center}" x2="${x2}" y2="${y2}" stroke="#ccc" />
-      <text x="${lx}" y="${ly}" text-anchor="${textAnchor}" alignment-baseline="middle" font-size="12" fill="#666">${escapeHtml(d.label)}</text>
+      <line x1="${center}" y1="${center}" x2="${x2}" y2="${y2}" stroke="#9a9898" />
+      <text x="${lx}" y="${ly}" text-anchor="${textAnchor}" alignment-baseline="middle" font-size="12" fill="#646262">${escapeHtml(d.label)}</text>
     `;
     })
     .join("");
 
   return `
-    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-      ${gridHTML}
-      ${axesHTML}
-      <polygon points="${polygonPoints}" fill="rgba(59, 130, 246, 0.3)" stroke="#3b82f6" stroke-width="2" />
-      ${data
-        .map((d, i) => {
-          const angle = i * angleStep - Math.PI / 2;
-          const value = Math.max(0, Math.min(1, d.value));
-          const x = center + radius * value * Math.cos(angle);
-          const y = center + radius * value * Math.sin(angle);
-          return `<circle cx="${x}" cy="${y}" r="4" fill="#3b82f6" />`;
-        })
-        .join("")}
+    <svg width="${vb}" height="${vb}" viewBox="0 0 ${vb} ${vb}">
+      <g transform="translate(${pad},${pad})">
+        ${gridHTML}
+        ${axesHTML}
+        <polygon points="${polygonPoints}" fill="rgba(0, 122, 255, 0.2)" stroke="#007aff" stroke-width="2" />
+        ${data
+          .map((d, i) => {
+            const angle = i * angleStep - Math.PI / 2;
+            const value = norm(d.value);
+            const x = center + radius * value * Math.cos(angle);
+            const y = center + radius * value * Math.sin(angle);
+            return `<circle cx="${x}" cy="${y}" r="4" fill="#007aff" />`;
+          })
+          .join("")}
+      </g>
     </svg>
   `;
 }
@@ -1635,7 +1650,7 @@ async function loadTimeline() {
               <div class="timeline-marker"></div>
               <div class="timeline-detail">
                 <span class="badge badge-${item.type || "other"}">${escapeHtml(item.type || "other")}</span>
-                <p>${escapeHtml(item.content)}</p>
+                <div class="markdown-content">${renderMarkdown(item.content)}</div>
               </div>
             </div>
           `;

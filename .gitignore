@@ -64,6 +64,7 @@ GSD_SDK_GUIDE.md
 check-vi-internal.ts
 deepsource-*.json
 AGENTS.md.bak.md
+DESIGN.md
 # Internal planning, audits, support tickets (may contain PII)
 .planning/
 .sisyphus

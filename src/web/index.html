@@ -17,17 +17,19 @@
     <div class="container">
       <header class="header">
         <div class="header-top">
-          <h1 class="title" data-i18n="title">┌─ OPENCODE MEMORY EXPLORER ─┐</h1>
-          <button id="lang-toggle" class="lang-toggle" title="Switch Language">EN</button>
-          <a
-            href="https://github.com/ZeR020/opencode-mem0"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="github-link"
-            title="View on GitHub"
-          >
-            <i data-lucide="github" class="icon"></i>
-          </a>
+          <h1 class="title" data-i18n="title">OpenCode Memory Explorer</h1>
+          <div class="header-actions">
+            <button id="lang-toggle" class="lang-toggle" title="Switch Language">EN</button>
+            <a
+              href="https://github.com/ZeR020/opencode-mem0"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="github-link"
+              title="View on GitHub"
+            >
+              <i data-lucide="github" class="icon"></i>
+            </a>
+          </div>
         </div>
         <div class="stats-bar">
           <span id="stats-total">Total: 0</span>
@@ -40,23 +42,23 @@
       <div class="scope-tabs">
         <button id="tab-project" class="tab-btn active" data-i18n="tab-project">
           <i data-lucide="folder" class="icon"></i>
-          PROJECT MEMORIES
+          Project Memories
         </button>
         <button id="tab-transcripts" class="tab-btn" data-i18n="tab-transcripts">
           <i data-lucide="file-text" class="icon"></i>
-          TRANSCRIPTS
+          Transcripts
         </button>
         <button id="tab-timeline" class="tab-btn" data-i18n="tab-timeline">
           <i data-lucide="clock" class="icon"></i>
-          TIMELINE
+          Timeline
         </button>
         <button id="tab-conflicts" class="tab-btn" data-i18n="tab-conflicts">
           <i data-lucide="alert-triangle" class="icon"></i>
-          CONFLICTS <span id="conflict-badge" class="tab-badge hidden">0</span>
+          Conflicts <span id="conflict-badge" class="tab-badge hidden">0</span>
         </button>
         <button id="tab-profile" class="tab-btn" data-i18n="tab-profile">
           <i data-lucide="user" class="icon"></i>
-          USER PROFILE
+          User Profile
         </button>
       </div>
 
@@ -134,7 +136,7 @@
 
       <div class="memories-section" id="project-section">
         <div class="section-header">
-          <h2 id="section-title" data-i18n="section-project">└─ PROJECT MEMORIES (0) ──</h2>
+          <h2 id="section-title" data-i18n="section-project">Project Memories</h2>
           <div class="pagination" id="pagination-top">
             <button id="prev-page-top" disabled>
               <i data-lucide="chevron-left" class="icon"></i>
@@ -163,7 +165,7 @@
 
       <div class="conflicts-section hidden" id="conflicts-section">
         <div class="section-header">
-          <h2 data-i18n="section-conflicts">└─ MEMORY CONFLICTS ──</h2>
+          <h2 data-i18n="section-conflicts">Memory Conflicts</h2>
           <button id="refresh-conflicts-btn" class="btn-secondary">
             <i data-lucide="refresh-cw" class="icon"></i> Refresh
           </button>
@@ -176,7 +178,7 @@
 
       <div class="profile-section hidden" id="profile-section">
         <div class="section-header">
-          <h2 data-i18n="section-profile">└─ USER PROFILE ──</h2>
+          <h2 data-i18n="section-profile">User Profile</h2>
           <div>
             <button id="edit-profile-btn" class="btn-primary" data-i18n="btn-edit">
               <i data-lucide="edit-2" class="icon"></i> Edit
@@ -194,7 +196,7 @@
 
       <div class="transcripts-section hidden" id="transcripts-section">
         <div class="section-header">
-          <h2 data-i18n="section-transcripts">└─ TRANSCRIPTS ──</h2>
+          <h2 data-i18n="section-transcripts">Transcripts</h2>
         </div>
         <div id="transcripts-list" class="transcripts-list">
           <div class="loading" data-i18n="loading-transcripts">Loading transcripts...</div>
@@ -212,7 +214,7 @@
 
       <div class="timeline-section hidden" id="timeline-section">
         <div class="section-header">
-          <h2 data-i18n="section-timeline">└─ TIMELINE ──</h2>
+          <h2 data-i18n="section-timeline">Timeline</h2>
         </div>
         <div id="timeline-content" class="timeline-content">
           <div class="loading" data-i18n="loading-timeline">Loading timeline...</div>
@@ -220,7 +222,7 @@
       </div>
 
       <div class="add-section">
-        <h2 data-i18n="section-add">└─ ADD NEW MEMORY ──</h2>
+        <h2 data-i18n="section-add">[+] Add New Memory</h2>
         <form id="add-form">
           <div class="form-row">
             <div class="form-group">
