@@ -9,7 +9,7 @@ const DB = getDatabase();
 const MAX_CONNECTIONS = 20;
 const MAX_BATCH_SIZE = 50;
 
-export class ConnectionManager {
+class ConnectionManager {
   private readonly connections: Map<string, Database> = new Map();
   private accessOrder: string[] = [];
   private readonly creating: Set<string> = new Set();

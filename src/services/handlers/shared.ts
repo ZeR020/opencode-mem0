@@ -25,10 +25,10 @@ export type { ShardInfo } from "../sqlite/types.js";
 // ── Named limits (replaces inline magic numbers) ──────────────────────────────
 
 /** Maximum memories returned in a list-memories query. */
-export const MAX_LIST_MEMORIES = 2000;
+const MAX_LIST_MEMORIES = 2000;
 
 /** Maximum items in a paginated timeline before truncation. */
-export const MAX_TIMELINE_ITEMS = 2500;
+const MAX_TIMELINE_ITEMS = 2500;
 
 /** Maximum search results before truncation. Also referenced by search.ts. */
 export const MAX_SEARCH_RESULTS = 2000;

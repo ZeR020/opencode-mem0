@@ -34,7 +34,7 @@ export interface MigrationResult {
   error?: string;
 }
 
-export class MigrationService {
+class MigrationService {
   private isRunning = false;
   private progressCallback?: (progress: MigrationProgress) => void;
 

@@ -1,9 +1,9 @@
 import { log } from "../logger.js";
 import type { Database } from "./sqlite-bootstrap.js";
 
-export const CURRENT_SCHEMA_VERSION = 1;
+const CURRENT_SCHEMA_VERSION = 1;
 
-export const MIGRATIONS: Record<number, string[]> = {
+const MIGRATIONS: Record<number, string[]> = {
   1: [
     "ALTER TABLE memories ADD COLUMN is_deprecated INTEGER DEFAULT 0",
     "ALTER TABLE memories ADD COLUMN is_pinned INTEGER DEFAULT 0",

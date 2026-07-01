@@ -348,7 +348,7 @@ export class UserProfileManager {
 
 let _userProfileManager: UserProfileManager | null = null;
 
-export function getUserProfileManager(): UserProfileManager {
+function getUserProfileManager(): UserProfileManager {
   return (_userProfileManager ??= new UserProfileManager());
 }
 

@@ -68,19 +68,19 @@ const execGitCommand = (
   }
 };
 
-export function getGitEmail(): string | null {
+function getGitEmail(): string | null {
   if (cachedGitEmail !== undefined) return cachedGitEmail;
   cachedGitEmail = execGitCommand(["config", "user.email"]);
   return cachedGitEmail;
 }
 
-export function getGitName(): string | null {
+function getGitName(): string | null {
   if (cachedGitName !== undefined) return cachedGitName;
   cachedGitName = execGitCommand(["config", "user.name"]);
   return cachedGitName;
 }
 
-export function getGitRepoUrl(directory: string): string | null {
+function getGitRepoUrl(directory: string): string | null {
   if (!requireGitDirectory(directory)) return null;
   const cached = gitRepoUrlCache.get(directory);
   if (cached !== undefined) return cached;
@@ -89,7 +89,7 @@ export function getGitRepoUrl(directory: string): string | null {
   return result;
 }
 
-export function getGitCommonDir(directory: string): string | null {
+function getGitCommonDir(directory: string): string | null {
   if (!requireGitDirectory(directory)) return null;
   const cached = gitCommonDirCache.get(directory);
   if (cached !== undefined) return cached;
@@ -113,7 +113,7 @@ export function getGitCommonDir(directory: string): string | null {
   return resolved;
 }
 
-export function getGitTopLevel(directory: string): string | null {
+function getGitTopLevel(directory: string): string | null {
   if (!requireGitDirectory(directory)) return null;
   const cached = gitTopLevelCache.get(directory);
   if (cached !== undefined) return cached;
@@ -122,13 +122,13 @@ export function getGitTopLevel(directory: string): string | null {
   return result;
 }
 
-export function getProjectRoot(directory: string): string {
+function getProjectRoot(directory: string): string {
   const commonDir = getGitCommonDir(directory);
   if (commonDir && basename(commonDir) === ".git") return dirname(commonDir);
   return getGitTopLevel(directory) ?? directory;
 }
 
-export function getProjectIdentity(directory: string): string {
+function getProjectIdentity(directory: string): string {
   const commonDir = getGitCommonDir(directory);
   if (commonDir) {
     return `git-common:${commonDir}`;

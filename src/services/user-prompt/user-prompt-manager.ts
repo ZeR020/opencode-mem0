@@ -267,7 +267,7 @@ export class UserPromptManager {
 let userPromptManagerInstance: UserPromptManager | null = null;
 let userPromptManagerStoragePath: string | null = null;
 
-export function getUserPromptManager(): UserPromptManager {
+function getUserPromptManager(): UserPromptManager {
   if (!userPromptManagerInstance || userPromptManagerStoragePath !== CONFIG.storagePath) {
     userPromptManagerInstance?.close();
     userPromptManagerInstance = new UserPromptManager();

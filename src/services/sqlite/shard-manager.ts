@@ -26,7 +26,7 @@ function rowToShardInfo(
   };
 }
 
-export class ShardManager {
+class ShardManager {
   private readonly metadataDb: Database;
   private readonly metadataPath: string;
   private readonly activeShardStmt: any;
@@ -368,7 +368,7 @@ export class ShardManager {
 let shardManagerInstance: ShardManager | null = null;
 let shardManagerStoragePath: string | null = null;
 
-export function getShardManager(): ShardManager {
+function getShardManager(): ShardManager {
   if (
     shardManagerInstance &&
     shardManagerStoragePath !== null &&
@@ -383,12 +383,6 @@ export function getShardManager(): ShardManager {
     shardManagerStoragePath = CONFIG.storagePath;
   }
   return shardManagerInstance;
-}
-
-export function closeShardManager(): void {
-  shardManagerInstance?.close();
-  shardManagerInstance = null;
-  shardManagerStoragePath = null;
 }
 
 export const shardManager = new Proxy({} as ShardManager, {
