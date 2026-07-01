@@ -13,6 +13,10 @@
     "./server": {
       "import": "./dist/plugin.js",
       "types": "./dist/index.d.ts"
+    },
+    "./tags": {
+      "types": "./dist/services/tags.d.ts",
+      "import": "./dist/services/tags.js"
     }
   },
   "scripts": {
