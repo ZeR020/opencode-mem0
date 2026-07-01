@@ -12,6 +12,15 @@
     <script src="/vendor/dompurify.min.js"></script>
     <script src="/vendor/jsonrepair.min.js"></script>
     <script src="/i18n.js"></script>
+    <script>
+      // Apply saved theme before render to prevent FOUC
+      (function () {
+        var saved = localStorage.getItem("mem0-theme");
+        if (saved) {
+          document.documentElement.setAttribute("data-theme", saved);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div class="container">
@@ -19,6 +28,9 @@
         <div class="header-top">
           <h1 class="title" data-i18n="title">OpenCode Memory Explorer</h1>
           <div class="header-actions">
+            <button id="theme-toggle" class="theme-toggle" title="Toggle theme">
+              <i data-lucide="sun" class="icon"></i>
+            </button>
             <button id="lang-toggle" class="lang-toggle" title="Switch Language">EN</button>
             <a
               href="https://github.com/ZeR020/opencode-mem0"

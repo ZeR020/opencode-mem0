@@ -48,6 +48,44 @@ function safeCreateIcons() {
   }
 }
 
+// Theme toggle: cycles between light and dark, persists to localStorage
+function toggleTheme() {
+  const html = document.documentElement;
+  const current = html.getAttribute("data-theme");
+  // If no explicit theme set, check what's effectively active
+  const isDark =
+    current === "dark" || (!current && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const next = isDark ? "light" : "dark";
+  html.setAttribute("data-theme", next);
+  localStorage.setItem("mem0-theme", next);
+  updateThemeIcon(next);
+}
+
+function updateThemeIcon(theme) {
+  const btn = document.getElementById("theme-toggle");
+  if (!btn) return;
+  const icon = btn.querySelector("i");
+  if (icon) {
+    icon.setAttribute("data-lucide", theme === "dark" ? "moon" : "sun");
+  }
+  safeCreateIcons();
+}
+
+function initTheme() {
+  const saved = localStorage.getItem("mem0-theme");
+  const html = document.documentElement;
+  let theme;
+  if (saved) {
+    theme = saved;
+    html.setAttribute("data-theme", saved);
+  } else {
+    // No saved preference — follow system, but don't set data-theme so
+    // the CSS @media query handles it. Icon reflects system state.
+    theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  updateThemeIcon(theme);
+}
+
 function buildApiHeaders(options) {
   const headers = new Headers(options.headers || {});
   const apiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
@@ -1669,6 +1707,8 @@ async function loadTimeline() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  initTheme();
+  document.getElementById("theme-toggle")?.addEventListener("click", toggleTheme);
   document.getElementById("tab-project").addEventListener("click", () => switchView("project"));
   document.getElementById("tab-conflicts").addEventListener("click", () => switchView("conflicts"));
   document.getElementById("tab-profile").addEventListener("click", () => switchView("profile"));

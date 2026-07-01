@@ -73,6 +73,68 @@
   --section-gap-mobile: 48px;
 }
 
+/* — Dark theme: remap tokens for dark mode (toggled via [data-theme="dark"] on <html>) — */
+[data-theme="dark"] {
+  --ink: #fdfcfc;
+  --ink-deep: #f8f7f7;
+  --charcoal: #e0dede;
+  --body: #b8b6b6;
+  --mute: #9a9898;
+  --stone: #8e8c8c;
+  --ash: #646262;
+  --canvas: #1a1818;
+  --surface-soft: #221f1f;
+  --surface-card: #2a2727;
+  --surface-dark: #fdfcfc;
+  --surface-dark-elevated: #f1eeee;
+  --hairline: rgba(253, 252, 252, 0.12);
+  --hairline-strong: #9a9898;
+  --on-dark: #201d1d;
+  --on-dark-mute: #646262;
+  --accent: #0a84ff;
+  --accent-hover: #409cff;
+  --accent-active: #6bb4ff;
+  --warning: #ff9f0a;
+  --warning-hover: #ffb84d;
+  --warning-active: #ffd089;
+  --danger: #ff453a;
+  --danger-hover: #ff6963;
+  --danger-active: #ff8c87;
+  --success: #30d158;
+}
+
+/* — Auto-detect system preference if no explicit choice — */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #fdfcfc;
+    --ink-deep: #f8f7f7;
+    --charcoal: #e0dede;
+    --body: #b8b6b6;
+    --mute: #9a9898;
+    --stone: #8e8c8c;
+    --ash: #646262;
+    --canvas: #1a1818;
+    --surface-soft: #221f1f;
+    --surface-card: #2a2727;
+    --surface-dark: #fdfcfc;
+    --surface-dark-elevated: #f1eeee;
+    --hairline: rgba(253, 252, 252, 0.12);
+    --hairline-strong: #9a9898;
+    --on-dark: #201d1d;
+    --on-dark-mute: #646262;
+    --accent: #0a84ff;
+    --accent-hover: #409cff;
+    --accent-active: #6bb4ff;
+    --warning: #ff9f0a;
+    --warning-hover: #ffb84d;
+    --warning-active: #ffd089;
+    --danger: #ff453a;
+    --danger-hover: #ff6963;
+    --danger-active: #ff8c87;
+    --success: #30d158;
+  }
+}
+
 /* — Reset — */
 * {
   margin: 0;
@@ -192,6 +254,38 @@ body {
 
 .lang-toggle:hover {
   border-color: var(--ink);
+}
+
+/* — Theme toggle — */
+.theme-toggle {
+  background: var(--canvas);
+  border: 1px solid var(--hairline-strong);
+  color: var(--ink);
+  padding: var(--sp-xxs);
+  font-family: inherit;
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+  border-radius: var(--r-sm);
+  line-height: var(--lh-tight);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.theme-toggle:hover {
+  border-color: var(--ink);
+}
+
+.theme-toggle .icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 0;
 }
 
 /* ============================================================================
