@@ -1,4 +1,9 @@
-import { BaseAIProvider, type ProviderConfig, type ToolCallResult } from "./base-provider.js";
+import {
+  BaseAIProvider,
+  type ProviderConfig,
+  type ToolCallResult,
+  extractFirstJSON,
+} from "./base-provider.js";
 import { AISessionManager } from "../session/ai-session-manager.js";
 import type { ChatCompletionTool } from "../tools/tool-schema.js";
 import { log } from "../../logger.js";
@@ -76,7 +81,7 @@ export class GoogleGeminiProvider extends BaseAIProvider {
         for (const tc of msg.toolCalls) {
           let args: any;
           try {
-            args = JSON.parse(tc.function.arguments);
+            args = extractFirstJSON(tc.function.arguments) ?? JSON.parse(tc.function.arguments);
           } catch {
             log("Gemini: failed to parse tool call arguments", {
               arguments: tc.function.arguments,

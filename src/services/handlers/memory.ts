@@ -192,7 +192,7 @@ export async function handleUpdateMemory(
     const vector = await embeddingService.embedWithTimeout(newContent);
     let tagsVector: Float32Array | undefined;
     if (tags.length > 0) {
-      tagsVector = await embeddingService.embedWithTimeout(tags.join(", "));
+      tagsVector = await embeddingService.embedWithTimeout(`Topics: ${tags.join(", ")}`);
     }
 
     const updatedRecord = {

@@ -3,6 +3,7 @@ import {
   type ProviderConfig,
   type ToolCallResult,
   applySafeExtraParams,
+  extractFirstJSON,
 } from "./base-provider.js";
 import type { AISessionManager } from "../session/ai-session-manager.js";
 import type { AIMessage } from "../session/session-types.js";
@@ -300,7 +301,8 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
 
     if (toolCall.function.name === toolSchema.function.name) {
       try {
-        const parsed = JSON.parse(toolCall.function.arguments);
+        const parsed =
+          extractFirstJSON(toolCall.function.arguments) ?? JSON.parse(toolCall.function.arguments);
         const result = UserProfileValidator.validate(parsed);
         if (!result.valid) {
           throw new Error(result.errors.join(", "));

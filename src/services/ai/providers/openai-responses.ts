@@ -3,6 +3,7 @@ import {
   type ProviderConfig,
   type ToolCallResult,
   applySafeExtraParams,
+  extractFirstJSON,
 } from "./base-provider.js";
 import { AISessionManager } from "../session/ai-session-manager.js";
 import { ToolSchemaConverter, type ChatCompletionTool } from "../tools/tool-schema.js";
@@ -208,7 +209,7 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
       if (item.type === "function_call" && item.name === expectedToolName) {
         if (item.arguments) {
           try {
-            const parsed = JSON.parse(item.arguments);
+            const parsed = extractFirstJSON(item.arguments) ?? JSON.parse(item.arguments);
             return parsed;
           } catch (error) {
             log("Failed to parse function call arguments", {

@@ -117,3 +117,72 @@ export abstract class BaseAIProvider {
     };
   }
 }
+
+/**
+ * Extracts and parses the first complete JSON object found in the given text.
+ * Handles brace depth and ignores brackets inside string literals (with quotes).
+ * If no valid JSON object is found, returns null.
+ *
+ * @param text The text to scan for JSON.
+ * @returns The parsed JSON object, or null if not found or invalid.
+ */
+export function extractFirstJSON(text: string): unknown | null {
+  if (typeof text !== "string") {
+    return null;
+  }
+
+  let searchIdx = 0;
+  while (true) {
+    const startIdx = text.indexOf("{", searchIdx);
+    if (startIdx === -1) {
+      return null;
+    }
+
+    let braceCount = 0;
+    let inString = false;
+    let escape = false;
+    let stringChar: string | null = null;
+    let foundEnd = false;
+    let endIdx = -1;
+
+    for (let i = startIdx; i < text.length; i++) {
+      const char = text[i]!;
+
+      if (inString) {
+        if (escape) {
+          escape = false;
+        } else if (char === "\\") {
+          escape = true;
+        } else if (char === stringChar) {
+          inString = false;
+          stringChar = null;
+        }
+      } else {
+        if (char === '"' || char === "'" || char === "`") {
+          inString = true;
+          stringChar = char;
+        } else if (char === "{") {
+          braceCount++;
+        } else if (char === "}") {
+          braceCount--;
+          if (braceCount === 0) {
+            foundEnd = true;
+            endIdx = i;
+            break;
+          }
+        }
+      }
+    }
+
+    if (foundEnd) {
+      const potentialJSON = text.slice(startIdx, endIdx + 1);
+      try {
+        return JSON.parse(potentialJSON);
+      } catch {
+        searchIdx = startIdx + 1;
+      }
+    } else {
+      searchIdx = startIdx + 1;
+    }
+  }
+}
