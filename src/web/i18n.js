@@ -221,7 +221,7 @@ function t(key, params = {}) {
   let text = translations[lang]?.[key] || translations.en[key] || key;
 
   for (const [k, v] of Object.entries(params)) {
-    text = text.replace(new RegExp(String.raw`\{${k}\}`, "g"), v);
+    text = text.split(`{${k}}`).join(v);
   }
 
   return text;

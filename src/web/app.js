@@ -477,15 +477,15 @@ function updateSectionTitle() {
 }
 
 async function loadStats() {
-  const result = await fetchAPI("/api/stats");
+  const [result, conflictResult] = await Promise.all([
+    fetchAPI("/api/stats"),
+    fetchAPI("/api/conflicts/stats"),
+  ]);
   if (result.success) {
     document.getElementById("stats-total").textContent = t("text-total", {
       count: result.data.total,
     });
   }
-
-  // Also fetch conflict stats for badge
-  const conflictResult = await fetchAPI("/api/conflicts/stats");
   if (conflictResult.success) {
     const badge = document.getElementById("conflict-badge");
     if (conflictResult.data.unresolved > 0) {
@@ -886,12 +886,13 @@ function startAutoRefresh() {
 }
 
 async function checkMigrationStatus() {
-  const result = await fetchAPI("/api/migration/detect");
+  const [result, tagResult] = await Promise.all([
+    fetchAPI("/api/migration/detect"),
+    fetchAPI("/api/migration/tags/detect"),
+  ]);
   if (result.success && result.data.needsMigration) {
     showMigrationWarning(result.data);
   }
-
-  const tagResult = await fetchAPI("/api/migration/tags/detect");
   if (tagResult.success && tagResult.data.needsMigration) {
     showTagMigrationModal(tagResult.data.count);
   }
@@ -1893,8 +1894,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   await loadTags();
   await loadMemories();
-  await loadStats();
-  await checkMigrationStatus();
+  // loadStats and checkMigrationStatus are independent of memories/tags
+  await Promise.all([loadStats(), checkMigrationStatus()]);
 
   startAutoRefresh();
 
