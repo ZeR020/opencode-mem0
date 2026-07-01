@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.17.5] - 2026-06-30
+## [2.18.0] - 2026-07-01
+
+### Changed
+
+- **Web UI completely redesigned with OpenCode manpage design system** — The Memory Explorer dashboard has been rebuilt from the ground up. The previous Matrix/CRT-terminal aesthetic (green-on-black, `#00ff00` phosphor, ASCII box-drawing titles `┌─ ─┐`) has been replaced with a warm, readable manpage design system derived from the OpenCode brand identity. All colors, spacing, radius, and typography are now CSS custom properties (`:root` tokens) in `styles.css`, making the design system easy to extend without hardcoding hex values. Key changes:
+  - **styles.css** — Full rewrite (~1842 → ~1050 lines). Warm cream canvas (`#fdfcfc`), near-black ink (`#201d1d`), JetBrains Mono / Berkeley Mono font stack, 4px radius on interactive elements, 0px on containers, hairline borders (`rgba(15,0,0,0.12)`), no shadows or gradients. Apple Human Interface Guidelines semantic ramp (accent `#007aff`, danger `#ff3b30`, warning `#ff9f0a`, success `#30d158`) used for in-product interactive states.
+  - **index.html** — Rewritten SPA shell with clean title (no ASCII box-drawing), `[+]` bracket markers in section headers, grouped header actions, clean tab layout with underline-on-active. All ~70 element IDs preserved (app.js binding contract).
+  - **app.js** — Radar chart hardcoded colors (`#ccc`, `#3b82f6`, `#666`) replaced with DESIGN.md tokens (`#9a9898` ash, `#007aff` accent, `#646262` mute). `updateSectionTitle()` box-drawing chars replaced with `[+]` bracket markers. Application logic unchanged.
+  - **i18n.js** — Six box-drawing strings (English + Chinese) replaced with `[+]` bracket markers. No ASCII box-drawing characters remain.
+  - **src/web/AGENTS.md** — Updated to document the design system, token convention, and the `[+]`/`[-]`/`[x]` bracket-marker usage.
+  - Fixed latent bug: timeline section CSS used undefined custom properties (`--text-color`, `--border-color`, `--primary-color`, `--bg-color`, `--card-bg`) that were never declared, causing broken/inherit styling. Now uses proper DESIGN.md tokens.
+
+### Contributors
+
+No community contributors for this release. All work by @ZeR020.
 
 ### Fixed
 
