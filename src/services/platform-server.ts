@@ -29,50 +29,57 @@ function normalizeHeaders(rawHeaders: IncomingMessage["headers"]): Headers {
 const kRemoteAddress = Symbol.for("opencode-mem0.remoteAddress");
 
 function createNodeServer(options: ServeOptions): Promise<PlatformServer> {
-  const nodeServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-    try {
-      const host = req.headers.host || `${options.hostname}:${options.port}`;
-      const url = `http://${host}${req.url}`;
+  // skipcq: JS-0323 — reuseAddr option is needed for Windows port reuse but not in ServerOptions type
+  const nodeServer = createServer(
+    { reuseAddr: true } as any,
+    async (req: IncomingMessage, res: ServerResponse) => {
+      try {
+        const host = req.headers.host || `${options.hostname}:${options.port}`;
+        const url = `http://${host}${req.url}`;
 
-      const MAX_BODY_BYTES = 262_144; // 256 KiB for JSON API payloads
-      const chunks: Buffer[] = [];
-      let totalBytes = 0;
-      for await (const chunk of req) {
-        const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-        totalBytes += buf.length;
-        if (totalBytes > MAX_BODY_BYTES) {
-          req.destroy();
-          res.statusCode = 413;
-          res.end("Payload too large");
-          return;
+        const MAX_BODY_BYTES = 262_144; // 256 KiB for JSON API payloads
+        const chunks: Buffer[] = [];
+        let totalBytes = 0;
+        for await (const chunk of req) {
+          const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          totalBytes += buf.length;
+          if (totalBytes > MAX_BODY_BYTES) {
+            req.destroy();
+            res.statusCode = 413;
+            res.end("Payload too large");
+            return;
+          }
+          chunks.push(buf);
         }
-        chunks.push(buf);
+        const body = chunks.length > 0 ? Buffer.concat(chunks) : undefined;
+
+        const request = new Request(url, {
+          method: req.method,
+          headers: normalizeHeaders(req.headers),
+          body: body && body.length > 0 ? body : undefined,
+        });
+
+        (request as any)[kRemoteAddress] = req.socket.remoteAddress || "127.0.0.1";
+
+        const response = await options.fetch(request);
+
+        res.statusCode = response.status;
+        response.headers.forEach((value, key) => {
+          res.setHeader(key, value);
+        });
+
+        const responseBody = await response.arrayBuffer();
+        res.end(Buffer.from(responseBody));
+      } catch (error) {
+        log("Platform server error", { error: String(error), level: "error" });
+        res.statusCode = 500;
+        res.end("Internal server error");
       }
-      const body = chunks.length > 0 ? Buffer.concat(chunks) : undefined;
-
-      const request = new Request(url, {
-        method: req.method,
-        headers: normalizeHeaders(req.headers),
-        body: body && body.length > 0 ? body : undefined,
-      });
-
-      (request as any)[kRemoteAddress] = req.socket.remoteAddress || "127.0.0.1";
-
-      const response = await options.fetch(request);
-
-      res.statusCode = response.status;
-      response.headers.forEach((value, key) => {
-        res.setHeader(key, value);
-      });
-
-      const responseBody = await response.arrayBuffer();
-      res.end(Buffer.from(responseBody));
-    } catch (error) {
-      log("Platform server error", { error: String(error), level: "error" });
-      res.statusCode = 500;
-      res.end("Internal server error");
     }
-  });
+  );
+  nodeServer.timeout = 30000;
+  nodeServer.keepAliveTimeout = 5000;
+  nodeServer.headersTimeout = 61000;
 
   return new Promise<PlatformServer>((resolve, reject) => {
     nodeServer.listen(options.port, options.hostname);
@@ -85,6 +92,7 @@ function createNodeServer(options: ServeOptions): Promise<PlatformServer> {
       nodeServer.off("error", reject);
       resolve({
         stop() {
+          nodeServer.closeAllConnections?.();
           nodeServer.close();
         },
         requestIP(req: Request) {
