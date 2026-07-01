@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.18.2] - 2026-07-01
+
+### Removed
+
+- **Dead code cleanup** — Removed `getProfileById` method (zero callers), 5 CSS badge classes for non-existent memory types (`badge-architecture`, `badge-documentation`, `badge-rule`, `badge-project`, `badge-user`), and 17 internal-only symbols from the previous `closeShardManager` removal.
+
+### Changed
+
+- **Config boilerplate eliminated** — Inlined 9 `buildXxxConfig` helper functions directly into `mergeConfigWithDefaults` in `config.ts`, removing ~95 lines of repetitive `??` fallback chains that duplicated logic already present in the merge function.
+- **Web server route handlers simplified** — Inlined 10 trivial one-line `_apiXxx` wrapper methods directly into the route switch in `web-server.ts`, and extracted duplicated security headers (CSP, X-Content-Type-Options, X-Frame-Options, HSTS) into a single `_securityHeaders()` helper.
+- **Admin handler boilerplate extracted** — 4 repetitive try/catch handler functions (`handleRunCleanup`, `handleRunDeduplication`, `handleDetectMigration`, `handleRunMigration`) collapsed into a single `asyncServiceWrapper` helper in `admin.ts`.
+- **CaptureMutex simplified** — Replaced the 10-line `CaptureMutex` class in `auto-capture.ts` with a simple boolean flag (`isCapturing`), eliminating unnecessary class ceremony for a one-shot lock.
+- **Jaccard similarity consolidated** — Three divergent `jaccardSimilarity` implementations (`vector-search.ts`, `retrieval-context.ts`, `memory-scoring.ts`) unified to the shared `text-analysis.ts` export, with zero-allocation loop optimization preserved.
+
+### Fixed
+
+- **Dedup threshold inconsistency** — The `checkDuplicateAtIngest` fallback used `?? 0.92` while the canonical config default is `0.9`. Aligned the fallback to `0.9` to prevent inconsistent dedup behavior in partial-config test environments.
+- **Useless transcripts UI section removed** — Removed a dead transcripts section from the Web UI that served no functional purpose.
+
+### Performance
+
+- **Embedding cache hot-path logging removed** — `getFromCache()` called `log()` with an object construction (`{ hits, misses, rate: hitRate() }`) on every single cache hit, including a `JSON.stringify` and async disk append via `appendFile`. Removed the per-hit log; cache stats remain available via the `/api/embedding-cache` endpoint. Measured 12x overhead reduction (31.69ms → 2.59ms per 100K lookups for object construction alone, before disk I/O).
+
+### Contributors
+
+No community contributors for this release. All work by @ZeR020.
+
 ## [2.18.1] - 2026-07-01
 
 ### Added
