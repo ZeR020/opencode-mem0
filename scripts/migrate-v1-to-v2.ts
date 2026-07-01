@@ -382,7 +382,15 @@ void (function (): void {
       }
     }
 
-    result.transcriptsDbCreated = createTranscriptsDb(storagePath);
+    // Only create transcripts.db when we actually migrated real v1 data.
+    // Without this guard, running the script with no args on a machine that has
+    // no upstream data still mkdir's ~/.opencode-mem/data and creates an empty
+    // transcripts.db orphan. The plugin lazily creates transcripts.db at its own
+    // ~/.opencode-mem0/data/ path on first use, so the migration script only
+    // needs to create it here when upstream databases were found and upgraded.
+    if (result.databases > 0) {
+      result.transcriptsDbCreated = createTranscriptsDb(storagePath);
+    }
 
     log("Migration complete", result);
     return result;
@@ -402,7 +410,7 @@ void (function (): void {
     print(`Memories backfilled:     ${result.memoriesUpdated}`);
     print(`Conflicts tables created: ${result.conflictsTableCreated}`);
     print(
-      `Transcripts DB created:   ${result.transcriptsDbCreated ? "yes" : "no (already exists)"}`
+      `Transcripts DB created:   ${result.transcriptsDbCreated ? "yes" : result.databases > 0 ? "no (already exists)" : "skipped (no v1 databases found)"}`
     );
     if (result.errors.length > 0) {
       print(`\nErrors (${result.errors.length}):`);
