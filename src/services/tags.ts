@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { CONFIG } from "../config.js";
-import { normalize, resolve, isAbsolute, basename, dirname } from "node:path";
+import { normalize, resolve, isAbsolute, basename, dirname, join } from "node:path";
 import { realpathSync, existsSync } from "node:fs";
 import { log } from "./logger.js";
 
@@ -122,13 +122,38 @@ function getGitTopLevel(directory: string): string | null {
   return result;
 }
 
+const MARKER_FILE = ".opencode-mem-project";
+
+/**
+ * Walk up from `directory` looking for a `.opencode-mem-project` marker file.
+ * Returns the directory containing the marker, or null if none found.
+ * Innermost marker wins when several are nested.
+ */
+function findMarkerProjectRoot(directory: string): string | null {
+  let current = normalize(directory);
+  while (true) {
+    if (existsSync(join(current, MARKER_FILE))) return current;
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return null;
+}
+
 function getProjectRoot(directory: string): string {
+  const markerRoot = findMarkerProjectRoot(directory);
+  if (markerRoot) return markerRoot;
   const commonDir = getGitCommonDir(directory);
   if (commonDir && basename(commonDir) === ".git") return dirname(commonDir);
   return getGitTopLevel(directory) ?? directory;
 }
 
 function getProjectIdentity(directory: string): string {
+  const markerRoot = findMarkerProjectRoot(directory);
+  if (markerRoot) {
+    return `marker:${normalize(markerRoot)}`;
+  }
+
   const commonDir = getGitCommonDir(directory);
   if (commonDir) {
     return `git-common:${commonDir}`;
@@ -141,7 +166,6 @@ function getProjectIdentity(directory: string): string {
 
   return `path:${normalize(directory)}`;
 }
-
 export function getProjectName(directory: string): string {
   const parts = directory.split(/[\\/]+/).filter(Boolean);
   return parts.at(-1) || directory;
@@ -171,8 +195,9 @@ export function getUserTagInfo(): TagInfo {
 
 export function getProjectTagInfo(directory: string): TagInfo {
   const projectRoot = getProjectRoot(directory);
+  const markerRoot = findMarkerProjectRoot(directory);
+  const gitRepoUrl = markerRoot ? null : getGitRepoUrl(directory);
   const projectName = getProjectName(projectRoot);
-  const gitRepoUrl = getGitRepoUrl(directory);
   const projectIdentity = getProjectIdentity(projectRoot);
 
   return {
