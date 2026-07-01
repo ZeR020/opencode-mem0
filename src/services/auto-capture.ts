@@ -74,7 +74,11 @@ async function processCaptureResult(
   }
 
   const tags = getTags(directory);
-  const result = await memoryClient.addMemory(summaryResult.summary, tags.project.tag, {
+  const summaryWithTags =
+    summaryResult.tags.length > 0
+      ? `${summaryResult.summary}\n\nTags: ${summaryResult.tags.join(", ")}`
+      : summaryResult.summary;
+  const result = await memoryClient.addMemory(summaryWithTags, tags.project.tag, {
     source: "auto-capture",
     type: summaryResult.type,
     tags: summaryResult.tags,
@@ -131,67 +135,103 @@ export async function performAutoCapture(
     const prompt = userPromptManager.getLastUncapturedPrompt(sessionID);
     if (!prompt) return;
     if (!userPromptManager.claimPrompt(prompt.id)) return;
-    claimedPromptId = prompt.id;
+    const maxRetries = CONFIG.autoCaptureMaxRetries ?? 3;
+    const existingAttempts = userPromptManager.getCaptureAttempts(prompt.id);
 
-    if (!ctx.client) throw new Error("Client not available");
+    for (let attempt = existingAttempts; attempt < maxRetries; attempt++) {
+      try {
+        if (!ctx.client) throw new Error("Client not available");
 
-    const response = await ctx.client.session.messages({ path: { id: sessionID } });
-    if (!response.data) return;
+        const response = await ctx.client.session.messages({ path: { id: sessionID } });
+        if (!response.data) {
+          // Transient — release claim so next idle cycle retries
+          return;
+        }
 
-    const aiMessages = findPromptMessages(response.data, prompt.messageId);
-    if (aiMessages.length === 0) return;
+        const aiMessages = findPromptMessages(response.data, prompt.messageId);
+        if (aiMessages.length === 0) return;
 
-    const { textResponses, toolCalls } = extractAIContent(aiMessages);
-    if (textResponses.length === 0 && toolCalls.length === 0) return;
+        const { textResponses, toolCalls } = extractAIContent(aiMessages);
+        if (textResponses.length === 0 && toolCalls.length === 0) return;
 
-    if (!isLLMConfigured()) {
-      warn(
-        "Auto-capture skipped: LLM provider not configured. Set memoryModel/memoryApiUrl or opencodeProvider/opencodeModel."
-      );
-      return;
-    }
+        if (!isLLMConfigured()) {
+          warn(
+            "Auto-capture skipped: LLM provider not configured. Set memoryModel/memoryApiUrl or opencodeProvider/opencodeModel."
+          );
+          return;
+        }
 
-    const tags = getTags(directory);
-    const latestMemory = await getLatestProjectMemory(tags.project.tag);
-    const context = buildMarkdownContext(prompt.content, textResponses, toolCalls, latestMemory);
-    const summaryResult = await generateSummary(context, sessionID, prompt.content);
+        const tags = getTags(directory);
+        const latestMemory = await getLatestProjectMemory(tags.project.tag);
+        const context = buildMarkdownContext(
+          prompt.content,
+          textResponses,
+          toolCalls,
+          latestMemory
+        );
+        const summaryResult = await generateSummary(context, sessionID, prompt.content);
 
-    claimedPromptId = await processCaptureResult(
-      prompt,
-      summaryResult,
-      ctx,
-      directory,
-      sessionID,
-      claimedPromptId
-    );
-  } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error));
-    const isConfigError =
-      err.message.includes("not configured") ||
-      err.message.includes("not available") ||
-      err.message.includes("not connected");
+        claimedPromptId = await processCaptureResult(
+          prompt,
+          summaryResult,
+          ctx,
+          directory,
+          sessionID,
+          claimedPromptId
+        );
+        // Success — return without recording a failure
+        return;
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        const isConfigError =
+          err.message.includes("not configured") ||
+          err.message.includes("not available") ||
+          err.message.includes("not connected");
 
-    if (isConfigError) {
-      log("Auto-capture skipped — configuration not ready", { error: err.message });
-      return;
-    }
+        if (isConfigError) {
+          log("Auto-capture skipped — configuration not ready", { error: err.message });
+          return;
+        }
 
-    if (CONFIG.showAutoCaptureToasts && ctx.client?.tui) {
-      await ctx.client.tui
-        .showToast({
-          body: {
-            title: "Auto-capture Error",
-            message: err.message,
-            variant: "error",
-            duration: 5000,
-          },
-        })
-        .catch(() => {
-          // Notification errors are non-critical
+        // Record the failed attempt persistently
+        userPromptManager.recordFailedAttempt(prompt.id);
+        const attemptsAfter = attempt + 1;
+
+        if (attemptsAfter >= maxRetries) {
+          // Budget exhausted — surface error to user, stop retrying
+          log("Auto-capture failed — retry budget exhausted", {
+            promptId: prompt.id,
+            attempts: attemptsAfter,
+          });
+          if (CONFIG.showAutoCaptureToasts && ctx.client?.tui) {
+            await ctx.client.tui
+              .showToast({
+                body: {
+                  title: "Auto-capture Error",
+                  message: err.message.slice(0, 200),
+                  variant: "error",
+                  duration: 5000,
+                },
+              })
+              .catch(() => {
+                // Notification errors are non-critical
+              });
+          }
+          return;
+        }
+
+        // Exponential backoff: 2s, 4s, 8s
+        const backoffMs = 2000 * 2 ** attempt;
+        log("Auto-capture retry scheduled", {
+          promptId: prompt.id,
+          attempt: attemptsAfter,
+          backoffMs,
         });
+        const { promise: backoffPromise, resolve: backoffResolve } = Promise.withResolvers<void>();
+        setTimeout(backoffResolve, backoffMs);
+        await backoffPromise;
+      }
     }
-
-    throw error;
   } finally {
     if (claimedPromptId) {
       userPromptManager.resetPromptClaim(claimedPromptId);

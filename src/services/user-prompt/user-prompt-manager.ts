@@ -1,4 +1,4 @@
-import { type Database } from "../sqlite/sqlite-bootstrap.js";
+import { type Database, type Statement } from "../sqlite/sqlite-bootstrap.js";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { connectionManager } from "../sqlite/connection-manager.js";
@@ -19,6 +19,7 @@ export interface UserPrompt {
   createdAt: number;
   captured: boolean;
   userLearningCaptured: boolean;
+  captureAttempts: number;
   linkedMemoryId: string | null;
 }
 
@@ -26,24 +27,26 @@ export class UserPromptManager {
   private readonly db: Database;
   private readonly dbPath: string;
   private readonly stmts: {
-    savePrompt: ReturnType<Database["prepare"]>;
-    getLastUncaptured: ReturnType<Database["prepare"]>;
-    deletePrompt: ReturnType<Database["prepare"]>;
-    markCaptured: ReturnType<Database["prepare"]>;
-    claimPrompt: ReturnType<Database["prepare"]>;
-    resetClaim: ReturnType<Database["prepare"]>;
-    countUnanalyzed: ReturnType<Database["prepare"]>;
-    getForUserLearning: ReturnType<Database["prepare"]>;
-    markUserLearningCaptured: ReturnType<Database["prepare"]>;
-    getLinkedMemoryIds: ReturnType<Database["prepare"]>;
-    deleteOldPrompts: ReturnType<Database["prepare"]>;
-    linkMemory: ReturnType<Database["prepare"]>;
-    getById: ReturnType<Database["prepare"]>;
-    getCaptured: ReturnType<Database["prepare"]>;
-    getCapturedByProject: ReturnType<Database["prepare"]>;
-    searchPrompts: ReturnType<Database["prepare"]>;
-    searchPromptsByProject: ReturnType<Database["prepare"]>;
-    getByIds: ReturnType<Database["prepare"]>;
+    savePrompt: Statement;
+    getLastUncaptured: Statement;
+    deletePrompt: Statement;
+    markCaptured: Statement;
+    claimPrompt: Statement;
+    resetClaim: Statement;
+    countUnanalyzed: Statement;
+    getForUserLearning: Statement;
+    markUserLearningCaptured: Statement;
+    getLinkedMemoryIds: Statement;
+    deleteOldPrompts: Statement;
+    linkMemory: Statement;
+    getById: Statement;
+    getCaptured: Statement;
+    getCapturedByProject: Statement;
+    searchPrompts: Statement;
+    searchPromptsByProject: Statement;
+    getByIds: Statement;
+    recordFailedAttempt: Statement;
+    getCaptureAttempts: Statement;
   };
 
   constructor() {
@@ -56,9 +59,9 @@ export class UserPromptManager {
         VALUES (?, ?, ?, ?, ?, ?, 0)
       `),
       getLastUncaptured: this.db.prepare(`
-        SELECT * FROM user_prompts 
-        WHERE session_id = ? AND captured = 0
-        ORDER BY created_at DESC 
+        SELECT * FROM user_prompts
+        WHERE session_id = ? AND captured = 0 AND capture_attempts < ?
+        ORDER BY created_at DESC
         LIMIT 1
       `),
       deletePrompt: this.db.prepare("DELETE FROM user_prompts WHERE id = ?"),
@@ -101,6 +104,12 @@ export class UserPromptManager {
         String.raw`SELECT * FROM user_prompts WHERE content LIKE ? ESCAPE '\' AND captured = 1 AND project_path = ? ORDER BY created_at DESC LIMIT ?`
       ),
       getByIds: this.db.prepare("SELECT * FROM user_prompts WHERE id = ?"),
+      recordFailedAttempt: this.db.prepare(
+        "UPDATE user_prompts SET capture_attempts = capture_attempts + 1 WHERE id = ?"
+      ),
+      getCaptureAttempts: this.db.prepare(
+        "SELECT capture_attempts as attempts FROM user_prompts WHERE id = ?"
+      ),
     };
   }
 
@@ -119,9 +128,17 @@ export class UserPromptManager {
         created_at INTEGER NOT NULL,
         captured BOOLEAN DEFAULT 0,
         user_learning_captured BOOLEAN DEFAULT 0,
-        linked_memory_id TEXT
+        linked_memory_id TEXT,
+        capture_attempts INTEGER DEFAULT 0
       )
     `);
+
+    // ponytail: additive ALTER TABLE for existing DBs — SQLite has no IF NOT EXISTS for columns
+    try {
+      this.db.run("ALTER TABLE user_prompts ADD COLUMN capture_attempts INTEGER DEFAULT 0");
+    } catch {
+      // Column already exists
+    }
 
     this.db.run("UPDATE user_prompts SET captured = 0 WHERE captured = 2");
 
@@ -146,9 +163,19 @@ export class UserPromptManager {
   }
 
   getLastUncapturedPrompt(sessionId: string): UserPrompt | null {
-    const row = this.stmts.getLastUncaptured.get(sessionId) as any;
+    const maxRetries = CONFIG.autoCaptureMaxRetries ?? 3;
+    const row = this.stmts.getLastUncaptured.get(sessionId, maxRetries) as any;
     if (!row) return null;
     return this.rowToPrompt(row);
+  }
+
+  recordFailedAttempt(promptId: string): void {
+    this.stmts.recordFailedAttempt.run(promptId);
+  }
+
+  getCaptureAttempts(promptId: string): number {
+    const row = this.stmts.getCaptureAttempts.get(promptId) as any;
+    return row?.attempts ?? 0;
   }
 
   deletePrompt(promptId: string): void {
@@ -259,6 +286,7 @@ export class UserPromptManager {
       createdAt: row.created_at,
       captured: row.captured === 1,
       userLearningCaptured: row.user_learning_captured === 1,
+      captureAttempts: row.capture_attempts ?? 0,
       linkedMemoryId: row.linked_memory_id,
     };
   }

@@ -7,6 +7,8 @@ const mockUserPromptManager = {
   linkMemoryToPrompt: vi.fn(),
   markAsCaptured: vi.fn(),
   resetPromptClaim: vi.fn(),
+  getCaptureAttempts: vi.fn().mockReturnValue(0),
+  recordFailedAttempt: vi.fn(),
   countUnanalyzedForUserLearning: vi.fn(),
   getPromptsForUserLearning: vi.fn(),
   markMultipleAsUserLearningCaptured: vi.fn(),
@@ -68,11 +70,11 @@ vi.mock("../src/services/language-detector.js", () => ({
   detectLanguage: (...args: unknown[]) => mockDetectLanguage(...args),
   getLanguageName: (...args: unknown[]) => mockGetLanguageName(...args),
 }));
-
 vi.mock("../src/config.js", () => ({
   CONFIG: {
     storagePath: "/tmp/opencode-mem0-test",
     showAutoCaptureToasts: false,
+    autoCaptureMaxRetries: 3,
     showUserProfileToasts: false,
     opencodeProvider: null,
     opencodeModel: null,
@@ -106,7 +108,8 @@ describe("auto-capture helpers", () => {
     mockUserPromptManager.markAsCaptured.mockReset();
     mockUserPromptManager.resetPromptClaim.mockReset();
     mockMemoryClient.addMemory.mockReset().mockResolvedValue({ success: true, id: "mem1" });
-    mockMemoryClient.listMemories.mockReset();
+    mockUserPromptManager.getCaptureAttempts.mockReset().mockReturnValue(0);
+    mockUserPromptManager.recordFailedAttempt.mockReset();
     mockGetTags.mockReset();
     mockWarn.mockReset();
     mockLog.mockReset();
@@ -833,8 +836,8 @@ describe("auto-capture helpers", () => {
 
     await performAutoCapture(ctx, "sess-1", "/test").catch(() => {});
     expect(showToast).not.toHaveBeenCalled();
-
     // Scenario 2: runtime error (network error from messages)
+    CONFIG.autoCaptureMaxRetries = 1;
     showToast.mockClear();
     const networkError = new Error("Network timeout");
     mockMessages.mockRejectedValue(networkError);
@@ -921,7 +924,7 @@ describe("auto-capture helpers", () => {
 
         expect(mockExecuteToolCall).toHaveBeenCalled();
         expect(mockMemoryClient.addMemory).toHaveBeenCalledWith(
-          "Created a new test",
+          "Created a new test\n\nTags: test, coverage",
           "mem_project_test",
           expect.objectContaining({
             type: "feature",
@@ -936,6 +939,7 @@ describe("auto-capture helpers", () => {
         CONFIG.memoryModel = "test-model";
         CONFIG.memoryApiUrl = "http://test";
         CONFIG.memoryProvider = "openai-chat";
+        CONFIG.autoCaptureMaxRetries = 1;
 
         mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
           id: "p1",
@@ -984,9 +988,8 @@ describe("auto-capture helpers", () => {
           error: "API rate limit reached",
         });
 
-        await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
-          "API rate limit reached"
-        );
+        await expect(performAutoCapture(ctx, "sess-1", "/test")).resolves.toBeUndefined();
+        expect(mockUserPromptManager.recordFailedAttempt).toHaveBeenCalledWith("p1");
       });
 
       it("handles missing data path where executeToolCall returns success=true but data=null", async () => {
@@ -995,6 +998,7 @@ describe("auto-capture helpers", () => {
         CONFIG.memoryModel = "test-model";
         CONFIG.memoryApiUrl = "http://test";
         CONFIG.memoryProvider = "openai-chat";
+        CONFIG.autoCaptureMaxRetries = 1;
 
         mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
           id: "p1",
@@ -1043,9 +1047,8 @@ describe("auto-capture helpers", () => {
           data: null,
         });
 
-        await expect(performAutoCapture(ctx, "sess-1", "/test")).rejects.toThrow(
-          "Failed to generate summary"
-        );
+        await expect(performAutoCapture(ctx, "sess-1", "/test")).resolves.toBeUndefined();
+        expect(mockUserPromptManager.recordFailedAttempt).toHaveBeenCalledWith("p1");
       });
     });
 
@@ -1291,7 +1294,7 @@ describe("auto-capture helpers", () => {
         await performAutoCapture(ctx, "sess-1", "/test");
 
         expect(mockMemoryClient.addMemory).toHaveBeenCalledWith(
-          "Opencode generated summary",
+          "Opencode generated summary\n\nTags: opencode, test",
           "mem_project_test",
           expect.objectContaining({
             type: "feature",

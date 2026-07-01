@@ -34,6 +34,7 @@ interface OpenCodeMemConfig {
   containerTagPrefix?: string;
   autoCaptureEnabled?: boolean;
   autoCaptureMaxIterations?: number;
+  autoCaptureMaxRetries?: number;
   autoCaptureIterationTimeout?: number;
   autoCaptureLanguage?: string;
   memoryProvider?: AIProviderType;
@@ -138,6 +139,7 @@ const OpenCodeMemConfigSchema = z.object({
   containerTagPrefix: z.string().optional(),
   autoCaptureEnabled: z.boolean().optional(),
   autoCaptureMaxIterations: z.number().positive().optional(),
+  autoCaptureMaxRetries: z.number().positive().optional(),
   autoCaptureIterationTimeout: z.number().positive().optional(),
   autoCaptureLanguage: z.string().optional(),
   memoryProvider: z
@@ -254,6 +256,7 @@ const DEFAULTS: Partial<OpenCodeMemConfig> = {
   containerTagPrefix: "opencode",
   autoCaptureEnabled: true,
   autoCaptureMaxIterations: 5,
+  autoCaptureMaxRetries: 3,
   autoCaptureIterationTimeout: 30000,
   vectorBackend: "usearch-first",
   aiSessionRetentionDays: 7,
@@ -407,6 +410,7 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
     containerTagPrefix: cfg.containerTagPrefix ?? defaults.containerTagPrefix,
     autoCaptureEnabled: cfg.autoCaptureEnabled ?? defaults.autoCaptureEnabled,
     autoCaptureMaxIterations: cfg.autoCaptureMaxIterations ?? defaults.autoCaptureMaxIterations,
+    autoCaptureMaxRetries: cfg.autoCaptureMaxRetries ?? defaults.autoCaptureMaxRetries,
     autoCaptureIterationTimeout:
       cfg.autoCaptureIterationTimeout ?? defaults.autoCaptureIterationTimeout,
     autoCaptureLanguage: cfg.autoCaptureLanguage,
