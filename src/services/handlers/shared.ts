@@ -93,6 +93,12 @@ export function fetchMemoriesForList(
         memories.filter((m) => m.container_tag?.includes("_project_"))
       );
     }
+    const userShards = shardManager.getAllShards("user", "");
+    for (const shard of userShards) {
+      const db = connectionManager.getConnection(shard.dbPath);
+      const memories = vectorSearch.listMemories(db, "", perShardLimit) as RawMemoryRow[];
+      allMemories = allMemories.concat(memories.filter((m) => m.container_tag?.includes("_user_")));
+    }
   }
   if (allMemories.length > MAX_LIST_MEMORIES) {
     allMemories = allMemories.slice(0, MAX_LIST_MEMORIES);
