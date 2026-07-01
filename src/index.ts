@@ -498,6 +498,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
                 lastUpdated: Date.now(),
               };
 
+              userProfileManager.applyConfidenceDecay(userId);
               const existingProfile = userProfileManager.getActiveProfile(userId);
               if (existingProfile) {
                 const existingData = safeJSONParse(existingProfile.profileData) as UserProfileData;
