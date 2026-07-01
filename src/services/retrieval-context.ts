@@ -1,5 +1,5 @@
 import { CONFIG } from "../config.js";
-import { TECHNICAL_KEYWORDS } from "./utils/text-analysis.js";
+import { TECHNICAL_KEYWORDS, jaccardSimilarity } from "./utils/text-analysis.js";
 
 export interface RetrievalContext {
   projectPath?: string;
@@ -261,6 +261,8 @@ export function calculateDiversityPenalty(
 ): number {
   if (!content || selectedContents.length === 0) return 0;
 
+  // Tokenize on whitespace with >4 char filter (matches VectorSearch.getWordSet behavior).
+  // NOT text-analysis.ts getWordSet — that splits on non-alphanumeric which changes diversity results.
   const contentWords = new Set(
     content
       .toLowerCase()
@@ -272,7 +274,6 @@ export function calculateDiversityPenalty(
   let maxSimilarity = 0;
   for (const selected of selectedContents) {
     if (!selected) continue;
-
     const selectedWords = new Set(
       selected
         .toLowerCase()
@@ -280,17 +281,7 @@ export function calculateDiversityPenalty(
         .filter((w) => w.length > 4)
     );
     if (selectedWords.size === 0) continue;
-
-    let intersectionSize = 0;
-    for (const w of contentWords) {
-      if (selectedWords.has(w)) intersectionSize++;
-    }
-    const unionSize = contentWords.size + selectedWords.size - intersectionSize;
-    const sim = unionSize > 0 ? intersectionSize / unionSize : 0;
-
-    if (sim > maxSimilarity) {
-      maxSimilarity = sim;
-    }
+    maxSimilarity = Math.max(maxSimilarity, jaccardSimilarity(contentWords, selectedWords));
   }
 
   if (threshold >= 1) return 0;

@@ -242,13 +242,6 @@ export class UserProfileManager {
     return rows.map((row) => this.rowToChangelog(row));
   }
 
-  getProfileById(profileId: string): UserProfile | null {
-    const stmt = this.db.prepare("SELECT * FROM user_profiles WHERE id = ?");
-    const row = stmt.get(profileId) as any;
-    if (!row) return null;
-    return this.rowToProfile(row);
-  }
-
   private rowToProfile(row: any): UserProfile {
     return {
       id: row.id,

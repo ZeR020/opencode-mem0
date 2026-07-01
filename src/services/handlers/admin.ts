@@ -8,10 +8,27 @@ import { userPromptManager } from "../user-prompt/user-prompt-manager.js";
 import { scoringSkippedCycles, scoringLastDurationMs } from "../memory-scoring-service.js";
 import { getLifecycleStats } from "../memory-lifecycle.js";
 import { cleanupService } from "../cleanup-service.js";
+import { deduplicationService } from "../deduplication-service.js";
+import { migrationService } from "../migration-service.js";
 import type { RawMemoryRow } from "./shared-types.js";
 import type { ShardInfo } from "../sqlite/types.js";
 import type { ApiResponse } from "./shared-types.js";
 import { handleDeleteMemory } from "./memory.js";
+
+async function asyncServiceWrapper<T>(name: string, fn: () => Promise<T>): Promise<ApiResponse<T>> {
+  try {
+    const result = await fn();
+    const obj: unknown = result;
+    const success =
+      obj && typeof obj === "object" && "success" in obj && typeof obj.success === "boolean"
+        ? obj.success
+        : true;
+    return { success, data: result };
+  } catch (error) {
+    log(`${name}: error`, { error: String(error) });
+    return { success: false, error: `Internal error in ${name}` };
+  }
+}
 
 interface CountRow {
   count: number;
@@ -130,51 +147,32 @@ async function processSingleTagMigration(
   await vectorSearch.updateVector(db, m.id, vector, shard, tagsVector);
 }
 
-export async function handleRunCleanup(): Promise<
+export const handleRunCleanup = (): Promise<
   ApiResponse<{ deletedCount: number; userCount: number; projectCount: number }>
-> {
-  try {
-    const { cleanupService } = await import("../cleanup-service.js");
-    const result = await cleanupService.runCleanup();
-    return { success: true, data: result };
-  } catch (error) {
-    log("handleRunCleanup: error", { error: String(error) });
-    return { success: false, error: "Internal error in handleRunCleanup" };
-  }
-}
+> => asyncServiceWrapper("handleRunCleanup", async () => cleanupService.runCleanup());
 
-export async function handleRunDeduplication(): Promise<
+export const handleRunDeduplication = (): Promise<
   ApiResponse<{ exactDuplicatesDeleted: number; nearDuplicateGroups: unknown[] }>
-> {
-  try {
-    const { deduplicationService } = await import("../deduplication-service.js");
-    const result = await deduplicationService.detectAndRemoveDuplicates();
-    return { success: true, data: result };
-  } catch (error) {
-    log("handleRunDeduplication: error", { error: String(error) });
-    return { success: false, error: "Internal error in handleRunDeduplication" };
-  }
-}
+> =>
+  asyncServiceWrapper("handleRunDeduplication", async () =>
+    deduplicationService.detectAndRemoveDuplicates()
+  );
 
-export async function handleDetectMigration(): Promise<
+export const handleDetectMigration = (): Promise<
   ApiResponse<{
     needsMigration: boolean;
     configDimensions: number;
     configModel: string;
     shardMismatches: unknown[];
   }>
-> {
-  try {
-    const { migrationService } = await import("../migration-service.js");
-    const result = migrationService.detectDimensionMismatch();
-    return { success: true, data: result };
-  } catch (error) {
-    log("handleDetectMigration: error", { error: String(error) });
-    return { success: false, error: "Internal error in handleDetectMigration" };
-  }
-}
+> =>
+  asyncServiceWrapper("handleDetectMigration", async () =>
+    migrationService.detectDimensionMismatch()
+  );
 
-export async function handleRunMigration(strategy: "fresh-start" | "re-embed"): Promise<
+export const handleRunMigration = (
+  strategy: "fresh-start" | "re-embed"
+): Promise<
   ApiResponse<{
     success: boolean;
     strategy: string;
@@ -183,16 +181,10 @@ export async function handleRunMigration(strategy: "fresh-start" | "re-embed"): 
     duration: number;
     error?: string;
   }>
-> {
-  try {
-    const { migrationService } = await import("../migration-service.js");
-    const result = await migrationService.migrateToNewModel(strategy);
-    return { success: result.success, data: result };
-  } catch (error) {
-    log("handleRunMigration: error", { error: String(error) });
-    return { success: false, error: "Internal error in handleRunMigration" };
-  }
-}
+> =>
+  asyncServiceWrapper("handleRunMigration", async () =>
+    migrationService.migrateToNewModel(strategy)
+  );
 
 export async function handleDeletePrompt(
   id: string,

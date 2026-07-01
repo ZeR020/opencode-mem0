@@ -386,102 +386,6 @@ function getEmbeddingDimensions(model: string): number {
   return dimensionMap[model] || 768;
 }
 
-function buildMemoryConfig(f: OpenCodeMemConfig) {
-  const D = DEFAULTS as Required<OpenCodeMemConfig>;
-  return { defaultScope: f.memory?.defaultScope ?? D.memory!.defaultScope };
-}
-
-function buildCompactionConfig(f: OpenCodeMemConfig) {
-  const D = DEFAULTS as Required<OpenCodeMemConfig>;
-  return {
-    enabled: f.compaction?.enabled ?? D.compaction!.enabled,
-    memoryLimit: f.compaction?.memoryLimit ?? D.compaction!.memoryLimit,
-  };
-}
-
-function buildTranscriptConfig(f: OpenCodeMemConfig) {
-  const D = DEFAULTS as Required<OpenCodeMemConfig>;
-  return {
-    enabled: f.transcriptStorage?.enabled ?? D.transcriptStorage!.enabled,
-    maxAgeDays: f.transcriptStorage?.maxAgeDays ?? D.transcriptStorage!.maxAgeDays,
-  };
-}
-
-function buildScoringConfig(f: OpenCodeMemConfig) {
-  const D = DEFAULTS as Required<OpenCodeMemConfig>;
-  return {
-    enabled: f.memoryScoring?.enabled ?? D.memoryScoring!.enabled,
-    recalculationIntervalMinutes:
-      f.memoryScoring?.recalculationIntervalMinutes ??
-      D.memoryScoring!.recalculationIntervalMinutes,
-    recalculationBatchSize:
-      f.memoryScoring?.recalculationBatchSize ?? D.memoryScoring!.recalculationBatchSize,
-    recencyHalfLifeDays:
-      f.memoryScoring?.recencyHalfLifeDays ?? D.memoryScoring!.recencyHalfLifeDays,
-    utilityHalfLifeDays:
-      f.memoryScoring?.utilityHalfLifeDays ?? D.memoryScoring!.utilityHalfLifeDays,
-  };
-}
-
-function buildLifecycleConfig(f: OpenCodeMemConfig) {
-  const D = DEFAULTS as Required<OpenCodeMemConfig>;
-  return {
-    stmDecayDays: f.memoryLifecycle?.stmDecayDays ?? D.memoryLifecycle!.stmDecayDays,
-    ltmDecayDays: f.memoryLifecycle?.ltmDecayDays ?? D.memoryLifecycle!.ltmDecayDays,
-    promotionThreshold:
-      f.memoryLifecycle?.promotionThreshold ?? D.memoryLifecycle!.promotionThreshold,
-    archiveThreshold: f.memoryLifecycle?.archiveThreshold ?? D.memoryLifecycle!.archiveThreshold,
-    archiveAfterDays: f.memoryLifecycle?.archiveAfterDays ?? D.memoryLifecycle!.archiveAfterDays,
-    checkIntervalMinutes:
-      f.memoryLifecycle?.checkIntervalMinutes ?? D.memoryLifecycle!.checkIntervalMinutes,
-    decayBatchSize: f.memoryLifecycle?.decayBatchSize ?? D.memoryLifecycle!.decayBatchSize,
-  };
-}
-
-function buildChatConfig(f: OpenCodeMemConfig) {
-  const D = DEFAULTS as Required<OpenCodeMemConfig>;
-  return {
-    enabled: f.chatMessage?.enabled ?? D.chatMessage!.enabled,
-    maxMemories: f.chatMessage?.maxMemories ?? D.chatMessage!.maxMemories,
-    excludeCurrentSession:
-      f.chatMessage?.excludeCurrentSession ?? D.chatMessage!.excludeCurrentSession,
-    maxAgeDays: f.chatMessage?.maxAgeDays,
-    injectOn: (f.chatMessage?.injectOn ?? D.chatMessage!.injectOn) as "first" | "always",
-    mode: (f.chatMessage?.mode ?? D.chatMessage!.mode) as "relevant" | "fast",
-  };
-}
-
-function buildRetrievalConfig(f: OpenCodeMemConfig) {
-  const D = DEFAULTS as Required<OpenCodeMemConfig>;
-  return {
-    maxResults: f.retrieval?.maxResults ?? D.retrieval!.maxResults,
-    diversityThreshold: f.retrieval?.diversityThreshold ?? D.retrieval!.diversityThreshold,
-    contextBoost: f.retrieval?.contextBoost ?? D.retrieval!.contextBoost,
-  };
-}
-
-function buildInjectionConfig(f: OpenCodeMemConfig) {
-  const D = DEFAULTS as Required<OpenCodeMemConfig>;
-  return {
-    tokenBudget: f.injection?.tokenBudget ?? D.injection!.tokenBudget,
-    format: f.injection?.format ?? D.injection!.format,
-    relevanceThreshold: f.injection?.relevanceThreshold ?? D.injection!.relevanceThreshold,
-  };
-}
-
-function buildDecayConfig(f: OpenCodeMemConfig) {
-  const D = DEFAULTS as Required<OpenCodeMemConfig>;
-  return {
-    enabled: f.contextualDecay?.enabled ?? D.contextualDecay!.enabled,
-    baseDecayRate: f.contextualDecay?.baseDecayRate ?? D.contextualDecay!.baseDecayRate,
-    strengthBoostFactor:
-      f.contextualDecay?.strengthBoostFactor ?? D.contextualDecay!.strengthBoostFactor,
-    accessBoostFactor: f.contextualDecay?.accessBoostFactor ?? D.contextualDecay!.accessBoostFactor,
-    minDecayRate: f.contextualDecay?.minDecayRate ?? D.contextualDecay!.minDecayRate,
-    maxDecayRate: f.contextualDecay?.maxDecayRate ?? D.contextualDecay!.maxDecayRate,
-  };
-}
-
 function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
   const cfg = fileConfig;
   const defaults = DEFAULTS as Required<OpenCodeMemConfig>;
@@ -537,15 +441,74 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
     showAutoCaptureToasts: cfg.showAutoCaptureToasts ?? defaults.showAutoCaptureToasts,
     showUserProfileToasts: cfg.showUserProfileToasts ?? defaults.showUserProfileToasts,
     showErrorToasts: cfg.showErrorToasts ?? defaults.showErrorToasts,
-    memory: buildMemoryConfig(cfg),
-    compaction: buildCompactionConfig(cfg),
-    transcriptStorage: buildTranscriptConfig(cfg),
-    memoryScoring: buildScoringConfig(cfg),
-    memoryLifecycle: buildLifecycleConfig(cfg),
-    chatMessage: buildChatConfig(cfg),
-    retrieval: buildRetrievalConfig(cfg),
-    injection: buildInjectionConfig(cfg),
-    contextualDecay: buildDecayConfig(cfg),
+    memory: {
+      defaultScope: cfg.memory?.defaultScope ?? defaults.memory!.defaultScope,
+    },
+    compaction: {
+      enabled: cfg.compaction?.enabled ?? defaults.compaction!.enabled,
+      memoryLimit: cfg.compaction?.memoryLimit ?? defaults.compaction!.memoryLimit,
+    },
+    transcriptStorage: {
+      enabled: cfg.transcriptStorage?.enabled ?? defaults.transcriptStorage!.enabled,
+      maxAgeDays: cfg.transcriptStorage?.maxAgeDays ?? defaults.transcriptStorage!.maxAgeDays,
+    },
+    memoryScoring: {
+      enabled: cfg.memoryScoring?.enabled ?? defaults.memoryScoring!.enabled,
+      recalculationIntervalMinutes:
+        cfg.memoryScoring?.recalculationIntervalMinutes ??
+        defaults.memoryScoring!.recalculationIntervalMinutes,
+      recalculationBatchSize:
+        cfg.memoryScoring?.recalculationBatchSize ?? defaults.memoryScoring!.recalculationBatchSize,
+      recencyHalfLifeDays:
+        cfg.memoryScoring?.recencyHalfLifeDays ?? defaults.memoryScoring!.recencyHalfLifeDays,
+      utilityHalfLifeDays:
+        cfg.memoryScoring?.utilityHalfLifeDays ?? defaults.memoryScoring!.utilityHalfLifeDays,
+    },
+    memoryLifecycle: {
+      stmDecayDays: cfg.memoryLifecycle?.stmDecayDays ?? defaults.memoryLifecycle!.stmDecayDays,
+      ltmDecayDays: cfg.memoryLifecycle?.ltmDecayDays ?? defaults.memoryLifecycle!.ltmDecayDays,
+      promotionThreshold:
+        cfg.memoryLifecycle?.promotionThreshold ?? defaults.memoryLifecycle!.promotionThreshold,
+      archiveThreshold:
+        cfg.memoryLifecycle?.archiveThreshold ?? defaults.memoryLifecycle!.archiveThreshold,
+      archiveAfterDays:
+        cfg.memoryLifecycle?.archiveAfterDays ?? defaults.memoryLifecycle!.archiveAfterDays,
+      checkIntervalMinutes:
+        cfg.memoryLifecycle?.checkIntervalMinutes ?? defaults.memoryLifecycle!.checkIntervalMinutes,
+      decayBatchSize:
+        cfg.memoryLifecycle?.decayBatchSize ?? defaults.memoryLifecycle!.decayBatchSize,
+    },
+    chatMessage: {
+      enabled: cfg.chatMessage?.enabled ?? defaults.chatMessage!.enabled,
+      maxMemories: cfg.chatMessage?.maxMemories ?? defaults.chatMessage!.maxMemories,
+      excludeCurrentSession:
+        cfg.chatMessage?.excludeCurrentSession ?? defaults.chatMessage!.excludeCurrentSession,
+      maxAgeDays: cfg.chatMessage?.maxAgeDays,
+      injectOn: (cfg.chatMessage?.injectOn ?? defaults.chatMessage!.injectOn) as "first" | "always",
+      mode: (cfg.chatMessage?.mode ?? defaults.chatMessage!.mode) as "relevant" | "fast",
+    },
+    retrieval: {
+      maxResults: cfg.retrieval?.maxResults ?? defaults.retrieval!.maxResults,
+      diversityThreshold:
+        cfg.retrieval?.diversityThreshold ?? defaults.retrieval!.diversityThreshold,
+      contextBoost: cfg.retrieval?.contextBoost ?? defaults.retrieval!.contextBoost,
+    },
+    injection: {
+      tokenBudget: cfg.injection?.tokenBudget ?? defaults.injection!.tokenBudget,
+      format: cfg.injection?.format ?? defaults.injection!.format,
+      relevanceThreshold:
+        cfg.injection?.relevanceThreshold ?? defaults.injection!.relevanceThreshold,
+    },
+    contextualDecay: {
+      enabled: cfg.contextualDecay?.enabled ?? defaults.contextualDecay!.enabled,
+      baseDecayRate: cfg.contextualDecay?.baseDecayRate ?? defaults.contextualDecay!.baseDecayRate,
+      strengthBoostFactor:
+        cfg.contextualDecay?.strengthBoostFactor ?? defaults.contextualDecay!.strengthBoostFactor,
+      accessBoostFactor:
+        cfg.contextualDecay?.accessBoostFactor ?? defaults.contextualDecay!.accessBoostFactor,
+      minDecayRate: cfg.contextualDecay?.minDecayRate ?? defaults.contextualDecay!.minDecayRate,
+      maxDecayRate: cfg.contextualDecay?.maxDecayRate ?? defaults.contextualDecay!.maxDecayRate,
+    },
     logLevel: cfg.logLevel ?? defaults.logLevel,
     warmupTimeoutMs: cfg.warmupTimeoutMs ?? defaults.warmupTimeoutMs,
     rateLimitEnabled: cfg.rateLimitEnabled ?? defaults.rateLimitEnabled,

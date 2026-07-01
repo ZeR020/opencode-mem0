@@ -47,11 +47,6 @@ export class EmbeddingService {
       this.cache.delete(key);
       this.cache.set(key, value);
       this.cacheHits++;
-      log("Embedding cache hit", {
-        hits: this.cacheHits,
-        misses: this.cacheMisses,
-        rate: this.hitRate(),
-      });
     }
     return value;
   }

@@ -260,7 +260,7 @@ export class WebServer {
       if (staticResponse) return staticResponse;
 
       if (path === "/api/health") {
-        return this._apiStatus(isLocal);
+        return this.jsonResponse(handleApiStatus(), 200, !isLocal);
       }
 
       if (this.config.apiKey && !this._isAuthorized(req)) {
@@ -341,7 +341,7 @@ export class WebServer {
 
     switch (route) {
       case "GET /api/tags":
-        return await this._apiListTags(isLocal);
+        return this.jsonResponse(await handleListTags(), 200, !isLocal);
       case "GET /api/memories":
         return await this._apiListMemories(url, isLocal);
       case "POST /api/memories":
@@ -357,29 +357,29 @@ export class WebServer {
       case "GET /api/transcripts/search":
         return await this._apiSearchTranscripts(url, isLocal);
       case "GET /api/stats":
-        return await this._apiStats(isLocal);
+        return this.jsonResponse(handleStats(), 200, !isLocal);
       case "GET /api/status":
-        return await this._apiStatus(isLocal);
+        return this.jsonResponse(handleApiStatus(), 200, !isLocal);
       case "GET /api/health":
-        return await this._apiStatus(isLocal);
+        return this.jsonResponse(handleApiStatus(), 200, !isLocal);
       case "GET /api/embedding-cache":
-        return await this._apiEmbeddingCacheStats(isLocal);
+        return this.jsonResponse(handleEmbeddingCacheStats(), 200, !isLocal);
       case "GET /api/conflicts":
         return await this._apiListConflicts(url, isLocal);
       case "GET /api/conflicts/stats":
-        return await this._apiConflictStats(isLocal);
+        return this.jsonResponse(handleConflictStats(), 200, !isLocal);
       case "POST /api/cleanup":
-        return await this._apiCleanup(isLocal);
+        return this.jsonResponse(await handleRunCleanup(), 200, !isLocal);
       case "POST /api/deduplicate":
-        return await this._apiDeduplicate(isLocal);
+        return this.jsonResponse(await handleRunDeduplication(), 200, !isLocal);
       case "GET /api/migration/detect":
-        return await this._apiDetectMigration(isLocal);
+        return this.jsonResponse(await handleDetectMigration(), 200, !isLocal);
       case "GET /api/migration/tags/detect":
-        return await this._apiDetectTagMigration(isLocal);
+        return this.jsonResponse(handleDetectTagMigration(), 200, !isLocal);
       case "POST /api/migration/tags/run-batch":
         return await this._apiRunTagMigration(req, isLocal);
       case "GET /api/migration/tags/progress":
-        return await this._apiTagMigrationProgress(isLocal);
+        return this.jsonResponse(handleGetTagMigrationProgress(), 200, !isLocal);
       case "POST /api/migration/run":
         return await this._apiRunMigration(req, isLocal);
       case "GET /api/user-profile":
@@ -429,11 +429,6 @@ export class WebServer {
     }
 
     return new Response("Not Found", { status: 404 });
-  }
-
-  private async _apiListTags(isLocal: boolean): Promise<Response> {
-    const result = await handleListTags();
-    return this.jsonResponse(result, 200, !isLocal);
   }
 
   private async _apiListMemories(url: URL, isLocal: boolean): Promise<Response> {
@@ -521,30 +516,10 @@ export class WebServer {
     return this.jsonResponse(result, 200, !isLocal);
   }
 
-  private async _apiStats(isLocal: boolean): Promise<Response> {
-    const result = handleStats();
-    return this.jsonResponse(result, 200, !isLocal);
-  }
-
-  private async _apiStatus(isLocal: boolean): Promise<Response> {
-    const result = handleApiStatus();
-    return this.jsonResponse(result, 200, !isLocal);
-  }
-
-  private async _apiEmbeddingCacheStats(isLocal: boolean): Promise<Response> {
-    const result = handleEmbeddingCacheStats();
-    return this.jsonResponse(result, 200, !isLocal);
-  }
-
   private async _apiListConflicts(url: URL, isLocal: boolean): Promise<Response> {
     const resolved = url.searchParams.get("resolved") === "true";
     const limit = Number.parseInt(url.searchParams.get("limit") || "100");
     const result = handleListConflicts(resolved, limit);
-    return this.jsonResponse(result, 200, !isLocal);
-  }
-
-  private async _apiConflictStats(isLocal: boolean): Promise<Response> {
-    const result = handleConflictStats();
     return this.jsonResponse(result, 200, !isLocal);
   }
 
@@ -606,35 +581,10 @@ export class WebServer {
     return this.jsonResponse(result, 200, !isLocal);
   }
 
-  private async _apiCleanup(isLocal: boolean): Promise<Response> {
-    const result = await handleRunCleanup();
-    return this.jsonResponse(result, 200, !isLocal);
-  }
-
-  private async _apiDeduplicate(isLocal: boolean): Promise<Response> {
-    const result = await handleRunDeduplication();
-    return this.jsonResponse(result, 200, !isLocal);
-  }
-
-  private async _apiDetectMigration(isLocal: boolean): Promise<Response> {
-    const result = await handleDetectMigration();
-    return this.jsonResponse(result, 200, !isLocal);
-  }
-
-  private async _apiDetectTagMigration(isLocal: boolean): Promise<Response> {
-    const result = handleDetectTagMigration();
-    return this.jsonResponse(result, 200, !isLocal);
-  }
-
   private async _apiRunTagMigration(req: Request, isLocal: boolean): Promise<Response> {
     const body = (await req.json()) as { batchSize?: number };
     const batchSize = body?.batchSize || 5;
     const result = await handleRunTagMigrationBatch(batchSize);
-    return this.jsonResponse(result, 200, !isLocal);
-  }
-
-  private async _apiTagMigrationProgress(isLocal: boolean): Promise<Response> {
-    const result = handleGetTagMigrationProgress();
     return this.jsonResponse(result, 200, !isLocal);
   }
 
@@ -711,6 +661,19 @@ export class WebServer {
     return this.jsonResponse(result, 200, !isLocal);
   }
 
+  private _securityHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      "Content-Security-Policy":
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY",
+    };
+    if (this._currentRequestProtocol === "https:") {
+      headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains";
+    }
+    return headers;
+  }
+
   private serveStaticFile(filename: string, contentType: string): Response {
     const webDir = join(__dirname, "..", "web");
     const filePath = join(webDir, filename);
@@ -720,14 +683,8 @@ export class WebServer {
       const headers: Record<string, string> = {
         "Content-Type": contentType,
         "Cache-Control": isImage ? "public, max-age=86400" : "no-cache",
-        "Content-Security-Policy":
-          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
-        "X-Content-Type-Options": "nosniff",
-        "X-Frame-Options": "DENY",
+        ...this._securityHeaders(),
       };
-      if (this._currentRequestProtocol === "https:") {
-        headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains";
-      }
       return new Response(content, {
         headers,
       });
@@ -769,14 +726,8 @@ export class WebServer {
     const finalData = redact ? this.redactPII(data) : data;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "Content-Security-Policy":
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
-      "X-Content-Type-Options": "nosniff",
-      "X-Frame-Options": "DENY",
+      ...this._securityHeaders(),
     };
-    if (this._currentRequestProtocol === "https:") {
-      headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains";
-    }
     return new Response(JSON.stringify(finalData), {
       status,
       headers,

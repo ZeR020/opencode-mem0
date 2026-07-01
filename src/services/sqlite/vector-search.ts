@@ -11,6 +11,7 @@ import {
   calculateDiversityPenalty,
   type RetrievalContext,
 } from "../retrieval-context.js";
+import { jaccardSimilarity } from "../utils/text-analysis.js";
 
 interface SearchWithMultiplierOptions {
   shard: ShardInfo;
@@ -604,7 +605,7 @@ export class VectorSearch {
       let isDiverse = true;
       const candidateWords = this.getWordSet(candidate.memory);
       for (const selected of results) {
-        const jaccard = this.jaccardSimilarity(candidateWords, this.getWordSet(selected.memory));
+        const jaccard = jaccardSimilarity(candidateWords, this.getWordSet(selected.memory));
         if (jaccard > diversityThreshold) {
           isDiverse = false;
           break;
@@ -628,16 +629,6 @@ export class VectorSearch {
       this.setWordSet(text, set);
     }
     return set;
-  }
-
-  private jaccardSimilarity(a: Set<string>, b: Set<string>): number {
-    const [smaller, larger] = a.size <= b.size ? [a, b] : [b, a];
-    let intersectionSize = 0;
-    for (const word of smaller) {
-      if (larger.has(word)) intersectionSize++;
-    }
-    const unionSize = a.size + b.size - intersectionSize;
-    return unionSize > 0 ? intersectionSize / unionSize : 0;
   }
 
   async deleteVector(db: Database, memoryId: string, shard?: ShardInfo): Promise<void> {

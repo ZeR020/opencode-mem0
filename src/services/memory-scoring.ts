@@ -1,4 +1,9 @@
-import { TECHNICAL_KEYWORDS, NEGATION_PATTERNS, tokenizeWords } from "./utils/text-analysis.js";
+import {
+  TECHNICAL_KEYWORDS,
+  NEGATION_PATTERNS,
+  tokenizeWords,
+  jaccardSimilarity,
+} from "./utils/text-analysis.js";
 
 export interface ScoreComponents {
   recency: number;
@@ -223,14 +228,8 @@ export function calculateNovelty(content: string, existingContents: string[]): n
 
     if (existingWords.size === 0) continue;
 
-    let intersectionSize = 0;
-    for (const w of contentWords) {
-      if (existingWords.has(w)) intersectionSize++;
-    }
-    const unionSize = contentWords.size + existingWords.size - intersectionSize;
-
-    const jaccardSimilarity = intersectionSize / unionSize;
-    maxSimilarity = Math.max(maxSimilarity, jaccardSimilarity);
+    const similarity = jaccardSimilarity(contentWords, existingWords);
+    maxSimilarity = Math.max(maxSimilarity, similarity);
 
     // Length similarity
     const lengthRatio =
@@ -301,10 +300,12 @@ function checkDirectContradiction(content: string, conflicting: string): number 
 }
 
 function checkNegationOverlap(content: string, conflicting: string): number {
-  const negationPattern =
-    /\b(not|no|never|none|don't|doesn't|didn't|won't|shouldn't|couldn't|can't|removed|deleted|disabled)\b/gi;
-  const contentCore = content.replace(negationPattern, "").trim();
-  const conflictingCore = conflicting.replace(negationPattern, "").trim();
+  // Strip all negation words before comparing, so "X is not Y" and "X is Y"
+  // are recognized as overlapping despite the negation asymmetry.
+  const stripNegations = (text: string) =>
+    NEGATION_PATTERNS.reduce((s, p) => s.replace(new RegExp(p.source, "gi"), ""), text).trim();
+  const contentCore = stripNegations(content);
+  const conflictingCore = stripNegations(conflicting);
 
   const contentWords = new Set(
     contentCore
@@ -321,11 +322,9 @@ function checkNegationOverlap(content: string, conflicting: string): number {
 
   if (contentWords.size === 0 || conflictingWords.size === 0) return 0;
 
-  let intersectionSize = 0;
-  for (const w of contentWords) {
-    if (conflictingWords.has(w)) intersectionSize++;
-  }
-  const overlapRatio = intersectionSize / Math.min(contentWords.size, conflictingWords.size);
+  const overlapRatio =
+    [...contentWords].filter((w) => conflictingWords.has(w)).length /
+    Math.min(contentWords.size, conflictingWords.size);
 
   return overlapRatio > 0.3 ? 0.2 : 0;
 }

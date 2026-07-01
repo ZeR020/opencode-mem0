@@ -952,16 +952,6 @@ button .icon {
   font-weight: var(--fw-bold);
 }
 
-.badge-user {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.badge-project {
-  color: var(--warning);
-  border-color: var(--warning);
-}
-
 .badge-type {
   color: var(--mute);
 }
@@ -998,18 +988,6 @@ button .icon {
   border-color: var(--danger);
 }
 .badge-refactor {
-  color: var(--stone);
-  border-color: var(--stone);
-}
-.badge-architecture {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-.badge-rule {
-  color: var(--warning);
-  border-color: var(--warning);
-}
-.badge-documentation {
   color: var(--stone);
   border-color: var(--stone);
 }

@@ -263,7 +263,7 @@ export class DeduplicationService {
       return { isDuplicate: false };
     }
 
-    const threshold = CONFIG.deduplicationSimilarityThreshold ?? 0.92;
+    const threshold = CONFIG.deduplicationSimilarityThreshold;
     const match = this._findSimilarCandidate(vector, candidates, threshold);
     if (!match) {
       return { isDuplicate: false };
