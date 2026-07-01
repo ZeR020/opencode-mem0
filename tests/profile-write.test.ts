@@ -8,6 +8,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { connectionManager } from "../src/services/sqlite/connection-manager.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { UserProfilePreference, UserProfileData } from "../src/services/user-profile/types.js";
 
 // We patch CONFIG.storagePath before importing the manager so the DB lands in tmp.
 let originalStoragePath: string;
@@ -218,5 +219,152 @@ describe("UserProfileManager – explicit preference writes", () => {
     const last = changelogs[0];
     expect(last.changeSummary).toBe(summary);
     expect(last.changeType).toBe("update");
+  });
+});
+
+describe("UserProfileManager – confidence decay", () => {
+  it("normalizes generated preferences to set lastUpdated if missing", async () => {
+    const { manager: mgr } = await makeManager();
+    const userId = "test-decay@example.com";
+
+    mgr.createProfile(
+      userId,
+      "Test User",
+      "testuser",
+      userId,
+      {
+        preferences: [
+          {
+            category: "test",
+            description: "No timestamp",
+            confidence: 0.8,
+            evidence: ["test-evidence"],
+          } as unknown as UserProfilePreference,
+        ],
+        patterns: [],
+        workflows: [],
+      },
+      0
+    );
+
+    const profile = mgr.getActiveProfile(userId)!;
+    const data = JSON.parse(profile.profileData) as UserProfileData;
+    expect(data.preferences[0].lastUpdated).toBeDefined();
+    expect(typeof data.preferences[0].lastUpdated).toBe("number");
+    expect(data.preferences[0].lastUpdated).toBeGreaterThan(0);
+  });
+
+  it("applies confidence decay to preferences older than N days", async () => {
+    const { manager: mgr } = await makeManager();
+    const userId = "test-decay-age@example.com";
+
+    const tenDaysAgo = Date.now() - 10 * 24 * 60 * 60 * 1000;
+
+    mgr.createProfile(
+      userId,
+      "Test User",
+      "testuser",
+      userId,
+      {
+        preferences: [
+          {
+            category: "test",
+            description: "Old preference",
+            confidence: 1.0,
+            evidence: ["test-evidence"],
+            lastUpdated: tenDaysAgo,
+          },
+        ],
+        patterns: [],
+        workflows: [],
+      },
+      0
+    );
+
+    const decayResult = mgr.applyConfidenceDecay(userId);
+    expect(decayResult.decayed).toBe(true);
+    expect(decayResult.removed).toBe(0);
+
+    const profile = mgr.getActiveProfile(userId)!;
+    const data = JSON.parse(profile.profileData) as UserProfileData;
+    expect(data.preferences[0].confidence).toBeCloseTo(0.9);
+  });
+
+  it("removes preferences where confidence falls below 0.1", async () => {
+    const { manager: mgr } = await makeManager();
+    const userId = "test-decay-remove@example.com";
+
+    const tenDaysAgo = Date.now() - 10 * 24 * 60 * 60 * 1000;
+
+    mgr.createProfile(
+      userId,
+      "Test User",
+      "testuser",
+      userId,
+      {
+        preferences: [
+          {
+            category: "test",
+            description: "Stale low confidence preference",
+            confidence: 0.1,
+            evidence: ["test-evidence"],
+            lastUpdated: tenDaysAgo,
+          },
+        ],
+        patterns: [],
+        workflows: [],
+      },
+      0
+    );
+
+    const decayResult = mgr.applyConfidenceDecay(userId);
+    expect(decayResult.decayed).toBe(true);
+    expect(decayResult.removed).toBe(1);
+
+    const profile = mgr.getActiveProfile(userId)!;
+    const data = JSON.parse(profile.profileData) as UserProfileData;
+    expect(data.preferences).toHaveLength(0);
+  });
+
+  it("is idempotent: repeated calls within the same hour skip decay", async () => {
+    const { manager: mgr } = await makeManager();
+    const userId = "test-decay-idempotent@example.com";
+
+    const tenDaysAgo = Date.now() - 10 * 24 * 60 * 60 * 1000;
+
+    mgr.createProfile(
+      userId,
+      "Test User",
+      "testuser",
+      userId,
+      {
+        preferences: [
+          {
+            category: "test",
+            description: "Idempotency test preference",
+            confidence: 1.0,
+            evidence: ["test-evidence"],
+            lastUpdated: tenDaysAgo,
+          },
+        ],
+        patterns: [],
+        workflows: [],
+      },
+      0
+    );
+
+    const now = Date.now();
+
+    const res1 = mgr.applyConfidenceDecay(userId, now);
+    expect(res1.decayed).toBe(true);
+
+    const res2 = mgr.applyConfidenceDecay(userId, now);
+    expect(res2.decayed).toBe(false);
+
+    const res3 = mgr.applyConfidenceDecay(userId, now + 30 * 60 * 1000);
+    expect(res3.decayed).toBe(false);
+
+    const res4 = mgr.applyConfidenceDecay(userId, now + 61 * 60 * 1000);
+    expect(res4.decayed).toBe(true);
   });
 });

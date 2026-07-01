@@ -23,6 +23,7 @@ export interface UserProfileData {
   preferences: UserProfilePreference[];
   patterns: UserProfilePattern[];
   workflows: UserProfileWorkflow[];
+  lastDecayApplied?: number;
 }
 
 export interface UserProfile {

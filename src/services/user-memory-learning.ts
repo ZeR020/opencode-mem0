@@ -88,7 +88,11 @@ export async function performUserProfileLearning(
     const userId =
       tags.user.userEmail || `anonymous-${Date.now()}-${randomBytes(4).toString("hex")}`;
 
-    const existingProfile = userProfileManager.getActiveProfile(userId);
+    let existingProfile = userProfileManager.getActiveProfile(userId);
+    if (existingProfile) {
+      userProfileManager.applyConfidenceDecay(userId);
+      existingProfile = userProfileManager.getActiveProfile(userId);
+    }
 
     const context = buildUserAnalysisContext(prompts, existingProfile);
 

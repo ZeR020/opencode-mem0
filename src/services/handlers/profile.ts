@@ -2,18 +2,20 @@ import { log } from "../logger.js";
 import { safeToISOString, safeJSONParse } from "../utils/safe-transforms.js";
 import type { UserProfileData } from "../user-profile/types.js";
 import type { ApiResponse } from "./shared-types.js";
+import { userProfileManager } from "../user-profile/user-profile-manager.js";
+import { getTags } from "../tags.js";
+import { userPromptManager } from "../user-prompt/user-prompt-manager.js";
 
 export async function handleGetUserProfile(
   userId?: string
 ): Promise<ApiResponse<Record<string, unknown>>> {
   try {
-    const { userProfileManager } = await import("../user-profile/user-profile-manager.js");
-    const { getTags } = await import("../tags.js");
     let targetUserId = userId;
     if (!targetUserId) {
       const tags = getTags(process.cwd());
       targetUserId = tags.user.userEmail || "unknown";
     }
+    const decayResult = userProfileManager.applyConfidenceDecay(targetUserId);
     const profile = userProfileManager.getActiveProfile(targetUserId);
     if (!profile)
       return {
@@ -22,6 +24,7 @@ export async function handleGetUserProfile(
           exists: false,
           userId: targetUserId,
           message: "No profile found. Keep chatting to build your profile.",
+          decayApplied: decayResult.decayed,
         },
       };
     const profileData = safeJSONParse(profile.profileData) as Record<string, unknown> | undefined;
@@ -39,6 +42,7 @@ export async function handleGetUserProfile(
         lastAnalyzedAt: safeToISOString(profile.lastAnalyzedAt),
         totalPromptsAnalyzed: profile.totalPromptsAnalyzed,
         profileData,
+        decayApplied: decayResult.decayed,
       },
     };
   } catch (error) {
@@ -53,7 +57,6 @@ export async function handleUpdateUserProfile(
 ): Promise<ApiResponse<{ message: string }>> {
   try {
     const targetUserId = userId || "default";
-    const { userProfileManager } = await import("../user-profile/user-profile-manager.js");
     const profile = userProfileManager.getActiveProfile(targetUserId);
 
     if (!profile) {
@@ -75,7 +78,6 @@ export async function handleGetProfileChangelog(
 ): Promise<ApiResponse<Record<string, unknown>[]>> {
   try {
     if (!profileId) return { success: false, error: "profileId is required" };
-    const { userProfileManager } = await import("../user-profile/user-profile-manager.js");
     const changelogs = userProfileManager.getProfileChangelogs(profileId, limit);
     const formattedChangelogs = changelogs.map((c) => ({
       id: c.id,
@@ -97,7 +99,6 @@ export async function handleGetProfileSnapshot(
 ): Promise<ApiResponse<Record<string, unknown>>> {
   try {
     if (!changelogId) return { success: false, error: "changelogId is required" };
-    const { userProfileManager } = await import("../user-profile/user-profile-manager.js");
     const changelogs = userProfileManager.getProfileChangelogs(changelogId, 50);
     const changelog = changelogs.find((c) => c.id === changelogId);
     if (!changelog) return { success: false, error: "Changelog not found" };
@@ -119,17 +120,23 @@ export async function handleGetProfileSnapshot(
 }
 
 export async function handleRefreshProfile(
-  _userId?: string
+  userId?: string
 ): Promise<ApiResponse<Record<string, unknown>>> {
   try {
-    const { userPromptManager } = await import("../user-prompt/user-prompt-manager.js");
+    let targetUserId = userId;
+    if (!targetUserId) {
+      const tags = getTags(process.cwd());
+      targetUserId = tags.user.userEmail || "unknown";
+    }
+    const decayResult = userProfileManager.applyConfidenceDecay(targetUserId);
     const unanalyzedCount = userPromptManager.countUnanalyzedForUserLearning();
     return {
       success: true,
       data: {
-        message: "Profile refresh queued",
+        message: "Profile refresh completed",
         unanalyzedPrompts: unanalyzedCount,
-        note: "Profile will be updated when threshold is reached",
+        decayApplied: decayResult.decayed,
+        decayRemovedCount: decayResult.removed,
       },
     };
   } catch (error) {

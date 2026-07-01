@@ -5,7 +5,13 @@ import { connectionManager } from "../sqlite/connection-manager.js";
 import { CONFIG } from "../../config.js";
 import { safeJSONParse } from "../utils/safe-transforms.js";
 import { log } from "../logger.js";
-import { type UserProfile, type UserProfileData, type UserProfileChangelog } from "./types.js";
+import {
+  type UserProfile,
+  type UserProfileData,
+  type UserProfileChangelog,
+  type UserProfilePattern,
+  type UserProfileWorkflow,
+} from "./types.js";
 
 function safeArray<T>(val: T[] | string | undefined | null): T[] {
   if (!val) return [];
@@ -98,9 +104,13 @@ export class UserProfileManager {
     const now = Date.now();
 
     const cleanedData: UserProfileData = {
-      preferences: safeArray(profileData.preferences),
+      preferences: safeArray(profileData.preferences).map((p) => ({
+        ...p,
+        lastUpdated: p.lastUpdated || Date.now(),
+      })),
       patterns: safeArray(profileData.patterns),
       workflows: safeArray(profileData.workflows),
+      lastDecayApplied: profileData.lastDecayApplied,
     };
 
     const stmt = this.db.prepare(`
@@ -140,9 +150,13 @@ export class UserProfileManager {
     const now = Date.now();
 
     const cleanedData: UserProfileData = {
-      preferences: safeArray(profileData.preferences),
+      preferences: safeArray(profileData.preferences).map((p) => ({
+        ...p,
+        lastUpdated: p.lastUpdated || Date.now(),
+      })),
       patterns: safeArray(profileData.patterns),
       workflows: safeArray(profileData.workflows),
+      lastDecayApplied: profileData.lastDecayApplied,
     };
 
     let inTxn = false;
@@ -298,6 +312,7 @@ export class UserProfileManager {
       preferences: safeArray(existing?.preferences),
       patterns: safeArray(existing?.patterns),
       workflows: safeArray(existing?.workflows),
+      lastDecayApplied: existing?.lastDecayApplied,
     };
 
     merged.preferences = this.mergeSection(
@@ -336,6 +351,78 @@ export class UserProfileManager {
     );
 
     return merged;
+  }
+
+  /**
+   * Applies confidence decay to all preferences, patterns, and workflows.
+   * Repeated calls within the same hour will be skipped (idempotent).
+   *
+   * @param userId The ID of the user whose profile should be decayed.
+   * @param now Optional timestamp for testing.
+   * @returns An object indicating whether decay was applied and the count of removed items.
+   */
+  applyConfidenceDecay(
+    userId: string,
+    now: number = Date.now()
+  ): { decayed: boolean; removed: number } {
+    const profile = this.getActiveProfile(userId);
+    if (!profile) {
+      return { decayed: false, removed: 0 };
+    }
+
+    const profileData = safeJSONParse(profile.profileData) as UserProfileData;
+    if (!profileData) {
+      return { decayed: false, removed: 0 };
+    }
+
+    if (
+      profileData.lastDecayApplied !== undefined &&
+      now - profileData.lastDecayApplied < 3600000
+    ) {
+      return { decayed: false, removed: 0 };
+    }
+
+    let removedCount = 0;
+    const dailyDecayRate = 0.01;
+    const confidenceFloor = 0.1;
+
+    const decayItem = (item: unknown): boolean => {
+      if (item && typeof item === "object") {
+        const record = item as Record<string, unknown>;
+        if (typeof record.lastUpdated === "number" && typeof record.confidence === "number") {
+          const elapsedMs = now - record.lastUpdated;
+          const elapsedDays = Math.max(0, elapsedMs / (1000 * 60 * 60 * 24));
+          const decayFactor = Math.max(0, 1 - elapsedDays * dailyDecayRate);
+          const newConfidence = record.confidence * decayFactor;
+          if (newConfidence < confidenceFloor) {
+            removedCount++;
+            return false;
+          }
+          // Unchecked cast is safe here because we validated that confidence is a number and we are mutating it
+          const mutableItem = item as { confidence: number };
+          mutableItem.confidence = Number(newConfidence.toFixed(4));
+        }
+      }
+      return true;
+    };
+
+    const preferences = safeArray(profileData.preferences);
+    const patterns = safeArray(profileData.patterns);
+    const workflows = safeArray(profileData.workflows);
+
+    profileData.preferences = preferences.filter(decayItem);
+    profileData.patterns = patterns.filter(decayItem) as UserProfilePattern[];
+    profileData.workflows = workflows.filter(decayItem) as UserProfileWorkflow[];
+    profileData.lastDecayApplied = now;
+
+    this.updateProfile(
+      profile.id,
+      profileData,
+      0,
+      `Confidence decay applied (removed ${removedCount} stale items)`
+    );
+
+    return { decayed: true, removed: removedCount };
   }
 }
 
