@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.18.1] - 2026-07-01
+
+### Added
+
+- **Dark/light theme toggle** — The Memory Explorer now has a sun/moon toggle button in the header. Click to switch between light and dark themes; preference is saved to `localStorage` and persists across sessions. First visit with no saved preference follows the OS system setting via `@media (prefers-color-scheme: dark)`. An inline script in `<head>` applies the saved theme before first paint to prevent FOUC. Dark theme remaps all CSS custom property tokens: canvas becomes `#1a1818`, ink inverts to `#fdfcfc`, accent brightens to `#0a84ff` for dark contrast.
+
+### Fixed
+
+- **Transcript previews showed only `...` placeholders** — The `renderTranscripts()` function looked for `m.content` as a string, but the actual OpenCode session message format stores content in `m.parts[].text`. Every transcript card showed only `...` because the content check always failed. Now extracts text from `parts[]`, shows tool calls as `[tool: name]`, and displays 3 messages instead of 2.
+- **Radar chart labels truncated and not theme-aware** — The behavioral dimensions radar chart had 28px padding on a 300px chart with 9 axes, causing labels like "Tool Pr" and "LLM Provid" to be clipped. Enlarged to 360px with 70px padding. All hardcoded hex colors (`#9a9898`, `#646262`, `#007aff`) replaced with CSS custom properties so the chart adapts to dark/light theme. Added a description explaining what the chart represents.
+
+### Performance
+
+- **Deferred head scripts** — All 5 vendored scripts in `<head>` now have `defer`, letting the browser render the HTML shell immediately while ~124 KB gzip of JS parses in the background.
+- **Parallelized init API calls** — `loadStats()` and `checkMigrationStatus()` now run concurrently via `Promise.all`. Internally, each function also parallelizes its own sub-calls. Cuts 4-6 sequential API round-trips to 2.
+- **Favicon shrunk 99.5%** — From 165 KB (200×200 32-bit ICO) to 820 bytes (32×32 ICO).
+- **Eliminated RegExp allocation in i18n** — Replaced `new RegExp()` per translated parameter with `string.split().join()`, removing object allocation in the translation hot path.
+
 ## [2.18.0] - 2026-07-01
 
 ### Changed
