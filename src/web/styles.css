@@ -688,12 +688,11 @@ button .icon {
 }
 
 /* ============================================================================
-   Sections (memories, conflicts, profile, transcripts, timeline, add)
+   Sections (memories, conflicts, profile, timeline, add)
    ============================================================================ */
 .memories-section,
 .conflicts-section,
 .profile-section,
-.transcripts-section,
 .timeline-section,
 .add-section {
   padding: var(--sp-lg) 0;
@@ -1969,21 +1968,6 @@ textarea {
   font-size: var(--fs-tiny);
   color: var(--ash);
   margin-left: auto;
-}
-
-/* ============================================================================
-   Transcripts
-   ============================================================================ */
-.transcripts-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-sm);
-}
-
-/* Transcripts reuse .memory-card, .memory-header, .memory-content */
-.markdown-body {
-  color: var(--body);
-  line-height: var(--lh-body);
 }
 
 /* ============================================================================

@@ -17,10 +17,6 @@ const state = {
   autoRefreshInterval: null,
   userProfile: null,
   conflicts: [],
-  transcripts: [],
-  transcriptsPage: 1,
-  transcriptsTotalPages: 1,
-  transcriptsTotalItems: 0,
 };
 
 // Guard top-level library calls so a missing vendor script doesn't crash the
@@ -1384,7 +1380,7 @@ function switchView(view) {
 
   document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.remove("active"));
 
-  const sections = ["project", "conflicts", "profile", "transcripts", "timeline"];
+  const sections = ["project", "conflicts", "profile", "timeline"];
   sections.forEach((sec) => {
     const el = document.getElementById(`${sec}-section`);
     if (el) {
@@ -1411,9 +1407,6 @@ function switchView(view) {
   } else if (view === "profile") {
     document.getElementById("tab-profile").classList.add("active");
     loadUserProfile();
-  } else if (view === "transcripts") {
-    document.getElementById("tab-transcripts").classList.add("active");
-    loadTranscripts();
   } else if (view === "timeline") {
     document.getElementById("tab-timeline").classList.add("active");
     loadTimeline();
@@ -1580,99 +1573,6 @@ function escapeJsString(str) {
   return str.replace(/[\\'"]/g, "\\$&");
 }
 
-async function loadTranscripts() {
-  const container = document.getElementById("transcripts-list");
-  if (!container) return;
-  container.innerHTML = '<div class="loading">Loading transcripts...</div>';
-
-  try {
-    const result = await fetchAPI(`/api/transcripts/search?limit=20&page=${state.transcriptsPage}`);
-
-    if (result.success) {
-      state.transcripts = result.data.transcripts;
-      state.transcriptsTotalItems = result.data.total;
-      state.transcriptsTotalPages = result.data.totalPages || 1;
-      renderTranscripts();
-      updateTranscriptsPagination();
-    } else {
-      container.innerHTML = `<div class="error-state">Error: ${escapeHtml(result.error || "Failed to load transcripts")}</div>`;
-    }
-  } catch (error) {
-    container.innerHTML = `<div class="error-state">Error: ${escapeHtml(String(error))}</div>`;
-  }
-}
-
-function renderTranscripts() {
-  const container = document.getElementById("transcripts-list");
-
-  if (!state.transcripts || state.transcripts.length === 0) {
-    container.innerHTML = '<div class="empty-state">No transcripts found.</div>';
-    return;
-  }
-
-  container.innerHTML = state.transcripts
-    .map((t) => {
-      let preview = "";
-      try {
-        const msgs = JSON.parse(t.messages);
-        if (Array.isArray(msgs) && msgs.length > 0) {
-          preview = msgs
-            .slice(0, 3)
-            .map((m) => {
-              const role = escapeHtml(m.role || "unknown");
-              // Messages store content in parts[].text, not m.content
-              let text = "";
-              if (typeof m.content === "string") {
-                text = m.content;
-              } else if (Array.isArray(m.parts)) {
-                text = m.parts
-                  .map(
-                    (p) =>
-                      p.text ||
-                      (p.type === "tool" ? `[tool: ${escapeHtml(p.tool || "unknown")}]` : "")
-                  )
-                  .filter(Boolean)
-                  .join(" ");
-              }
-              if (!text) text = "(no text)";
-              return `<strong>${role}:</strong> ${escapeHtml(text.substring(0, 200))}`;
-            })
-            .join("<br/>");
-          if (msgs.length > 3) preview += `<br/><em>...${msgs.length - 3} more...</em>`;
-        }
-      } catch {
-        preview = escapeHtml(t.messages.substring(0, 200));
-      }
-
-      return `
-      <div class="memory-card">
-        <div class="memory-header">
-          <span class="badge badge-feature"><i data-lucide="file-text" class="icon-sm"></i> SESSION ${escapeHtml(t.sessionId || "unknown")}</span>
-          <span class="memory-date">${formatDate(t.createdAt)}</span>
-        </div>
-        <div class="memory-content markdown-body">
-          ${preview}
-        </div>
-      </div>
-    `;
-    })
-    .join("");
-
-  safeCreateIcons();
-}
-
-function updateTranscriptsPagination() {
-  const prevBtn = document.getElementById("prev-page-transcripts");
-  const nextBtn = document.getElementById("next-page-transcripts");
-  const pageInfo = document.getElementById("page-info-transcripts");
-
-  if (!prevBtn || !nextBtn || !pageInfo) return;
-
-  prevBtn.disabled = state.transcriptsPage <= 1;
-  nextBtn.disabled = state.transcriptsPage >= state.transcriptsTotalPages;
-  pageInfo.textContent = `Page ${state.transcriptsPage} of ${state.transcriptsTotalPages}`;
-}
-
 async function loadTimeline() {
   const container = document.getElementById("timeline-content");
   if (!container) return;
@@ -1734,28 +1634,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("tab-project").addEventListener("click", () => switchView("project"));
   document.getElementById("tab-conflicts").addEventListener("click", () => switchView("conflicts"));
   document.getElementById("tab-profile").addEventListener("click", () => switchView("profile"));
-  document
-    .getElementById("tab-transcripts")
-    ?.addEventListener("click", () => switchView("transcripts"));
   document.getElementById("tab-timeline")?.addEventListener("click", () => switchView("timeline"));
   document.getElementById("refresh-profile-btn")?.addEventListener("click", refreshProfile);
   document.getElementById("refresh-conflicts-btn")?.addEventListener("click", loadConflicts);
   document.getElementById("changelog-close")?.addEventListener("click", () => {
     document.getElementById("changelog-modal").classList.add("hidden");
-  });
-
-  document.getElementById("prev-page-transcripts")?.addEventListener("click", () => {
-    if (state.transcriptsPage > 1) {
-      state.transcriptsPage--;
-      loadTranscripts();
-    }
-  });
-
-  document.getElementById("next-page-transcripts")?.addEventListener("click", () => {
-    if (state.transcriptsPage < state.transcriptsTotalPages) {
-      state.transcriptsPage++;
-      loadTranscripts();
-    }
   });
 
   document.getElementById("edit-profile-btn")?.addEventListener("click", () => {
