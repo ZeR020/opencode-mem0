@@ -94,6 +94,7 @@ import { connectionManager } from "../src/services/sqlite/connection-manager.js"
 import { shardManager, getAllShards } from "../src/services/sqlite/shard-manager.js";
 import {
   promoteToLTM,
+  applyDecay,
   scanAndPromote,
   getLifecycleStats,
   startLifecycleJob,
@@ -314,6 +315,52 @@ describe("memory-lifecycle", () => {
       const res = scanAndPromote();
       expect(res).toEqual({ scanned: 0, promoted: 0 });
       expect(mockState.logCalls.some((c) => c.message === "scanAndPromote error")).toBe(true);
+    });
+  });
+
+  describe("applyDecay", () => {
+    it("does not decay memories with an explicit zero decay_rate", async () => {
+      mockConfig.contextualDecay.enabled = false;
+      const updateRun = vi.fn(() => ({ changes: 1, lastInsertRowid: 1 }));
+
+      mockState.dbPrepare = vi.fn().mockImplementation((sql: string) => {
+        if (sql.includes("SELECT id, strength, decay_rate, created_at")) {
+          return {
+            get: vi.fn(() => undefined),
+            all: vi.fn(() => [
+              {
+                id: "never-decay",
+                strength: 0,
+                decay_rate: 0,
+                created_at: Date.now() - 86400000,
+                last_decay_at: null,
+                store_type: "stm",
+                access_count: 0,
+                type: "preference",
+                is_pinned: 0,
+              },
+            ]),
+            run: vi.fn(() => ({ changes: 0, lastInsertRowid: 0 })),
+          } satisfies Statement;
+        }
+        if (sql.includes("UPDATE memories SET")) {
+          return {
+            get: vi.fn(() => undefined),
+            all: vi.fn(() => []),
+            run: updateRun,
+          } satisfies Statement;
+        }
+        return {
+          get: vi.fn(() => undefined),
+          all: vi.fn(() => []),
+          run: vi.fn(() => ({ changes: 0, lastInsertRowid: 0 })),
+        } satisfies Statement;
+      });
+
+      const result = await applyDecay();
+
+      expect(result.updated).toBe(0);
+      expect(updateRun).not.toHaveBeenCalled();
     });
   });
 

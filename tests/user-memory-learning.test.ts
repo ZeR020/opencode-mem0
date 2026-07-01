@@ -92,9 +92,4 @@ describe("user-memory-learning", () => {
       "External API not configured for user memory learning"
     );
   });
-
-  it.skip("creates profile for new user when API returns data", async () => {
-    // Skipped: requires mocking the AI provider — complex setup, defer to integration tests
-    expect(performUserProfileLearning).toBeDefined();
-  });
 });

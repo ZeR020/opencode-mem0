@@ -259,15 +259,15 @@ function processSingleMemoryDecay(
 
   const deltaMs = now - lastDecayAt;
   const deltaDays = deltaMs / (24 * 60 * 60 * 1000);
-  const currentStrength = Number(memory.strength || 0.5);
-  const storedDecayRate = Number(memory.decay_rate || 0.05);
+  const currentStrength = Number(memory.strength ?? 0.5);
+  const storedDecayRate = Number(memory.decay_rate ?? 0.05);
 
   let decayRate = storedDecayRate;
   if (contextualDecayEnabled) {
     const contextualRate = calculateContextualDecayRate(
       memory.type,
       currentStrength,
-      Number(memory.access_count || 0),
+      Number(memory.access_count ?? 0),
       memory.is_pinned === 1
     );
     if (contextualRate !== storedDecayRate) {

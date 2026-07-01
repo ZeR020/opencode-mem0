@@ -745,12 +745,6 @@ describe("Memory Engine Integration", () => {
       );
       expect(penalty).toBe(0);
     });
-
-    // NOTE: contextTracker was removed as dead code in Phase 04.
-    // Context tracking is now internal to retrieval-context.ts.
-    it.skip("tracks recent queries and files", () => {
-      // This test depended on the removed contextTracker singleton.
-    });
   });
 
   // ─── Memory Conflicts ───────────────────────────────

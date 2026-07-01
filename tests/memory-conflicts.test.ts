@@ -319,18 +319,18 @@ describe("memory-conflicts", () => {
         project_path: null,
         project_name: null,
         git_repo_url: null,
-        recency_score: 0.5,
+        recency_score: 0,
         frequency_score: 0,
-        importance_score: 0.5,
-        utility_score: 0.3,
-        novelty_score: 0.5,
-        confidence_score: 0.7,
+        importance_score: 0,
+        utility_score: 0,
+        novelty_score: 0,
+        confidence_score: 0,
         interference_penalty: 0,
-        strength: 0.5,
-        access_count: 1,
+        strength: 0,
+        access_count: 0,
         last_accessed: null,
         store_type: "ltm",
-        decay_rate: 0.05,
+        decay_rate: 0,
       };
       (shardManager.getAllShards as any).mockReturnValue([
         { id: "shard-1", dbPath: "/tmp/test.db" },
@@ -342,6 +342,16 @@ describe("memory-conflicts", () => {
       const result = await resolveConflict("conflict-merge", "merge", "merged content text");
       expect(result.success).toBe(true);
       expect(result.mergedMemoryId).toBeDefined();
+
+      const insertCall = vi.mocked(vectorSearch.insertVector).mock.calls.at(-1);
+      const mergedRecord = insertCall?.[1];
+      expect(mergedRecord?.recencyScore).toBe(0);
+      expect(mergedRecord?.importanceScore).toBe(0);
+      expect(mergedRecord?.utilityScore).toBe(0);
+      expect(mergedRecord?.noveltyScore).toBe(0);
+      expect(mergedRecord?.confidenceScore).toBe(0);
+      expect(mergedRecord?.strength).toBe(0);
+      expect(mergedRecord?.decayRate).toBe(0);
     });
 
     it("resolve merge fails without merged content", async () => {
