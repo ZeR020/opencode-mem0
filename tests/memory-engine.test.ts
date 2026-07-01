@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CONFIG } from "../src/config.js";
 
 interface MockDatabase {
   prepare: (sql: string) => {
@@ -343,6 +344,11 @@ beforeEach(async () => {
   const { CONFIG } = await import("../src/config.js");
   if (CONFIG?.transcriptStorage) {
     CONFIG.transcriptStorage.enabled = true;
+  }
+  if (CONFIG?.retrieval) {
+    CONFIG.retrieval.maxResults = 20;
+    CONFIG.retrieval.diversityThreshold = 0.9;
+    CONFIG.retrieval.contextBoost = 1.5;
   }
 });
 
@@ -701,6 +707,17 @@ describe("Memory Engine Integration", () => {
         { projectPath: "/project/a", projectName: "my-project" }
       );
       expect(boost).toBeGreaterThan(1);
+    });
+
+    it("honors an explicit zero context boost", () => {
+      CONFIG.retrieval.contextBoost = 0;
+
+      const boost = calculateContextBoost(
+        { projectPath: "/project/a", projectName: "my-project" },
+        { projectPath: "/project/a", projectName: "my-project" }
+      );
+
+      expect(boost).toBe(0);
     });
 
     it("calculates no boost for unrelated project", () => {

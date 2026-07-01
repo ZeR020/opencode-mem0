@@ -480,7 +480,7 @@ export class VectorSearch {
       context
     );
 
-    const diversityThreshold = CONFIG.retrieval.diversityThreshold || 0.9;
+    const diversityThreshold = CONFIG.retrieval.diversityThreshold ?? 0.9;
     const diverseResults: SearchResult[] = [];
 
     for (const candidate of hydratedResults) {
@@ -595,7 +595,7 @@ export class VectorSearch {
   }
 
   private filterDiverseResults(candidates: SearchResult[], limit: number): SearchResult[] {
-    const diversityThreshold = CONFIG.retrieval.diversityThreshold || 0.9;
+    const diversityThreshold = CONFIG.retrieval.diversityThreshold ?? 0.9;
     const maxResults = CONFIG.retrieval.maxResults || limit;
     const results: SearchResult[] = [];
 

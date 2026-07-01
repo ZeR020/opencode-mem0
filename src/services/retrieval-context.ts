@@ -196,7 +196,7 @@ export function scoreMemoryRelevance(memory: ScorableMemory, intent: QueryIntent
  *
  * @param result - Memory result with project and metadata info
  * @param context - Current retrieval context
- * @returns Multiplicative boost factor (>= 1.0)
+ * @returns Multiplicative boost factor, honoring the configured `retrieval.contextBoost`.
  */
 // skipcq: JS-0067
 export function calculateContextBoost(
@@ -207,7 +207,7 @@ export function calculateContextBoost(
   },
   context: RetrievalContext
 ) {
-  const boost = CONFIG.retrieval.contextBoost || 1.5;
+  const boost = CONFIG.retrieval.contextBoost ?? 1.5;
   let score = 1;
 
   // Project path match

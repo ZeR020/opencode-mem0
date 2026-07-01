@@ -14,6 +14,12 @@ describe("detectLanguage", () => {
     expect(detectLanguage("This is an English test")).toBe("en");
   });
 
+  it("should detect German as de without a language-code dataset dependency", () => {
+    expect(
+      detectLanguage("Dies ist ein deutscher Testsatz mit mehreren Wörtern für die Spracherkennung")
+    ).toBe("de");
+  });
+
   it("should fallback to en for empty string", () => {
     expect(detectLanguage("")).toBe("en");
   });
@@ -36,6 +42,11 @@ describe("getLanguageName", () => {
   it("should return English name for en", () => {
     const name = getLanguageName("en");
     expect(name.toLowerCase()).toContain("english");
+  });
+
+  it("should resolve three-letter language codes through Intl", () => {
+    const name = getLanguageName("deu");
+    expect(name.toLowerCase()).toContain("german");
   });
 
   it("should fallback to English for unknown code", () => {

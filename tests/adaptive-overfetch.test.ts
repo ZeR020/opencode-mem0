@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { VectorSearch } from "../src/services/sqlite/vector-search.js";
 import { ExactScanBackend } from "../src/services/vector-backends/exact-scan-backend.js";
+import { CONFIG } from "../src/config.js";
+import type { SearchResult } from "../src/services/sqlite/types.js";
 
 vi.mock("../src/services/sqlite/connection-manager.js", () => ({
   connectionManager: {
@@ -79,6 +81,8 @@ describe("VectorSearch adaptive over-fetch", () => {
       deleteShardIndexes: vi.fn(),
     };
     search = new VectorSearch(mockBackend, new ExactScanBackend());
+    CONFIG.retrieval.diversityThreshold = 0.9;
+    CONFIG.retrieval.maxResults = 20;
   });
 
   it("should use minimum multiplier 1.5x for high-quality results", async () => {
@@ -316,5 +320,22 @@ describe("VectorSearch adaptive over-fetch", () => {
     const expectedLimit = call[0].limit;
     expect(expectedLimit).toBeGreaterThanOrEqual(5 * 1.5);
     expect(expectedLimit).toBeLessThanOrEqual(5 * 8);
+  });
+
+  it("honors an explicit zero diversity threshold", () => {
+    CONFIG.retrieval.diversityThreshold = 0;
+    CONFIG.retrieval.maxResults = 2;
+    const candidates: SearchResult[] = [
+      { id: "first", memory: "alpha gamma", similarity: 1, finalScore: 1 },
+      { id: "second", memory: "alpha delta", similarity: 1, finalScore: 1 },
+    ];
+    // Private method is where the configured diversity threshold is applied.
+    const searchable = search as unknown as {
+      filterDiverseResults(candidates: SearchResult[], limit: number): SearchResult[];
+    };
+
+    const results = searchable.filterDiverseResults(candidates, 2);
+
+    expect(results.map((result) => result.id)).toEqual(["first"]);
   });
 });
