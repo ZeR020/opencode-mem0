@@ -120,6 +120,23 @@ const mockMemories: MockMemory[] = [
     git_repo_url: null,
     is_pinned: 1,
   },
+  {
+    id: "mem-user-1",
+    content: "User test memory 1",
+    container_tag: "tag_user_abc123",
+    type: "feature",
+    tags: "react,frontend",
+    created_at: Date.now(),
+    updated_at: Date.now(),
+    metadata: JSON.stringify({}),
+    display_name: "Test User",
+    user_name: "testuser",
+    user_email: "test@example.com",
+    project_path: null,
+    project_name: null,
+    git_repo_url: null,
+    is_pinned: 0,
+  },
 ];
 
 const mockDistinctTags = [
@@ -215,7 +232,16 @@ vi.mock("../src/services/sqlite/vector-search.js", () => ({
   vectorSearch: {
     getDistinctTags: (_db: unknown) => mockDistinctTags,
     listMemories: (_db: unknown, tag: string, limit: number) => {
-      if (!tag) return mockMemories.filter((m) => m.container_tag.includes("_project_"));
+      if (!tag) {
+        const isUserScope =
+          _db &&
+          typeof _db === "object" &&
+          "name" in _db &&
+          typeof _db.name === "string" &&
+          _db.name.includes("shard-current");
+        const filterStr = isUserScope ? "_user_" : "_project_";
+        return mockMemories.filter((m) => m.container_tag.includes(filterStr));
+      }
       return mockMemories.filter((m) => m.container_tag === tag).slice(0, limit);
     },
     getMemoryById: (_db: unknown, id: string) => mockMemories.find((m) => m.id === id) || null,
@@ -350,7 +376,9 @@ describe("api-handlers", () => {
     it("returns memories without tag filter", async () => {
       const result = await handleListMemories();
       expect(result.success).toBe(true);
-      expect(result.data?.items.length).toBeGreaterThanOrEqual(0);
+      const ids = (result.data?.items as Array<Record<string, unknown>>).map((i) => i.id);
+      expect(ids).toContain("mem-1");
+      expect(ids).toContain("mem-user-1");
     });
 
     it("sanitizes invalid page parameters", async () => {
