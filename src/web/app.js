@@ -1040,17 +1040,16 @@ async function loadUserProfile() {
   }
 }
 
-function generateRadarChartSVG(data, size = 300) {
+function generateRadarChartSVG(data, size = 360) {
   if (!data || data.length < 3)
     return `<div class="empty-state">Not enough data for chart (need at least 3 dimensions)</div>`;
 
   const center = size / 2;
-  const radius = (size / 2) * 0.72;
+  const radius = (size / 2) * 0.65;
   const numAxes = data.length;
   const angleStep = (Math.PI * 2) / numAxes;
-  // Padding so axis labels (radius + 24) stay inside the viewBox instead of
-  // being clipped at the top/bottom/sides.
-  const pad = 28;
+  // Generous padding so multi-word axis labels don't get clipped
+  const pad = 70;
   const vb = size + pad * 2;
 
   // Normalize confidence to 0-1. The extraction prompt asks for 0.5-1.0, but
@@ -1062,11 +1061,17 @@ function generateRadarChartSVG(data, size = 300) {
     return n > 1 ? Math.max(0, Math.min(1, n / 100)) : Math.max(0, Math.min(1, n));
   };
 
+  // Truncate long labels so they fit in the padding area
+  const truncLabel = (label) => {
+    const s = String(label || "");
+    return s.length > 18 ? s.substring(0, 17) + "\u2026" : s;
+  };
+
   // Calculate points for polygon
   const polygonPoints = data
     .map((d, i) => {
       const angle = i * angleStep - Math.PI / 2;
-      const value = norm(d.value); // normalized 0-1
+      const value = norm(d.value);
       const x = center + radius * value * Math.cos(angle);
       const y = center + radius * value * Math.sin(angle);
       return `${x},${y}`;
@@ -1085,7 +1090,7 @@ function generateRadarChartSVG(data, size = 300) {
           return `${x},${y}`;
         })
         .join(" ");
-      return `<polygon points="${points}" fill="none" stroke="#9a9898" stroke-dasharray="3,3" />`;
+      return `<polygon points="${points}" fill="none" stroke="var(--ash)" stroke-dasharray="3,3" stroke-width="0.5" />`;
     })
     .join("");
 
@@ -1096,32 +1101,32 @@ function generateRadarChartSVG(data, size = 300) {
       const x2 = center + radius * Math.cos(angle);
       const y2 = center + radius * Math.sin(angle);
 
-      // Label position slightly outside
-      const lx = center + (radius + 24) * Math.cos(angle);
-      const ly = center + (radius + 24) * Math.sin(angle);
+      // Label position outside the chart
+      const lx = center + (radius + 20) * Math.cos(angle);
+      const ly = center + (radius + 20) * Math.sin(angle) + 4;
 
-      const textAnchor = lx > center + 15 ? "start" : lx < center - 15 ? "end" : "middle";
+      const textAnchor = lx > center + 10 ? "start" : lx < center - 10 ? "end" : "middle";
 
       return `
-      <line x1="${center}" y1="${center}" x2="${x2}" y2="${y2}" stroke="#9a9898" />
-      <text x="${lx}" y="${ly}" text-anchor="${textAnchor}" alignment-baseline="middle" font-size="12" fill="#646262">${escapeHtml(d.label)}</text>
+      <line x1="${center}" y1="${center}" x2="${x2}" y2="${y2}" stroke="var(--hairline-strong)" stroke-width="0.5" />
+      <text x="${lx}" y="${ly}" text-anchor="${textAnchor}" alignment-baseline="middle" font-size="11" fill="var(--mute)" font-family="var(--font-mono)">${escapeHtml(truncLabel(d.label))}</text>
     `;
     })
     .join("");
 
   return `
-    <svg width="${vb}" height="${vb}" viewBox="0 0 ${vb} ${vb}">
+    <svg width="${vb}" height="${vb}" viewBox="0 0 ${vb} ${vb}" style="max-width: 100%; height: auto;">
       <g transform="translate(${pad},${pad})">
         ${gridHTML}
         ${axesHTML}
-        <polygon points="${polygonPoints}" fill="rgba(0, 122, 255, 0.2)" stroke="#007aff" stroke-width="2" />
+        <polygon points="${polygonPoints}" fill="var(--accent)" fill-opacity="0.15" stroke="var(--accent)" stroke-width="2" />
         ${data
           .map((d, i) => {
             const angle = i * angleStep - Math.PI / 2;
             const value = norm(d.value);
             const x = center + radius * value * Math.cos(angle);
             const y = center + radius * value * Math.sin(angle);
-            return `<circle cx="${x}" cy="${y}" r="4" fill="#007aff" />`;
+            return `<circle cx="${x}" cy="${y}" r="3.5" fill="var(--accent)" />`;
           })
           .join("")}
       </g>
@@ -1300,7 +1305,8 @@ function renderUserProfile() {
     <div class="dashboard-grid">
       <div class="dashboard-section radar-chart-section">
         <h4><i data-lucide="pie-chart" class="icon"></i> Behavioral Dimensions</h4>
-        <div class="radar-chart-container" style="display: flex; justify-content: center; padding: 20px 0;">
+        <p class="radar-chart-desc">Preference categories extracted from your coding sessions, scored by AI confidence (0&ndash;100%). Higher = more consistent preference.</p>
+        <div class="radar-chart-container" style="display: flex; justify-content: center; padding: 20px 0; overflow: hidden;">
           ${preferences.length >= 3 ? generateRadarChartSVG(preferences.map((p) => ({ label: p.category, value: p.confidence }))) : '<div class="empty-state">Not enough preference categories to chart</div>'}
         </div>
       </div>
@@ -1610,13 +1616,28 @@ function renderTranscripts() {
         const msgs = JSON.parse(t.messages);
         if (Array.isArray(msgs) && msgs.length > 0) {
           preview = msgs
-            .slice(0, 2)
-            .map(
-              (m) =>
-                `<strong>${escapeHtml(m.role || "unknown")}:</strong> ${escapeHtml(typeof m.content === "string" ? m.content.substring(0, 200) : "...")}`
-            )
+            .slice(0, 3)
+            .map((m) => {
+              const role = escapeHtml(m.role || "unknown");
+              // Messages store content in parts[].text, not m.content
+              let text = "";
+              if (typeof m.content === "string") {
+                text = m.content;
+              } else if (Array.isArray(m.parts)) {
+                text = m.parts
+                  .map(
+                    (p) =>
+                      p.text ||
+                      (p.type === "tool" ? `[tool: ${escapeHtml(p.tool || "unknown")}]` : "")
+                  )
+                  .filter(Boolean)
+                  .join(" ");
+              }
+              if (!text) text = "(no text)";
+              return `<strong>${role}:</strong> ${escapeHtml(text.substring(0, 200))}`;
+            })
             .join("<br/>");
-          if (msgs.length > 2) preview += "<br/><em>...more...</em>";
+          if (msgs.length > 3) preview += `<br/><em>...${msgs.length - 3} more...</em>`;
         }
       } catch {
         preview = escapeHtml(t.messages.substring(0, 200));

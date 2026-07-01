@@ -1754,9 +1754,15 @@ textarea {
 /* — Radar chart section — */
 .radar-chart-section {
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
   padding: var(--sp-md);
+}
+
+.radar-chart-desc {
+  font-size: var(--fs-tiny);
+  color: var(--mute);
+  margin-bottom: var(--sp-sm);
+  line-height: var(--lh-body);
 }
 
 .preferences-section,
