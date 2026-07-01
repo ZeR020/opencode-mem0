@@ -300,12 +300,12 @@ function checkDirectContradiction(content: string, conflicting: string): number 
 }
 
 function checkNegationOverlap(content: string, conflicting: string): number {
-  // Strip all negation words before comparing, so "X is not Y" and "X is Y"
-  // are recognized as overlapping despite the negation asymmetry.
-  const stripNegations = (text: string) =>
-    NEGATION_PATTERNS.reduce((s, p) => s.replace(new RegExp(p.source, "gi"), ""), text).trim();
-  const contentCore = stripNegations(content);
-  const conflictingCore = stripNegations(conflicting);
+  // ponytail: original combined regex preserved to avoid behavioral drift from
+  // the wider NEGATION_PATTERNS array (which strips un*, dis*, false, etc.)
+  const negationPattern =
+    /\b(not|no|never|none|don't|doesn't|didn't|won't|shouldn't|couldn't|can't|removed|deleted|disabled)\b/gi;
+  const contentCore = content.replace(negationPattern, "").trim();
+  const conflictingCore = conflicting.replace(negationPattern, "").trim();
 
   const contentWords = new Set(
     contentCore

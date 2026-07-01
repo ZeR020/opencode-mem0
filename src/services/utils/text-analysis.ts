@@ -262,9 +262,12 @@ export function getWordSet(text: string): Set<string> {
 export function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   if (a.size === 0 && b.size === 0) return 0;
 
-  const intersection = new Set([...a].filter((x) => b.has(x)));
-  const union = new Set([...a, ...b]);
-
-  if (union.size === 0) return 0;
-  return intersection.size / union.size;
+  // Zero-allocation: iterate the smaller set, count intersection, compute union by formula.
+  const [smaller, larger] = a.size <= b.size ? [a, b] : [b, a];
+  let intersectionSize = 0;
+  for (const word of smaller) {
+    if (larger.has(word)) intersectionSize++;
+  }
+  const unionSize = a.size + b.size - intersectionSize;
+  return unionSize > 0 ? intersectionSize / unionSize : 0;
 }
