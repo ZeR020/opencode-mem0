@@ -58,7 +58,7 @@
   "homepage": "https://github.com/ZeR020/opencode-mem0#readme",
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.73",
-    "@ai-sdk/openai": "^3.0.55",
+    "@ai-sdk/openai": "^4.0.5",
     "@huggingface/transformers": "^4.2.0",
     "@opencode-ai/plugin": "^1.14.31",
     "@opencode-ai/sdk": "^1.14.31",
