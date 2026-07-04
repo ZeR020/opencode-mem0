@@ -150,7 +150,7 @@ import pluginModule from "opencode-mem0/server";
 - **Transcript Storage** — session capture with FTS5 search and configurable retention, so past conversations remain searchable.
 - **Auto-Capture** — extracts important knowledge from idle sessions automatically, with privacy filtering that redacts content wrapped in `<private>` tags before LLM processing.
 - **User Profiles** — learns preferences, patterns, and workflows from session history; stores them per-user for personalized context injection.
-- **Web UI** — browse, search, and manage memories at `http://127.0.0.1:4747` (enabled by default).
+- **Web UI / Desktop Dashboard** — browse, search, and manage memories at `http://127.0.0.1:4747` (enabled by default), or launch the Electron desktop app with `bun run electron` for a native window.
 - **Compaction Recovery** — when OpenCode compacts a session, the plugin re-injects relevant memories so context isn't lost.
 - **Deduplication** — detects and merges near-duplicate memories at ingest time (configurable similarity threshold).
 

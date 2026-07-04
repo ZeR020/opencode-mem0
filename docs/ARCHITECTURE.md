@@ -107,7 +107,7 @@ When OpenCode compacts a session (summarizes old messages):
 | `AIProviderFactory`                                                                | `src/services/ai/ai-provider-factory.ts`            | Factory for AI providers (openai-chat, openai-responses, anthropic, google-gemini) used by auto-capture and conflict detection.                                                                                                  |
 | `TranscriptManager`                                                                | `src/services/sqlite/transcript-manager.ts`         | Stores raw session transcripts with FTS5 full-text search. Configurable retention via `transcriptStorage.maxAgeDays`.                                                                                                            |
 | `UserProfileManager`                                                               | `src/services/user-profile/user-profile-manager.ts` | Manages user profiles with preferences, patterns, and workflows. Supports merge and versioning.                                                                                                                                  |
-| `WebServer`                                                                        | `src/services/web-server.ts`                        | HTTP server for the Memory Explorer web UI. Serves static SPA + REST API for CRUD, search, stats, conflicts, deduplication, and migration.                                                                                       |
+| `WebServer`                                                                        | `src/services/web-server.ts`                        | HTTP server for the Memory Explorer dashboard. Serves static SPA + REST API for CRUD, search, stats, conflicts, deduplication, and migration. Also used by the Electron desktop wrapper.                                         |
 
 ## Directory Structure
 
@@ -171,11 +171,14 @@ src/
 │   │   └── user-prompt-manager.ts  # User prompt storage and retrieval for learning
 │   └── utils/
 │       └── safe-transforms.ts     # Safe JSON parse, date conversion utilities
+├── electron/
+│   ├── main.ts            # Electron main process: config init, warmup, window creation
+│   └── preload.ts         # Context bridge: openExternal, platform only
 └── web/
-    ├── index.html          # Single-page application shell
-    ├── app.js              # SPA application logic
-    ├── styles.css          # UI styles
-    └── i18n.js             # Internationalization support
+    ├── index.html          # SPA shell (minimal: #app, modal, toast containers)
+    ├── app.js              # SPA application logic (8 views, event delegation)
+    ├── styles.css          # DESIGN.md token system (cream canvas, Berkeley Mono, 4px radius)
+    └── i18n.js             # Internationalization (en, zh) — 107 keys
 ```
 
 ## Storage Architecture

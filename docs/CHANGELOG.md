@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Electron desktop dashboard** — The Memory Explorer is now available as a standalone Electron desktop app (`bun run electron` / `bun run electron:dev`). The Electron main process reuses the existing local web server + REST API, initializes config and warms up the memory client, then loads the dashboard in a native `BrowserWindow` with `contextIsolation`, `sandbox`, and `nodeIntegration: false`. A minimal preload script exposes only `openExternal` and `platform`. The browser-based dashboard at `http://127.0.0.1:4747` remains fully functional.
+- **Dashboard redesign** — Complete rebuild of the web UI with the OpenCode terminal-native manpage design system (DESIGN.md). New state-driven vanilla-JS SPA with 8 views: Dashboard (hero TUI mockup + stats + recent memories + profile snapshot), Memories, Semantic Search, Timeline (transcript history), Profile (preferences, patterns, workflows, changelog), Maintenance (cleanup, dedup, migration), Conflicts (resolve with keep-newer/keep-older/merge), and Settings. Warm cream canvas, near-black ink, Berkeley/JetBrains Mono, 4px radius on interactive elements, 0px on containers, hairline borders, no shadows or gradients, ASCII bracket markers as bullets, dark theme + system preference detection.
+
+### Changed
+
+- **i18n.js rewritten** — Reduced from ~210 keys (with 80+ orphaned legacy keys and 3 silent duplicate-key overrides per locale) to 107 keys actually used by the new SPA, in both `en` and `zh`. The `t()` interpolation still uses `split().join()` (no RegExp allocation).
+- **styles.css rewritten** — Full DESIGN.md token implementation as CSS custom properties. Net -700 lines. All hex values confined to `:root`/`[data-theme]` blocks; component styles use tokens only.
+- **index.html simplified** — From ~400 lines of inline HTML to a ~55-line SPA shell with `#app`, modal, and toast containers. CSP meta tag added matching the server's CSP header.
+
+### Fixed
+
+- **Profile view read wrong API shape** — `renderProfile` accessed `profile.preferences` directly, but `/api/user-profile` nests them under `profileData`. Now reads `resp.profileData` and branches on `exists === false` to show the server's "no profile" message.
+- **Duplicate i18n keys silently overridden** — `confirm-bulk-delete`, `confirm-cleanup`, `confirm-dedup` appeared twice per locale; the legacy definitions (last-wins in JS object literals) silently overrode the new wording. Removed all duplicates.
+- **Non-string ID slicing** — `memory.id.slice()` and `conflict.id.slice()` assumed string IDs; now guarded with `String(...)` to avoid throwing on numeric IDs.
+
 ## [2.18.3] - 2026-07-04
 
 ### Changed
