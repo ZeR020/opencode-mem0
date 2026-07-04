@@ -1,6 +1,6 @@
 {
   "name": "opencode-mem0",
-  "version": "2.18.2",
+  "version": "2.18.3",
   "description": "OpenCode plugin that gives coding agents persistent memory using local vector database",
   "type": "module",
   "main": "dist/plugin.js",
@@ -58,7 +58,7 @@
   "homepage": "https://github.com/ZeR020/opencode-mem0#readme",
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.5",
-    "@ai-sdk/openai": "^3.0.55",
+    "@ai-sdk/openai": "^4.0.5",
     "@huggingface/transformers": "^4.2.0",
     "@opencode-ai/plugin": "^1.14.31",
     "@opencode-ai/sdk": "^1.14.31",
@@ -75,8 +75,8 @@
     "lint-staged": "^17.0.8",
     "prettier": "^3.8.3",
     "typescript": "^5.9.3",
-    "@vitest/coverage-v8": "^3.2.6",
-    "vitest": "^3.2.6"
+    "@vitest/coverage-v8": "^4.1.9",
+    "vitest": "^4.1.9"
   },
   "opencode": {
     "type": "plugin",

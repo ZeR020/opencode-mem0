@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.18.3] - 2026-07-04
+
+### Changed
+
+- **Dependencies updated** — Bumped `@ai-sdk/anthropic` to `^4.0.5`, `@ai-sdk/openai` to `^4.0.5`, `@vitest/coverage-v8` to `^4.1.9`, and `vitest` to `^4.1.9` to stay current with upstream provider SDKs and testing frameworks.
+
+### Contributors
+
+No community contributors for this release. All work by @ZeR020 and Dependabot.
+
 ## [2.18.2] - 2026-07-01
 
 ### Removed
