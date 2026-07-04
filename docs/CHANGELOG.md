@@ -9,7 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Electron desktop dashboard** — The Memory Explorer is now available as a standalone Electron desktop app (`bun run electron` / `bun run electron:dev`). The Electron main process reuses the existing local web server + REST API, initializes config and warms up the memory client, then loads the dashboard in a native `BrowserWindow` with `contextIsolation`, `sandbox`, and `nodeIntegration: false`. A minimal preload script exposes only `openExternal` and `platform`. The browser-based dashboard at `http://127.0.0.1:4747` remains fully functional.
 - **Dashboard redesign** — Complete rebuild of the web UI with the OpenCode terminal-native manpage design system (DESIGN.md). New state-driven vanilla-JS SPA with 8 views: Dashboard (hero TUI mockup + stats + recent memories + profile snapshot), Memories, Semantic Search, Timeline (transcript history), Profile (preferences, patterns, workflows, changelog), Maintenance (cleanup, dedup, migration), Conflicts (resolve with keep-newer/keep-older/merge), and Settings. Warm cream canvas, near-black ink, Berkeley/JetBrains Mono, 4px radius on interactive elements, 0px on containers, hairline borders, no shadows or gradients, ASCII bracket markers as bullets, dark theme + system preference detection.
 
 ### Changed
