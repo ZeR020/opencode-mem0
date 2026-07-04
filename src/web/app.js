@@ -1,89 +1,152 @@
 /* global lucide, getLanguage, setLanguage, t, jsonrepair, DOMPurify, marked */
+
 const API_BASE = "";
 const API_KEY_STORAGE_KEY = "opencodeMemApiKey";
+const STORAGE_KEY_THEME = "mem0-theme";
+const STORAGE_KEY_LANG = "opencodeMem0-lang";
+
+const VIEWS = {
+  DASHBOARD: "dashboard",
+  MEMORIES: "memories",
+  SEARCH: "search",
+  TIMELINE: "timeline",
+  PROFILE: "profile",
+  SETTINGS: "settings",
+  MAINTENANCE: "maintenance",
+  CONFLICTS: "conflicts",
+};
 
 const state = {
+  view: VIEWS.DASHBOARD,
+  theme: "light",
+  language: "en",
   tags: { project: [] },
   memories: [],
+  totalMemories: 0,
   currentPage: 1,
   pageSize: 20,
   totalPages: 1,
-  totalItems: 0,
   selectedTag: "",
-  currentView: "project",
   searchQuery: "",
-  isSearching: false,
-  selectedMemories: new Set(),
-  autoRefreshInterval: null,
+  searchResults: [],
+  searchCurrentPage: 1,
+  searchTotalPages: 1,
+  stats: null,
   userProfile: null,
   conflicts: [],
+  conflictStats: null,
+  selectedMemories: new Set(),
+  loading: false,
+  migration: { detected: 0, tagMigration: 0 },
+  transcripts: [],
+  transcriptTotalPages: 1,
+  transcriptCurrentPage: 1,
+  changelogs: [],
 };
 
-// Guard top-level library calls so a missing vendor script doesn't crash the
-// entire app before any function is defined or event handler is attached.
-if (typeof marked !== "undefined" && marked.setOptions) {
-  marked.setOptions({
-    gfm: true,
-    breaks: true,
-  });
-}
+// ============================================================================
+// Theme & i18n
+// ============================================================================
 
-function renderMarkdown(markdown) {
-  if (typeof marked === "undefined" || typeof DOMPurify === "undefined") {
-    return escapeHtml(markdown);
+function initTheme() {
+  const saved = localStorage.getItem(STORAGE_KEY_THEME);
+  const html = document.documentElement;
+  if (saved) {
+    state.theme = saved;
+    html.setAttribute("data-theme", saved);
+  } else {
+    state.theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
-  const html = marked.parse(markdown);
-  return DOMPurify.sanitize(html);
 }
 
-// Guard lucide so a missing vendor script doesn't throw and abort the caller
-// (renderMemories, DOMContentLoaded, modal openers, etc.).
-function safeCreateIcons() {
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark =
+    html.getAttribute("data-theme") === "dark" ||
+    (!html.getAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const next = isDark ? "light" : "dark";
+  html.setAttribute("data-theme", next);
+  localStorage.setItem(STORAGE_KEY_THEME, next);
+  state.theme = next;
+  updateThemeIcon();
+}
+
+function updateThemeIcon() {
+  const btn = document.getElementById("theme-toggle");
+  if (!btn) return;
+  const icon = btn.querySelector("i");
+  if (icon) {
+    icon.setAttribute("data-lucide", state.theme === "dark" ? "moon" : "sun");
+  }
+  createIcons();
+}
+
+function toggleLanguage() {
+  const next = getLanguage() === "en" ? "zh" : "en";
+  setLanguage(next);
+  state.language = next;
+  renderApp();
+  loadView(state.view);
+}
+
+function initLanguage() {
+  state.language = getLanguage();
+}
+
+// ============================================================================
+// Markdown & icons
+// ============================================================================
+
+if (typeof marked !== "undefined" && marked.setOptions) {
+  marked.setOptions({ gfm: true, breaks: true });
+}
+
+function renderMarkdown(md) {
+  if (!md || typeof md !== "string") return "";
+  if (typeof marked === "undefined" || typeof DOMPurify === "undefined") {
+    return escapeHtml(md);
+  }
+  return DOMPurify.sanitize(marked.parse(md));
+}
+
+function createIcons() {
   if (typeof lucide !== "undefined" && lucide.createIcons) {
     lucide.createIcons();
   }
 }
 
-// Theme toggle: cycles between light and dark, persists to localStorage
-function toggleTheme() {
-  const html = document.documentElement;
-  const current = html.getAttribute("data-theme");
-  // If no explicit theme set, check what's effectively active
-  const isDark =
-    current === "dark" || (!current && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  const next = isDark ? "light" : "dark";
-  html.setAttribute("data-theme", next);
-  localStorage.setItem("mem0-theme", next);
-  updateThemeIcon(next);
+function escapeHtml(text) {
+  if (text === null || text === undefined) return "";
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
-function updateThemeIcon(theme) {
-  const btn = document.getElementById("theme-toggle");
-  if (!btn) return;
-  const icon = btn.querySelector("i");
-  if (icon) {
-    icon.setAttribute("data-lucide", theme === "dark" ? "moon" : "sun");
-  }
-  safeCreateIcons();
+function formatDate(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(state.language, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-function initTheme() {
-  const saved = localStorage.getItem("mem0-theme");
-  const html = document.documentElement;
-  let theme;
-  if (saved) {
-    theme = saved;
-    html.setAttribute("data-theme", saved);
-  } else {
-    // No saved preference — follow system, but don't set data-theme so
-    // the CSS @media query handles it. Icon reflects system state.
-    theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
-  updateThemeIcon(theme);
-}
+// ============================================================================
+// API
+// ============================================================================
 
-function buildApiHeaders(options) {
+function buildApiHeaders(options = {}) {
   const headers = new Headers(options.headers || {});
+  if (!headers.has("content-type") && options.body && typeof options.body === "string") {
+    headers.set("Content-Type", "application/json");
+  }
   const apiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
   if (apiKey && !headers.has("authorization") && !headers.has("x-opencode-mem-key")) {
     headers.set("Authorization", `Bearer ${apiKey}`);
@@ -92,938 +155,774 @@ function buildApiHeaders(options) {
 }
 
 function requestApiKey() {
-  const apiKey = window.prompt("Enter webServerApiKey for this Memory Explorer instance:");
-  if (apiKey) {
-    // ponytail: cleartext in localStorage — accepted risk: server is localhost-only (127.0.0.1:4747).
-    // If server ever binds non-local, move to sessionStorage or SubtleCrypto encrypted storage.
-    localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+  const key = window.prompt(t("prompt-api-key"));
+  if (key) {
+    localStorage.setItem(API_KEY_STORAGE_KEY, key);
   }
-  return apiKey;
+  return key;
 }
 
 async function fetchAPI(endpoint, options = {}) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
-    try {
-      const requestOptions = {
-        ...options,
+    const requestOptions = {
+      ...options,
+      headers: buildApiHeaders(options),
+      signal: controller.signal,
+    };
+
+    let response = await fetch(API_BASE + endpoint, requestOptions);
+    if (response.status === 401 && requestApiKey()) {
+      response = await fetch(API_BASE + endpoint, {
+        ...requestOptions,
         headers: buildApiHeaders(options),
-        signal: controller.signal,
-      };
-      let response = await fetch(API_BASE + endpoint, requestOptions);
-      if (response.status === 401 && requestApiKey()) {
-        response = await fetch(API_BASE + endpoint, {
-          ...requestOptions,
-          headers: buildApiHeaders(options),
-        });
-      }
-      clearTimeout(timeoutId);
-      const data = await response.json();
-      return data;
-    } catch (err) {
-      clearTimeout(timeoutId);
-      throw err;
+      });
     }
+
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      const text = await response.text().catch(() => "Unknown error");
+      throw new Error(`HTTP ${response.status}: ${text}`);
+    }
+    return await response.json();
   } catch (error) {
     console.error("API Error:", error);
     return { success: false, error: error.message };
   }
 }
 
-async function loadTags() {
-  const result = await fetchAPI("/api/tags");
-  if (result.success) {
-    state.tags = result.data;
-    populateTagDropdowns();
-  }
-}
-
-function populateTagDropdowns() {
-  const tagFilter = document.getElementById("tag-filter");
-  const addTag = document.getElementById("add-tag");
-
-  tagFilter.innerHTML = `<option value="">${t("opt-all-tags")}</option>`;
-  addTag.innerHTML = `<option value="">${t("opt-select-tag")}</option>`;
-
-  const scopeTags = state.tags.project;
-
-  scopeTags.forEach((tagInfo) => {
-    const displayText = tagInfo.displayName || tagInfo.tag;
-    const shortDisplay =
-      displayText.length > 50 ? `${displayText.substring(0, 50)}...` : displayText;
-
-    const option1 = document.createElement("option");
-    option1.value = tagInfo.tag;
-    option1.textContent = shortDisplay;
-    tagFilter.appendChild(option1);
-
-    const option2 = document.createElement("option");
-    option2.value = tagInfo.tag;
-    option2.textContent = shortDisplay;
-    addTag.appendChild(option2);
-  });
-}
-
-function renderMemories() {
-  const container = document.getElementById("memories-list");
-
-  if (state.memories.length === 0) {
-    container.innerHTML = `<div class="empty-state">${t("empty-memories")}</div>`;
-    return;
-  }
-
-  container.innerHTML = groupMemories(state.memories)
-    .map((group) => {
-      if (group.isPair) {
-        return renderCombinedCard(group);
-      } else if (group.type === "prompt") {
-        return renderPromptCard(group.item);
-      } else {
-        return renderMemoryCard(group.item);
-      }
-    })
-    .join("");
-
-  document.querySelectorAll(".memory-checkbox").forEach((checkbox) => {
-    checkbox.addEventListener("change", handleCheckboxChange);
-  });
-
-  safeCreateIcons();
-}
-
-function groupMemories(items) {
-  const map = new Map();
-  const pairs = [];
-  const processed = new Set();
-
-  items.forEach((item) => map.set(item.id, item));
-
-  items.forEach((item) => {
-    if (processed.has(item.id)) return;
-
-    if (item.type === "memory" && item.linkedPromptId && map.has(item.linkedPromptId)) {
-      const prompt = map.get(item.linkedPromptId);
-      pairs.push({ isPair: true, memory: item, prompt });
-      processed.add(item.id);
-      processed.add(prompt.id);
-    } else if (item.type === "prompt" && item.linkedMemoryId && map.has(item.linkedMemoryId)) {
-      const memory = map.get(item.linkedMemoryId);
-      pairs.push({ isPair: true, memory, prompt: item });
-      processed.add(item.id);
-      processed.add(memory.id);
-    } else {
-      pairs.push({ isPair: false, type: item.type, item });
-      processed.add(item.id);
-    }
-  });
-
-  return pairs.sort((a, b) => {
-    const timeA = a.isPair ? a.memory.createdAt : a.item.createdAt;
-    const timeB = b.isPair ? b.memory.createdAt : b.item.createdAt;
-    return new Date(timeB) - new Date(timeA);
-  });
-}
-
-function renderCombinedCard(pair) {
-  const { memory, prompt } = pair;
-  const isSelected = state.selectedMemories.has(memory.id);
-  const isPinned = memory.isPinned || false;
-  const similarityHtml =
-    memory.similarity === undefined
-      ? ""
-      : `<span class="similarity-score">${Math.round(memory.similarity * 100)}%</span>`;
-
-  const tagsHtml =
-    memory.tags && memory.tags.length > 0
-      ? `<div class="tags-list">${memory.tags.map((t) => `<span class="tag-badge">${escapeHtml(t)}</span>`).join("")}</div>`
-      : "";
-
-  const pinButton = isPinned
-    ? `<button class="btn-pin pinned" onclick="unpinMemory('${escapeJsString(memory.id)}')" title="Unpin"><i data-lucide="pin" class="icon icon-filled"></i></button>`
-    : `<button class="btn-pin" onclick="pinMemory('${escapeJsString(memory.id)}')" title="Pin"><i data-lucide="pin" class="icon"></i></button>`;
-
-  const createdDate = formatDate(memory.createdAt);
-  const updatedDate =
-    memory.updatedAt && memory.updatedAt !== memory.createdAt ? formatDate(memory.updatedAt) : null;
-
-  const dateInfo = updatedDate
-    ? `<span>${t("date-created")} ${createdDate}</span><span>${t("date-updated")} ${updatedDate}</span>`
-    : `<span>${t("date-created")} ${createdDate}</span>`;
-  return `
-    <div class="combined-card ${isSelected ? "selected" : ""} ${isPinned ? "pinned" : ""}" data-id="${memory.id}">
-      <div class="combined-prompt-section">
-        <div class="combined-header">
-          <span class="badge badge-prompt">${t("badge-prompt")}</span>
-          <span class="prompt-date">${formatDate(prompt.createdAt)}</span>
-        </div>
-        <div class="prompt-content">${escapeHtml(prompt.content)}</div>
-      </div>
-      
-      <div class="combined-divider">
-        <i data-lucide="arrow-down" class="divider-icon"></i>
-      </div>
-
-      <div class="combined-memory-section">
-        <div class="memory-header">
-          <div class="meta">
-            <input type="checkbox" class="memory-checkbox" data-id="${memory.id}" ${isSelected ? "checked" : ""} />
-            <span class="badge badge-memory">${t("badge-memory")}</span>
-            ${memory.memoryType ? `<span class="badge badge-type">${escapeHtml(memory.memoryType)}</span>` : ""}
-            ${similarityHtml}
-            ${isPinned ? `<span class="badge badge-pinned">${t("badge-pinned")}</span>` : ""}
-            <span class="memory-display-name">${escapeHtml(memory.displayName || memory.id)}</span>
-          </div>
-          <div class="memory-actions">
-            ${pinButton}
-            <button class="btn-edit" onclick="editMemory('${escapeJsString(memory.id)}')"><i data-lucide="edit-3" class="icon"></i></button>
-            <button class="btn-delete" onclick="deleteMemoryWithLink('${escapeJsString(memory.id)}', true)">
-              <i data-lucide="trash-2" class="icon"></i> ${t("btn-delete-pair")}
-            </button>
-          </div>
-        </div>
-        ${tagsHtml}
-        <div class="memory-content markdown-content">${renderMarkdown(memory.content)}</div>
-        <div class="memory-footer">
-          ${dateInfo}
-          <span>ID: ${memory.id}</span>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderPromptCard(prompt) {
-  const isLinked = Boolean(prompt.linkedMemoryId);
-  const isSelected = state.selectedMemories.has(prompt.id);
-  const promptDate = formatDate(prompt.createdAt);
-
-  return `
-    <div class="prompt-card ${isSelected ? "selected" : ""}" data-id="${prompt.id}">
-      <div class="prompt-header">
-        <div class="meta">
-          <input type="checkbox" class="memory-checkbox" data-id="${prompt.id}" ${isSelected ? "checked" : ""} />
-          <i data-lucide="message-circle" class="icon"></i>
-          <span class="badge badge-prompt">${t("badge-prompt")}</span>
-          ${isLinked ? `<span class="badge badge-linked"><i data-lucide="link" class="icon-sm"></i> ${t("badge-linked")}</span>` : ""}
-          <span class="prompt-date">${promptDate}</span>
-        </div>
-        <div class="prompt-actions">
-          <button class="btn-delete" onclick="deletePromptWithLink('${escapeJsString(prompt.id)}', ${isLinked})">
-            <i data-lucide="trash-2" class="icon"></i>
-            ${isLinked ? t("btn-delete-pair") : t("btn-delete")}
-          </button>
-        </div>
-      </div>
-      <div class="prompt-content">
-        ${escapeHtml(prompt.content)}
-      </div>
-      ${isLinked ? `<div class="link-indicator"><i data-lucide="arrow-down" class="icon-sm"></i> ${t("text-generated-above")} <i data-lucide="arrow-up" class="icon-sm"></i></div>` : ""}
-    </div>
-  `;
-}
-
-function getMemoryDisplayInfo(memory) {
-  if (memory.projectPath) {
-    const pathParts = memory.projectPath.replaceAll("\\", "/").split("/").filter(Boolean);
-    return pathParts.at(-1) || memory.projectPath;
-  }
-  return memory.displayName || memory.id;
-}
-
-function getMemorySubtitle(memory) {
-  return memory.projectPath
-    ? `<span class="memory-subtitle">${escapeHtml(memory.projectPath)}</span>`
-    : "";
-}
-
-function getPinButton(memory, isPinned) {
-  return isPinned
-    ? `<button class="btn-pin pinned" onclick="unpinMemory('${escapeJsString(memory.id)}')" title="Unpin"><i data-lucide="pin" class="icon icon-filled"></i></button>`
-    : `<button class="btn-pin" onclick="pinMemory('${escapeJsString(memory.id)}')" title="Pin"><i data-lucide="pin" class="icon"></i></button>`;
-}
-
-function getMemoryDateInfo(memory) {
-  const createdDate = formatDate(memory.createdAt);
-  const updatedDate =
-    memory.updatedAt && memory.updatedAt !== memory.createdAt ? formatDate(memory.updatedAt) : null;
-  return updatedDate
-    ? `<span>${t("date-created")} ${createdDate}</span><span>${t("date-updated")} ${updatedDate}</span>`
-    : `<span>${t("date-created")} ${createdDate}</span>`;
-}
-
-function getMemoryTagsHtml(memory) {
-  return memory.tags && memory.tags.length > 0
-    ? `<div class="tags-list">${memory.tags.map((t) => `<span class="tag-badge">${escapeHtml(t)}</span>`).join("")}</div>`
-    : "";
-}
-
-function getMemoryBadges(memory, similarityHtml, isPinned, isLinked) {
-  const badges = [];
-  if (memory.memoryType)
-    badges.push(`<span class="badge badge-type">${escapeHtml(memory.memoryType)}</span>`);
-  if (isLinked)
-    badges.push(
-      `<span class="badge badge-linked"><i data-lucide="link" class="icon-sm"></i> ${t("badge-linked")}</span>`
-    );
-  if (similarityHtml) badges.push(similarityHtml);
-  if (isPinned) badges.push(`<span class="badge badge-pinned">${t("badge-pinned")}</span>`);
-  return badges.join("");
-}
-
-function renderMemoryCard(memory) {
-  const isSelected = state.selectedMemories.has(memory.id);
-  const isPinned = memory.isPinned || false;
-  const isLinked = Boolean(memory.linkedPromptId);
-  const similarityHtml =
-    memory.similarity === undefined
-      ? ""
-      : `<span class="similarity-score">${memory.similarity}%</span>`;
-
-  const displayInfo = getMemoryDisplayInfo(memory);
-  const subtitle = getMemorySubtitle(memory);
-  const pinButton = getPinButton(memory, isPinned);
-  const dateInfo = getMemoryDateInfo(memory);
-  const tagsHtml = getMemoryTagsHtml(memory);
-  const badges = getMemoryBadges(memory, similarityHtml, isPinned, isLinked);
-
-  return `
-    <div class="memory-card ${isSelected ? "selected" : ""} ${isPinned ? "pinned" : ""}" data-id="${memory.id}">
-      <div class="memory-header">
-        <div class="meta">
-          <input type="checkbox" class="memory-checkbox" data-id="${memory.id}" ${isSelected ? "checked" : ""} />
-          ${badges}
-          <span class="memory-display-name">${escapeHtml(displayInfo)}</span>
-          ${subtitle}
-        </div>
-        <div class="memory-actions">
-          ${pinButton}
-          <button class="btn-edit" onclick="editMemory('${escapeJsString(memory.id)}')"><i data-lucide="edit-3" class="icon"></i></button>
-          <button class="btn-delete" onclick="deleteMemoryWithLink('${escapeJsString(memory.id)}', ${isLinked})">
-            <i data-lucide="trash-2" class="icon"></i>
-            ${isLinked ? t("btn-delete-pair") : t("btn-delete")}
-          </button>
-        </div>
-      </div>
-      ${tagsHtml}
-      <div class="memory-content markdown-content">${renderMarkdown(memory.content)}</div>
-      ${isLinked ? `<div class="link-indicator"><i data-lucide="arrow-up" class="icon-sm"></i> ${t("text-from-below")} <i data-lucide="arrow-down" class="icon-sm"></i></div>` : ""}
-      <div class="memory-footer">
-        ${dateInfo}
-        <span>ID: ${memory.id}</span>
-      </div>
-    </div>
-  `;
-}
-
-function handleCheckboxChange(e) {
-  const id = e.target.dataset.id;
-  if (e.target.checked) {
-    state.selectedMemories.add(id);
-  } else {
-    state.selectedMemories.delete(id);
-  }
-  updateBulkActions();
-  updateCardSelection(id, e.target.checked);
-}
-
-function updateCardSelection(id, selected) {
-  const card = document.querySelector(
-    `.memory-card[data-id="${id}"], .prompt-card[data-id="${id}"]`
-  );
-  if (card) {
-    if (selected) {
-      card.classList.add("selected");
-    } else {
-      card.classList.remove("selected");
-    }
-  }
-}
-
-function updateBulkActions() {
-  const bulkActions = document.getElementById("bulk-actions");
-  const selectedCount = document.getElementById("selected-count");
-
-  if (state.selectedMemories.size > 0) {
-    bulkActions.classList.remove("hidden");
-    selectedCount.textContent = t("text-selected", { count: state.selectedMemories.size });
-  } else {
-    bulkActions.classList.add("hidden");
-  }
-}
-
-function updatePagination() {
-  const pageInfo = t("text-page", { current: state.currentPage, total: state.totalPages });
-  document.getElementById("page-info-top").textContent = pageInfo;
-  document.getElementById("page-info-bottom").textContent = pageInfo;
-  const hasPrev = state.currentPage > 1;
-  const hasNext = state.currentPage < state.totalPages;
-
-  document.getElementById("prev-page-top").disabled = !hasPrev;
-  document.getElementById("next-page-top").disabled = !hasNext;
-  document.getElementById("prev-page-bottom").disabled = !hasPrev;
-  document.getElementById("next-page-bottom").disabled = !hasNext;
-}
-
-function updateSectionTitle() {
-  const title = state.isSearching
-    ? `[+] Search Results (${state.totalItems})`
-    : t("section-project", { count: state.totalItems });
-  document.getElementById("section-title").textContent = title;
-}
-
-async function loadStats() {
-  const [result, conflictResult] = await Promise.all([
-    fetchAPI("/api/stats"),
-    fetchAPI("/api/conflicts/stats"),
-  ]);
-  if (result.success) {
-    document.getElementById("stats-total").textContent = t("text-total", {
-      count: result.data.total,
-    });
-  }
-  if (conflictResult.success) {
-    const badge = document.getElementById("conflict-badge");
-    if (conflictResult.data.unresolved > 0) {
-      badge.textContent = conflictResult.data.unresolved;
-      badge.classList.remove("hidden");
-    } else {
-      badge.classList.add("hidden");
-    }
-  }
-}
-
-async function addMemory(e) {
-  e.preventDefault();
-
-  const content = document.getElementById("add-content").value.trim();
-  const containerTag = document.getElementById("add-tag").value;
-  const type = document.getElementById("add-type").value;
-  const tagsStr = document.getElementById("add-tags").value.trim();
-  const tags = tagsStr
-    ? tagsStr
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean)
-    : [];
-
-  if (!content || !containerTag) {
-    showToast(t("toast-add-error"), "error");
-    return;
-  }
-
-  const result = await fetchAPI("/api/memories", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content, containerTag, type: type || undefined, tags }),
-  });
-
-  if (result.success) {
-    showToast(t("toast-add-success"), "success");
-    document.getElementById("add-form").reset();
-    await loadMemories();
-    await loadStats();
-  } else {
-    showToast(result.error || t("toast-add-failed"), "error");
-  }
-}
-
-async function loadMemories() {
-  showRefreshIndicator(true);
-
-  let endpoint = `/api/memories?page=${state.currentPage}&pageSize=${state.pageSize}&includePrompts=true`;
-
-  if (state.isSearching) {
-    endpoint = `/api/search?q=${encodeURIComponent(state.searchQuery || "")}&page=${state.currentPage}&pageSize=${state.pageSize}`;
-    if (state.selectedTag) {
-      endpoint += `&tag=${encodeURIComponent(state.selectedTag)}`;
-    }
-  } else {
-    if (state.selectedTag) {
-      endpoint += `&tag=${encodeURIComponent(state.selectedTag)}`;
-    }
-  }
-
-  const result = await fetchAPI(endpoint);
-
-  showRefreshIndicator(false);
-
-  if (result.success) {
-    state.memories = result.data.items;
-    state.totalPages = result.data.totalPages;
-    state.totalItems = result.data.total;
-    state.currentPage = result.data.page;
-
-    renderMemories();
-    updatePagination();
-    updateSectionTitle();
-  } else {
-    showError(result.error || t("toast-update-failed"));
-  }
-}
-
-// skipcq: JS-0128 — Used in HTML template literal: onclick="deleteMemoryWithLink(...)"
-async function deleteMemoryWithLink(id, isLinked) {
-  const message = isLinked ? t("confirm-delete-pair") : t("confirm-delete");
-  if (!(await showConfirm(message))) return;
-
-  const result = await fetchAPI(`/api/memories/${id}?cascade=true`, {
-    method: "DELETE",
-  });
-
-  if (result.success) {
-    showToast(t("toast-delete-success"), "success");
-
-    state.selectedMemories.delete(id);
-    await loadMemories();
-    await loadStats();
-  } else {
-    showToast(result.error || t("toast-delete-failed"), "error");
-  }
-}
-
-// skipcq: JS-0128 — Used in HTML template literal: onclick="deletePromptWithLink(...)"
-async function deletePromptWithLink(id, isLinked) {
-  const message = isLinked ? t("confirm-delete-prompt") : t("confirm-delete");
-  if (!(await showConfirm(message))) return;
-
-  const result = await fetchAPI(`/api/prompts/${id}?cascade=true`, {
-    method: "DELETE",
-  });
-
-  if (result.success) {
-    showToast(t("toast-delete-success"), "success");
-
-    state.selectedMemories.delete(id);
-    await loadMemories();
-    await loadStats();
-  } else {
-    showToast(result.error || t("toast-delete-failed"), "error");
-  }
-}
-
-async function bulkDelete() {
-  if (state.selectedMemories.size === 0) return;
-
-  const message = t("confirm-bulk-delete", { count: state.selectedMemories.size });
-  if (!(await showConfirm(message))) return;
-
-  const ids = Array.from(state.selectedMemories);
-
-  const promptIds = ids.filter((id) => id.startsWith("prompt_"));
-  const memoryIds = ids.filter((id) => !id.startsWith("prompt_"));
-
-  let deletedCount = 0;
-  let hadErrors = false;
-
-  if (promptIds.length > 0) {
-    const result = await fetchAPI("/api/prompts/bulk-delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: promptIds, cascade: true }),
-    });
-    if (result.success) {
-      deletedCount += result.data.deleted;
-    } else {
-      hadErrors = true;
-      console.error("Bulk delete prompts failed", { error: result.error });
-    }
-  }
-
-  if (memoryIds.length > 0) {
-    const result = await fetchAPI("/api/memories/bulk-delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: memoryIds, cascade: true }),
-    });
-    if (result.success) {
-      deletedCount += result.data.deleted;
-    } else {
-      hadErrors = true;
-      console.error("Bulk delete memories failed", { error: result.error });
-    }
-  }
-
-  if (hadErrors) {
-    showToast(`${t("toast-bulk-delete-partial")} (${deletedCount} deleted)`, "warning");
-  } else {
-    showToast(`${t("toast-bulk-delete-success")} (${deletedCount} deleted)`, "success");
-  }
-  state.selectedMemories.clear();
-  await loadMemories();
-  await loadStats();
-  updateBulkActions();
-}
-
-function deselectAll() {
-  state.selectedMemories.clear();
-  document.querySelectorAll(".memory-checkbox").forEach((cb) => (cb.checked = false));
-  document
-    .querySelectorAll(".memory-card, .prompt-card")
-    .forEach((card) => card.classList.remove("selected"));
-  updateBulkActions();
-}
-
-function selectAllCurrentPage() {
-  const checkboxes = document.querySelectorAll(".memory-checkbox");
-  if (checkboxes.length === 0) return;
-
-  checkboxes.forEach((cb) => {
-    cb.checked = true;
-    if (cb.dataset.id) {
-      state.selectedMemories.add(cb.dataset.id);
-      updateCardSelection(cb.dataset.id, true);
-    }
-  });
-
-  updateBulkActions();
-}
-
-// skipcq: JS-0128 — Used in HTML template literal: onclick="editMemory(...)"
-function editMemory(id) {
-  const memory = state.memories.find((m) => m.id === id && m.type === "memory");
-  if (!memory) return;
-
-  document.getElementById("edit-id").value = memory.id;
-  document.getElementById("edit-content").value = memory.content;
-
-  document.getElementById("edit-modal").classList.remove("hidden");
-}
-
-async function saveEdit(e) {
-  e.preventDefault();
-
-  const id = document.getElementById("edit-id").value;
-  const content = document.getElementById("edit-content").value.trim();
-
-  if (!content) {
-    showToast(t("toast-add-error"), "error");
-    return;
-  }
-
-  const result = await fetchAPI(`/api/memories/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
-  });
-
-  if (result.success) {
-    showToast(t("toast-update-success"), "success");
-    closeModal();
-    await loadMemories();
-  } else {
-    showToast(result.error || t("toast-update-failed"), "error");
-  }
-}
-
-function closeModal() {
-  document.getElementById("edit-modal").classList.add("hidden");
-}
-
-function performSearch() {
-  const query = document.getElementById("search-input").value.trim();
-
-  if (!query) {
-    clearSearch();
-    return;
-  }
-
-  state.searchQuery = query;
-  state.isSearching = true;
-  state.currentPage = 1;
-
-  document.getElementById("clear-search-btn").classList.remove("hidden");
-
-  loadMemories();
-}
-
-function clearSearch() {
-  state.searchQuery = "";
-  state.isSearching = false;
-  state.currentPage = 1;
-
-  document.getElementById("search-input").value = "";
-  document.getElementById("clear-search-btn").classList.add("hidden");
-
-  loadMemories();
-}
-
-function changePage(delta) {
-  const newPage = state.currentPage + delta;
-  if (newPage < 1 || newPage > state.totalPages) return;
-
-  state.currentPage = newPage;
-  loadMemories();
-}
+// ============================================================================
+// Notifications
+// ============================================================================
 
 function showToast(message, type = "success") {
   const toast = document.getElementById("toast");
   toast.textContent = message;
-  toast.className = `toast ${type}`;
+  toast.className = `toast ${type === "error" ? "error" : ""}`;
   toast.classList.remove("hidden");
-
-  setTimeout(() => {
-    toast.classList.add("hidden");
-  }, 3000);
+  setTimeout(() => toast.classList.add("hidden"), 4000);
 }
 
 function showError(message) {
-  const container = document.getElementById("memories-list");
-  container.innerHTML = `<div class="error-state">Error: ${escapeHtml(message)}</div>`;
+  showToast(message, "error");
 }
 
-let confirmResolve = null;
+// ============================================================================
+// Modal
+// ============================================================================
 
-function showConfirm(message) {
-  return new Promise((resolve) => {
-    confirmResolve = resolve;
-    const modal = document.getElementById("confirm-modal");
-    const msgEl = document.getElementById("confirm-modal-message");
-    msgEl.textContent = message;
-    modal.classList.remove("hidden");
-    safeCreateIcons();
-  });
+function openModal(title, bodyHtml, actionsHtml = "") {
+  const modal = document.getElementById("modal");
+  document.getElementById("modal-title").textContent = title;
+  document.getElementById("modal-body").innerHTML = bodyHtml + actionsHtml;
+  modal.classList.remove("hidden");
+  createIcons();
+  const firstInput = modal.querySelector("input, textarea, select, button");
+  if (firstInput) firstInput.focus();
 }
 
-function closeConfirmModal(result) {
-  if (confirmResolve) {
-    confirmResolve(result);
-    confirmResolve = null;
-  }
-  document.getElementById("confirm-modal").classList.add("hidden");
+function closeModal() {
+  document.getElementById("modal").classList.add("hidden");
+  document.getElementById("modal-body").innerHTML = "";
 }
 
-function showRefreshIndicator(show) {
-  const indicator = document.getElementById("refresh-indicator");
-  if (show) {
-    indicator.classList.remove("hidden");
-  } else {
-    indicator.classList.add("hidden");
-  }
+// ============================================================================
+// Components
+// ============================================================================
+
+function wordmark() {
+  return `
+    <a href="#" class="wordmark" data-view="dashboard" aria-label="OpenCode Memory Dashboard">
+      ▗▄▄▖ ▗▄▄▖ ▗▄▄▄ ▗▄▄▖  ▗▄▄▖▗▄▄▄▖ ▗▄▄▖
+      ▐▌ ▐▌▐▌ ▐▌▐▌  █▐▌ ▐▌▐▌   ▐▌  ▐▌
+      ▐▌ ▐▌▐▛▀▚▖▐▌  █▐▛▀▚▖▐▌   ▐▛▀▀▘ ▝▀▚▖
+      ▝▚▄▞▘▐▌ ▐▌▐▙▄▄▀▐▌ ▐▌▝▚▄▄▖▐▙▄▄▖▗▄▄▞▘
+    </a>
+  `;
 }
 
-function formatDate(isoString) {
-  const date = new Date(isoString);
-  const locale = getLanguage() === "zh" ? "zh-CN" : "en-US";
-  return date.toLocaleString(locale, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function navLinks() {
+  const items = [
+    [VIEWS.DASHBOARD, t("nav-dashboard")],
+    [VIEWS.MEMORIES, t("nav-memories")],
+    [VIEWS.SEARCH, t("nav-search")],
+    [VIEWS.TIMELINE, t("nav-timeline")],
+    [VIEWS.PROFILE, t("nav-profile")],
+    [VIEWS.MAINTENANCE, t("nav-maintenance")],
+    [VIEWS.CONFLICTS, t("nav-conflicts")],
+    [VIEWS.SETTINGS, t("nav-settings")],
+  ];
+  return items
+    .map(
+      ([view, label]) => `
+        <button class="nav-link ${state.view === view ? "active" : ""}" data-view="${view}">
+          ${escapeHtml(label)}
+        </button>
+      `
+    )
+    .join("");
 }
 
-// skipcq: JS-0128 — Used in HTML template literal: onclick="pinMemory(...)"
-async function pinMemory(id) {
-  const result = await fetchAPI(`/api/memories/${id}/pin`, { method: "POST" });
-
-  if (result.success) {
-    showToast(t("toast-update-success"), "success");
-    await loadMemories();
-  } else {
-    showToast(result.error || t("toast-update-failed"), "error");
-  }
+function tagOptions(selected = "") {
+  const tags = state.tags.project || [];
+  return tags
+    .map(
+      (tagInfo) => `
+        <option value="${escapeHtml(tagInfo.tag)}" ${selected === tagInfo.tag ? "selected" : ""}>
+          ${escapeHtml(tagInfo.displayName || tagInfo.tag)}
+        </option>
+      `
+    )
+    .join("");
 }
 
-// skipcq: JS-0128 — Used in HTML template literal: onclick="unpinMemory(...)"
-async function unpinMemory(id) {
-  const result = await fetchAPI(`/api/memories/${id}/unpin`, { method: "POST" });
-
-  if (result.success) {
-    showToast(t("toast-update-success"), "success");
-    await loadMemories();
-  } else {
-    showToast(result.error || t("toast-update-failed"), "error");
-  }
+function badge(text, variant = "default") {
+  const color =
+    {
+      pinned: "var(--warning)",
+      linked: "var(--accent)",
+      conflict: "var(--danger)",
+      success: "var(--success)",
+    }[variant] || "var(--mute)";
+  return `<span class="tag-badge" style="color:${color};border:1px solid ${color}">${escapeHtml(text)}</span>`;
 }
 
-async function runCleanup() {
-  if (!(await showConfirm(t("confirm-cleanup")))) return;
+function memoryCard(memory) {
+  const isPinned = memory.isPinned || memory.pinned;
+  const isSelected = state.selectedMemories.has(memory.id);
+  const tags = (memory.tags || [])
+    .map((tag) => `<span class="tag-badge">${escapeHtml(tag)}</span>`)
+    .join("");
+  const badges = [];
+  if (isPinned) badges.push(badge("PINNED", "pinned"));
+  if (memory.linkedMemoryId) badges.push(badge("LINKED", "linked"));
+  if (memory.hasConflict) badges.push(badge("CONFLICT", "conflict"));
 
-  showToast(t("status-cleanup"), "info");
-  const result = await fetchAPI("/api/cleanup", { method: "POST" });
-
-  if (result.success) {
-    showToast(t("toast-cleanup-success"), "success");
-    await loadMemories();
-    await loadStats();
-  } else {
-    showToast(result.error || t("toast-cleanup-failed"), "error");
-  }
+  return `
+    <article class="memory-card ${isPinned ? "pinned" : ""} ${isSelected ? "selected" : ""}" data-id="${escapeHtml(memory.id)}">
+      <div class="memory-header">
+        <label class="memory-title flex gap-sm" style="cursor:pointer;">
+          <input type="checkbox" class="memory-checkbox" data-id="${escapeHtml(memory.id)}" ${isSelected ? "checked" : ""}>
+          <span>${escapeHtml(memory.displayName || String(memory.id || "").slice(0, 8))}</span>
+        </label>
+        <div class="memory-meta">
+          ${badges.join("")}
+          <span>${escapeHtml(formatDate(memory.createdAt || memory.updatedAt))}</span>
+        </div>
+      </div>
+      <div class="memory-content markdown-content">${renderMarkdown(memory.content)}</div>
+      <div class="tag-list">${tags}</div>
+      <div class="memory-actions">
+        <button class="btn btn-sm btn-secondary" data-action="edit" data-id="${escapeHtml(memory.id)}">
+          <i data-lucide="pencil" class="icon-sm"></i> ${t("btn-edit")}
+        </button>
+        <button class="btn btn-sm btn-secondary" data-action="pin" data-id="${escapeHtml(memory.id)}" data-pinned="${isPinned}">
+          <i data-lucide="${isPinned ? "pin-off" : "pin"}" class="icon-sm"></i> ${isPinned ? t("btn-unpin") : t("btn-pin")}
+        </button>
+        <button class="btn btn-sm btn-danger" data-action="delete" data-id="${escapeHtml(memory.id)}">
+          <i data-lucide="trash-2" class="icon-sm"></i> ${t("btn-delete")}
+        </button>
+      </div>
+    </article>
+  `;
 }
 
-async function runDeduplication() {
-  if (!(await showConfirm(t("confirm-dedup")))) return;
-
-  showToast(t("status-dedup"), "info");
-  const result = await fetchAPI("/api/deduplicate", { method: "POST" });
-
-  if (result.success) {
-    showToast(t("toast-dedup-success"), "success");
-    await loadMemories();
-    await loadStats();
-  } else {
-    showToast(result.error || t("toast-dedup-failed"), "error");
-  }
+function pagination(currentPage, totalPages, handlerName) {
+  if (totalPages <= 1) return "";
+  return `
+    <div class="pagination" role="group" aria-label="Pagination">
+      <button class="btn btn-sm btn-secondary" data-action="${handlerName}" data-delta="-1" ${currentPage <= 1 ? "disabled" : ""}>
+        <i data-lucide="chevron-left" class="icon-sm"></i>
+      </button>
+      <span>${t("pagination-page", { page: currentPage, total: totalPages })}</span>
+      <button class="btn btn-sm btn-secondary" data-action="${handlerName}" data-delta="1" ${currentPage >= totalPages ? "disabled" : ""}>
+        <i data-lucide="chevron-right" class="icon-sm"></i>
+      </button>
+    </div>
+  `;
 }
 
-function startAutoRefresh() {
-  if (state.autoRefreshInterval) {
-    clearInterval(state.autoRefreshInterval);
-  }
-
-  state.autoRefreshInterval = setInterval(() => {
-    loadStats();
-    if (!state.isSearching) {
-      loadMemories();
-    }
-  }, 30000);
+function sectionLabel(title) {
+  return `<h2 class="section-label">${escapeHtml(title)}</h2><hr class="section-rule">`;
 }
 
-async function checkMigrationStatus() {
-  const [result, tagResult] = await Promise.all([
-    fetchAPI("/api/migration/detect"),
-    fetchAPI("/api/migration/tags/detect"),
-  ]);
-  if (result.success && result.data.needsMigration) {
-    showMigrationWarning(result.data);
-  }
-  if (tagResult.success && tagResult.data.needsMigration) {
-    showTagMigrationModal(tagResult.data.count);
-  }
+function listRow(marker, label, description) {
+  return `
+    <div class="list-row">
+      <span class="list-marker">${escapeHtml(marker)}</span>
+      <div>
+        <span class="text-strong">${escapeHtml(label)}</span>
+        ${description ? `<span class="text-body"> ${escapeHtml(description)}</span>` : ""}
+      </div>
+    </div>
+  `;
 }
 
-function showTagMigrationModal(count) {
-  const overlay = document.getElementById("tag-migration-overlay");
-  const status = document.getElementById("tag-migration-status");
-  overlay.classList.remove("hidden");
-  status.textContent = t("migration-found-tags", { count });
+// ============================================================================
+// App shell
+// ============================================================================
 
-  document.getElementById("start-tag-migration-btn").onclick = runTagMigration;
+function renderApp() {
+  const app = document.getElementById("app");
+  app.innerHTML = `
+    <nav class="primary-nav" role="navigation" aria-label="Primary">
+      <div class="container">
+        ${wordmark()}
+        <div class="nav-links" id="nav-links">
+          ${navLinks()}
+        </div>
+        <div class="nav-actions">
+          <button id="theme-toggle" class="btn btn-icon btn-secondary" aria-label="${t("aria-theme-toggle")}">
+            <i data-lucide="${state.theme === "dark" ? "moon" : "sun"}" class="icon-sm"></i>
+          </button>
+          <button id="lang-toggle" class="btn btn-sm btn-secondary" aria-label="${t("aria-lang-toggle")}">
+            ${state.language.toUpperCase()}
+          </button>
+          <button id="nav-menu" class="nav-menu-btn" aria-label="${t("aria-menu-toggle")}" aria-expanded="false">
+            <i data-lucide="menu" class="icon-sm"></i>
+          </button>
+        </div>
+      </div>
+    </nav>
+    <main id="main" class="container" style="flex:1;padding:var(--sp-lg) 0 var(--sp-section);">
+      ${renderCurrentView()}
+    </main>
+    <footer class="app-footer" role="contentinfo">
+      <div class="container">
+        <div class="footer-links">
+          <a class="footer-link" href="https://github.com/ZeR020/opencode-mem0" target="_blank" rel="noopener">GitHub</a>
+          <a class="footer-link" href="https://github.com/ZeR020/opencode-mem0#readme" target="_blank" rel="noopener">Docs</a>
+          <a class="footer-link" href="https://github.com/ZeR020/opencode-mem0/blob/main/docs/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
+          <a class="footer-link" href="https://github.com/ZeR020/opencode-mem0/issues" target="_blank" rel="noopener">Issues</a>
+          <a class="footer-link" href="https://github.com/ZeR020/opencode-mem0/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
+        </div>
+        <div class="footer-bottom">
+          <span>©2026 ZeR020 · OpenCode Memory Dashboard</span>
+        </div>
+      </div>
+    </footer>
+  `;
+  bindShellEvents();
+  createIcons();
 }
 
-async function runTagMigration() {
-  const actions = document.getElementById("tag-migration-actions");
-  const status = document.getElementById("tag-migration-status");
-  const progress = document.getElementById("tag-migration-progress");
-
-  actions.classList.add("hidden");
-  status.textContent = t("status-migration-init");
-  progress.style.width = "0%";
-
-  let totalProcessed = 0;
-  let hasMore = true;
-  let attempts = 0;
-  const maxAttempts = 1000;
-
-  while (hasMore && attempts < maxAttempts) {
-    attempts++;
-    const result = await fetchAPI("/api/migration/tags/run-batch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ batchSize: 3 }),
+function bindShellEvents() {
+  document.getElementById("theme-toggle")?.addEventListener("click", toggleTheme);
+  document.getElementById("lang-toggle")?.addEventListener("click", toggleLanguage);
+  document.getElementById("modal-close")?.addEventListener("click", closeModal);
+  document.getElementById("nav-menu")?.addEventListener("click", toggleMobileNav);
+  document.querySelectorAll(".nav-link, .wordmark").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      const view = el.dataset.view;
+      if (view) switchView(view);
     });
-
-    if (!result.success) {
-      status.textContent = `${t("toast-migration-failed")}: ${result.error}`;
-      return;
-    }
-
-    totalProcessed = result.data.processed;
-    hasMore = result.data.hasMore;
-    const total = result.data.total;
-    const percent = total > 0 ? Math.round((totalProcessed / total) * 100) : 0;
-
-    progress.style.width = `${percent}%`;
-    status.textContent = t("status-migration-progress", { current: totalProcessed, total });
-    if (hasMore) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-  }
-
-  if (attempts >= maxAttempts) {
-    status.textContent = t("migration-stopped");
-    return;
-  }
-
-  progress.style.width = "100%";
-  status.textContent = t("toast-migration-success");
-  showToast(t("toast-migration-success"), "success");
-  setTimeout(() => {
-    document.getElementById("tag-migration-overlay").classList.add("hidden");
-    loadMemories();
-    loadStats();
-  }, 2000);
-}
-
-function showMigrationWarning(data) {
-  const section = document.getElementById("migration-section");
-  const message = document.getElementById("migration-message");
-  section.classList.remove("hidden");
-
-  const shardInfo =
-    data.shardMismatches.length > 0
-      ? t("migration-shards-mismatch", { count: data.shardMismatches.length })
-      : t("migration-dimension-mismatch");
-
-  message.textContent = t("migration-mismatch-details", {
-    configDimensions: data.configDimensions,
-    configModel: data.configModel,
-    shardInfo,
   });
-
-  safeCreateIcons();
 }
 
-function toggleMigrationButtons() {
-  const checkbox = document.getElementById("migration-confirm-checkbox");
-  const freshBtn = document.getElementById("migration-fresh-btn");
-  const reembedBtn = document.getElementById("migration-reembed-btn");
-
-  freshBtn.disabled = !checkbox.checked;
-  reembedBtn.disabled = !checkbox.checked;
+function toggleMobileNav() {
+  const nav = document.getElementById("nav-links");
+  const btn = document.getElementById("nav-menu");
+  const isOpen = nav.classList.toggle("open");
+  btn.setAttribute("aria-expanded", String(isOpen));
 }
 
-async function runMigration(strategy) {
-  const checkbox = document.getElementById("migration-confirm-checkbox");
+function switchView(view) {
+  state.view = view;
+  state.currentPage = 1;
+  state.searchCurrentPage = 1;
+  state.transcriptCurrentPage = 1;
+  state.selectedMemories.clear();
+  renderApp();
+  loadView(view);
+}
 
-  if (!checkbox.checked) {
-    showToast(t("toast-migration-failed"), "error");
-    return;
+function renderCurrentView() {
+  if (state.loading) {
+    return `<div class="loading-state" role="status"><p>${t("loading")}</p></div>`;
+  }
+  switch (state.view) {
+    case VIEWS.DASHBOARD:
+      return renderDashboard();
+    case VIEWS.MEMORIES:
+      return renderMemories();
+    case VIEWS.SEARCH:
+      return renderSearch();
+    case VIEWS.TIMELINE:
+      return renderTimeline();
+    case VIEWS.PROFILE:
+      return renderProfile();
+    case VIEWS.SETTINGS:
+      return renderSettings();
+    case VIEWS.MAINTENANCE:
+      return renderMaintenance();
+    case VIEWS.CONFLICTS:
+      return renderConflicts();
+    default:
+      return renderDashboard();
+  }
+}
+
+// ============================================================================
+// Views
+// ============================================================================
+
+function renderDashboard() {
+  const stats = state.stats || {};
+  const recent = state.memories.slice(0, 5);
+  const profile = state.userProfile || {};
+  const preferences = (profile.preferences || []).slice(0, 3);
+
+  return `
+    <section class="hero-tui" aria-label="OpenCode Terminal">
+      <div class="container">
+        <div class="tui-wordmark" role="img" aria-label="OpenCode">
+          ▗▄▄▖ ▗▄▄▖ ▗▄▄▄ ▗▄▄▖  ▗▄▄▖▗▄▄▄▖ ▗▄▄▖
+          ▐▌ ▐▌▐▌ ▐▌▐▌  █▐▌ ▐▌▐▌   ▐▌  ▐▌
+          ▐▌ ▐▌▐▛▀▚▖▐▌  █▐▛▀▚▖▐▌   ▐▛▀▀▘ ▝▀▚▖
+          ▝▚▄▞▘▐▌ ▐▌▐▙▄▄▀▐▌ ▐▌▝▚▄▄▖▐▙▄▄▖▗▄▄▞▘
+        </div>
+        <div class="tui-prompt-row" role="img" aria-label="TUI prompt">
+          <span>|</span>
+          <span style="color:var(--accent)">Build</span>
+          <span>Claude Opus 4.5</span>
+          <span style="color:var(--on-dark-mute)">OpenCode Memory</span>
+        </div>
+        <div class="tui-hints">
+          <span>tab switch agent</span>
+          <span>ctrl-p commands</span>
+          <span>esc close</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="dash-stats">
+      <div class="container">
+        ${sectionLabel(t("dash-stats"))}
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value">${stats.totalMemories ?? "—"}</div>
+            <div class="stat-label">${t("stat-total-memories")}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${stats.totalPrompts ?? "—"}</div>
+            <div class="stat-label">${t("stat-total-prompts")}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${(stats.totalTags ?? 0) + (stats.totalPromptTags ?? 0)}</div>
+            <div class="stat-label">${t("stat-total-tags")}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${stats.totalTranscripts ?? "—"}</div>
+            <div class="stat-label">${t("stat-total-transcripts")}</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="dash-recent">
+      <div class="container">
+        ${sectionLabel(t("dash-recent"))}
+        <div class="memory-list">
+          ${recent.length ? recent.map(memoryCard).join("") : `<div class="empty-state">${t("empty-memories")}</div>`}
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="dash-profile">
+      <div class="container">
+        ${sectionLabel(t("dash-profile"))}
+        <div class="card card-soft">
+          ${
+            preferences.length
+              ? preferences.map((p) => listRow("[+]", p.category, p.content)).join("")
+              : `<div class="empty-state">${t("empty-preferences")}</div>`
+          }
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderMemories() {
+  const list = state.memories.map(memoryCard).join("");
+  const bulkActions = state.selectedMemories.size
+    ? `
+        <div class="flex gap-sm mt-md">
+          <button class="btn btn-sm btn-danger" data-action="bulk-delete">
+            <i data-lucide="trash-2" class="icon-sm"></i> ${t("btn-bulk-delete")} (${state.selectedMemories.size})
+          </button>
+          <button class="btn btn-sm btn-secondary" data-action="deselect-all">${t("btn-deselect")}</button>
+        </div>
+      `
+    : "";
+
+  return `
+    <section class="section" aria-labelledby="memories-title">
+      <div class="container">
+        ${sectionLabel(t("memories-title"))}
+
+        <div class="controls-bar">
+          <div class="form-group">
+            <label for="tag-filter">${t("label-tag")}</label>
+            <select id="tag-filter" class="select">
+              <option value="">${t("opt-all-tags")}</option>
+              ${tagOptions(state.selectedTag)}
+            </select>
+          </div>
+          <button class="btn btn-primary" data-action="switch-search">${t("btn-search")}</button>
+          <button class="btn btn-secondary" data-action="add-memory">${t("btn-add-memory")}</button>
+        </div>
+
+        ${bulkActions}
+
+        <div class="memory-list">
+          ${list || `<div class="empty-state">${t("empty-memories")}</div>`}
+        </div>
+
+        ${pagination(state.currentPage, state.totalPages, "page-memories")}
+      </div>
+    </section>
+  `;
+}
+
+function renderSearch() {
+  const results = state.searchResults
+    .map((item) => {
+      const memory = item.memory || item;
+      const score = item.score
+        ? `<span class="tag-badge" style="color:var(--accent)">${Math.round(item.score * 100)}%</span>`
+        : "";
+      return memoryCard(memory).replace(
+        "</article>",
+        `<div class="memory-meta mt-md">${score} similarity</div></article>`
+      );
+    })
+    .join("");
+
+  return `
+    <section class="section" aria-labelledby="search-title">
+      <div class="container">
+        ${sectionLabel(t("search-title"))}
+
+        <div class="controls-bar">
+          <div class="form-group" style="flex:2 1 300px;">
+            <label for="semantic-query">${t("label-semantic-query")}</label>
+            <input id="semantic-query" class="input" type="text" placeholder="${t("placeholder-semantic")}" value="${escapeHtml(state.searchQuery)}">
+          </div>
+          <div class="form-group">
+            <label for="search-tag">${t("label-tag")}</label>
+            <select id="search-tag" class="select">
+              <option value="">${t("opt-all-tags")}</option>
+              ${tagOptions()}
+            </select>
+          </div>
+          <button class="btn btn-primary" data-action="semantic-search">${t("btn-search")}</button>
+        </div>
+
+        <div class="memory-list">
+          ${results || `<div class="empty-state">${state.searchQuery ? t("empty-search") : t("empty-search-prompt")}</div>`}
+        </div>
+
+        ${pagination(state.searchCurrentPage, state.searchTotalPages, "page-search")}
+      </div>
+    </section>
+  `;
+}
+
+function renderTimeline() {
+  const list = state.transcripts
+    .map(
+      (tx) => `
+        <div class="list-row">
+          <span class="list-marker">[-]</span>
+          <div class="w-full">
+            <div class="text-strong">${escapeHtml(formatDate(tx.createdAt))}</div>
+            <div class="text-body">${escapeHtml(tx.content?.substring(0, 200) || "")}${tx.content?.length > 200 ? "..." : ""}</div>
+          </div>
+        </div>
+      `
+    )
+    .join("");
+
+  return `
+    <section class="section" aria-labelledby="timeline-title">
+      <div class="container">
+        ${sectionLabel(t("timeline-title"))}
+        <div class="list-rows">
+          ${list || `<div class="empty-state">${t("empty-timeline")}</div>`}
+        </div>
+        ${pagination(state.transcriptCurrentPage, state.transcriptTotalPages, "page-timeline")}
+      </div>
+    </section>
+  `;
+}
+
+function renderProfile() {
+  const resp = state.userProfile;
+  if (!resp) {
+    return `<section class="section"><div class="container"><div class="empty-state">${t("loading")}</div></div></section>`;
+  }
+  if (resp.exists === false) {
+    return `<section class="section"><div class="container">${sectionLabel(t("profile-title"))}<div class="empty-state">${escapeHtml(resp.message || t("empty-preferences"))}</div></div></section>`;
+  }
+  const profile = resp.profileData || {};
+  const preferences = (profile.preferences || []).slice(0, 6);
+  const patterns = (profile.patterns || []).slice(0, 6);
+  const workflows = (profile.workflows || []).slice(0, 4);
+  return `
+    <section class="section" aria-labelledby="profile-title">
+      <div class="container">
+        ${sectionLabel(t("profile-title"))}
+
+        <div class="card" style="margin-bottom:var(--sp-lg);">
+          <div class="card-header">
+            <h3 class="card-title">${escapeHtml(resp.userId || t("profile-anonymous"))}</h3>
+            <button class="btn btn-sm btn-secondary" data-action="refresh-profile">${t("btn-refresh")}</button>
+          </div>
+          <div class="memory-meta">
+            <span>${t("profile-preferences")}: ${profile.preferences?.length ?? 0}</span>
+            <span>${t("profile-patterns")}: ${profile.patterns?.length ?? 0}</span>
+            <span>${t("profile-workflows")}: ${profile.workflows?.length ?? 0}</span>
+            ${resp.version ? `<span>v${escapeHtml(String(resp.version))}</span>` : ""}
+          </div>
+        </div>
+
+        <div class="card card-soft" style="margin-bottom:var(--sp-lg);">
+          <div class="card-header"><h3 class="card-title">${t("profile-preferences")}</h3></div>
+          ${
+            preferences.length
+              ? preferences.map((p) => listRow("[+]", p.category, p.content)).join("")
+              : `<div class="empty-state">${t("empty-preferences")}</div>`
+          }
+        </div>
+
+        <div class="card card-soft" style="margin-bottom:var(--sp-lg);">
+          <div class="card-header"><h3 class="card-title">${t("profile-patterns")}</h3></div>
+          ${
+            patterns.length
+              ? patterns.map((p) => listRow("[-]", p.category, p.description || p.content)).join("")
+              : `<div class="empty-state">${t("empty-patterns")}</div>`
+          }
+        </div>
+
+        <div class="card card-soft" style="margin-bottom:var(--sp-lg);">
+          <div class="card-header"><h3 class="card-title">${t("profile-workflows")}</h3></div>
+          ${
+            workflows.length
+              ? workflows
+                  .map((w) => listRow("[x]", w.name, `${w.steps?.length ?? 0} steps`))
+                  .join("")
+              : `<div class="empty-state">${t("empty-workflows")}</div>`
+          }
+        </div>
+
+        <div class="card card-soft">
+          <div class="card-header"><h3 class="card-title">${t("profile-changelog")}</h3></div>
+          ${
+            state.changelogs.length
+              ? state.changelogs
+                  .map(
+                    (c) => `
+                      <div class="list-row">
+                        <span class="list-marker">[+]</span>
+                        <div class="w-full">
+                          <div class="text-strong">${escapeHtml(c.version)} · ${escapeHtml(c.changeType)}</div>
+                          <div class="text-body">${escapeHtml(c.changeSummary || "")}</div>
+                          <div class="text-caption">${escapeHtml(formatDate(c.createdAt))}</div>
+                        </div>
+                      </div>
+                    `
+                  )
+                  .join("")
+              : `<div class="empty-state">${t("empty-changelog")}</div>`
+          }
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderSettings() {
+  const apiKey = localStorage.getItem(API_KEY_STORAGE_KEY) || "";
+  return `
+    <section class="section" aria-labelledby="settings-title">
+      <div class="container">
+        ${sectionLabel(t("settings-title"))}
+
+        <div class="card" style="max-width:640px;">
+          <div class="form-group" style="margin-bottom:var(--sp-md);">
+            <label for="settings-api-key">${t("label-api-key")}</label>
+            <input id="settings-api-key" class="input" type="password" value="${escapeHtml(apiKey)}" placeholder="${t("placeholder-api-key")}">
+          </div>
+          <div class="form-group" style="margin-bottom:var(--sp-md);">
+            <label for="settings-page-size">${t("label-page-size")}</label>
+            <input id="settings-page-size" class="input" type="number" min="5" max="100" value="${state.pageSize}">
+          </div>
+          <div class="modal-actions" style="padding-top:0;">
+            <button class="btn btn-primary" data-action="save-settings">${t("btn-save")}</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderMaintenance() {
+  const migration = state.migration;
+  return `
+    <section class="section" aria-labelledby="maintenance-title">
+      <div class="container">
+        ${sectionLabel(t("maintenance-title"))}
+
+        <div class="card" style="margin-bottom:var(--sp-lg);">
+          <div class="card-header"><h3 class="card-title">${t("maint-cleanup")}</h3></div>
+          <p class="text-body">${t("desc-cleanup")}</p>
+          <div class="mt-md">
+            <button class="btn btn-primary" data-action="run-cleanup">${t("btn-run-cleanup")}</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:var(--sp-lg);">
+          <div class="card-header"><h3 class="card-title">${t("maint-dedup")}</h3></div>
+          <p class="text-body">${t("desc-dedup")}</p>
+          <div class="mt-md">
+            <button class="btn btn-primary" data-action="run-dedup">${t("btn-run-dedup")}</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:var(--sp-lg);">
+          <div class="card-header"><h3 class="card-title">${t("maint-migration")}</h3></div>
+          <p class="text-body">${t("desc-migration")}</p>
+          <div class="mt-md">
+            <button class="btn btn-primary" data-action="run-migration">${t("btn-run-migration")}</button>
+            ${
+              migration.tagMigration > 0
+                ? `<button class="btn btn-secondary" data-action="run-tag-migration">${t("btn-run-tag-migration")} (${migration.tagMigration})</button>`
+                : ""
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderConflicts() {
+  const stats = state.conflictStats || {};
+  const list = state.conflicts
+    .map(
+      (conflict) => `
+        <div class="card" style="margin-bottom:var(--sp-md);">
+          <div class="card-header">
+            <h3 class="card-title">${escapeHtml(String(conflict.id || "").slice(0, 12))}</h3>
+            <span class="tag-badge" style="color:var(--danger)">${t("conflict-unresolved")}</span>
+          </div>
+          <div class="memory-meta">
+            <span>${formatDate(conflict.createdAt)}</span>
+            <span>${escapeHtml(conflict.type || "unknown")}</span>
+          </div>
+          <div class="mt-md flex gap-sm">
+            <button class="btn btn-sm btn-primary" data-action="resolve-conflict" data-id="${escapeHtml(conflict.id)}" data-strategy="keep-newer">${t("btn-keep-newer")}</button>
+            <button class="btn btn-sm btn-secondary" data-action="resolve-conflict" data-id="${escapeHtml(conflict.id)}" data-strategy="keep-older">${t("btn-keep-older")}</button>
+            <button class="btn btn-sm btn-danger" data-action="resolve-conflict" data-id="${escapeHtml(conflict.id)}" data-strategy="merge">${t("btn-merge")}</button>
+          </div>
+        </div>
+      `
+    )
+    .join("");
+
+  return `
+    <section class="section" aria-labelledby="conflicts-title">
+      <div class="container">
+        ${sectionLabel(t("conflicts-title"))}
+
+        <div class="stats-grid" style="margin-bottom:var(--sp-lg);">
+          <div class="stat-card">
+            <div class="stat-value">${stats.unresolved ?? "—"}</div>
+            <div class="stat-label">${t("stat-unresolved")}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${stats.total ?? "—"}</div>
+            <div class="stat-label">${t("stat-total-conflicts")}</div>
+          </div>
+        </div>
+
+        <div>
+          ${list || `<div class="empty-state">${t("empty-conflicts")}</div>`}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+// ============================================================================
+// Data loading
+// ============================================================================
+
+async function loadView(view) {
+  state.loading = true;
+  renderApp();
+
+  switch (view) {
+    case VIEWS.DASHBOARD:
+      await Promise.all([loadStats(), loadTags(), loadMemories(1), loadUserProfile()]);
+      break;
+    case VIEWS.MEMORIES:
+      await Promise.all([loadTags(), loadMemories(state.currentPage)]);
+      break;
+    case VIEWS.SEARCH:
+      await loadTags();
+      if (state.searchQuery) await performSemanticSearch();
+      break;
+    case VIEWS.TIMELINE:
+      await loadTranscripts();
+      break;
+    case VIEWS.PROFILE:
+      await loadUserProfile();
+      await loadChangelog();
+      break;
+    case VIEWS.MAINTENANCE:
+      await checkMigrationStatus();
+      break;
+    case VIEWS.CONFLICTS:
+      await loadConflicts();
+      break;
+    case VIEWS.SETTINGS:
+      break;
   }
 
-  const strategyName =
-    strategy === "fresh-start" ? "Fresh Start (Delete All)" : "Re-embed (Preserve Data)";
+  state.loading = false;
+  renderApp();
+}
 
-  const migrationConfirmMessage = `Run ${strategyName} migration?\n\nThis operation is IRREVERSIBLE and will:\n${strategy === "fresh-start" ? "- DELETE all existing memories\n- Remove all shards" : "- Re-embed all memories with new model\n- This may take several minutes"}\n\nContinue?`;
-  if (!(await showConfirm(migrationConfirmMessage))) {
-    return;
-  }
-
-  showToast(t("status-migration-init"), "info");
-  const result = await fetchAPI("/api/migration/run", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ strategy }),
-  });
-
+async function loadStats() {
+  const result = await fetchAPI("/api/stats");
   if (result.success) {
-    const data = result.data;
-    const duration = (data.duration / 1000).toFixed(2);
-    const message =
-      strategy === "fresh-start"
-        ? `Deleted ${data.deletedShards} shard(s). Duration: ${duration}s`
-        : `Re-embedded ${data.reEmbeddedMemories} memories. Duration: ${duration}s`;
+    state.stats = result.data;
+  }
+}
 
-    showToast(`${t("toast-migration-success")} ${message}`, "success");
-    document.getElementById("migration-section").classList.add("hidden");
-    document.getElementById("migration-confirm-checkbox").checked = false;
+async function loadTags() {
+  const result = await fetchAPI("/api/tags");
+  if (result.success) {
+    state.tags = result.data || { project: [] };
+  }
+}
 
-    await loadMemories();
-    await loadStats();
-  } else {
-    showToast(result.error || t("toast-migration-failed"), "error");
+async function loadMemories(page = 1) {
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+  params.set("pageSize", String(state.pageSize));
+  if (state.selectedTag) params.set("tag", state.selectedTag);
+
+  const result = await fetchAPI(`/api/memories?${params.toString()}`);
+  if (result.success) {
+    state.memories = result.data?.items || [];
+    state.totalMemories = result.data?.total || 0;
+    state.totalPages = result.data?.totalPages || 1;
+    state.currentPage = result.data?.page || 1;
   }
 }
 
@@ -1031,756 +930,464 @@ async function loadUserProfile() {
   const result = await fetchAPI("/api/user-profile");
   if (result.success) {
     state.userProfile = result.data;
-    renderUserProfile();
-  } else {
-    showError(result.error || t("toast-update-failed"));
-  }
-}
-
-function generateRadarChartSVG(data, size = 360) {
-  if (!data || data.length < 3)
-    return `<div class="empty-state">Not enough data for chart (need at least 3 dimensions)</div>`;
-
-  const center = size / 2;
-  const radius = (size / 2) * 0.65;
-  const numAxes = data.length;
-  const angleStep = (Math.PI * 2) / numAxes;
-  // Generous padding so multi-word axis labels don't get clipped
-  const pad = 70;
-  const vb = size + pad * 2;
-
-  // Normalize confidence to 0-1. The extraction prompt asks for 0.5-1.0, but
-  // some LLMs emit 0-100; treat anything >1 as a percentage so the chart
-  // reflects real differences instead of clamping everything to the rim.
-  const norm = (v) => {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return 0;
-    return n > 1 ? Math.max(0, Math.min(1, n / 100)) : Math.max(0, Math.min(1, n));
-  };
-
-  // Truncate long labels so they fit in the padding area
-  const truncLabel = (label) => {
-    const s = String(label || "");
-    return s.length > 18 ? s.substring(0, 17) + "\u2026" : s;
-  };
-
-  // Calculate points for polygon
-  const polygonPoints = data
-    .map((d, i) => {
-      const angle = i * angleStep - Math.PI / 2;
-      const value = norm(d.value);
-      const x = center + radius * value * Math.cos(angle);
-      const y = center + radius * value * Math.sin(angle);
-      return `${x},${y}`;
-    })
-    .join(" ");
-
-  // Generate grid levels
-  const levels = [0.2, 0.4, 0.6, 0.8, 1.0];
-  const gridHTML = levels
-    .map((level) => {
-      const points = data
-        .map((_, i) => {
-          const angle = i * angleStep - Math.PI / 2;
-          const x = center + radius * level * Math.cos(angle);
-          const y = center + radius * level * Math.sin(angle);
-          return `${x},${y}`;
-        })
-        .join(" ");
-      return `<polygon points="${points}" fill="none" stroke="var(--ash)" stroke-dasharray="3,3" stroke-width="0.5" />`;
-    })
-    .join("");
-
-  // Generate axes and labels
-  const axesHTML = data
-    .map((d, i) => {
-      const angle = i * angleStep - Math.PI / 2;
-      const x2 = center + radius * Math.cos(angle);
-      const y2 = center + radius * Math.sin(angle);
-
-      // Label position outside the chart
-      const lx = center + (radius + 20) * Math.cos(angle);
-      const ly = center + (radius + 20) * Math.sin(angle) + 4;
-
-      const textAnchor = lx > center + 10 ? "start" : lx < center - 10 ? "end" : "middle";
-
-      return `
-      <line x1="${center}" y1="${center}" x2="${x2}" y2="${y2}" stroke="var(--hairline-strong)" stroke-width="0.5" />
-      <text x="${lx}" y="${ly}" text-anchor="${textAnchor}" alignment-baseline="middle" font-size="11" fill="var(--mute)" font-family="var(--font-mono)">${escapeHtml(truncLabel(d.label))}</text>
-    `;
-    })
-    .join("");
-
-  return `
-    <svg width="${vb}" height="${vb}" viewBox="0 0 ${vb} ${vb}" style="max-width: 100%; height: auto;">
-      <g transform="translate(${pad},${pad})">
-        ${gridHTML}
-        ${axesHTML}
-        <polygon points="${polygonPoints}" fill="var(--accent)" fill-opacity="0.15" stroke="var(--accent)" stroke-width="2" />
-        ${data
-          .map((d, i) => {
-            const angle = i * angleStep - Math.PI / 2;
-            const value = norm(d.value);
-            const x = center + radius * value * Math.cos(angle);
-            const y = center + radius * value * Math.sin(angle);
-            return `<circle cx="${x}" cy="${y}" r="3.5" fill="var(--accent)" />`;
-          })
-          .join("")}
-      </g>
-    </svg>
-  `;
-}
-
-function renderUserProfile() {
-  const container = document.getElementById("profile-content");
-  const profile = state.userProfile;
-
-  if (!profile?.exists) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <i data-lucide="user-x" class="icon-large"></i>
-        <p>${escapeHtml(profile ? profile.message : "No profile data available")}</p>
-      </div>
-    `;
-    safeCreateIcons();
-    return;
-  }
-
-  let data = profile.profileData;
-  if (typeof data === "string") {
-    try {
-      data = JSON.parse(data);
-    } catch (e) {
-      console.error("Failed to parse profileData string", e);
-    }
-  }
-
-  const parseField = (field) => {
-    if (!field) return [];
-    let result = field;
-    let lastResult = null;
-    while (typeof result === "string" && result !== lastResult) {
-      lastResult = result;
-      try {
-        result = JSON.parse(typeof jsonrepair === "function" ? jsonrepair(result) : result);
-      } catch {
-        break;
-      }
-    }
-    if (!Array.isArray(result)) return [];
-    const flattened = [];
-    const walk = (item) => {
-      if (Array.isArray(item)) item.forEach(walk);
-      else if (item && typeof item === "object") flattened.push(item);
-    };
-    walk(result);
-    return flattened;
-  };
-
-  const preferences = parseField(data.preferences);
-  const patterns = parseField(data.patterns);
-  const workflows = parseField(data.workflows);
-
-  let preferencesHtml;
-  if (preferences.length === 0) {
-    preferencesHtml = `<p class="empty-text">${t("empty-preferences")}</p>`;
-  } else {
-    preferencesHtml = `
-          <div class="cards-grid">
-            ${preferences
-              .toSorted((a, b) => (b.confidence || 0) - (a.confidence || 0))
-              .map(
-                (p) => `
-              <div class="compact-card preference-card">
-                <div class="card-top">
-                  <span class="category-tag">${escapeHtml(p.category || "General")}</span>
-                  <div class="confidence-ring" style="--p:${Math.round((p.confidence || 0) * 100)}">
-                    <span>${Math.round((p.confidence || 0) * 100)}%</span>
-                  </div>
-                </div>
-                <div class="card-body">
-                  <p class="card-text">${escapeHtml(p.description || "")}</p>
-                </div>
-                ${
-                  p.evidence && p.evidence.length > 0
-                    ? `
-                <div class="card-footer">
-                  <span class="evidence-toggle" title="${escapeHtml(Array.isArray(p.evidence) ? p.evidence.join("\n") : p.evidence)}">
-                    <i data-lucide="info" class="icon-xs"></i> ${Array.isArray(p.evidence) ? p.evidence.length : 1} evidence
-                  </span>
-                </div>`
-                    : ""
-                }
-              </div>
-            `
-              )
-              .join("")}
-          </div>
-        `;
-  }
-
-  let patternsHtml;
-  if (patterns.length === 0) {
-    patternsHtml = `<p class="empty-text">${t("empty-patterns")}</p>`;
-  } else {
-    patternsHtml = `
-          <div class="cards-grid">
-            ${patterns
-              .map(
-                (p) => `
-              <div class="compact-card pattern-card">
-                <div class="card-top">
-                  <span class="category-tag">${escapeHtml(p.category || "General")}</span>
-                </div>
-                <div class="card-body">
-                  <p class="card-text">${escapeHtml(p.description || "")}</p>
-                </div>
-              </div>
-            `
-              )
-              .join("")}
-          </div>
-        `;
-  }
-
-  let workflowsHtml;
-  if (workflows.length === 0) {
-    workflowsHtml = `<p class="empty-text">${t("empty-workflows")}</p>`;
-  } else {
-    workflowsHtml = `
-          <div class="workflows-grid">
-            ${workflows
-              .map(
-                (w) => `
-              <div class="workflow-row">
-                <div class="workflow-title">${escapeHtml(w.description || "")}</div>
-                <div class="workflow-steps-horizontal">
-                  ${(w.steps || [])
-                    .map(
-                      (step, i) => `
-                    <div class="step-node">
-                      <span class="step-idx">${i + 1}</span>
-                      <span class="step-content">${escapeHtml(step)}</span>
-                    </div>
-                    ${i < (w.steps || []).length - 1 ? '<i data-lucide="arrow-right" class="step-arrow"></i>' : ""}
-                  `
-                    )
-                    .join("")}
-                </div>
-              </div>
-            `
-              )
-              .join("")}
-          </div>
-        `;
-  }
-
-  container.innerHTML = `
-    <div class="profile-header">
-      <div class="profile-info">
-        <h3>${escapeHtml(profile.displayName || profile.userId)}</h3>
-        <div class="profile-stats">
-          <div class="stat-pill">
-            <span class="label">${t("profile-version")}</span>
-            <span class="value">${escapeHtml(String(profile.version))}</span>
-          </div>
-          <div class="stat-pill">
-            <span class="label">${t("profile-prompts")}</span>
-            <span class="value">${escapeHtml(String(profile.totalPromptsAnalyzed))}</span>
-          </div>
-          <div class="stat-pill">
-            <span class="label">${t("profile-updated")}</span>
-            <span class="value">${formatDate(profile.lastAnalyzedAt)}</span>
-          </div>
-        </div>
-      </div>
-      <button id="view-changelog-btn" class="btn-secondary compact">
-        <i data-lucide="history" class="icon"></i> History
-      </button>
-    </div>
-
-    <div class="dashboard-grid">
-      <div class="dashboard-section radar-chart-section">
-        <h4><i data-lucide="pie-chart" class="icon"></i> Behavioral Dimensions</h4>
-        <p class="radar-chart-desc">Preference categories extracted from your coding sessions, scored by AI confidence (0&ndash;100%). Higher = more consistent preference.</p>
-        <div class="radar-chart-container" style="display: flex; justify-content: center; padding: 20px 0; overflow: hidden;">
-          ${preferences.length >= 3 ? generateRadarChartSVG(preferences.map((p) => ({ label: p.category, value: p.confidence }))) : '<div class="empty-state">Not enough preference categories to chart</div>'}
-        </div>
-      </div>
-
-      <div class="dashboard-section preferences-section">
-        <h4><i data-lucide="heart" class="icon"></i> ${t("profile-preferences")} <span class="count">${preferences.length}</span></h4>
-        ${preferencesHtml}
-      </div>
-
-      <div class="dashboard-section patterns-section">
-        <h4><i data-lucide="activity" class="icon"></i> ${t("profile-patterns")} <span class="count">${patterns.length}</span></h4>
-        ${patternsHtml}
-      </div>
-
-      <div class="dashboard-section workflows-section full-width">
-        <h4><i data-lucide="workflow" class="icon"></i> ${t("profile-workflows")} <span class="count">${workflows.length}</span></h4>
-        ${workflowsHtml}
-      </div>
-    </div>
-  `;
-
-  document.getElementById("view-changelog-btn")?.addEventListener("click", showChangelog);
-  safeCreateIcons();
-}
-
-async function showChangelog() {
-  const modal = document.getElementById("changelog-modal");
-  const list = document.getElementById("changelog-list");
-
-  modal.classList.remove("hidden");
-  list.innerHTML = `<div class="loading">${t("loading-changelog")}</div>`;
-  const result = await fetchAPI(
-    `/api/user-profile/changelog?profileId=${state.userProfile.id}&limit=10`
-  );
-
-  if (result.success && result.data.length > 0) {
-    list.innerHTML = result.data
-      .map(
-        (c) => `
-      <div class="changelog-item">
-        <div class="changelog-header">
-          <span class="changelog-version">v${escapeHtml(String(c.version))}</span>
-          <span class="changelog-type">${escapeHtml(c.changeType)}</span>
-          <span class="changelog-date">${escapeHtml(formatDate(c.createdAt))}</span>
-        </div>
-        <p class="changelog-summary">${escapeHtml(c.changeSummary)}</p>
-      </div>
-    `
-      )
-      .join("");
-  } else {
-    list.innerHTML = `<div class="empty-state">${t("empty-changelog")}</div>`;
-  }
-}
-
-async function refreshProfile() {
-  showToast(t("loading-profile"), "info");
-  const result = await fetchAPI("/api/user-profile/refresh", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-  });
-
-  if (result.success) {
-    showToast(result.data.message, "success");
-    await loadUserProfile();
-  } else {
-    showToast(result.error || t("toast-update-failed"), "error");
-  }
-}
-
-function switchView(view) {
-  state.currentView = view;
-
-  document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.remove("active"));
-
-  const sections = ["project", "conflicts", "profile", "timeline"];
-  sections.forEach((sec) => {
-    const el = document.getElementById(`${sec}-section`);
-    if (el) {
-      if (sec === view) el.classList.remove("hidden");
-      else el.classList.add("hidden");
-    }
-  });
-
-  const controls = document.querySelector(".controls");
-  const addSection = document.querySelector(".add-section");
-
-  if (view === "project") {
-    document.getElementById("tab-project").classList.add("active");
-    if (controls) controls.classList.remove("hidden");
-    if (addSection) addSection.classList.remove("hidden");
-  } else {
-    if (controls) controls.classList.add("hidden");
-    if (addSection) addSection.classList.add("hidden");
-  }
-
-  if (view === "conflicts") {
-    document.getElementById("tab-conflicts").classList.add("active");
-    loadConflicts();
-  } else if (view === "profile") {
-    document.getElementById("tab-profile").classList.add("active");
-    loadUserProfile();
-  } else if (view === "timeline") {
-    document.getElementById("tab-timeline").classList.add("active");
-    loadTimeline();
   }
 }
 
 async function loadConflicts() {
-  const list = document.getElementById("conflicts-list");
-  list.innerHTML = '<div class="loading">Loading conflicts...</div>';
-
-  const result = await fetchAPI("/api/conflicts");
-  const statsResult = await fetchAPI("/api/conflicts/stats");
-
+  const [listResult, statsResult] = await Promise.all([
+    fetchAPI("/api/conflicts?resolved=false&limit=100"),
+    fetchAPI("/api/conflicts/stats"),
+  ]);
+  if (listResult.success) {
+    state.conflicts = listResult.data || [];
+  }
   if (statsResult.success) {
-    const stats = document.getElementById("conflicts-stats");
-    stats.innerHTML = `
-      <div class="conflict-stat-pill">
-        <span class="label">Unresolved:</span>
-        <span class="value ${statsResult.data.unresolved > 0 ? "warning" : ""}">${escapeHtml(String(statsResult.data.unresolved))}</span>
-      </div>
-      <div class="conflict-stat-pill">
-        <span class="label">Resolved:</span>
-        <span class="value">${escapeHtml(String(statsResult.data.resolved))}</span>
-      </div>
-    `;
-    // Update badge
-    const badge = document.getElementById("conflict-badge");
-    if (statsResult.data.unresolved > 0) {
-      badge.textContent = String(statsResult.data.unresolved);
-      badge.classList.remove("hidden");
-    } else {
-      badge.classList.add("hidden");
-    }
-  }
-
-  if (result.success) {
-    state.conflicts = result.data;
-    renderConflicts();
-  } else {
-    list.innerHTML = `<div class="error-state">Error: ${escapeHtml(result.error || "Failed to load conflicts")}</div>`;
+    state.conflictStats = statsResult.data;
   }
 }
 
-function renderConflicts() {
-  const container = document.getElementById("conflicts-list");
+async function loadTranscripts() {
+  const params = new URLSearchParams();
+  params.set("page", String(state.transcriptCurrentPage));
+  params.set("pageSize", String(state.pageSize));
+  const result = await fetchAPI(`/api/transcripts?${params.toString()}`);
+  if (result.success) {
+    state.transcripts = result.data?.transcripts || [];
+    state.transcriptTotalPages = result.data?.totalPages || 1;
+    state.transcriptCurrentPage = result.data?.page || 1;
+  }
+}
 
-  if (state.conflicts.length === 0) {
-    container.innerHTML = '<div class="empty-state">No unresolved conflicts found. Great!</div>';
+async function loadChangelog() {
+  const profile = state.userProfile;
+  if (!profile || profile.exists === false || !profile.id) {
+    state.changelogs = [];
     return;
   }
-
-  container.innerHTML = state.conflicts
-    .map(
-      (c) => `
-    <div class="conflict-card" data-id="${c.id}">
-      <div class="conflict-header">
-        <span class="badge badge-conflict"><i data-lucide="alert-triangle" class="icon-sm"></i> CONFLICT</span>
-        <span class="similarity-score">${Math.round(c.similarityScore * 100)}% similarity</span>
-        <span class="conflict-date">${formatDate(c.detectedAt)}</span>
-      </div>
-      <div class="conflict-memories">
-        <div class="conflict-memory">
-          <div class="conflict-label">Memory A</div>
-          <div class="conflict-content">${escapeHtml(c.memory1Content || "N/A")}</div>
-        </div>
-        <div class="conflict-divider">
-          <i data-lucide="arrow-right-left" class="icon"></i>
-        </div>
-        <div class="conflict-memory">
-          <div class="conflict-label">Memory B</div>
-          <div class="conflict-content">${escapeHtml(c.memory2Content || "N/A")}</div>
-        </div>
-      </div>
-      <div class="conflict-actions">
-        <button class="btn-resolve" onclick="resolveConflictAction('${escapeJsString(c.id)}', 'keep_newer')">
-          <i data-lucide="check" class="icon"></i> Keep Newer
-        </button>
-        <button class="btn-resolve" onclick="resolveConflictAction('${escapeJsString(c.id)}', 'keep_both')">
-          <i data-lucide="git-merge" class="icon"></i> Keep Both
-        </button>
-        <button class="btn-resolve" onclick="showMergeModal('${escapeJsString(c.id)}')">
-          <i data-lucide="combine" class="icon"></i> Merge
-        </button>
-        <button class="btn-resolve btn-manual" onclick="resolveConflictAction('${escapeJsString(c.id)}', 'manual')">
-          <i data-lucide="flag" class="icon"></i> Flag for Review
-        </button>
-      </div>
-    </div>
-  `
-    )
-    .join("");
-
-  safeCreateIcons();
-}
-
-// skipcq: JS-0128 — Used in HTML template literal: onclick="resolveConflictAction(...)"
-async function resolveConflictAction(conflictId, strategy) {
-  if (strategy === "merge") return;
-
-  const result = await fetchAPI(`/api/conflicts/${conflictId}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ strategy }),
-  });
-
+  const params = new URLSearchParams();
+  params.set("profileId", String(profile.id));
+  params.set("limit", "10");
+  const result = await fetchAPI(`/api/user-profile/changelog?${params.toString()}`);
   if (result.success) {
-    showToast("Conflict resolved", "success");
-    await loadConflicts();
-    await loadStats();
-  } else {
-    showToast(result.error || "Failed to resolve conflict", "error");
+    state.changelogs = result.data || [];
   }
 }
 
-// skipcq: JS-0128 — Used in HTML template literal: onclick="showMergeModal(...)"
-function showMergeModal(conflictId) {
-  const conflict = state.conflicts.find((c) => c.id === conflictId);
-  if (!conflict) return;
-
-  const modal = document.getElementById("merge-modal");
-  document.getElementById("merge-conflict-id").value = conflictId;
-  document.getElementById("merge-content").value =
-    `${conflict.memory1Content}\n\n---\n\n${conflict.memory2Content}`;
-  modal.classList.remove("hidden");
+async function checkMigrationStatus() {
+  const [detect, tagDetect] = await Promise.all([
+    fetchAPI("/api/migration/detect"),
+    fetchAPI("/api/migration/tags/detect"),
+  ]);
+  state.migration = {
+    detected: detect.success ? detect.data?.count || 0 : 0,
+    tagMigration: tagDetect.success ? tagDetect.data?.count || 0 : 0,
+  };
 }
 
-function closeMergeModal() {
-  document.getElementById("merge-modal").classList.add("hidden");
+// ============================================================================
+// Actions
+// ============================================================================
+
+async function addMemory() {
+  openModal(
+    t("modal-add-memory"),
+    `
+      <div class="form-group">
+        <label for="add-content">${t("label-content")}</label>
+        <textarea id="add-content" class="textarea" rows="6" placeholder="${t("placeholder-content")}"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="add-tag">${t("label-tag")}</label>
+        <select id="add-tag" class="select"><option value="">${t("opt-none")}</option>${tagOptions()}</select>
+      </div>
+    `,
+    `
+      <div class="modal-actions">
+        <button class="btn btn-secondary" data-action="close-modal">${t("btn-cancel")}</button>
+        <button class="btn btn-primary" data-action="submit-add">${t("btn-save")}</button>
+      </div>
+    `
+  );
 }
 
-async function submitMerge(e) {
-  e.preventDefault();
-  const conflictId = document.getElementById("merge-conflict-id").value;
-  const mergedContent = document.getElementById("merge-content").value.trim();
-
-  if (!mergedContent) {
-    showToast("Merged content is required", "error");
+async function submitAddMemory() {
+  const content = document.getElementById("add-content").value.trim();
+  const tag = document.getElementById("add-tag").value;
+  if (!content) {
+    showError(t("error-content-required"));
     return;
   }
-
-  const result = await fetchAPI(`/api/conflicts/${conflictId}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ strategy: "merge", mergedContent }),
-  });
-
+  const body = { content, tags: tag ? [tag] : [] };
+  const result = await fetchAPI("/api/memories", { method: "POST", body: JSON.stringify(body) });
   if (result.success) {
-    showToast("Conflicts merged successfully", "success");
-    closeMergeModal();
-    await loadConflicts();
-    await loadStats();
+    closeModal();
+    showToast(t("toast-memory-added"));
+    switchView(VIEWS.MEMORIES);
   } else {
-    showToast(result.error || "Failed to merge conflicts", "error");
+    showError(result.error || t("error-save-failed"));
   }
 }
 
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
+function editMemory(id) {
+  const memory = state.memories.find((m) => m.id === id);
+  if (!memory) return;
+  const tags = Array.isArray(memory.tags) ? memory.tags : [];
+  const tag = tags[0] || "";
+  openModal(
+    t("modal-edit-memory"),
+    `
+      <div class="form-group">
+        <label for="edit-content">${t("label-content")}</label>
+        <textarea id="edit-content" class="textarea" rows="8">${escapeHtml(memory.content)}</textarea>
+      </div>
+      <div class="form-group">
+        <label for="edit-tag">${t("label-tag")}</label>
+        <select id="edit-tag" class="select"><option value="">${t("opt-none")}</option>${tagOptions(tag)}</select>
+      </div>
+    `,
+    `
+      <div class="modal-actions">
+        <button class="btn btn-secondary" data-action="close-modal">${t("btn-cancel")}</button>
+        <button class="btn btn-primary" data-action="submit-edit" data-id="${escapeHtml(id)}">${t("btn-save")}</button>
+      </div>
+    `
+  );
 }
 
-function escapeJsString(str) {
-  return str.replace(/[\\'"]/g, "\\$&");
-}
-
-async function loadTimeline() {
-  const container = document.getElementById("timeline-content");
-  if (!container) return;
-  container.innerHTML = '<div class="loading">Loading timeline...</div>';
-
-  try {
-    const result = await fetchAPI("/api/memories?page=1&pageSize=100&includePrompts=false");
-    if (result.success) {
-      const items = result.data.items;
-      if (items.length === 0) {
-        container.innerHTML = '<div class="empty-state">No timeline events found.</div>';
-        return;
-      }
-
-      // Group by day
-      const groups = {};
-      items.forEach((item) => {
-        const date = new Date(item.createdAt || item.timestamp);
-        const day = date.toLocaleDateString();
-        if (!groups[day]) groups[day] = [];
-        groups[day].push(item);
-      });
-
-      let html = '<div class="timeline-container">';
-      Object.keys(groups)
-        .sort((a, b) => new Date(b) - new Date(a))
-        .forEach((day) => {
-          html += `<div class="timeline-day">
-          <h3 class="timeline-date">${escapeHtml(day)}</h3>
-          <div class="timeline-events">`;
-          groups[day].forEach((item) => {
-            html += `
-            <div class="timeline-event">
-              <div class="timeline-time">${new Date(item.createdAt || item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
-              <div class="timeline-marker"></div>
-              <div class="timeline-detail">
-                <span class="badge badge-${item.type || "other"}">${escapeHtml(item.type || "other")}</span>
-                <div class="markdown-content">${renderMarkdown(item.content)}</div>
-              </div>
-            </div>
-          `;
-          });
-          html += "</div></div>";
-        });
-      html += "</div>";
-
-      container.innerHTML = html;
-    } else {
-      container.innerHTML = `<div class="error-state">Error: ${escapeHtml(result.error || "Failed to load timeline")}</div>`;
-    }
-  } catch (error) {
-    container.innerHTML = `<div class="error-state">Error: ${escapeHtml(String(error))}</div>`;
+async function submitEditMemory(id) {
+  const content = document.getElementById("edit-content").value.trim();
+  const tag = document.getElementById("edit-tag").value;
+  if (!content) {
+    showError(t("error-content-required"));
+    return;
   }
-}
-
-document.addEventListener("DOMContentLoaded", async () => {
-  initTheme();
-  document.getElementById("theme-toggle")?.addEventListener("click", toggleTheme);
-  document.getElementById("tab-project").addEventListener("click", () => switchView("project"));
-  document.getElementById("tab-conflicts").addEventListener("click", () => switchView("conflicts"));
-  document.getElementById("tab-profile").addEventListener("click", () => switchView("profile"));
-  document.getElementById("tab-timeline")?.addEventListener("click", () => switchView("timeline"));
-  document.getElementById("refresh-profile-btn")?.addEventListener("click", refreshProfile);
-  document.getElementById("refresh-conflicts-btn")?.addEventListener("click", loadConflicts);
-  document.getElementById("changelog-close")?.addEventListener("click", () => {
-    document.getElementById("changelog-modal").classList.add("hidden");
+  const body = { content, tags: tag ? [tag] : [] };
+  const result = await fetchAPI(`/api/memories/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
   });
+  if (result.success) {
+    closeModal();
+    showToast(t("toast-memory-updated"));
+    loadView(state.view);
+  } else {
+    showError(result.error || t("error-save-failed"));
+  }
+}
 
-  document.getElementById("edit-profile-btn")?.addEventListener("click", () => {
-    if (!state.userProfile || !state.userProfile.profileData) return;
-    document.getElementById("edit-profile-modal").classList.remove("hidden");
-    document.getElementById("edit-profile-content").value = JSON.stringify(
-      state.userProfile.profileData,
-      null,
-      2
+async function deleteMemory(id) {
+  if (!confirm(t("confirm-delete-memory"))) return;
+  const result = await fetchAPI(`/api/memories/${id}`, { method: "DELETE" });
+  if (result.success) {
+    showToast(t("toast-memory-deleted"));
+    loadView(state.view);
+  } else {
+    showError(result.error || t("error-delete-failed"));
+  }
+}
+
+async function bulkDeleteMemories() {
+  const ids = Array.from(state.selectedMemories);
+  if (!ids.length) return;
+  if (!confirm(t("confirm-bulk-delete", { count: ids.length }))) return;
+  const result = await fetchAPI("/api/memories/bulk-delete", {
+    method: "POST",
+    body: JSON.stringify({ ids, cascade: true }),
+  });
+  if (result.success) {
+    state.selectedMemories.clear();
+    showToast(t("toast-bulk-deleted"));
+    loadView(state.view);
+  } else {
+    showError(result.error || t("error-delete-failed"));
+  }
+}
+
+async function togglePin(id, isPinned) {
+  const endpoint = isPinned ? `/api/memories/${id}/unpin` : `/api/memories/${id}/pin`;
+  const result = await fetchAPI(endpoint, { method: "POST" });
+  if (result.success) {
+    showToast(isPinned ? t("toast-unpinned") : t("toast-pinned"));
+    loadView(state.view);
+  } else {
+    showError(result.error || t("error-action-failed"));
+  }
+}
+
+async function performSemanticSearch() {
+  const query = document.getElementById("semantic-query").value.trim();
+  const tag = document.getElementById("search-tag")?.value || "";
+  if (!query) {
+    state.searchResults = [];
+    renderApp();
+    return;
+  }
+  state.searchQuery = query;
+  const params = new URLSearchParams();
+  params.set("q", query);
+  if (tag) params.set("tag", tag);
+  params.set("page", String(state.searchCurrentPage));
+  params.set("pageSize", String(state.pageSize));
+  const result = await fetchAPI(`/api/search?${params.toString()}`);
+  if (result.success) {
+    state.searchResults = result.data?.items || [];
+    state.searchTotalPages = result.data?.totalPages || 1;
+  } else {
+    state.searchResults = [];
+    showError(result.error || t("error-search-failed"));
+  }
+  renderApp();
+}
+
+async function changePage(delta, handler) {
+  if (handler === "page-memories") {
+    state.currentPage = Math.max(1, Math.min(state.totalPages, state.currentPage + delta));
+    await loadMemories(state.currentPage);
+  } else if (handler === "page-search") {
+    state.searchCurrentPage = Math.max(
+      1,
+      Math.min(state.searchTotalPages, state.searchCurrentPage + delta)
     );
+    await performSemanticSearch();
+  } else if (handler === "page-timeline") {
+    state.transcriptCurrentPage = Math.max(
+      1,
+      Math.min(state.transcriptTotalPages, state.transcriptCurrentPage + delta)
+    );
+    await loadTranscripts();
+  }
+  renderApp();
+}
+
+async function runCleanup() {
+  if (!confirm(t("confirm-cleanup"))) return;
+  const result = await fetchAPI("/api/cleanup", { method: "POST" });
+  if (result.success) {
+    showToast(t("toast-cleanup-done", result.data || {}));
+  } else {
+    showError(result.error || t("error-action-failed"));
+  }
+}
+
+async function runDeduplication() {
+  if (!confirm(t("confirm-dedup"))) return;
+  const result = await fetchAPI("/api/deduplicate", { method: "POST" });
+  if (result.success) {
+    showToast(t("toast-dedup-done", result.data || {}));
+  } else {
+    showError(result.error || t("error-action-failed"));
+  }
+}
+
+async function runMigration() {
+  if (!confirm(t("confirm-migration"))) return;
+  const result = await fetchAPI("/api/migration/run", {
+    method: "POST",
+    body: JSON.stringify({ strategy: "fresh-start" }),
   });
+  if (result.success) {
+    showToast(t("toast-migration-done"));
+    await checkMigrationStatus();
+    renderApp();
+  } else {
+    showError(result.error || t("error-action-failed"));
+  }
+}
 
-  document.getElementById("edit-profile-close")?.addEventListener("click", () => {
-    document.getElementById("edit-profile-modal").classList.add("hidden");
+async function runTagMigration() {
+  if (!confirm(t("confirm-tag-migration"))) return;
+  const result = await fetchAPI("/api/migration/tags/run-batch", {
+    method: "POST",
+    body: JSON.stringify({ batchSize: 10 }),
   });
+  if (result.success) {
+    showToast(t("toast-tag-migration-done"));
+    await checkMigrationStatus();
+    renderApp();
+  } else {
+    showError(result.error || t("error-action-failed"));
+  }
+}
 
-  document.getElementById("cancel-edit-profile")?.addEventListener("click", () => {
-    document.getElementById("edit-profile-modal").classList.add("hidden");
+async function resolveConflict(id, strategy) {
+  let mergedContent = "";
+  if (strategy === "merge") {
+    mergedContent = window.prompt(t("prompt-merge-content")) || "";
+  }
+  const result = await fetchAPI(`/api/conflicts/${id}`, {
+    method: "POST",
+    body: JSON.stringify({ strategy, mergedContent }),
   });
+  if (result.success) {
+    showToast(t("toast-conflict-resolved"));
+    loadView(VIEWS.CONFLICTS);
+  } else {
+    showError(result.error || t("error-action-failed"));
+  }
+}
 
-  document.getElementById("format-profile-json")?.addEventListener("click", () => {
-    try {
-      const content = document.getElementById("edit-profile-content").value;
-      const parsed = jsonrepair(content);
-      const formatted = JSON.stringify(JSON.parse(parsed), null, 2);
-      document.getElementById("edit-profile-content").value = formatted;
-    } catch {
-      showToast("Invalid JSON to format", "error");
-    }
+async function refreshProfile() {
+  const result = await fetchAPI("/api/user-profile/refresh", { method: "POST" });
+  if (result.success) {
+    showToast(t("toast-profile-refreshed"));
+    await loadUserProfile();
+    renderApp();
+  } else {
+    showError(result.error || t("error-action-failed"));
+  }
+}
+
+async function saveSettings() {
+  const apiKey = document.getElementById("settings-api-key").value.trim();
+  const pageSize = Number.parseInt(document.getElementById("settings-page-size").value, 10);
+  if (apiKey) {
+    localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+  } else {
+    localStorage.removeItem(API_KEY_STORAGE_KEY);
+  }
+  if (pageSize > 0 && pageSize <= 100) {
+    state.pageSize = pageSize;
+  }
+  showToast(t("toast-settings-saved"));
+}
+
+// ============================================================================
+// Event delegation
+// ============================================================================
+
+function handleAction(e) {
+  const target = e.target.closest("[data-action]");
+  if (!target) return;
+  const action = target.dataset.action;
+  const id = target.dataset.id;
+
+  switch (action) {
+    case "switch-view":
+      switchView(target.dataset.view);
+      break;
+    case "add-memory":
+      addMemory();
+      break;
+    case "submit-add":
+      submitAddMemory();
+      break;
+    case "edit":
+      editMemory(id);
+      break;
+    case "submit-edit":
+      submitEditMemory(id);
+      break;
+    case "delete":
+      deleteMemory(id);
+      break;
+    case "pin":
+      togglePin(id, target.dataset.pinned === "true");
+      break;
+    case "switch-search":
+      state.searchQuery = "";
+      switchView(VIEWS.SEARCH);
+      break;
+    case "semantic-search":
+      performSemanticSearch();
+      break;
+    case "page-memories":
+    case "page-search":
+      changePage(Number(target.dataset.delta), action);
+      break;
+    case "bulk-delete":
+      bulkDeleteMemories();
+      break;
+    case "deselect-all":
+      state.selectedMemories.clear();
+      renderApp();
+      break;
+    case "close-modal":
+      closeModal();
+      break;
+    case "run-cleanup":
+      runCleanup();
+      break;
+    case "run-dedup":
+      runDeduplication();
+      break;
+    case "run-migration":
+      runMigration();
+      break;
+    case "run-tag-migration":
+      runTagMigration();
+      break;
+    case "resolve-conflict":
+      resolveConflict(id, target.dataset.strategy);
+      break;
+    case "refresh-profile":
+      refreshProfile();
+      break;
+    case "save-settings":
+      saveSettings();
+      break;
+  }
+}
+
+function handleCheckboxChange(e) {
+  const checkbox = e.target.closest(".memory-checkbox");
+  if (!checkbox) return;
+  const id = checkbox.dataset.id;
+  if (checkbox.checked) {
+    state.selectedMemories.add(id);
+  } else {
+    state.selectedMemories.delete(id);
+  }
+  const card = checkbox.closest(".memory-card");
+  card?.classList.toggle("selected", checkbox.checked);
+  updateBulkActions();
+}
+
+function updateBulkActions() {
+  const existing = document.querySelector("[data-action='bulk-delete']")?.closest(".flex");
+  if (state.selectedMemories.size && !existing) {
+    renderApp();
+  } else if (!state.selectedMemories.size && existing) {
+    renderApp();
+  }
+}
+
+function handleTagFilter(e) {
+  const select = e.target.closest("#tag-filter");
+  if (!select) return;
+  state.selectedTag = select.value;
+  state.currentPage = 1;
+  loadMemories(1).then(renderApp);
+}
+
+function handleKeydown(e) {
+  if (e.key === "Escape") {
+    closeModal();
+    const nav = document.getElementById("nav-links");
+    if (nav?.classList.contains("open")) toggleMobileNav();
+  }
+  if (e.key === "Enter" && e.target?.id === "semantic-query") {
+    performSemanticSearch();
+  }
+}
+
+function bindGlobalEvents() {
+  document.body.addEventListener("click", handleAction);
+  document.body.addEventListener("change", handleCheckboxChange);
+  document.body.addEventListener("change", handleTagFilter);
+  document.body.addEventListener("keydown", handleKeydown);
+  document.getElementById("modal")?.addEventListener("click", (e) => {
+    if (e.target.id === "modal") closeModal();
   });
+}
 
-  document.getElementById("edit-profile-form")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    let parsedData;
-    try {
-      const content = document.getElementById("edit-profile-content").value;
-      parsedData = JSON.parse(jsonrepair(content));
-    } catch {
-      showToast("Invalid JSON format", "error");
-      return;
-    }
+// ============================================================================
+// Init
+// ============================================================================
 
-    const result = await fetchAPI("/api/user-profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: state.userProfile.userId, profileData: parsedData }),
-    });
-
-    if (result.success) {
-      showToast("Profile updated successfully", "success");
-      document.getElementById("edit-profile-modal").classList.add("hidden");
-      loadUserProfile();
-    } else {
-      showToast(result.error || "Failed to update profile", "error");
-    }
-  });
-
-  document.getElementById("lang-toggle").addEventListener("click", () => {
-    const newLang = getLanguage() === "en" ? "zh" : "en";
-    setLanguage(newLang);
-    document.getElementById("lang-toggle").textContent = newLang.toUpperCase();
-    // Re-render dynamic content
-    loadMemories();
-    loadStats();
-    if (state.currentView === "profile") loadUserProfile();
-  });
-
-  document.getElementById("lang-toggle").textContent = getLanguage().toUpperCase();
-
-  document.getElementById("tag-filter").addEventListener("change", () => {
-    state.selectedTag = document.getElementById("tag-filter").value;
-    state.currentPage = 1;
-    state.isSearching = false;
-    state.searchQuery = "";
-    document.getElementById("search-input").value = "";
-    document.getElementById("clear-search-btn").classList.add("hidden");
-    loadMemories();
-  });
-
-  document.getElementById("search-btn").addEventListener("click", performSearch);
-  document.getElementById("clear-search-btn").addEventListener("click", clearSearch);
-  document.getElementById("search-input").addEventListener("keypress", (e) => {
-    if (e.key === "Enter") performSearch();
-  });
-
-  document.getElementById("add-form").addEventListener("submit", addMemory);
-  document.getElementById("edit-form").addEventListener("submit", saveEdit);
-  document.getElementById("modal-close").addEventListener("click", closeModal);
-  document.getElementById("cancel-edit").addEventListener("click", closeModal);
-
-  document.getElementById("prev-page-top").addEventListener("click", () => changePage(-1));
-  document.getElementById("next-page-top").addEventListener("click", () => changePage(1));
-  document.getElementById("prev-page-bottom").addEventListener("click", () => changePage(-1));
-  document.getElementById("next-page-bottom").addEventListener("click", () => changePage(1));
-
-  document.getElementById("bulk-delete-btn").addEventListener("click", bulkDelete);
-  document.getElementById("select-all-btn").addEventListener("click", selectAllCurrentPage);
-  document.getElementById("deselect-all-btn").addEventListener("click", deselectAll);
-
-  document.getElementById("cleanup-btn").addEventListener("click", runCleanup);
-  document.getElementById("deduplicate-btn").addEventListener("click", runDeduplication);
-
-  document
-    .getElementById("migration-confirm-checkbox")
-    .addEventListener("change", toggleMigrationButtons);
-  document
-    .getElementById("migration-fresh-btn")
-    .addEventListener("click", () => runMigration("fresh-start"));
-  document
-    .getElementById("migration-reembed-btn")
-    .addEventListener("click", () => runMigration("re-embed"));
-
-  document.getElementById("edit-modal").addEventListener("click", (e) => {
-    if (e.target.id === "edit-modal") closeModal();
-  });
-
-  document.getElementById("merge-form")?.addEventListener("submit", submitMerge);
-  document.getElementById("merge-modal-close")?.addEventListener("click", closeMergeModal);
-  document.getElementById("cancel-merge")?.addEventListener("click", closeMergeModal);
-  document.getElementById("merge-modal")?.addEventListener("click", (e) => {
-    if (e.target.id === "merge-modal") closeMergeModal();
-  });
-
-  document
-    .getElementById("confirm-modal-ok")
-    ?.addEventListener("click", () => closeConfirmModal(true));
-  document
-    .getElementById("confirm-modal-cancel")
-    ?.addEventListener("click", () => closeConfirmModal(false));
-  document
-    .getElementById("confirm-modal-close")
-    ?.addEventListener("click", () => closeConfirmModal(false));
-  document.getElementById("confirm-modal")?.addEventListener("click", (e) => {
-    if (e.target.id === "confirm-modal") closeConfirmModal(false);
-  });
-
-  await loadTags();
-  await loadMemories();
-  // loadStats and checkMigrationStatus are independent of memories/tags
-  await Promise.all([loadStats(), checkMigrationStatus()]);
-
-  startAutoRefresh();
-
-  safeCreateIcons();
+document.addEventListener("DOMContentLoaded", () => {
+  initTheme();
+  initLanguage();
+  renderApp();
+  bindGlobalEvents();
+  loadView(VIEWS.DASHBOARD);
 });
