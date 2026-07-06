@@ -272,8 +272,8 @@ export class UserPromptManager {
     }
     const placeholders = ids.map(() => "?").join(",");
     this.db
-      .prepare(`UPDATE user_prompts SET ${field} = ${value} WHERE id IN (${placeholders})`)
-      .run(...ids);
+      .prepare(`UPDATE user_prompts SET ${field} = ? WHERE id IN (${placeholders})`)
+      .run(value, ...ids);
   }
 
   private rowToPrompt(row: any): UserPrompt {

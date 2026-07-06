@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { randomInt } from "node:crypto";
+import { randomInt, timingSafeEqual } from "node:crypto";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
@@ -305,11 +305,18 @@ export class WebServer {
   }
 
   private _isAuthorized(req: Request): boolean {
-    if (req.headers.get("x-opencode-mem-key") === this.config.apiKey) {
-      return true;
-    }
-    const authorization = req.headers.get("authorization") || "";
-    return authorization === `Bearer ${this.config.apiKey}`;
+    const apiKey = this.config.apiKey;
+    if (!apiKey) return false;
+    const headerKey = req.headers.get("x-opencode-mem-key") ?? "";
+    const bearerKey = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/, "");
+    const keyBuf = Buffer.from(apiKey);
+    // Compare both possible header sources in constant time
+    const hBuf = Buffer.from(headerKey.padEnd(apiKey.length, "\0").slice(0, apiKey.length));
+    const bBuf = Buffer.from(bearerKey.padEnd(apiKey.length, "\0").slice(0, apiKey.length));
+    return (
+      (headerKey.length === apiKey.length && timingSafeEqual(keyBuf, hBuf)) ||
+      (bearerKey.length === apiKey.length && timingSafeEqual(keyBuf, bBuf))
+    );
   }
 
   private async _dispatchApiRoute(
@@ -323,11 +330,14 @@ export class WebServer {
 
     // Rate limiting: skip for health endpoint and local loopback
     if (CONFIG.rateLimitEnabled !== false && !isLocal && path !== "/api/health") {
+      // Normalize parameterized paths to prevent unbounded bucket growth
+      // e.g. "DELETE /api/memories/abc-123" → "DELETE /api/memories/:id"
+      const rateLimitKey = `${method} ${path.replace(/\/api\/(memories|conflicts|prompts)\/[^/]+/, "/api/$1/:id")}`;
       const now = Date.now();
-      let bucket = this.rateLimitBuckets.get(route);
+      let bucket = this.rateLimitBuckets.get(rateLimitKey);
       if (!bucket) {
         bucket = { tokens: 120, lastRefill: now };
-        this.rateLimitBuckets.set(route, bucket);
+        this.rateLimitBuckets.set(rateLimitKey, bucket);
       }
       // Token bucket refill: 2 tokens/second, max 120
       const elapsed = (now - bucket.lastRefill) / 1000;

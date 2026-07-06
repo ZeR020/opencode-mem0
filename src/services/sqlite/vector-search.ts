@@ -265,7 +265,7 @@ export class VectorSearch {
           LIMIT ?
         `
           )
-          .all(`%${queryText}%`, limit * 2) as any[];
+          .all(`%${queryText.replace(/[\\%_]/g, String.raw`\$&`)}%`, limit * 2) as { id: string }[];
         return likeRows.map((r: any) => r.id);
       } catch {
         return [];
@@ -775,7 +775,8 @@ export class VectorSearch {
     } catch {
       // Try FTS5 exact phrase match on sessionID before falling to LIKE full scan
       try {
-        const ftsQuery = `"sessionID":"${sessionID}"`;
+        const safeSessionID = sessionID.replace(/"/g, "");
+        const ftsQuery = `"sessionID":"${safeSessionID}"`;
         const quotedFts = `"${ftsQuery}"`;
         const ftsRows = db
           .prepare(
