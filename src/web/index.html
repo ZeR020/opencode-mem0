@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
     />
     <title>OpenCode Memory Dashboard</title>
     <link rel="stylesheet" href="/styles.css" />
@@ -16,15 +16,7 @@
     <script defer src="/vendor/dompurify.min.js"></script>
     <script defer src="/vendor/jsonrepair.min.js"></script>
     <script defer src="/i18n.js"></script>
-    <script>
-      // Apply saved theme before render to prevent FOUC
-      (function () {
-        var saved = localStorage.getItem("mem0-theme");
-        if (saved) {
-          document.documentElement.setAttribute("data-theme", saved);
-        }
-      })();
-    </script>
+    <script defer src="/theme-bootstrap.js"></script>
   </head>
   <body>
     <div id="app" class="app"></div>

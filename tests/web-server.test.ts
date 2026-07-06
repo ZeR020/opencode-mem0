@@ -189,7 +189,7 @@ describe("WebServer", () => {
     const server = new WebServer({ port: 4755, host: "127.0.0.1", enabled: false });
     const response = (server as any).jsonResponse({ success: true });
     expect(response.headers.get("Content-Security-Policy")).toBe(
-      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
     );
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(response.headers.get("X-Frame-Options")).toBe("DENY");

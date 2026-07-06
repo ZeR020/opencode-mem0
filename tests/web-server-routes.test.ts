@@ -189,7 +189,7 @@ describe("WebServer Routes", () => {
       expect(res.status).toBe(200);
       expect(res.headers.get("Content-Type")).toBe("application/javascript");
       expect(res.headers.get("Content-Security-Policy")).toBe(
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
       );
     });
   });

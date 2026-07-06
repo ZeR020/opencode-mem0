@@ -291,6 +291,7 @@ export class WebServer {
       "/styles.css": ["styles.css", "text/css"],
       "/app.js": ["app.js", "application/javascript"],
       "/i18n.js": ["i18n.js", "application/javascript"],
+      "/theme-bootstrap.js": ["theme-bootstrap.js", "application/javascript"],
       "/vendor/lucide.min.js": ["vendor/lucide.min.js", "application/javascript"],
       "/vendor/marked.min.js": ["vendor/marked.min.js", "application/javascript"],
       "/vendor/dompurify.min.js": ["vendor/dompurify.min.js", "application/javascript"],
@@ -674,7 +675,7 @@ export class WebServer {
   private _securityHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       "Content-Security-Policy":
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'",
       "X-Content-Type-Options": "nosniff",
       "X-Frame-Options": "DENY",
     };

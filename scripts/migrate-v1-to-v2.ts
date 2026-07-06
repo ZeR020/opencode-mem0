@@ -170,7 +170,14 @@ void (function (): void {
    */
   function createTranscriptsDb(storagePath: string): boolean {
     try {
-      const dbPath = join(storagePath, "transcripts.db");
+      // Guard against path traversal: constrain storagePath under home dir.
+      const home = homedir();
+      const resolved = resolve(storagePath);
+      const rel = relative(home, resolved);
+      if (rel.startsWith("..") || isAbsolute(rel)) {
+        throw new Error(`Storage path escapes home directory: ${storagePath}`);
+      }
+      const dbPath = join(resolved, "transcripts.db");
       const dir = dirname(dbPath);
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
