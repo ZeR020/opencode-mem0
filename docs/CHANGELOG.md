@@ -23,6 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Duplicate i18n keys silently overridden** — `confirm-bulk-delete`, `confirm-cleanup`, `confirm-dedup` appeared twice per locale; the legacy definitions (last-wins in JS object literals) silently overrode the new wording. Removed all duplicates.
 - **Non-string ID slicing** — `memory.id.slice()` and `conflict.id.slice()` assumed string IDs; now guarded with `String(...)` to avoid throwing on numeric IDs.
 
+## [2.18.4] - 2026-07-19
+
+### Fixed
+
+- **SQLite backend ABI mismatch on Node 24 (issue #52)** — `better-sqlite3@12` ships prebuilt `.node` binaries compiled against Node ABI 137 (Node 22). OpenCode v1.18.3 bundles Node 24 (ABI 146), so the native binary failed to load with `NODE_MODULE_VERSION 137 ... requires 146` and every memory operation threw. The SQLite bootstrap now probes backends in ABI-safety order — `bun:sqlite` → `node:sqlite` (Node stdlib, no native binary, no ABI risk) → `better-sqlite3` (last resort) — with a real `:memory:` open/close load-test so a broken native build is never selected silently.
+- **Array-arg bind param parity across SQLite backends** — `db.run(sql, [a, b])` and `stmt.run([a, b])` auto-unpack the array under `better-sqlite3` but not under `node:sqlite` or `bun:sqlite`. The shared statement wrapper now normalizes a single Array argument into positional params, so the three callsites using this form (`schema.ts`, `shard-manager.ts`) work identically on every backend.
+
+### Contributors
+
+- @Kingor-blip (issue #52 — reported the `better-sqlite3` NODE_MODULE_VERSION mismatch on OpenCode v1.18.3 / Node 24)
+
 ## [2.18.3] - 2026-07-04
 
 ### Changed
