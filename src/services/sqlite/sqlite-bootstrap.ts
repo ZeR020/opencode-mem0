@@ -40,35 +40,33 @@ type RawDatabaseConstructor = new (path: string) => RawDatabase;
  * do not. Spread it here so every backend behaves identically and callsites
  * can keep the `db.run(sql, [a, b])` form without per-driver branching.
  */
-function normalizeParams(params: unknown[]): unknown[] {
+const normalizeParams = (params: unknown[]): unknown[] => {
   if (params.length === 1 && Array.isArray(params[0])) {
     return params[0] as unknown[];
   }
   return params;
-}
+};
 
 let DatabaseImpl: RawDatabaseConstructor & { new (path: string): Database };
 
 type RequireFn = (id: string) => unknown;
 let _require: RequireFn | undefined;
-function getRequire(): RequireFn {
+const getRequire = (): RequireFn => {
   _require ??= typeof require !== "undefined" ? require : createRequire(import.meta.url);
   return _require;
-}
+};
 
-function wrapStatement(stmt: RawStatement): Statement {
-  return {
-    run: (...params: unknown[]) => {
-      const result = stmt.run(...normalizeParams(params));
-      return {
-        changes: result.changes,
-        lastInsertRowid: result.lastInsertRowid,
-      };
-    },
-    get: (...params: unknown[]) => stmt.get(...normalizeParams(params)),
-    all: (...params: unknown[]) => stmt.all(...normalizeParams(params)),
-  };
-}
+const wrapStatement = (stmt: RawStatement): Statement => ({
+  run: (...params: unknown[]) => {
+    const result = stmt.run(...normalizeParams(params));
+    return {
+      changes: result.changes,
+      lastInsertRowid: result.lastInsertRowid,
+    };
+  },
+  get: (...params: unknown[]) => stmt.get(...normalizeParams(params)),
+  all: (...params: unknown[]) => stmt.all(...normalizeParams(params)),
+});
 
 class SqliteDatabase implements Database {
   protected readonly db: RawDatabase;
@@ -126,7 +124,7 @@ class BetterSqlite3Database extends SqliteDatabase {
  * different Node ABI (e.g. better-sqlite3 prebuilds vs. a newer Node). A real
  * open/close catches that before the backend is selected.
  */
-function probeBackend(impl: RawDatabaseConstructor, label: string): boolean {
+const probeBackend = (impl: RawDatabaseConstructor, label: string): boolean => {
   try {
     const probe: RawDatabase = new impl(":memory:");
     probe.close();
@@ -135,7 +133,7 @@ function probeBackend(impl: RawDatabaseConstructor, label: string): boolean {
     log(`[opencode-mem0] ${label} unavailable, falling back: ${err}`, { level: "error" });
     return false;
   }
-}
+};
 
 /**
  * Resolve the SQLite driver once. Probe order prefers backends with no native
@@ -145,7 +143,7 @@ function probeBackend(impl: RawDatabaseConstructor, label: string): boolean {
  * broken native build never gets selected silently.
  * @returns A Database constructor bound to the first available backend.
  */
-export function getDatabase(): new (path: string) => Database {
+export const getDatabase = (): new (path: string) => Database => {
   if (!DatabaseImpl) {
     const candidates: Array<[RawDatabaseConstructor, string]> = [
       [BunSqliteDatabase, "bun:sqlite"],
@@ -169,4 +167,4 @@ export function getDatabase(): new (path: string) => Database {
     }
   }
   return DatabaseImpl;
-}
+};

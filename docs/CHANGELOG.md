@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Duplicate i18n keys silently overridden** — `confirm-bulk-delete`, `confirm-cleanup`, `confirm-dedup` appeared twice per locale; the legacy definitions (last-wins in JS object literals) silently overrode the new wording. Removed all duplicates.
 - **Non-string ID slicing** — `memory.id.slice()` and `conflict.id.slice()` assumed string IDs; now guarded with `String(...)` to avoid throwing on numeric IDs.
 
+## [2.18.6] - 2026-07-19
+
+### Fixed
+
+- **DeepSource JS-0067 on sqlite-bootstrap rewrite** — The v2.18.4 fix rewrote `sqlite-bootstrap.ts` with two new top-level `function` declarations (`normalizeParams`, `probeBackend`) on top of the three pre-existing ones, and DeepSource's diff-based quality gate flagged the newly-introduced top-level functions as blocking (JS-0067: "Top-level function declarations found — convert to const arrow functions or wrap in IIFE"). The DeepSource: JavaScript commit status flipped to `failure` on `f0249d0` and stayed failing on `e2ddb57`. Converted all five top-level functions in `sqlite-bootstrap.ts` to `const` arrow functions (idiomatic ESM, no behavior change) so the gate passes. No `app.js` changes in this commit — its pre-existing top-level functions are out of this commit's diff and not re-counted.
+
 ## [2.18.5] - 2026-07-19
 
 ### Changed
