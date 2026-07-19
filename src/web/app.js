@@ -1240,6 +1240,16 @@ async function refreshProfile() {
 async function saveSettings() {
   const apiKey = document.getElementById("settings-api-key").value.trim();
   const pageSize = Number.parseInt(document.getElementById("settings-page-size").value, 10);
+  // Security: cleartext localStorage of webServerApiKey is acceptable here.
+  // The dashboard binds to 127.0.0.1 (config.ts webServerHost) — no remote
+  // attacker can reach it without an explicit host override. Only XSS on the
+  // dashboard can read localStorage, and such XSS already has same-origin
+  // access to everything the key protects (the user's memories via this API).
+  // Server-side CSP is enforced (commits 19511cd, f51b0ac) and user content is
+  // escaped via escapeHtml. GitHub CodeQL alert #8 dismissed as false positive
+  // on this threat model. If the dashboard is ever hosted on a non-loopback
+  // interface, revisit: move to sessionStorage with short TTL, or exchange the
+  // raw key for a non-extractable comparison-only token.
   if (apiKey) {
     localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
   } else {
