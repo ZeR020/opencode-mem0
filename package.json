@@ -1,6 +1,6 @@
 {
   "name": "opencode-mem0",
-  "version": "2.18.4",
+  "version": "2.18.5",
   "description": "OpenCode plugin that gives coding agents persistent memory using local vector database",
   "type": "module",
   "main": "dist/plugin.js",
@@ -75,7 +75,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^17.0.8",
     "prettier": "^3.8.3",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.9"
   },
   "opencode": {

@@ -8,7 +8,11 @@ function main() {
   // Run TypeScript compiler
   // Resolve the actual TypeScript JS entrypoint, not the platform-specific shim
   const require = createRequire(import.meta.url);
-  const tscPath = require.resolve("typescript/bin/tsc");
+  // TS 7.0 locked down its `exports` map and no longer exposes `./bin/tsc`
+  // as an importable subpath. Resolve the package root via the one subpath it
+  // still exports (`./package.json`), then locate tsc relative to it.
+  const pkgPath = require.resolve("typescript/package.json");
+  const tscPath = join(dirname(pkgPath), "bin", "tsc");
   if (!existsSync(tscPath)) {
     console.error("Error: tsc not found. Run npm install or bun install first.");
     process.exit(1);

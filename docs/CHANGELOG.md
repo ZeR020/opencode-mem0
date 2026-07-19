@@ -23,6 +23,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Duplicate i18n keys silently overridden** — `confirm-bulk-delete`, `confirm-cleanup`, `confirm-dedup` appeared twice per locale; the legacy definitions (last-wins in JS object literals) silently overrode the new wording. Removed all duplicates.
 - **Non-string ID slicing** — `memory.id.slice()` and `conflict.id.slice()` assumed string IDs; now guarded with `String(...)` to avoid throwing on numeric IDs.
 
+## [2.18.5] - 2026-07-19
+
+### Changed
+
+- **TypeScript bumped to 7.0.2** — Dev-dependency upgrade from 5.9.3 (closes Dependabot PR #51). TS 7.0 locked down its `exports` map and changed ambient-global auto-inclusion; the bump required two accompanying fixes (below) to keep the build green.
+
+### Fixed
+
+- **Build script tsc resolution updated for TS 7.0** — `scripts/build.mjs` used `require.resolve("typescript/bin/tsc")`, which fails under TS 7.0 because `./bin/tsc` is no longer an importable subpath (the `exports` map only exposes `.`, `./package.json`, and `./unstable/*`). Now resolves the package root via `require.resolve("typescript/package.json")` and joins `bin/tsc` relative to it — exports-safe and stable across TS versions.
+- **tsconfig pinned `types: ["bun"]`** — TS 7.0 no longer auto-includes `@types/bun`'s ambient `Bun` global when no `types` field is set, breaking `platform-server.ts` (`Cannot find name 'Bun'`). Added an explicit `types: ["bun"]` so the Bun global resolves deterministically regardless of TS version.
+
+### Contributors
+
+- @dependabot (PR #51 — proposed the typescript 5.9.3 → 7.0.2 bump; landed on `main` with the two build-tooling fixes above)
+
 ## [2.18.4] - 2026-07-19
 
 ### Fixed
