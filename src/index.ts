@@ -24,6 +24,7 @@ import {
 } from "./services/memory-lifecycle.js";
 import { getAISessionManager } from "./services/ai/session/ai-session-manager.js";
 import { embeddingService } from "./services/embedding.js";
+import { checkForUpdate } from "./services/update-checker.js";
 
 import { isConfigured, CONFIG, initConfig } from "./config.js";
 import { log } from "./services/logger.js";
@@ -146,6 +147,21 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         );
       }
     }
+  }
+
+  // Notify when a newer release exists (OpenCode pins plugin versions in its
+  // cache, so users never see updates otherwise). Non-blocking, silent on failure.
+  if (isConfigured()) {
+    checkForUpdate().then((update) => {
+      if (update) {
+        showToast(ctx, {
+          title: "opencode-mem0",
+          message: `Update available: v${update.current} → v${update.latest}. Run: npm install opencode-mem0@latest (or clear ~/.cache/opencode) and restart.`,
+          variant: "info",
+          duration: 10000,
+        });
+      }
+    });
   }
 
   // Fresh install, not yet activated: stay inert and point at the init CLI.

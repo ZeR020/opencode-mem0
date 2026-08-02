@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Update notification** — On startup the plugin checks npm for a newer release and shows a toast with update instructions if one exists (OpenCode pins plugin versions in its cache, so users otherwise never learn about updates). Silent when offline or up-to-date.
+
 ## [2.20.1] - 2026-08-02
 
 ### Fixed
