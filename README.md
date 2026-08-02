@@ -335,6 +335,16 @@ All settings have sensible defaults — you only need a config file to change be
 | `showUserProfileToasts`  | `true`  | Show toast when profile is updated  |
 | `showErrorToasts`        | `true`  | Show toast on memory system errors  |
 
+## Documentation
+
+- [Getting Started](docs/GETTING-STARTED.md) — installation and first-run walkthrough
+- [Configuration Reference](docs/CONFIGURATION.md) — every setting in detail
+- [Architecture](docs/ARCHITECTURE.md) — how the memory system works internally
+- [Development](docs/DEVELOPMENT.md) — local setup and workflow
+- [Testing](docs/TESTING.md) — running and writing tests
+- [Changelog](docs/CHANGELOG.md) — release history
+- [Contributing](.github/CONTRIBUTING.md) — PR process and commit conventions
+
 ---
 
 > **OpenCode-Mem0** is a cognitive enhancement fork of [tickernelz/opencode-mem](https://github.com/tickernelz/opencode-mem), featuring 7-factor memory scoring, STM/LTM dual-store lifecycle, intelligent conflict resolution, hybrid search, transcript storage, and more. Active development ongoing.

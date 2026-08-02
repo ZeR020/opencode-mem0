@@ -90,11 +90,7 @@
     ]
   },
   "files": [
-    "dist",
-    "package.json",
-    "README.md",
-    "LICENSE",
-    "docs/CHANGELOG.md"
+    "dist"
   ],
   "overrides": {
     "protobufjs": "^7.6.4",

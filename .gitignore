@@ -1,26 +1,18 @@
 # ─── Dependencies ──────────────────────────────────────────────
 node_modules/
+# Bun is the package manager; prevent stray npm lockfiles
 package-lock.json
 
 # ─── Build & output artifacts ──────────────────────────────────
 dist/
 out/
-build/
-builds/
-release/
-releases/
 *.tgz
 *.tsbuildinfo
 
 # ─── Test & coverage artifacts ─────────────────────────────────
 coverage/
-.nyc_output/
-htmlcov/
 *.lcov
 *.test.db
-*.tmp.db
-/test-databases/
-/test-data/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
@@ -35,56 +27,28 @@ htmlcov/
 *.secret
 *.token
 
-# ─── Logs & diagnostics ────────────────────────────────────────
+# ─── Logs ──────────────────────────────────────────────────────
 logs/
 *.log
-*.log.*
 
-# ─── Migration & backup files ──────────────────────────────────
-*.migrate-backup
+# ─── Editor/backup files ───────────────────────────────────────
 *.bak
 *.orig
 *.swp
-*.swo
 *~
 
-# ─── Agent & work files (never commit) ─────────────────────────
-# DOX hierarchy, agent configs, personal tooling (never commit)
-AGENTS.md
+# ─── Agent & local tooling (personal, never commit) ───────────
 .claude/
 .cursor/
 .cursorrules
 CLAUDE.md
 .opencode/
-# AI-generated reports and analysis
-*.report.md
-# Work artifacts from internal tooling runs
-REVIEW.md
-GSD_SDK_GUIDE.md
-check-vi-internal.ts
-deepsource-*.json
-AGENTS.md.bak.md
-DESIGN.md
-# Internal planning, audits, support tickets (may contain PII)
-.planning/
-.sisyphus
-docs/plans/
-*-SUPPORT_TICKET*
-*-support-ticket*
-*-CONCERNS*
-*-concerns*
-*-AUDIT*
-*-audit*
+.sandbox/
+.pi-subagents/
 
-# ─── Caches & temp directories ─────────────────────────────────
+# ─── Caches & temp ─────────────────────────────────────────────
 .cache/
-.temp/
 .tmp/
-.scratch/
-.eslintcache
-.stylelintcache
-.vite
-.parcel-cache
 temp/
 tmp/
 
@@ -96,10 +60,3 @@ tmp/
 # ─── OS files ──────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-._*
-.Spotlight-V100
-.Trashes
-.sandbox/
-.pi-subagents/
