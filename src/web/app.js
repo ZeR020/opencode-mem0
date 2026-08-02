@@ -625,7 +625,7 @@ function viewSearch() {
   else if (!state.searchItems.length)
     results = `<div class="card">${empty("[0]", "no matches", "Try different phrasing or clear the container filter.")}</div>`;
   else
-    results = `<div class="card"><div class="rows">${state.searchItems.map(searchRow).join("")}</div>${pagination(state.searchPage, state.searchTotalPages, "search-page")}</div>`;
+    results = `<div class="card"><div class="rows">${state.searchItems.map((item, i) => searchRow(item, i)).join("")}</div>${pagination(state.searchPage, state.searchTotalPages, "search-page")}</div>`;
 
   return `
     ${sectionLabel("query")}
@@ -687,7 +687,7 @@ function viewTimeline() {
     : state.error
       ? errorCard(state.error)
       : state.transcripts.length
-        ? `<div class="card"><div class="rows">${state.transcripts.map(txRow).join("")}</div>${pagination(state.txPage, state.txTotalPages, "tx-page")}</div>`
+        ? `<div class="card"><div class="rows">${state.transcripts.map((tx, i) => txRow(tx, i)).join("")}</div>${pagination(state.txPage, state.txTotalPages, "tx-page")}</div>`
         : `<div class="card">${empty("[~]", "no transcripts", state.txQuery ? "No session transcript matches that query." : "Transcripts appear once sessions are recorded.")}</div>`;
 
   return `
