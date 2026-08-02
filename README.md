@@ -32,7 +32,12 @@ Requires **Bun >= 1.0.0** (Linux/macOS) for native `bun:sqlite`, or **Node.js >=
      "plugin": ["opencode-mem0"]
    }
    ```
-3. Configure a memory provider for auto-capture (e.g., a cheap OpenAI-compatible endpoint):
+3. Activate the plugin (one-time, creates `~/.config/opencode/opencode-mem0.jsonc` and `~/.opencode-mem0/data`):
+   ```bash
+   npx opencode-mem0 init
+   ```
+   Until activated, the plugin stays fully inert: nothing is read from or written to your home directory, and no web server or background jobs start. Installs that already have config + data are activated automatically.
+4. Configure a memory provider for auto-capture (e.g., a cheap OpenAI-compatible endpoint):
    ```jsonc
    // ~/.config/opencode/opencode-mem0.jsonc
    {
@@ -42,7 +47,7 @@ Requires **Bun >= 1.0.0** (Linux/macOS) for native `bun:sqlite`, or **Node.js >=
      "memoryApiKey": "sk-...",
    }
    ```
-4. Start OpenCode — the plugin warms up automatically, the Web UI launches at `http://127.0.0.1:4747`, and memories are captured from your sessions.
+5. Start OpenCode — the plugin warms up automatically, the Web UI launches at `http://127.0.0.1:4747`, and memories are captured from your sessions.
 
 > **Recommended:** Use a cheap model (e.g., `gpt-4o-mini`) for memory extraction — it's cost-effective and avoids taxing your main chat model. `memoryProvider` supports `openai-chat` (any OpenAI-compatible API), `openai-responses`, `anthropic`, and `google-gemini`. Alternatively, `opencodeProvider` + `opencodeModel` reuses your OpenCode-connected provider (uses your main model). Without a provider, auto-capture silently skips with a log warning.
 
@@ -104,7 +109,7 @@ Add the plugin to your project's `opencode.json` (or global opencode config):
 
 ## First Run — What to Expect
 
-On first launch (all platforms), the plugin downloads the local embedding model (~547MB, `Xenova/nomic-embed-text-v1`). This is a one-time download cached under `~/.opencode-mem0/data/.cache/` (`%USERPROFILE%\.opencode-mem0\data\.cache\` on Windows). Subsequent starts load from cache in seconds. The Web UI at `http://127.0.0.1:4747` becomes available once warmup completes.
+On first launch **after activation** (all platforms), the plugin downloads the local embedding model (~547MB, `Xenova/nomic-embed-text-v1`). This is a one-time download cached under `~/.opencode-mem0/data/.cache/` (`%USERPROFILE%\.opencode-mem0\data\.cache\` on Windows). Subsequent starts load from cache in seconds. The Web UI at `http://127.0.0.1:4747` becomes available once warmup completes.
 
 ## Usage
 

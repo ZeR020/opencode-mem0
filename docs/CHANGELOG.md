@@ -23,6 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Duplicate i18n keys silently overridden** — `confirm-bulk-delete`, `confirm-cleanup`, `confirm-dedup` appeared twice per locale; the legacy definitions (last-wins in JS object literals) silently overrode the new wording. Removed all duplicates.
 - **Non-string ID slicing** — `memory.id.slice()` and `conflict.id.slice()` assumed string IDs; now guarded with `String(...)` to avoid throwing on numeric IDs.
 
+## [2.19.0] - 2026-08-02
+
+### Added
+
+- **Explicit activation via `opencode-mem0 init`** — One-time CLI that creates the global config (`~/.config/opencode/opencode-mem0.jsonc`) and data directory (`~/.opencode-mem0/data`). Idempotent; never overwrites an existing config.
+- **Activation notice** — Fresh installs show a one-time toast pointing at `opencode-mem0 init`.
+
+### Changed
+
+- **Fresh installs stay fully inert until activated.** The web server, memory scoring, lifecycle maintenance, and AI-session cleanup now only start when `isConfigured()` is true; the plugin no longer creates `~/.opencode-mem0` or any other home-directory files before activation. Existing installs with config + data are unaffected (auto-activated).
+
 ## [2.18.6] - 2026-07-19
 
 ### Fixed

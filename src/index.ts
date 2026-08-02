@@ -148,6 +148,20 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
     }
   }
 
+  // Fresh install, not yet activated: stay inert and point at the init CLI.
+  if (!isConfigured()) {
+    const NOTICE_KEY = Symbol.for("opencode-mem0.activate.noticed");
+    if (!(globalThis as any)[NOTICE_KEY]) {
+      (globalThis as any)[NOTICE_KEY] = true;
+      await showToast(ctx, {
+        title: "opencode-mem0",
+        message: "Installed — run `opencode-mem0 init` to activate memory.",
+        variant: "info",
+        duration: 8000,
+      });
+    }
+  }
+
   // Wire opencode state path and provider list — fire-and-forget to avoid blocking init
   // These calls can hang if opencode isn't fully bootstrapped yet
   (async () => {
@@ -167,7 +181,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
     }
   })();
 
-  if (CONFIG.webServerEnabled) {
+  if (isConfigured() && CONFIG.webServerEnabled) {
     startWebServer({
       port: CONFIG.webServerPort,
       host: CONFIG.webServerHost,
@@ -215,7 +229,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   }
 
   // Start background memory scoring recalculation
-  if (CONFIG.memoryScoring.enabled) {
+  if (isConfigured() && CONFIG.memoryScoring.enabled) {
     startScoringRecalculation();
     // Run one-time recalculation on startup to ensure existing memories are scored
     try {
@@ -226,17 +240,17 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   }
 
   // Start memory lifecycle job (STM/LTM decay, promotion, archiving)
-  startLifecycleJob();
-  // Run initial lifecycle maintenance on startup
-  runLifecycleMaintenance().catch((error) => {
-    log("Initial lifecycle maintenance failed", { error: String(error) });
-  });
+  if (isConfigured()) {
+    startLifecycleJob();
+    // Run initial lifecycle maintenance on startup
+    runLifecycleMaintenance().catch((error) => {
+      log("Initial lifecycle maintenance failed", { error: String(error) });
+    });
+  }
 
-  // ponytail: module-level interval, cleared on shutdown. Per-provider schedule if isolation matters.
-  const sessionCleanupTimer = setInterval(
-    () => getAISessionManager().cleanupExpiredSessions(),
-    3600 * 1000
-  );
+  const sessionCleanupTimer = isConfigured()
+    ? setInterval(() => getAISessionManager().cleanupExpiredSessions(), 3600 * 1000)
+    : undefined;
 
   const shutdownHandler = async () => {
     delete (globalThis as any)[Symbol.for("opencode-mem0.shutdown")];
