@@ -174,8 +174,8 @@ describe("WebServer Routes", () => {
       expect([200, 404]).toContain(res.status);
     });
 
-    it("serves favicon.ico", async () => {
-      const res = await makeRequest("/favicon.ico");
+    it("serves favicon.svg", async () => {
+      const res = await makeRequest("/favicon.svg");
       expect([200, 404]).toContain(res.status);
     });
 

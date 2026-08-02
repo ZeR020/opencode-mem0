@@ -297,7 +297,7 @@ export class WebServer {
       "/vendor/lucide.min.js": ["vendor/lucide.min.js", "application/javascript"],
       "/vendor/marked.min.js": ["vendor/marked.min.js", "application/javascript"],
       "/vendor/dompurify.min.js": ["vendor/dompurify.min.js", "application/javascript"],
-      "/favicon.ico": ["favicon.ico", "image/x-icon"],
+      "/favicon.svg": ["favicon.svg", "image/svg+xml"],
     };
     const entry = staticMap[path];
     if (entry) {
