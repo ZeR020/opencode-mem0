@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.20.0] - 2026-08-02
+
 ### Added
+
+- **ASCII-art favicon** — The dashboard browser tab icon is now a stacked `[---] / [M0] / [---]` mark in the design system's cream/mono style (SVG, crisp at any size).
 
 - **Dashboard redesign** — Complete rebuild of the web UI with the OpenCode terminal-native manpage design system (DESIGN.md). New state-driven vanilla-JS SPA with 8 views: Dashboard (hero TUI mockup + stats + recent memories + profile snapshot), Memories, Semantic Search, Timeline (transcript history), Profile (preferences, patterns, workflows, changelog), Maintenance (cleanup, dedup, migration), Conflicts (resolve with keep-newer/keep-older/merge), and Settings. Warm cream canvas, near-black ink, Berkeley/JetBrains Mono, 4px radius on interactive elements, 0px on containers, hairline borders, no shadows or gradients, ASCII bracket markers as bullets, dark theme + system preference detection.
 
