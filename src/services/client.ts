@@ -34,15 +34,16 @@ function resolveScopeValue(
 // transaction"). The lock restores the atomicity the sync recheck used to give.
 const shardWriteLocks = new Map<string, Promise<unknown>>();
 
-function withShardWriteLock<T>(dbPath: string, fn: () => Promise<T>): Promise<T> {
+const withShardWriteLock = <T>(dbPath: string, fn: () => Promise<T>): Promise<T> => {
   const prev = shardWriteLocks.get(dbPath) ?? Promise.resolve();
   const next = prev.then(fn, fn);
   shardWriteLocks.set(
     dbPath,
-    next.catch(() => {})
+    // Expression body: keeps the chain alive after rejections (and is not an empty arrow).
+    next.catch(() => undefined)
   );
   return next;
-}
+};
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

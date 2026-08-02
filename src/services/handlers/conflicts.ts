@@ -10,30 +10,30 @@ import {
 } from "../memory-conflicts.js";
 import type { ApiResponse, FormattedConflict } from "./shared-types.js";
 
-export function handleListConflicts(
+export const handleListConflicts = (
   resolved = false,
   limit = 100
-): ApiResponse<FormattedConflict[]> {
+): ApiResponse<FormattedConflict[]> => {
   try {
     const conflicts = getAllConflicts(resolved, limit);
-    const formatted = conflicts.map((c) => ({
-      id: c.id,
-      memoryId1: c.memoryId1,
-      memoryId2: c.memoryId2,
-      memory1Content: c.memory1Content,
-      memory2Content: c.memory2Content,
-      similarityScore: c.similarityScore,
-      detectedAt: safeToISOString(c.detectedAt),
-      resolved: c.resolved === 1,
-      resolutionType: c.resolutionType,
-      resolvedAt: c.resolvedAt != null ? safeToISOString(c.resolvedAt) : undefined,
+    const formatted = conflicts.map((conflict) => ({
+      id: conflict.id,
+      memoryId1: conflict.memoryId1,
+      memoryId2: conflict.memoryId2,
+      memory1Content: conflict.memory1Content,
+      memory2Content: conflict.memory2Content,
+      similarityScore: conflict.similarityScore,
+      detectedAt: safeToISOString(conflict.detectedAt),
+      resolved: conflict.resolved === 1,
+      resolutionType: conflict.resolutionType,
+      resolvedAt: conflict.resolvedAt != null ? safeToISOString(conflict.resolvedAt) : undefined,
     }));
     return { success: true, data: formatted };
   } catch (error) {
     log("handleListConflicts: error", { error: String(error) });
     return { success: false, error: "Internal error in handleListConflicts" };
   }
-}
+};
 
 export async function handleResolveConflict(
   conflictId: string,
@@ -70,7 +70,7 @@ export async function handleResolveConflict(
   }
 }
 
-export function handleGetConflict(conflictId: string): ApiResponse<FormattedConflict> {
+export const handleGetConflict = (conflictId: string): ApiResponse<FormattedConflict> => {
   try {
     if (!conflictId) return { success: false, error: "conflictId is required" };
     const shards = getAllShards();
@@ -89,20 +89,21 @@ export function handleGetConflict(conflictId: string): ApiResponse<FormattedConf
         )
         .get(conflictId) as any;
       if (row) {
-        const c = mapDbRowToConflict(row);
+        const conflict = mapDbRowToConflict(row);
         return {
           success: true,
           data: {
-            id: c.id,
-            memoryId1: c.memoryId1,
-            memoryId2: c.memoryId2,
+            id: conflict.id,
+            memoryId1: conflict.memoryId1,
+            memoryId2: conflict.memoryId2,
             memory1Content: row.m1_content,
             memory2Content: row.m2_content,
-            similarityScore: c.similarityScore,
-            detectedAt: safeToISOString(c.detectedAt),
-            resolved: c.resolved === 1,
-            resolutionType: c.resolutionType,
-            resolvedAt: c.resolvedAt != null ? safeToISOString(c.resolvedAt) : undefined,
+            similarityScore: conflict.similarityScore,
+            detectedAt: safeToISOString(conflict.detectedAt),
+            resolved: conflict.resolved === 1,
+            resolutionType: conflict.resolutionType,
+            resolvedAt:
+              conflict.resolvedAt != null ? safeToISOString(conflict.resolvedAt) : undefined,
           },
         };
       }
@@ -112,7 +113,7 @@ export function handleGetConflict(conflictId: string): ApiResponse<FormattedConf
     log("handleGetConflict: error", { error: String(error) });
     return { success: false, error: "Internal error in handleGetConflict" };
   }
-}
+};
 
 export function handleConflictStats(): ApiResponse<{ unresolved: number; resolved: number }> {
   try {

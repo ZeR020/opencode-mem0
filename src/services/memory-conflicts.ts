@@ -39,12 +39,12 @@ const conflictChecksRunning = new Set<string>();
  * @param timeoutMs - Optional override for the provider timeout; defaults to
  *   CONFIG.autoCaptureIterationTimeout (30000).
  */
-export async function checkContradictionVerdict(
+export const checkContradictionVerdict = async (
   memory1: string,
   memory2: string,
   sessionID?: string,
   timeoutMs?: number
-): Promise<"yes" | "no" | "unknown"> {
+): Promise<"yes" | "no" | "unknown"> => {
   const prompt = `Do these two statements contradict each other? A: ${JSON.stringify(memory1)} B: ${JSON.stringify(memory2)} Answer only YES or NO`;
   const timeout = timeoutMs ?? CONFIG.autoCaptureIterationTimeout ?? 30000;
 
@@ -137,7 +137,7 @@ export async function checkContradictionVerdict(
   // Provider configured but no path yielded a verdict (e.g. opencode provider
   // not connected and no manual config): unavailable, not a heuristic verdict.
   return "unknown";
-}
+};
 
 /**
  * Check if two memory statements contradict each other using an LLM.
@@ -150,24 +150,24 @@ export async function checkContradictionVerdict(
  * @param sessionID - Optional session ID for provider routing
  * @returns true if the statements are logically incompatible
  */
-export async function checkContradictionWithLLM(
+export const checkContradictionWithLLM = async (
   memory1: string,
   memory2: string,
   sessionID?: string
-): Promise<boolean> {
+): Promise<boolean> => {
   const verdict = await checkContradictionVerdict(memory1, memory2, sessionID);
   if (verdict === "unknown") {
     return checkContradictionHeuristic(memory1, memory2);
   }
   return verdict === "yes";
-}
+};
 
 /**
  * Bounded race so a hung provider call can never stall callers indefinitely
  * (e.g. the per-shard write lock in addMemory). The losing provider promise
  * gets a no-op catch so its late rejection is not an unhandled rejection.
  */
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
@@ -175,9 +175,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
       ms
     );
   });
-  promise.catch(() => {});
+  promise.catch(() => undefined);
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
+};
 
 /**
  * Detect conflicts between a newly added memory and existing similar memories.
