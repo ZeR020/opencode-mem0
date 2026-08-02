@@ -6,6 +6,18 @@ import { log } from "./logger.js";
 import { cosineSimilarity } from "./vector-backends/shared.js";
 import { checkContradictionHeuristic } from "./utils/text-analysis.js";
 import { checkContradictionVerdict } from "./memory-conflicts.js";
+import type { Database } from "./sqlite/sqlite-bootstrap.js";
+import type { ShardInfo } from "./sqlite/types.js";
+
+/** Minimal raw memory-row shape read by the dedup scans (snake_case columns). */
+type DedupMemoryRow = {
+  id: string;
+  content: string;
+  container_tag: string;
+  created_at: number;
+  metadata: string | null;
+  vector: unknown;
+};
 
 interface DuplicateGroup {
   representative: {
@@ -65,7 +77,10 @@ export class DeduplicationService {
         exactDeleted += this._deleteExactDuplicates(memories, db, shard);
 
         const contentMap = this.buildContentMap(memories);
-        const uniqueMemories = Array.from(contentMap.values()).map((arr) => arr[0]);
+        // Every group has at least one entry (pushed in buildContentMap).
+        const uniqueMemories = Array.from(contentMap.values()).map(
+          (group) => group[0] as DedupMemoryRow
+        );
 
         nearDuplicateGroups.push(...this._findNearDuplicates(uniqueMemories, shard));
       }
@@ -79,9 +94,9 @@ export class DeduplicationService {
     }
   }
 
-  private _parseVectorBuffer(rawVector: any): Float32Array | null {
+  private _parseVectorBuffer(rawVector: unknown): Float32Array | null {
     try {
-      const buf = new Uint8Array(rawVector);
+      const buf = new Uint8Array(rawVector as ArrayBufferLike);
       if (buf.byteLength % 4 !== 0) throw new Error("Invalid vector alignment");
       return new Float32Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
     } catch {
@@ -89,8 +104,8 @@ export class DeduplicationService {
     }
   }
 
-  private buildContentMap(memories: any[]): Map<string, any[]> {
-    const contentMap = new Map<string, any[]>();
+  private buildContentMap(memories: DedupMemoryRow[]): Map<string, DedupMemoryRow[]> {
+    const contentMap = new Map<string, DedupMemoryRow[]>();
     for (const memory of memories) {
       const key = `${memory.container_tag}:${memory.content}`;
       if (!contentMap.has(key)) contentMap.set(key, []);
@@ -99,13 +114,17 @@ export class DeduplicationService {
     return contentMap;
   }
 
-  private _deleteExactDuplicates(memories: any[], db: any, shard: any): number {
+  private _deleteExactDuplicates(
+    memories: DedupMemoryRow[],
+    db: Database,
+    shard: ShardInfo
+  ): number {
     const contentMap = this.buildContentMap(memories);
 
     let exactDeleted = 0;
     for (const [, duplicates] of contentMap) {
       if (duplicates.length > 1) {
-        duplicates.sort((a, b) => Number(b.created_at) - Number(a.created_at));
+        duplicates.sort((left, right) => Number(right.created_at) - Number(left.created_at));
         const toDelete = duplicates.slice(1);
 
         for (const dup of toDelete) {
@@ -125,7 +144,10 @@ export class DeduplicationService {
     return exactDeleted;
   }
 
-  private _findNearDuplicates(uniqueMemories: any[], shard: any): DuplicateGroup[] {
+  private _findNearDuplicates(
+    uniqueMemories: DedupMemoryRow[],
+    shard: ShardInfo
+  ): DuplicateGroup[] {
     const processedIds = new Set<string>();
     let comparisonCount = 0;
     const MAX_COMPARISONS = 100_000;
@@ -133,6 +155,7 @@ export class DeduplicationService {
 
     for (let i = 0; i < uniqueMemories.length; i++) {
       const mem1 = uniqueMemories[i];
+      if (!mem1) continue;
       if (!mem1.vector || processedIds.has(mem1.id)) continue;
 
       const vector1 = this._parseVectorBuffer(mem1.vector);
@@ -164,6 +187,7 @@ export class DeduplicationService {
         }
         comparisonCount++;
         const mem2 = uniqueMemories[j];
+        if (!mem2) continue;
         if (!mem2.vector || processedIds.has(mem2.id)) continue;
         if (mem1.container_tag !== mem2.container_tag) continue;
 
@@ -195,7 +219,7 @@ export class DeduplicationService {
     return nearDuplicateGroups;
   }
 
-  private _parseMetadata(candidate: any): Record<string, unknown> {
+  private _parseMetadata(candidate: DedupMemoryRow): Record<string, unknown> {
     if (typeof candidate.metadata === "string") {
       try {
         return JSON.parse(candidate.metadata) as Record<string, unknown>;
@@ -203,7 +227,7 @@ export class DeduplicationService {
         return {};
       }
     }
-    return (candidate.metadata as Record<string, unknown>) ?? {};
+    return (candidate.metadata ?? {}) as Record<string, unknown>;
   }
 
   private _mergeCandidateMetadata(
@@ -217,9 +241,9 @@ export class DeduplicationService {
 
   private _findSimilarCandidate(
     vector: Float32Array,
-    candidates: any[],
+    candidates: DedupMemoryRow[],
     threshold: number
-  ): { candidate: any; similarity: number } | null {
+  ): { candidate: DedupMemoryRow; similarity: number } | null {
     for (const candidate of candidates) {
       if (!candidate.vector) continue;
 

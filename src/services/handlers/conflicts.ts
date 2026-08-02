@@ -10,6 +10,22 @@ import {
 } from "../memory-conflicts.js";
 import type { ApiResponse, FormattedConflict } from "./shared-types.js";
 
+/** Raw joined conflict-row shape (memory_conflicts + m1/m2 memory content). */
+type ConflictJoinRow = {
+  id: string;
+  memory_id_1: string;
+  memory_id_2: string;
+  similarity_score: number;
+  detected_at: number;
+  resolved: number;
+  resolution_type?: string;
+  resolved_at?: number;
+  resolution_data?: string;
+  container_tag?: string;
+  m1_content?: string;
+  m2_content?: string;
+};
+
 export const handleListConflicts = (
   resolved = false,
   limit = 100
@@ -35,11 +51,11 @@ export const handleListConflicts = (
   }
 };
 
-export async function handleResolveConflict(
+export const handleResolveConflict = async (
   conflictId: string,
   strategy: string,
   mergedContent?: string
-): Promise<ApiResponse<{ mergedMemoryId?: string }>> {
+): Promise<ApiResponse<{ mergedMemoryId?: string }>> => {
   try {
     if (!conflictId || !strategy) {
       return { success: false, error: "conflictId and strategy are required" };
@@ -68,7 +84,7 @@ export async function handleResolveConflict(
     log("handleResolveConflict: error", { error: String(error) });
     return { success: false, error: "Internal error in handleResolveConflict" };
   }
-}
+};
 
 export const handleGetConflict = (conflictId: string): ApiResponse<FormattedConflict> => {
   try {
@@ -87,7 +103,7 @@ export const handleGetConflict = (conflictId: string): ApiResponse<FormattedConf
           LIMIT 1
         `
         )
-        .get(conflictId) as any;
+        .get(conflictId) as ConflictJoinRow | undefined;
       if (row) {
         const conflict = mapDbRowToConflict(row);
         return {
@@ -115,7 +131,7 @@ export const handleGetConflict = (conflictId: string): ApiResponse<FormattedConf
   }
 };
 
-export function handleConflictStats(): ApiResponse<{ unresolved: number; resolved: number }> {
+export const handleConflictStats = (): ApiResponse<{ unresolved: number; resolved: number }> => {
   try {
     const unresolved = getAllUnresolvedConflicts(1000);
     // Count resolved across all shards
@@ -125,7 +141,7 @@ export function handleConflictStats(): ApiResponse<{ unresolved: number; resolve
       const db = connectionManager.getConnection(shard.dbPath);
       const row = db
         .prepare("SELECT COUNT(*) as count FROM memory_conflicts WHERE resolved = 1")
-        .get() as any;
+        .get() as { count: number } | undefined;
       resolved += row?.count || 0;
     }
     return { success: true, data: { unresolved: unresolved.length, resolved } };
@@ -133,4 +149,4 @@ export function handleConflictStats(): ApiResponse<{ unresolved: number; resolve
     log("handleConflictStats: error", { error: String(error) });
     return { success: false, error: "Internal error in handleConflictStats" };
   }
-}
+};

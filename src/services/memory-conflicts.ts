@@ -20,6 +20,106 @@ import { mapDbRowToConflict } from "./utils/memory-mapper.js";
 const conflictChecksRunning = new Set<string>();
 
 /**
+ * True when any LLM contradiction provider is configured (opencode pair or
+ * manual memory-provider pair). Kept separate from the verdict orchestrator
+ * to hold its branch count below the DeepSource complexity threshold.
+ */
+const hasAnyContradictionProvider = (): boolean =>
+  Boolean(
+    (CONFIG.opencodeProvider && CONFIG.opencodeModel) || (CONFIG.memoryModel && CONFIG.memoryApiUrl)
+  );
+
+/**
+ * Opencode provider verdict path. Returns null when the path does not apply
+ * (no opencode config, or provider not connected) so the orchestrator can
+ * fall through to the manual provider path. Throws on provider errors — the
+ * orchestrator's try/catch maps those to "unknown".
+ */
+const verdictViaOpencode = async (
+  prompt: string,
+  timeout: number
+): Promise<"yes" | "no" | null> => {
+  if (!CONFIG.opencodeProvider || !CONFIG.opencodeModel) return null;
+
+  const { isProviderConnected, getStatePath, generateStructuredOutput } =
+    await import("./ai/opencode-provider.js");
+
+  if (!isProviderConnected(CONFIG.opencodeProvider)) return null;
+
+  const schema = z.object({
+    contradicts: z.enum(["YES", "NO"]),
+  });
+
+  const result = await withTimeout(
+    generateStructuredOutput({
+      providerName: CONFIG.opencodeProvider,
+      modelId: CONFIG.opencodeModel,
+      statePath: getStatePath(),
+      systemPrompt:
+        "You are a precise contradiction detector. Analyze two statements and answer ONLY YES or NO. Be strict: only answer YES if the statements are logically incompatible.",
+      userPrompt: prompt,
+      schema,
+      temperature: 0,
+    }),
+    timeout
+  );
+
+  return result.contradicts === "YES" ? "yes" : "no";
+};
+
+/**
+ * Manual memory-provider verdict path (memoryModel + memoryApiUrl via
+ * AIProviderFactory). Returns null when the path does not apply or the
+ * provider produced no usable tool-call result. Throws on provider errors —
+ * the orchestrator's try/catch maps those to "unknown".
+ */
+const verdictViaManualProvider = async (
+  prompt: string,
+  sessionID: string | undefined,
+  timeout: number
+): Promise<"yes" | "no" | null> => {
+  if (!CONFIG.memoryModel || !CONFIG.memoryApiUrl) return null;
+
+  const { AIProviderFactory } = await import("./ai/ai-provider-factory.js");
+  const { buildMemoryProviderConfig } = await import("./ai/provider-config.js");
+
+  const providerConfig = buildMemoryProviderConfig(CONFIG);
+  const provider = AIProviderFactory.createProvider(CONFIG.memoryProvider, providerConfig);
+
+  const toolSchema = {
+    type: "function" as const,
+    function: {
+      name: "check_contradiction",
+      description: "Check if two statements contradict each other",
+      parameters: {
+        type: "object",
+        properties: {
+          contradicts: {
+            type: "string",
+            enum: ["YES", "NO"],
+            description: "Answer only YES or NO",
+          },
+        },
+        required: ["contradicts"],
+      },
+    },
+  };
+
+  const result = await withTimeout(
+    provider.executeToolCall(
+      "You are a precise contradiction detector. Analyze two statements and answer ONLY YES or NO. Be strict: only answer YES if the statements are logically incompatible.",
+      prompt,
+      toolSchema,
+      sessionID || "conflict-check"
+    ),
+    timeout
+  );
+
+  if (!result.success || !result.data) return null;
+  return result.data.contradicts === "YES" ? "yes" : "no";
+};
+
+/**
  * Check if two memory statements contradict each other using an LLM.
  * Falls back to a heuristic-based check if the LLM is unavailable.
  *
@@ -48,85 +148,17 @@ export const checkContradictionVerdict = async (
   const prompt = `Do these two statements contradict each other? A: ${JSON.stringify(memory1)} B: ${JSON.stringify(memory2)} Answer only YES or NO`;
   const timeout = timeoutMs ?? CONFIG.autoCaptureIterationTimeout ?? 30000;
 
-  const hasProvider =
-    (CONFIG.opencodeProvider && CONFIG.opencodeModel) ||
-    (CONFIG.memoryModel && CONFIG.memoryApiUrl);
-
   // No provider configured: the heuristic verdict stands.
-  if (!hasProvider) {
+  if (!hasAnyContradictionProvider()) {
     return checkContradictionHeuristic(memory1, memory2) ? "yes" : "no";
   }
 
   try {
-    // Opencode provider path
-    if (CONFIG.opencodeProvider && CONFIG.opencodeModel) {
-      const { isProviderConnected, getStatePath, generateStructuredOutput } =
-        await import("./ai/opencode-provider.js");
+    const opencodeVerdict = await verdictViaOpencode(prompt, timeout);
+    if (opencodeVerdict !== null) return opencodeVerdict;
 
-      if (isProviderConnected(CONFIG.opencodeProvider)) {
-        const schema = z.object({
-          contradicts: z.enum(["YES", "NO"]),
-        });
-
-        const result = await withTimeout(
-          generateStructuredOutput({
-            providerName: CONFIG.opencodeProvider,
-            modelId: CONFIG.opencodeModel,
-            statePath: getStatePath(),
-            systemPrompt:
-              "You are a precise contradiction detector. Analyze two statements and answer ONLY YES or NO. Be strict: only answer YES if the statements are logically incompatible.",
-            userPrompt: prompt,
-            schema,
-            temperature: 0,
-          }),
-          timeout
-        );
-
-        return result.contradicts === "YES" ? "yes" : "no";
-      }
-    }
-
-    // Manual config path
-    if (CONFIG.memoryModel && CONFIG.memoryApiUrl) {
-      const { AIProviderFactory } = await import("./ai/ai-provider-factory.js");
-      const { buildMemoryProviderConfig } = await import("./ai/provider-config.js");
-
-      const providerConfig = buildMemoryProviderConfig(CONFIG);
-      const provider = AIProviderFactory.createProvider(CONFIG.memoryProvider, providerConfig);
-
-      const toolSchema = {
-        type: "function" as const,
-        function: {
-          name: "check_contradiction",
-          description: "Check if two statements contradict each other",
-          parameters: {
-            type: "object",
-            properties: {
-              contradicts: {
-                type: "string",
-                enum: ["YES", "NO"],
-                description: "Answer only YES or NO",
-              },
-            },
-            required: ["contradicts"],
-          },
-        },
-      };
-
-      const result = await withTimeout(
-        provider.executeToolCall(
-          "You are a precise contradiction detector. Analyze two statements and answer ONLY YES or NO. Be strict: only answer YES if the statements are logically incompatible.",
-          prompt,
-          toolSchema,
-          sessionID || "conflict-check"
-        ),
-        timeout
-      );
-
-      if (result.success && result.data) {
-        return result.data.contradicts === "YES" ? "yes" : "no";
-      }
-    }
+    const manualVerdict = await verdictViaManualProvider(prompt, sessionID, timeout);
+    if (manualVerdict !== null) return manualVerdict;
   } catch (error) {
     log("checkContradictionVerdict: LLM check failed, treating verdict as unknown", {
       error: String(error),
@@ -192,12 +224,12 @@ const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
  */
 // NOSONAR S3776: Conflict detection involves similarity search, LLM-based contradiction checking,
 // heuristic fallback, and database persistence — natural decomposition would fragment the detection pipeline.
-export async function detectConflicts(
+export const detectConflicts = async (
   newMemoryId: string,
   newMemoryContent: string,
   containerTag: string,
   sessionID?: string
-): Promise<MemoryConflict[]> {
+): Promise<MemoryConflict[]> => {
   const lockKey = `${newMemoryId}:${containerTag}`;
   if (conflictChecksRunning.has(lockKey)) {
     log("detectConflicts: skipping, another check is running", {
@@ -275,7 +307,7 @@ export async function detectConflicts(
   } finally {
     conflictChecksRunning.delete(lockKey);
   }
-}
+};
 
 interface SimilarMemory {
   id: string;
@@ -283,6 +315,33 @@ interface SimilarMemory {
   similarity: number;
   is_deprecated: number;
 }
+
+/** Raw row shape for the similar-memory queries (id/content/is_deprecated). */
+type SimilarMemoryRow = {
+  id: string;
+  content: string;
+  is_deprecated: number;
+};
+
+/**
+ * Raw memory_conflicts row shape (optionally joined with the two memories'
+ * content for the list/get queries). Optional fields mirror the sqlite
+ * nullable columns; the join columns are absent on plain SELECT * reads.
+ */
+type ConflictRow = {
+  id: string;
+  memory_id_1: string;
+  memory_id_2: string;
+  similarity_score: number;
+  detected_at: number;
+  resolved: number;
+  resolution_type?: string;
+  resolved_at?: number;
+  resolution_data?: string;
+  container_tag?: string;
+  m1_content?: string;
+  m2_content?: string;
+};
 
 /**
  * Find memories similar to the given content within the same container.
@@ -293,16 +352,16 @@ interface SimilarMemory {
  * @param containerTag - Container tag to restrict the search
  * @returns Array of similar memories with similarity scores
  */
-function findSimilarMemories(
+const findSimilarMemories = (
   db: Database,
   content: string,
   containerTag: string,
   excludeMemoryId?: string
-): SimilarMemory[] {
+): SimilarMemory[] => {
   const words = content
     .toLowerCase()
     .split(/\s+/)
-    .filter((w) => w.length > 3)
+    .filter((word) => word.length > 3)
     .slice(0, 20);
 
   if (words.length === 0) return [];
@@ -310,15 +369,15 @@ function findSimilarMemories(
   // Use FTS5 if available, otherwise simple LIKE query
   const hasFTS = db
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='memories_fts'")
-    .get() as any;
+    .get() as { name: string } | undefined;
 
   let results: SimilarMemory[] = [];
 
   if (hasFTS) {
     const query = words
-      .map((w) => {
+      .map((word) => {
         // Strip FTS5 metacharacters and reserved words to prevent injection
-        const clean = w.replace(/[*^:\-+?()]/g, "").replace(/\b(NEAR|AND|OR|NOT)\b/gi, "");
+        const clean = word.replace(/[*^:\-+?()]/g, "").replace(/\b(NEAR|AND|OR|NOT)\b/gi, "");
         return clean ? `"${clean.replaceAll('"', '""')}"` : "";
       })
       .filter(Boolean)
@@ -334,13 +393,13 @@ function findSimilarMemories(
           LIMIT 20
         `
         )
-        .all(query, containerTag) as any[];
+        .all(query, containerTag) as SimilarMemoryRow[];
 
-      results = rows.map((r) => ({
-        id: r.id,
-        content: r.content,
+      results = rows.map((row) => ({
+        id: row.id,
+        content: row.content,
         similarity: 0.5,
-        is_deprecated: r.is_deprecated || 0,
+        is_deprecated: row.is_deprecated || 0,
       }));
     } catch {
       // FTS query failed, fall through to LIKE
@@ -349,7 +408,7 @@ function findSimilarMemories(
 
   if (results.length === 0) {
     // Fallback: LIKE query with word overlap scoring
-    const likePatterns = words.slice(0, 5).map((w) => `%${w}%`);
+    const likePatterns = words.slice(0, 5).map((word) => `%${word}%`);
     const placeholders = likePatterns.map(() => "content LIKE ?").join(" OR ");
 
     const idClause = excludeMemoryId ? "AND id != ?" : "";
@@ -364,28 +423,34 @@ function findSimilarMemories(
         LIMIT 20
       `
       )
-      .all(containerTag, ...likePatterns, ...(excludeMemoryId ? [excludeMemoryId] : [])) as any[];
+      .all(
+        containerTag,
+        ...likePatterns,
+        ...(excludeMemoryId ? [excludeMemoryId] : [])
+      ) as SimilarMemoryRow[];
 
-    results = rows.map((r) => {
-      const rWords = r.content
+    results = rows.map((row) => {
+      const rowWords = row.content
         .toLowerCase()
         .split(/\s+/)
-        .filter((w: string) => w.length > 3);
-      const common = words.filter((w) => rWords.includes(w)).length;
-      const similarity = common / Math.max(words.length, rWords.length);
+        .filter((word: string) => word.length > 3);
+      const common = words.filter((word) => rowWords.includes(word)).length;
+      const similarity = common / Math.max(words.length, rowWords.length);
 
       return {
-        id: r.id,
-        content: r.content,
+        id: row.id,
+        content: row.content,
         similarity,
-        is_deprecated: r.is_deprecated || 0,
+        is_deprecated: row.is_deprecated || 0,
       };
     });
   }
 
   // Filter by similarity threshold
-  return results.filter((r) => r.similarity > 0.3).sort((a, b) => b.similarity - a.similarity);
-}
+  return results
+    .filter((result) => result.similarity > 0.3)
+    .sort((left, right) => right.similarity - left.similarity);
+};
 
 /**
  * Check if a conflict between two memory IDs already exists in the database.
@@ -396,11 +461,11 @@ function findSimilarMemories(
  * @param memoryId2 - Second memory ID
  * @returns The existing conflict record, or null if not found
  */
-function findExistingConflict(
+const findExistingConflict = (
   db: Database,
   memoryId1: string,
   memoryId2: string
-): MemoryConflict | null {
+): MemoryConflict | null => {
   const row = db
     .prepare(
       `
@@ -410,12 +475,12 @@ function findExistingConflict(
       LIMIT 1
     `
     )
-    .get(memoryId1, memoryId2, memoryId2, memoryId1) as any;
+    .get(memoryId1, memoryId2, memoryId2, memoryId1) as ConflictRow | undefined;
 
   if (!row) return null;
 
   return mapDbRowToConflict(row);
-}
+};
 
 /**
  * Persist a detected conflict to the database.
@@ -423,7 +488,7 @@ function findExistingConflict(
  * @param db - SQLite database handle
  * @param conflict - The conflict record to save
  */
-function saveConflict(db: Database, conflict: MemoryConflict): void {
+const saveConflict = (db: Database, conflict: MemoryConflict): void => {
   db.prepare(
     `
     INSERT INTO memory_conflicts (
@@ -442,7 +507,7 @@ function saveConflict(db: Database, conflict: MemoryConflict): void {
     conflict.resolutionData || null,
     conflict.containerTag || null
   );
-}
+};
 
 // Resolution strategies
 /**
@@ -459,20 +524,22 @@ function saveConflict(db: Database, conflict: MemoryConflict): void {
  */
 // NOSONAR S3776: Conflict resolution requires strategy-specific branching (keep_newer, keep_both,
 // merge, manual), database transactions, and vector index updates — complexity is inherent to the domain.
-export async function resolveConflict(
+export const resolveConflict = async (
   conflictId: string,
   strategy: "keep_newer" | "keep_both" | "merge" | "manual",
   mergedContent?: string
-): Promise<{ success: boolean; error?: string; mergedMemoryId?: string }> {
+): Promise<{ success: boolean; error?: string; mergedMemoryId?: string }> => {
   try {
     // First, find the conflict in any shard to read its container_tag
-    let conflictRow: any = null;
+    let conflictRow: ConflictRow | null = null;
     let conflictDb: Database | null = null;
     const searchShards = getAllShards();
 
     for (const shard of searchShards) {
       const db = connectionManager.getConnection(shard.dbPath);
-      const row = db.prepare("SELECT * FROM memory_conflicts WHERE id = ?").get(conflictId) as any;
+      const row = db
+        .prepare("SELECT * FROM memory_conflicts WHERE id = ?")
+        .get(conflictId) as ConflictRow | null;
       if (row) {
         conflictRow = row;
         conflictDb = db;
@@ -490,7 +557,9 @@ export async function resolveConflict(
 
     for (const shard of targetShards) {
       const db = connectionManager.getConnection(shard.dbPath);
-      const row = db.prepare("SELECT * FROM memory_conflicts WHERE id = ?").get(conflictId) as any;
+      const row = db.prepare("SELECT * FROM memory_conflicts WHERE id = ?").get(conflictId) as
+        | ConflictRow
+        | undefined;
 
       if (!row) continue;
 
@@ -509,10 +578,10 @@ export async function resolveConflict(
           // Get both memories, deprecate older
           const mem1 = db
             .prepare("SELECT id, created_at FROM memories WHERE id = ?")
-            .get(conflict.memoryId1) as any;
+            .get(conflict.memoryId1) as { id: string; created_at: number } | undefined;
           const mem2 = db
             .prepare("SELECT id, created_at FROM memories WHERE id = ?")
-            .get(conflict.memoryId2) as any;
+            .get(conflict.memoryId2) as { id: string; created_at: number } | undefined;
 
           if (!mem1 || !mem2) {
             return { success: false, error: "One or both memories not found" };
@@ -560,7 +629,7 @@ export async function resolveConflict(
               LIMIT 1
             `
             )
-            .get(conflict.memoryId1, conflict.memoryId2) as any;
+            .get(conflict.memoryId1, conflict.memoryId2) as { id: string } | undefined;
 
           if (existingMerged?.id) {
             mergedMemoryId = existingMerged.id;
@@ -651,7 +720,7 @@ export async function resolveConflict(
     log("resolveConflict: error", { conflictId, strategy, error: msg });
     return { success: false, error: msg };
   }
-}
+};
 
 /**
  * Record a conflict between a newly inserted memory and an existing one
@@ -664,13 +733,15 @@ export async function resolveConflict(
  * @returns true if a conflict row was inserted, false if the pair already
  * had a conflict recorded.
  */
-export async function recordConflictPair(args: {
+// skipcq: JS-0116 — fully synchronous by design (no awaits before saveConflict);
+// async keyword kept so the public Promise<boolean> signature is unchanged.
+export const recordConflictPair = async (args: {
   newMemoryId: string;
   existingMemoryId: string;
   similarityScore: number;
   containerTag: string;
   sessionId?: string;
-}): Promise<boolean> {
+}): Promise<boolean> => {
   const { newMemoryId, existingMemoryId, similarityScore, containerTag } = args;
   // Safety: fully synchronous by design (no awaits before saveConflict) — the
   // caller serializes the write under withShardWriteLock; the shard[0] lookup
@@ -705,7 +776,7 @@ export async function recordConflictPair(args: {
     log("recordConflictPair: error", { error: String(error) });
     return false;
   }
-}
+};
 
 /**
  * Retrieve conflicts from a single database shard.
@@ -715,11 +786,11 @@ export async function recordConflictPair(args: {
  * @param limit - Maximum number of conflicts to return
  * @returns Array of conflicts with optional memory content previews
  */
-export function getConflicts(
+export const getConflicts = (
   db: Database,
   resolved: boolean = false,
   limit: number = 100
-): (MemoryConflict & { memory1Content?: string; memory2Content?: string })[] {
+): (MemoryConflict & { memory1Content?: string; memory2Content?: string })[] => {
   const rows = db
     .prepare(
       `
@@ -732,14 +803,14 @@ export function getConflicts(
       LIMIT ?
     `
     )
-    .all(resolved ? 1 : 0, limit) as any[];
+    .all(resolved ? 1 : 0, limit) as ConflictRow[];
 
-  return rows.map((r) => ({
-    ...mapDbRowToConflict(r),
-    memory1Content: r.m1_content,
-    memory2Content: r.m2_content,
+  return rows.map((row) => ({
+    ...mapDbRowToConflict(row),
+    memory1Content: row.m1_content,
+    memory2Content: row.m2_content,
   }));
-}
+};
 
 /**
  * Retrieve all conflicts (resolved or unresolved) across every shard in the system.
@@ -748,10 +819,10 @@ export function getConflicts(
  * @param limit - Maximum total number of conflicts to return
  * @returns Array of conflicts sorted by detection time (newest first)
  */
-export function getAllConflicts(
+export const getAllConflicts = (
   resolved: boolean,
   limit: number = 1000
-): (MemoryConflict & { memory1Content?: string; memory2Content?: string })[] {
+): (MemoryConflict & { memory1Content?: string; memory2Content?: string })[] => {
   const allConflicts: (MemoryConflict & { memory1Content?: string; memory2Content?: string })[] =
     [];
   const shards = getAllShards();
@@ -762,15 +833,15 @@ export function getAllConflicts(
     allConflicts.push(...conflicts);
   }
 
-  return allConflicts.toSorted((a, b) => b.detectedAt - a.detectedAt).slice(0, limit);
-}
+  return allConflicts.toSorted((left, right) => right.detectedAt - left.detectedAt).slice(0, limit);
+};
 
 /**
  * Retrieve all unresolved conflicts across every shard in the system.
  * Thin wrapper over {@link getAllConflicts} kept for API compatibility.
  */
-export function getAllUnresolvedConflicts(
+export const getAllUnresolvedConflicts = (
   limit: number = 1000
-): (MemoryConflict & { memory1Content?: string; memory2Content?: string })[] {
+): (MemoryConflict & { memory1Content?: string; memory2Content?: string })[] => {
   return getAllConflicts(false, limit);
-}
+};

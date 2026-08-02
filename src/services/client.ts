@@ -16,15 +16,15 @@ import { deduplicationService } from "./deduplication-service.js";
 
 export type MemoryScope = "project" | "all-projects";
 
-function resolveScopeValue(
+const resolveScopeValue = (
   scope: MemoryScope,
   containerTag: string
-): { scope: "user" | "project"; hash: string } {
+): { scope: "user" | "project"; hash: string } => {
   if (scope === "all-projects") {
     return { scope: "project", hash: "" };
   }
   return extractScopeFromContainerTag(containerTag);
-}
+};
 
 // Serializes the dedup-recheck → insertVector critical section per shard.
 // checkDuplicateAtIngest is async (LLM contradiction veto), which yields a
@@ -45,9 +45,9 @@ const withShardWriteLock = <T>(dbPath: string, fn: () => Promise<T>): Promise<T>
   return next;
 };
 
-function toErrorMessage(error: unknown): string {
+const toErrorMessage = (error: unknown): string => {
   return error instanceof Error ? error.message : String(error);
-}
+};
 
 interface MemoryRow {
   id: string;
@@ -106,7 +106,7 @@ export class LocalMemoryClient {
       const tables = db
         .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
         .all() as { name: string }[];
-      const tableNames = new Set(tables.map((t) => t.name));
+      const tableNames = new Set(tables.map((table) => table.name));
 
       if (!tableNames.has("shards")) {
         log("SQLite verification: metadata db not initialized");
@@ -295,7 +295,7 @@ export class LocalMemoryClient {
 
       try {
         const existingMemories = vectorSearch.listMemories(db, containerTag, 50);
-        existingContents = existingMemories.map((m: MemoryRow) => m.content || "");
+        existingContents = existingMemories.map((memory: MemoryRow) => memory.content || "");
 
         // Check for potential conflicts (simplified: memories with similar content)
         conflictingMemories = existingContents
@@ -303,8 +303,8 @@ export class LocalMemoryClient {
             const existingLower = existing.toLowerCase();
             const contentLower = content.toLowerCase();
             // Simple overlap check for potential conflicts
-            const words = contentLower.split(/\s+/).filter((w) => w.length > 4);
-            return words.some((w) => existingLower.includes(w));
+            const words = contentLower.split(/\s+/).filter((word) => word.length > 4);
+            return words.some((word) => existingLower.includes(word));
           })
           .slice(0, 10);
       } catch (error) {
@@ -478,12 +478,12 @@ export class LocalMemoryClient {
       }
 
       // Sort by pinned first, then strength, then recency
-      allMemories.sort((a, b) => {
-        const pinnedDiff = (b.is_pinned || 0) - (a.is_pinned || 0);
+      allMemories.sort((left, right) => {
+        const pinnedDiff = (right.is_pinned || 0) - (left.is_pinned || 0);
         if (pinnedDiff !== 0) return pinnedDiff;
-        const strengthDiff = (b.strength || 0) - (a.strength || 0);
+        const strengthDiff = (right.strength || 0) - (left.strength || 0);
         if (strengthDiff !== 0) return strengthDiff;
-        return (b.recency_score || 0) - (a.recency_score || 0);
+        return (right.recency_score || 0) - (left.recency_score || 0);
       });
 
       const memories = allMemories.slice(0, limit).map(mapDbRowToListItem);
@@ -524,7 +524,7 @@ export class LocalMemoryClient {
         allMemories = allMemories.concat(memories);
       }
 
-      allMemories.sort((a, b) => b.created_at - a.created_at);
+      allMemories.sort((left, right) => right.created_at - left.created_at);
 
       const results = allMemories.slice(0, limit).map(mapDbRowToSessionResult);
 
