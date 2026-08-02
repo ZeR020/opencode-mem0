@@ -1,4 +1,6 @@
 import { log } from "../logger.js";
+import { CONFIG } from "../../config.js";
+import { performUserProfileLearning } from "../user-memory-learning.js";
 import { safeToISOString, safeJSONParse } from "../utils/safe-transforms.js";
 import type { UserProfileData } from "../user-profile/types.js";
 import type { ApiResponse } from "./shared-types.js";
@@ -119,6 +121,14 @@ export async function handleGetProfileSnapshot(
   }
 }
 
+/**
+ * Trigger a profile refresh.
+ *
+ * Identity derives from git tags at process.cwd() when no userId is given.
+ * The learning run no-ops while another run is in progress or while
+ * unanalyzed prompts are below the configured threshold; LLM extraction
+ * config (memoryModel / memoryApiUrl) is required for actual analysis.
+ */
 export async function handleRefreshProfile(
   userId?: string
 ): Promise<ApiResponse<Record<string, unknown>>> {
@@ -129,12 +139,39 @@ export async function handleRefreshProfile(
       targetUserId = tags.user.userEmail || "unknown";
     }
     const decayResult = userProfileManager.applyConfidenceDecay(targetUserId);
-    const unanalyzedCount = userPromptManager.countUnanalyzedForUserLearning();
+    const threshold = CONFIG.userProfileAnalysisInterval;
+    const countBefore = userPromptManager.countUnanalyzedForUserLearning();
+
+    let analyzed = 0;
+    if (countBefore >= threshold) {
+      try {
+        await performUserProfileLearning({} as never, process.cwd());
+      } catch (error) {
+        log("handleRefreshProfile: profile analysis failed", { error: String(error) });
+        return {
+          success: false,
+          error:
+            "Profile analysis failed: " +
+            String(error) +
+            " — check the LLM extraction settings (memoryModel / memoryApiUrl / API key) in Dashboard → Settings.",
+        };
+      }
+      analyzed = Math.max(0, countBefore - userPromptManager.countUnanalyzedForUserLearning());
+    }
+
+    const remaining = userPromptManager.countUnanalyzedForUserLearning();
     return {
       success: true,
       data: {
-        message: "Profile refresh completed",
-        unanalyzedPrompts: unanalyzedCount,
+        message:
+          analyzed > 0
+            ? `Profile refresh completed — analyzed ${analyzed} prompts`
+            : remaining >= threshold
+              ? "Profile refresh completed"
+              : `Need ${threshold - remaining} more unanalyzed prompt(s) before profile analysis runs (${remaining}/${threshold}).`,
+        analyzed,
+        unanalyzedPrompts: remaining,
+        threshold,
         decayApplied: decayResult.decayed,
         decayRemovedCount: decayResult.removed,
       },
