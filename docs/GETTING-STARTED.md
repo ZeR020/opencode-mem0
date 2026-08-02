@@ -136,6 +136,31 @@ After the initial download, subsequent runs are near-instant. Alternatively, use
 
 **Solution:** Bun does not currently support Windows. Use Node.js >= 20.0.0 instead — the plugin automatically falls back to `better-sqlite3` for SQLite operations. All core features work on Windows via Node.js, though vector operations may be slightly slower than the Bun path.
 
+**Windows paths** use `%USERPROFILE%` instead of `~`:
+
+| Location                                             | Purpose                                 |
+| ---------------------------------------------------- | --------------------------------------- |
+| `%USERPROFILE%\.config\opencode\opencode-mem0.jsonc` | Global config                           |
+| `%USERPROFILE%\.opencode-mem0\data`                  | SQLite databases, embedding model cache |
+
+### better-sqlite3 install fails (node-gyp / MSBuild error)
+
+**Symptom:** `npm install opencode-mem0` fails with `node-gyp` or `MSBuild` errors (Windows ARM64 or a very new Node version without prebuilt binaries).
+
+**Solution:** Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the **"Desktop development with C++"** workload + [Python 3](https://www.python.org/downloads/), then retry. One-time setup.
+
+### Auto-capture skips with "LLM provider not configured"
+
+**Solution:** Create the config file with a `memoryProvider` (see [Minimal configuration](#minimal-configuration) above).
+
+### Web UI stuck on "Initializing..."
+
+**Solution:** `dist/web/vendor/` is missing from the plugin install — reinstall the package.
+
+### usearch native binary missing
+
+**Solution:** Nothing to do — the plugin falls back to exact-scan (brute-force cosine). Search still works, just slower on large datasets.
+
 ### Port 4747 already in use
 
 **Symptom:** Web UI fails to start; log shows EADDRINUSE.

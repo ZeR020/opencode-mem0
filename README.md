@@ -12,104 +12,42 @@ OpenCode plugin that gives coding agents persistent memory using a local vector 
 
 ---
 
-## Installation
+## Quick Start
+
+**Requirements:** Bun ≥ 1.0 (Linux/macOS) or Node.js ≥ 20 (any platform, including Windows — prebuilt binaries, no build tools needed).
+
+**1. Install**
 
 ```bash
 npm install opencode-mem0
 ```
 
-Requires **Bun >= 1.0.0** (Linux/macOS) for native `bun:sqlite`, or **Node.js >= 20.0.0** (any platform including Windows) via `better-sqlite3` fallback.
+**2. Enable the plugin** in your `opencode.json`:
 
-## Quick Start
-
-1. Install the plugin in your OpenCode project:
-   ```bash
-   npm install opencode-mem0
-   ```
-2. Enable the plugin in your `opencode.json` config:
-   ```json
-   {
-     "plugin": ["opencode-mem0"]
-   }
-   ```
-3. Activate the plugin (one-time, creates `~/.config/opencode/opencode-mem0.jsonc` and `~/.opencode-mem0/data`):
-   ```bash
-   npx opencode-mem0 init
-   ```
-   Until activated, the plugin stays fully inert: nothing is read from or written to your home directory, and no web server or background jobs start. Installs that already have config + data are activated automatically.
-4. Configure a memory provider for auto-capture (e.g., a cheap OpenAI-compatible endpoint):
-   ```jsonc
-   // ~/.config/opencode/opencode-mem0.jsonc
-   {
-     "memoryProvider": "openai-chat",
-     "memoryModel": "gpt-4o-mini",
-     "memoryApiUrl": "https://api.openai.com/v1",
-     "memoryApiKey": "sk-...",
-   }
-   ```
-5. Start OpenCode — the plugin warms up automatically, the Web UI launches at `http://127.0.0.1:4747`, and memories are captured from your sessions.
-
-> **Recommended:** Use a cheap model (e.g., `gpt-4o-mini`) for memory extraction — it's cost-effective and avoids taxing your main chat model. `memoryProvider` supports `openai-chat` (any OpenAI-compatible API), `openai-responses`, `anthropic`, and `google-gemini`. Alternatively, `opencodeProvider` + `opencodeModel` reuses your OpenCode-connected provider (uses your main model). Without a provider, auto-capture silently skips with a log warning.
-
-## Windows Setup
-
-On Windows, `npm install opencode-mem0` works the same as other platforms — `better-sqlite3` ships prebuilt binaries for Windows x64, so no compiler or build tools are needed for most users.
-
-### Prerequisites
-
-- **Node.js >= 20.0.0** — download from [nodejs.org](https://nodejs.org) (LTS is fine)
-
-That's it. Install and configure:
-
-```powershell
-npm install opencode-mem0
+```json
+{ "plugin": ["opencode-mem0"] }
 ```
 
-### Config file location
+**3. Activate** (one-time, creates the config and data directory — until this, the plugin stays fully inert and touches nothing):
 
-On Windows, paths use `%USERPROFILE%` instead of `~`:
+```bash
+npx opencode-mem0 init
+```
 
-| Location                                             | Purpose                                 |
-| ---------------------------------------------------- | --------------------------------------- |
-| `%USERPROFILE%\.config\opencode\opencode-mem0.jsonc` | Global config                           |
-| `%USERPROFILE%\.opencode-mem0\data`                  | SQLite databases, embedding model cache |
-
-Example config (`%USERPROFILE%\.config\opencode\opencode-mem0.jsonc`):
+**4. Add a memory provider** for auto-capture. Edit `~/.config/opencode/opencode-mem0.jsonc` (Windows: `%USERPROFILE%\.config\opencode\opencode-mem0.jsonc`):
 
 ```jsonc
 {
-  "memoryProvider": "openai-chat",
-  "memoryModel": "gpt-4o-mini",
+  "memoryProvider": "openai-chat", // or: openai-responses, anthropic, google-gemini
+  "memoryModel": "gpt-4o-mini", // any cheap model is plenty for extraction
   "memoryApiUrl": "https://api.openai.com/v1",
   "memoryApiKey": "sk-...",
 }
 ```
 
-### OpenCode config
+**5. Start OpenCode.** First launch downloads the ~547MB local embedding model once (cached for all future runs). The Web UI opens at `http://127.0.0.1:4747`.
 
-Add the plugin to your project's `opencode.json` (or global opencode config):
-
-```json
-{
-  "plugin": ["opencode-mem0"]
-}
-```
-
-### Troubleshooting
-
-| Problem                                                                | Fix                                                                                                                                                                                                                                                                                                                                                |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `better-sqlite3` install fails (`node-gyp` / `MSBuild` error)          | This means no prebuilt binary matched your platform (e.g., Windows ARM64, or a very new Node version). Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the **"Desktop development with C++"** workload + [Python 3](https://www.python.org/downloads/), then retry. This is a one-time setup. |
-| Plugin loads but auto-capture skips with "LLM provider not configured" | Create the config file at `%USERPROFILE%\.config\opencode\opencode-mem0.jsonc` with a `memoryProvider`                                                                                                                                                                                                                                             |
-| Web UI shows "Initializing..." and never loads                         | Ensure `dist/web/vendor/` exists in the plugin install directory — reinstall if missing                                                                                                                                                                                                                                                            |
-| Embedding model download is slow / hangs                               | First run downloads ~547MB (Xenova/nomic-embed-text-v1) — this is cached at `%USERPROFILE%\.opencode-mem0\data\.cache` for subsequent runs                                                                                                                                                                                                         |
-| `usearch` native binary missing                                        | The plugin automatically falls back to exact-scan (brute-force cosine) — search still works, just slower on large datasets                                                                                                                                                                                                                         |
-
-> **Tip:** If you have [Bun](https://bun.sh) installed on Windows (via WSL or native), the plugin uses Bun's built-in SQLite and skips `better-sqlite3` entirely.
-
-## First Run — What to Expect
-
-On first launch **after activation** (all platforms), the plugin downloads the local embedding model (~547MB, `Xenova/nomic-embed-text-v1`). This is a one-time download cached under `~/.opencode-mem0/data/.cache/` (`%USERPROFILE%\.opencode-mem0\data\.cache\` on Windows). Subsequent starts load from cache in seconds. The Web UI at `http://127.0.0.1:4747` becomes available once warmup completes.
+> **No provider configured?** Auto-capture skips silently — manual memory tools and the Web UI still work. To reuse your main OpenCode provider instead of a separate key, set `opencodeProvider` + `opencodeModel`. Platform notes and troubleshooting: [Getting Started](docs/GETTING-STARTED.md).
 
 ## Usage
 
