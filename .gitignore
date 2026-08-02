@@ -101,12 +101,3 @@ $RECYCLE.BIN/
 ._*
 .Spotlight-V100
 .Trashes
-
-# sandbox home (local only)
-/.home/
-
-# local sandbox (dev-machine only, keep out of the public repo)
-/sandbox.sh
-/AGENTS.md
-/.envrc
-/.sandbox-bin/
