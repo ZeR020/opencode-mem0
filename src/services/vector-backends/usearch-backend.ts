@@ -77,6 +77,12 @@ export class USearchBackend implements VectorBackend {
   async search(args: VectorBackendSearchParams): Promise<BackendSearchResult[]> {
     const indexKey = getIndexKey(args.shard, args.kind);
     const cache = await this.getOrCreateIndex(indexKey);
+    // Native usearch search() on an empty index parks the calling thread
+    // indefinitely (observed: whole web server wedged at 0% CPU until kill).
+    // An empty index has no matches by definition — never make the native call.
+    // Belt: also check the native index size — idToKey can hold keys whose
+    // native add() threw, leaving the native index empty behind the map.
+    if (cache.idToKey.size === 0 || cache.index.size() === 0) return [];
     try {
       const matches = cache.index.search(args.queryVector, args.limit);
       return this.mapSearchResults(cache, matches);

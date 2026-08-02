@@ -214,4 +214,32 @@ describe("USearchBackend", () => {
 
     expect(result.map((x) => x.id)).toEqual(["alpha"]);
   });
+
+  it("returns [] for an empty index without touching the native search call", async () => {
+    // Regression: native usearch Index.search() on an empty index parks the
+    // calling thread indefinitely (verified: process blocked >30s at 0% CPU,
+    // wedging the whole web server). The zero-hit case must short-circuit.
+    const baseDir = mkdtempSync(join(tmpdir(), "usearch-backend-empty-"));
+    tempDirs.push(baseDir);
+
+    const backend = new USearchBackend({ baseDir, dimensions: 4 });
+    const result = await backend.search({
+      db: null,
+      shard: {
+        id: 99,
+        scope: "user",
+        scopeHash: "empty",
+        shardIndex: 0,
+        dbPath: "",
+        vectorCount: 0,
+        isActive: true,
+        createdAt: Date.now(),
+      },
+      kind: "content",
+      queryVector: new Float32Array([1, 0, 0, 0]),
+      limit: 5,
+    });
+
+    expect(result).toEqual([]);
+  });
 });

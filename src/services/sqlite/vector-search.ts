@@ -1,4 +1,4 @@
-import { type Database } from "./sqlite-bootstrap.js";
+import type { Database } from "./sqlite-bootstrap.js";
 import { connectionManager } from "./connection-manager.js";
 import { log } from "../logger.js";
 import { CONFIG } from "../../config.js";
@@ -142,7 +142,11 @@ export class VectorSearch {
     kind: "content" | "tags"
   ): Promise<void> {
     const key = `${shard.id}:${kind}`;
-    if (this.rebuildDirty.get(key)) {
+    // Default-dirty: on a fresh process the in-memory index knows nothing
+    // about existing sqlite rows, so first use must rebuild once. Without
+    // this, vector search silently returned [] after every restart until a
+    // new insert happened to land in that shard/kind.
+    if (this.rebuildDirty.get(key) !== false) {
       await backend.rebuildFromShard({ db, shard, kind });
       this.rebuildDirty.set(key, false);
     }
@@ -437,6 +441,11 @@ export class VectorSearch {
           queryVector,
           limit: searchLimit,
         });
+        // maybeRebuild just cleared the shared dirty flags for the fallback;
+        // re-mark the primary dirty so the next call retries the native index
+        // instead of silently degrading to exact-scan for the process lifetime.
+        this.rebuildDirty.set(`${shard.id}:content`, true);
+        this.rebuildDirty.set(`${shard.id}:tags`, true);
       }
     } else {
       contentResults = [];
