@@ -101,3 +101,5 @@ $RECYCLE.BIN/
 ._*
 .Spotlight-V100
 .Trashes
+.sandbox/
+.pi-subagents/
