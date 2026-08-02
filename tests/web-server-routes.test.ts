@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock fetch for all API calls
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+global.fetch = mockFetch as unknown as typeof fetch;
 
 // Mock logger
 vi.mock("../src/services/logger.js", () => ({
@@ -47,6 +47,8 @@ vi.mock("../src/services/api-handlers.js", () => ({
   handleConflictStats: vi.fn(),
   handleEmbeddingCacheStats: vi.fn(),
   handleApiStatus: vi.fn(),
+  handleGetConfig: vi.fn(),
+  handleUpdateConfig: vi.fn(),
 }));
 
 import { WebServer, startWebServer } from "../src/services/web-server.js";
@@ -54,7 +56,6 @@ import { serve } from "../src/services/platform-server.js";
 import {
   handleListTags,
   handleListMemories,
-  handleGetMemory,
   handleAddMemory,
   handleDeleteMemory,
   handleBulkDelete,
@@ -78,12 +79,12 @@ import {
   handleDeletePrompt,
   handleBulkDeletePrompts,
   handleGetUserProfile,
-  handleUpdateUserProfile,
   handleGetProfileChangelog,
   handleGetProfileSnapshot,
   handleRefreshProfile,
   handleEmbeddingCacheStats,
-  handleApiStatus,
+  handleGetConfig,
+  handleUpdateConfig,
 } from "../src/services/api-handlers.js";
 
 describe("WebServer Routes", () => {
@@ -179,19 +180,17 @@ describe("WebServer Routes", () => {
     });
 
     // Issue #47: CSP blocked CDN scripts; deps now vendored locally under strict CSP.
-    it.each([
-      "/vendor/lucide.min.js",
-      "/vendor/marked.min.js",
-      "/vendor/dompurify.min.js",
-      "/vendor/jsonrepair.min.js",
-    ])("serves vendored dep %s locally with strict CSP", async (p) => {
-      const res = await makeRequest(p);
-      expect(res.status).toBe(200);
-      expect(res.headers.get("Content-Type")).toBe("application/javascript");
-      expect(res.headers.get("Content-Security-Policy")).toBe(
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
-      );
-    });
+    it.each(["/vendor/lucide.min.js", "/vendor/marked.min.js", "/vendor/dompurify.min.js"])(
+      "serves vendored dep %s locally with strict CSP",
+      async (p) => {
+        const res = await makeRequest(p);
+        expect(res.status).toBe(200);
+        expect(res.headers.get("Content-Type")).toBe("application/javascript");
+        expect(res.headers.get("Content-Security-Policy")).toBe(
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+        );
+      }
+    );
   });
 
   describe("API Routes", () => {
@@ -472,6 +471,36 @@ describe("WebServer Routes", () => {
       const res = await makeRequest("/api/user-profile/refresh", "POST", { userId: "user-1" });
       expect(res.status).toBe(200);
       expect(handleRefreshProfile).toHaveBeenCalledWith("user-1");
+    });
+
+    it("GET /api/config calls handleGetConfig", async () => {
+      (handleGetConfig as any).mockResolvedValue({ success: true, data: {} });
+      const res = await makeRequest("/api/config");
+      expect(res.status).toBe(200);
+      expect(handleGetConfig).toHaveBeenCalled();
+    });
+
+    it("PUT /api/config calls handleUpdateConfig and returns 400 on failure", async () => {
+      (handleUpdateConfig as any).mockResolvedValue({ success: true, data: {} });
+      const okRes = await makeRequest("/api/config", "PUT", { memoryModel: "gpt-4o-mini" });
+      expect(okRes.status).toBe(200);
+      expect(handleUpdateConfig).toHaveBeenCalledWith({ memoryModel: "gpt-4o-mini" });
+
+      (handleUpdateConfig as any).mockResolvedValue({ success: false, error: "unknown key: nope" });
+      const badRes = await makeRequest("/api/config", "PUT", { nope: 1 });
+      expect(badRes.status).toBe(400);
+    });
+
+    it("PUT /api/config rejects malformed JSON with 400 without calling the handler", async () => {
+      await server.start();
+      const fetchHandler = (serve as any).mock.calls[0][0].fetch;
+      const req = new Request("http://127.0.0.1:18080/api/config", {
+        method: "PUT",
+        body: "{not valid json",
+      });
+      const res = await fetchHandler(req);
+      expect(res.status).toBe(400);
+      expect(handleUpdateConfig).not.toHaveBeenCalled();
     });
   });
 

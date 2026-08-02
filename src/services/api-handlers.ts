@@ -22,6 +22,9 @@ export {
 // Search handler
 export { handleSearch } from "./handlers/search.js";
 
+// Config handler
+export { handleGetConfig, handleUpdateConfig } from "./handlers/config.js";
+
 // Profile handlers
 export {
   handleGetUserProfile,

@@ -6,11 +6,11 @@ import { stripJsoncComments } from "./services/jsonc.js";
 import { resolveSecretValue } from "./services/secret-resolver.js";
 import { log, setLogLevel } from "./services/logger.js";
 import { z } from "zod";
-import { type AIProviderType } from "./types/index.js";
+import type { AIProviderType } from "./types/index.js";
 
 const CONFIG_DIR = join(homedir(), ".config", "opencode");
 const DATA_DIR = join(homedir(), ".opencode-mem0");
-const CONFIG_FILES = [
+export const CONFIG_FILES = [
   join(CONFIG_DIR, "opencode-mem0.jsonc"),
   join(CONFIG_DIR, "opencode-mem0.json"),
 ];
@@ -120,7 +120,7 @@ interface OpenCodeMemConfig {
   rateLimitEnabled?: boolean;
 }
 
-const OpenCodeMemConfigSchema = z.object({
+export const OpenCodeMemConfigSchema = z.object({
   storagePath: z.string().optional(),
   userEmailOverride: z.string().optional(),
   userNameOverride: z.string().optional(),
@@ -392,6 +392,22 @@ function getEmbeddingDimensions(model: string): number {
 function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
   const cfg = fileConfig;
   const defaults = DEFAULTS as Required<OpenCodeMemConfig>;
+  // Secret references (env:///file://) resolve leniently at boot so a dangling
+  // reference degrades to "no key" instead of crashing every consumer at module
+  // load. setStrictSecretResolution(true) makes it throw — used on the
+  // dashboard PUT apply path so bad references are rejected with feedback.
+  const resolveSecret = (value: string | undefined): string | undefined => {
+    try {
+      return resolveSecretValue(value);
+    } catch (error) {
+      if (strictSecretResolution) throw error;
+      log("Secret reference could not be resolved; treating as unset", {
+        level: "warn",
+        error: String(error),
+      });
+      return undefined;
+    }
+  };
   return {
     storagePath: expandPath(cfg.storagePath ?? defaults.storagePath),
     userEmailOverride: cfg.userEmailOverride,
@@ -402,8 +418,8 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
       getEmbeddingDimensions(cfg.embeddingModel ?? defaults.embeddingModel),
     embeddingApiUrl: cfg.embeddingApiUrl,
     embeddingApiKey: cfg.embeddingApiKey
-      ? resolveSecretValue(cfg.embeddingApiKey)
-      : resolveSecretValue(process.env.OPENAI_API_KEY),
+      ? resolveSecret(cfg.embeddingApiKey)
+      : resolveSecret(process.env.OPENAI_API_KEY),
     similarityThreshold: cfg.similarityThreshold ?? defaults.similarityThreshold,
     maxMemories: cfg.maxMemories ?? defaults.maxMemories,
     injectProfile: cfg.injectProfile ?? defaults.injectProfile,
@@ -417,7 +433,7 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
     memoryProvider: (cfg.memoryProvider ?? "openai-chat") as AIProviderType,
     memoryModel: cfg.memoryModel,
     memoryApiUrl: cfg.memoryApiUrl,
-    memoryApiKey: resolveSecretValue(cfg.memoryApiKey),
+    memoryApiKey: resolveSecret(cfg.memoryApiKey),
     memoryTemperature: cfg.memoryTemperature,
     memoryExtraParams: cfg.memoryExtraParams,
     opencodeProvider: cfg.opencodeProvider,
@@ -517,6 +533,18 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
     warmupTimeoutMs: cfg.warmupTimeoutMs ?? defaults.warmupTimeoutMs,
     rateLimitEnabled: cfg.rateLimitEnabled ?? defaults.rateLimitEnabled,
   };
+}
+
+let strictSecretResolution = false;
+
+/**
+ * When enabled, unresolvable env:///file:// secret references throw instead of
+ * degrading to undefined with a warning. Boot is lenient (broken reference =
+ * degraded auth, not a crashed process); interactive config edits opt into
+ * strict mode so users get immediate feedback.
+ */
+export function setStrictSecretResolution(strict: boolean): void {
+  strictSecretResolution = strict;
 }
 
 function buildConfig(fileConfig: OpenCodeMemConfig) {

@@ -39,6 +39,8 @@ import {
   handleConflictStats,
   handleEmbeddingCacheStats,
   handleApiStatus,
+  handleGetConfig,
+  handleUpdateConfig,
 } from "./api-handlers.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -290,12 +292,10 @@ export class WebServer {
       "/index.html": ["index.html", "text/html"],
       "/styles.css": ["styles.css", "text/css"],
       "/app.js": ["app.js", "application/javascript"],
-      "/i18n.js": ["i18n.js", "application/javascript"],
       "/theme-bootstrap.js": ["theme-bootstrap.js", "application/javascript"],
       "/vendor/lucide.min.js": ["vendor/lucide.min.js", "application/javascript"],
       "/vendor/marked.min.js": ["vendor/marked.min.js", "application/javascript"],
       "/vendor/dompurify.min.js": ["vendor/dompurify.min.js", "application/javascript"],
-      "/vendor/jsonrepair.min.js": ["vendor/jsonrepair.min.js", "application/javascript"],
       "/favicon.ico": ["favicon.ico", "image/x-icon"],
     };
     const entry = staticMap[path];
@@ -369,6 +369,10 @@ export class WebServer {
         return await this._apiSearchTranscripts(url, isLocal);
       case "GET /api/stats":
         return this.jsonResponse(handleStats(), 200, !isLocal);
+      case "GET /api/config":
+        return this.jsonResponse(handleGetConfig(), 200, !isLocal);
+      case "PUT /api/config":
+        return await this._apiUpdateConfig(req, isLocal);
       case "GET /api/status":
         return this.jsonResponse(handleApiStatus(), 200, !isLocal);
       case "GET /api/health":
@@ -670,6 +674,15 @@ export class WebServer {
     const userId = body.userId || undefined;
     const result = await handleRefreshProfile(userId);
     return this.jsonResponse(result, 200, !isLocal);
+  }
+
+  private async _apiUpdateConfig(req: Request, isLocal: boolean): Promise<Response> {
+    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    if (body === null) {
+      return this.jsonResponse({ success: false, error: "invalid JSON body" }, 400, !isLocal);
+    }
+    const result = await handleUpdateConfig(body);
+    return this.jsonResponse(result, result.success ? 200 : 400, !isLocal);
   }
 
   private _securityHeaders(): Record<string, string> {

@@ -88,6 +88,11 @@ vi.mock("../src/services/api-handlers.js", () => ({
     success: true,
     data: { items: [], total: 0 },
   }),
+  handleGetConfig: () => ({
+    success: true,
+    data: { memoryProvider: "openai-chat", memoryApiKeyMasked: "" },
+  }),
+  handleUpdateConfig: () => ({ success: true, data: {} }),
   handleApiStatus: () => ({
     success: true,
     data: { status: "ok", version: "1.0.0" },
