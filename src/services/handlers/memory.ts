@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { embeddingService } from "../embedding.js";
 import { shardManager } from "../sqlite/shard-manager.js";
 import { vectorSearch } from "../sqlite/vector-search.js";
@@ -9,7 +8,6 @@ import { safeJSONParse } from "../utils/safe-transforms.js";
 import { userPromptManager } from "../user-prompt/user-prompt-manager.js";
 import type { MemoryType } from "../../types/index.js";
 import {
-  extractScopeFromTag,
   sanitizeListParams,
   findMemoryInShards,
   fetchMemoriesForList,
@@ -21,7 +19,6 @@ import type { ApiResponse, PaginatedResponse, TagInfo } from "./shared-types.js"
 
 export async function handleListTags(): Promise<ApiResponse<{ project: TagInfo[] }>> {
   try {
-    await embeddingService.warmup();
     const projectShards = shardManager.getAllShards("project", "");
     const tagsMap = new Map<string, TagInfo>();
     for (const shard of projectShards) {
@@ -62,7 +59,6 @@ export async function handleListMemories(
 ): Promise<ApiResponse<PaginatedResponse<Record<string, unknown>>>> {
   try {
     const { safePage, safePageSize } = sanitizeListParams(page, pageSize);
-    await embeddingService.warmup();
     const perShardLimit = Math.min(safePageSize * 2, 500);
     const allMemories = fetchMemoriesForList(tag, perShardLimit);
     const memoriesWithType = allMemories.map(mapRawMemoryToTyped);
