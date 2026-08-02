@@ -23,6 +23,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Duplicate i18n keys silently overridden** — `confirm-bulk-delete`, `confirm-cleanup`, `confirm-dedup` appeared twice per locale; the legacy definitions (last-wins in JS object literals) silently overrode the new wording. Removed all duplicates.
 - **Non-string ID slicing** — `memory.id.slice()` and `conflict.id.slice()` assumed string IDs; now guarded with `String(...)` to avoid throwing on numeric IDs.
 
+## [2.19.4] - 2026-08-02
+
+### Changed
+
+- **Internal refactor of conflict detection** — Reduced complexity in `checkContradictionVerdict` and removed `any` casts. No behavior change.
+
+## [2.19.3] - 2026-08-02
+
+### Fixed
+
+- **Web UI robustness** — Wrapped `searchRow`/`txRow` map callbacks to satisfy SonarCloud S7727 and avoid unbound-method issues.
+
+## [2.19.2] - 2026-08-02
+
+### Security
+
+- **XSS hardening** — Sanitized HTML at DOM sinks in the web UI (CodeQL js/xss).
+
+## [2.19.1] - 2026-08-02
+
+### Added
+
+- **Unresolved/resolved toggle in the Conflicts view** of the web UI.
+
+### Fixed
+
+- **Conflict system repaired end to end** — conflicts are now detected and surfaced correctly.
+
+### Changed
+
+- Upgraded `better-sqlite3` to v13.
+
 ## [2.19.0] - 2026-08-02
 
 ### Added
