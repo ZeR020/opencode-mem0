@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.20.1] - 2026-08-02
+
 ### Fixed
 
 - **Dashboard took ~20s to load** — `/api/memories` and `/api/tags` awaited the embedding-model warmup (a multi-hundred-MB pipeline init) even though listing is a pure database read. Warmup removed from those handlers; the endpoints now respond in milliseconds. Semantic search still warms up on demand.
