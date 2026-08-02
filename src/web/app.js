@@ -63,6 +63,7 @@ const state = {
   // conflicts
   conflicts: [],
   conflictStats: null,
+  conflictView: "unresolved", // unresolved | resolved
 
   // maintenance
   embeddingCache: null,
@@ -799,8 +800,9 @@ function changelogRow(c) {
 // ── View: Conflicts ────────────────────────────────────────────────────────
 
 async function loadConflicts() {
+  const resolved = state.conflictView === "resolved" ? "true" : "false";
   const [list, stats] = await Promise.all([
-    apiGet("/api/conflicts?resolved=false&limit=100"),
+    apiGet(`/api/conflicts?resolved=${resolved}&limit=100`),
     apiGet("/api/conflicts/stats"),
   ]);
   state.error = list.success ? null : list.error;
@@ -811,10 +813,16 @@ async function loadConflicts() {
 
 function viewConflicts() {
   const cs = state.conflictStats;
+  const isResolved = state.conflictView === "resolved";
   const header = `
     <div class="stats-grid">
       ${statCard("alert-triangle", "unresolved", cs?.unresolved, "")}
       ${statCard("check", "resolved", cs?.resolved, "")}
+    </div>`;
+  const chips = `
+    <div class="chips" role="group" aria-label="Conflict filter">
+      <button class="chip ${!isResolved ? "active" : ""}" data-action="conflict-view" data-filter="unresolved">unresolved</button>
+      <button class="chip ${isResolved ? "active" : ""}" data-action="conflict-view" data-filter="resolved">resolved</button>
     </div>`;
 
   const list = state.loading
@@ -822,20 +830,39 @@ function viewConflicts() {
     : state.error
       ? errorCard(state.error)
       : state.conflicts.length
-        ? state.conflicts.map(conflictCard).join("")
-        : `<div class="card">${empty("[✓]", "no unresolved conflicts", "New writes that contradict existing memories show up here.")}</div>`;
+        ? state.conflicts.map((c) => conflictCard(c, isResolved)).join("")
+        : `<div class="card">${
+            isResolved
+              ? empty("[#]", "no resolved conflicts yet")
+              : empty(
+                  "[✓]",
+                  "no unresolved conflicts",
+                  "New writes that contradict existing memories show up here."
+                )
+          }</div>`;
 
-  return `${sectionLabel("conflicts")}${header}<div class="mt-4 flex" style="flex-direction:column;gap:var(--sp-4)">${list}</div>`;
+  return `${sectionLabel("conflicts")}${header}<div class="mt-3">${chips}</div><div class="mt-4 flex" style="flex-direction:column;gap:var(--sp-4)">${list}</div>`;
 }
 
-function conflictCard(c) {
+function conflictCard(c, readOnly = false) {
   const pct = Math.round((c.similarityScore ?? 0) * 100);
+  const actions = readOnly
+    ? ""
+    : `<div class="modal-actions" style="padding-top: var(--sp-3)">
+        <button class="btn btn-sm" data-action="resolve-conflict" data-id="${esc(c.id)}" data-strategy="keep_newer"><i data-lucide="arrow-up" class="icon"></i>keep newer</button>
+        <button class="btn btn-sm" data-action="resolve-conflict" data-id="${esc(c.id)}" data-strategy="keep_both"><i data-lucide="copy" class="icon"></i>keep both</button>
+        <button class="btn btn-sm btn-primary" data-action="merge-conflict" data-id="${esc(c.id)}"><i data-lucide="git-merge" class="icon"></i>merge…</button>
+      </div>`;
+  const resolution = readOnly
+    ? `<span class="badge type">${esc(c.resolutionType || "resolved")}</span><span>${relTime(c.resolvedAt)}</span>`
+    : "";
   return `
   <div class="card">
     <div class="card-head">
       <span class="row-marker danger">[!]</span>
       <span class="mono-nums">${pct}% similar</span>
       <span class="sub">${relTime(c.detectedAt)}</span>
+      ${resolution}
       <span class="spacer"></span>
       <span class="sim"><span class="bar"><span style="width:${pct}%"></span></span></span>
     </div>
@@ -844,11 +871,7 @@ function conflictCard(c) {
         <div><div class="side-label">memory A · ${esc(String(c.memoryId1 || "").slice(0, 10))}</div><div class="row-text">${esc(c.memory1Content || "—")}</div></div>
         <div><div class="side-label">memory B · ${esc(String(c.memoryId2 || "").slice(0, 10))}</div><div class="row-text">${esc(c.memory2Content || "—")}</div></div>
       </div>
-      <div class="modal-actions" style="padding-top: var(--sp-3)">
-        <button class="btn btn-sm" data-action="resolve-conflict" data-id="${esc(c.id)}" data-strategy="keep_newer"><i data-lucide="arrow-up" class="icon"></i>keep newer</button>
-        <button class="btn btn-sm" data-action="resolve-conflict" data-id="${esc(c.id)}" data-strategy="keep_both"><i data-lucide="copy" class="icon"></i>keep both</button>
-        <button class="btn btn-sm btn-primary" data-action="merge-conflict" data-id="${esc(c.id)}"><i data-lucide="git-merge" class="icon"></i>merge…</button>
-      </div>
+      ${actions}
     </div>
   </div>`;
 }
@@ -1310,6 +1333,11 @@ const ACTIONS = {
   "mem-filter": (el) => {
     state.memFilter = el.dataset.filter;
     loadView("memories");
+  },
+
+  "conflict-view": (el) => {
+    state.conflictView = el.dataset.filter === "resolved" ? "resolved" : "unresolved";
+    loadView("conflicts");
   },
   "mem-page": async (el) => {
     const next = state.memPage + Number(el.dataset.delta);
