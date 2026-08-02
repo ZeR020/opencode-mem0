@@ -150,6 +150,17 @@ function itemTypeBadge(item) {
   );
 }
 
+/**
+ * Final barrier for every HTML string that hits a DOM sink. Per-value esc()
+ * plus DOMPurify for markdown, already covers interpolation; sanitizing again
+ * at the sink is defense-in-depth (and what CodeQL recognizes as an XSS
+ * barrier). Falls back to the raw string when DOMPurify hasn't loaded
+ * (e.g. unit smoke harness without vendor scripts).
+ */
+function sanitizeHtml(html) {
+  return window.DOMPurify ? DOMPurify.sanitize(html) : html;
+}
+
 // ── API client ─────────────────────────────────────────────────────────────
 
 function apiHeaders(options = {}) {
@@ -212,7 +223,7 @@ function openModal({ title, body, wide = false, danger = false, actions = [] }) 
   modalPrevFocus = document.activeElement;
   const root = $("#modal-root");
   const id = `m-${Date.now()}`;
-  root.innerHTML = `
+  root.innerHTML = sanitizeHtml(`
     <div class="modal-overlay" data-overlay>
       <div class="modal-content ${wide ? "wide" : ""}" role="dialog" aria-modal="true" aria-labelledby="${id}">
         <div class="modal-header">
@@ -231,7 +242,7 @@ function openModal({ title, body, wide = false, danger = false, actions = [] }) 
             : ""
         }
       </div>
-    </div>`;
+    </div>`);
   const overlay = root.firstElementChild;
   overlay.addEventListener("click", (e) => {
     if (e.target.dataset.overlay !== undefined) closeModal();
@@ -377,7 +388,7 @@ function renderShell() {
 }
 
 function render() {
-  $("#app").innerHTML = renderShell();
+  $("#app").innerHTML = sanitizeHtml(renderShell());
   window.lucide?.createIcons();
 }
 
