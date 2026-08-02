@@ -4,6 +4,8 @@ import { connectionManager } from "./sqlite/connection-manager.js";
 import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
 import { cosineSimilarity } from "./vector-backends/shared.js";
+import { checkContradictionHeuristic } from "./utils/text-analysis.js";
+import { checkContradictionVerdict } from "./memory-conflicts.js";
 
 interface DuplicateGroup {
   representative: {
@@ -238,12 +240,19 @@ export class DeduplicationService {
     return null;
   }
 
-  checkDuplicateAtIngest(
+  async checkDuplicateAtIngest(
     content: string,
     containerTag: string,
     vector: Float32Array,
-    metadata?: Record<string, unknown>
-  ): { isDuplicate: boolean; existingId?: string; merged?: boolean } {
+    metadata?: Record<string, unknown>,
+    vettedConflictCandidateId?: string
+  ): Promise<{
+    isDuplicate: boolean;
+    existingId?: string;
+    merged?: boolean;
+    conflictCandidateId?: string;
+    conflictSimilarity?: number;
+  }> {
     if (!CONFIG.deduplicationIngestEnabled) {
       return { isDuplicate: false };
     }
@@ -267,6 +276,64 @@ export class DeduplicationService {
     const match = this._findSimilarCandidate(vector, candidates, threshold);
     if (!match) {
       return { isDuplicate: false };
+    }
+
+    // C5/R1: a near-duplicate pair with asymmetric negation/substitution is a
+    // contradiction, not a duplicate. Merging it would silently drop the new
+    // statement and the conflict would never be recorded. The tri-state LLM
+    // verdict decides: "yes" → skip the merge and surface the pair as a
+    // conflict candidate; "no" → the heuristic was a false positive, proceed
+    // with the normal merge; "unknown" (provider outage) → preserve the
+    // pre-delta dedup behavior and merge rather than recording conflict rows
+    // for every heuristic-positive pair during an outage.
+    if (checkContradictionHeuristic(content, match.candidate.content)) {
+      // V4: the first (pre-lock) check already vetted this exact pair — the
+      // locked recheck must not pay a second LLM round-trip for the same
+      // candidate; the verdict is reused as-is.
+      if (match.candidate.id === vettedConflictCandidateId) {
+        log("Ingest dedup: recheck reuse — candidate already vetted", {
+          existingId: match.candidate.id,
+          containerTag,
+          similarity: match.similarity,
+        });
+        return {
+          isDuplicate: false,
+          conflictCandidateId: match.candidate.id,
+          conflictSimilarity: match.similarity,
+        };
+      }
+
+      const verdict = await checkContradictionVerdict(
+        content,
+        match.candidate.content,
+        metadata?.sessionID as string | undefined
+      );
+      if (verdict === "yes") {
+        log("Ingest dedup: merge skipped — contradiction confirmed", {
+          existingId: match.candidate.id,
+          containerTag,
+          similarity: match.similarity,
+          content: content.slice(0, 80),
+        });
+        return {
+          isDuplicate: false,
+          conflictCandidateId: match.candidate.id,
+          conflictSimilarity: match.similarity,
+        };
+      }
+      if (verdict === "unknown") {
+        log("Ingest dedup: contradiction verdict unavailable — merging (provider outage)", {
+          existingId: match.candidate.id,
+          containerTag,
+          similarity: match.similarity,
+        });
+      } else {
+        log("Ingest dedup: contradiction heuristic vetoed by LLM — merging", {
+          existingId: match.candidate.id,
+          containerTag,
+          similarity: match.similarity,
+        });
+      }
     }
 
     const existingMetadata = this._parseMetadata(match.candidate);

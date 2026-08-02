@@ -117,7 +117,9 @@ export class USearchBackend implements VectorBackend {
           };
         }
       )
-        .prepare(`SELECT id, ${column} FROM memories WHERE ${column} IS NOT NULL`)
+        .prepare(
+          `SELECT id, ${column} FROM memories WHERE ${column} IS NOT NULL AND is_deprecated = 0`
+        )
         .all();
 
       const cache = await this.createEmptyIndex(indexKey);
@@ -211,6 +213,15 @@ export class USearchBackend implements VectorBackend {
   }
 
   private upsertItem(cache: CachedIndex, item: BackendInsertItem): void {
+    // Boundary guard: the native wrapper throws a misleading "Duplicate keys"
+    // TypeError for non-Float32Array inputs (e.g. a raw sqlite BLOB). Fail
+    // loudly here instead of letting callers debug the native error.
+    const got = item.vector?.constructor?.name;
+    if (!(item.vector instanceof Float32Array)) {
+      throw new Error(
+        `USearch upsertItem expects Float32Array, got ${got} — pass decodeVector() blobs from sqlite first`
+      );
+    }
     const existing = cache.idToKey.get(item.id);
     if (existing !== undefined) {
       cache.index.remove(existing);

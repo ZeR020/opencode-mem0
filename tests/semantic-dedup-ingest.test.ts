@@ -254,4 +254,56 @@ describe("semantic deduplication at ingest", () => {
       expect(mem.content).toBe(content);
     }
   });
+
+  it("turns contradictory near-duplicates into a conflict instead of a silent merge", async () => {
+    (CONFIG as any).deduplicationSimilarityThreshold = 0.5; // widen the dedup band so the guard is what protects the pair
+    const containerTag = "opencode_project_testhash_contradiction";
+    const content1 = "use bun for builds";
+    const content2 = "never use bun for builds";
+
+    const r1 = await client.addMemory(content1, containerTag);
+    expect(r1.success).toBe(true);
+    const id1 = r1.id;
+
+    const r2 = await client.addMemory(content2, containerTag);
+    expect(r2.success).toBe(true);
+    expect((r2 as any).duplicate).toBeUndefined();
+    expect(r2.id).not.toBe(id1);
+
+    // Both rows exist — no merge happened
+    const count = await countMemories(containerTag);
+    expect(count).toBe(2);
+
+    // detectConflicts (fire-and-forget inside addMemory) records the pair
+    const db = getDbForShard(containerTag);
+    let conflictRow: any = null;
+    for (let i = 0; i < 40; i++) {
+      conflictRow = db
+        .prepare("SELECT * FROM memory_conflicts WHERE memory_id_1 = ? OR memory_id_2 = ?")
+        .get(r2.id!, r2.id!);
+      if (conflictRow) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(conflictRow).toBeTruthy();
+    expect(conflictRow.resolved).toBe(0);
+  });
+
+  it("still merges non-contradictory near-duplicates", async () => {
+    (CONFIG as any).deduplicationSimilarityThreshold = 0.5;
+    const containerTag = "opencode_project_testhash_mergecontrol";
+    const content1 = "deploy pipeline runs on fridays";
+    const content2 = "deploy pipeline runs on friday";
+
+    const r1 = await client.addMemory(content1, containerTag);
+    expect(r1.success).toBe(true);
+    const id1 = r1.id;
+
+    const r2 = await client.addMemory(content2, containerTag);
+    expect(r2.success).toBe(true);
+    expect((r2 as any).duplicate).toBe(true);
+    expect(r2.id).toBe(id1);
+
+    const count = await countMemories(containerTag);
+    expect(count).toBe(1);
+  });
 });

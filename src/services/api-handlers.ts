@@ -37,6 +37,7 @@ export {
 // Conflict handlers
 export {
   handleListConflicts,
+  handleGetConflict,
   handleResolveConflict,
   handleConflictStats,
 } from "./handlers/conflicts.js";

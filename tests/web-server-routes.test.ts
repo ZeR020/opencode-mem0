@@ -329,6 +329,15 @@ describe("WebServer Routes", () => {
       expect(handleResolveConflict).toHaveBeenCalledWith("conf-1", "merge", "x");
     });
 
+    it("POST /api/conflicts/:id defaults to keep_newer when strategy is omitted", async () => {
+      (handleResolveConflict as any).mockResolvedValue({ success: true });
+      const res = await makeRequest("/api/conflicts/conf-1", "POST", {});
+      expect(res.status).toBe(200);
+      // Regression: the default used to be the kebab-case "keep-newer", which
+      // the handler always rejected with a 400.
+      expect(handleResolveConflict).toHaveBeenCalledWith("conf-1", "keep_newer", undefined);
+    });
+
     it("POST /api/conflicts/ returns error for invalid ID", async () => {
       const res = await makeRequest("/api/conflicts/", "POST", {});
       expect(res.status).toBe(200);

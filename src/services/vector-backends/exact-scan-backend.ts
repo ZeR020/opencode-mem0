@@ -56,7 +56,9 @@ export class ExactScanBackend implements VectorBackend {
         prepare: (sql: string) => { all: () => VectorRow[] };
       }
     )
-      .prepare(`SELECT id, ${column} FROM memories WHERE ${column} IS NOT NULL`)
+      .prepare(
+        `SELECT id, ${column} FROM memories WHERE ${column} IS NOT NULL AND is_deprecated = 0`
+      )
       .all();
 
     if (rows.length === 0) {

@@ -35,6 +35,7 @@ import {
   handleGetProfileSnapshot,
   handleRefreshProfile,
   handleListConflicts,
+  handleGetConflict,
   handleResolveConflict,
   handleConflictStats,
   handleEmbeddingCacheStats,
@@ -553,7 +554,7 @@ export class WebServer {
     };
     const result = await handleResolveConflict(
       conflictId,
-      body.strategy || "keep-newer",
+      body.strategy || "keep_newer",
       body.mergedContent
     );
     return this.jsonResponse(result, 200, !isLocal);
@@ -564,15 +565,10 @@ export class WebServer {
     if (!conflictId) {
       return this.jsonResponse({ success: false, error: "Invalid conflict ID" });
     }
-    const result = handleListConflicts(false, 1000);
-    if (!result.success) {
-      return this.jsonResponse(result, 200, !isLocal);
-    }
-    const conflict = (result.data || []).find((item) => item.id === conflictId);
-    if (!conflict) {
-      return this.jsonResponse({ success: false, error: "Conflict not found" }, 404, !isLocal);
-    }
-    return this.jsonResponse({ success: true, data: conflict }, 200, !isLocal);
+    // R7: direct id lookup across all shards — no 1000-row list cap, and
+    // resolved conflicts are readable history too.
+    const result = handleGetConflict(conflictId);
+    return this.jsonResponse(result, result.success ? 200 : 404, !isLocal);
   }
 
   private async _apiPinMemory(path: string, isLocal: boolean): Promise<Response> {

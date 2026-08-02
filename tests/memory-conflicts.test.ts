@@ -1,4 +1,4 @@
-import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../src/services/sqlite/shard-manager.js", () => {
   const shardMgr: any = {
@@ -74,11 +74,12 @@ import {
   resolveConflict,
   getConflicts,
   getAllUnresolvedConflicts,
+  checkContradictionVerdict,
 } from "../src/services/memory-conflicts.js";
 import { shardManager } from "../src/services/sqlite/shard-manager.js";
 import { connectionManager } from "../src/services/sqlite/connection-manager.js";
 import { vectorSearch } from "../src/services/sqlite/vector-search.js";
-import { embeddingService } from "../src/services/embedding.js";
+import { CONFIG } from "../src/config.js";
 import {
   isProviderConnected,
   generateStructuredOutput,
@@ -90,18 +91,25 @@ function makeMockDb(
     likeMemories?: any[];
     conflictRows?: any[];
     memForAge?: any[];
+    mergedMemories?: any[];
   } = {}
 ) {
   const ftsMemories = options.ftsMemories || [];
   const likeMemories = options.likeMemories || [];
   const conflictRows = options.conflictRows || [];
   const memForAge = options.memForAge || [];
+  const mergedMemories = options.mergedMemories || [];
 
   return {
     prepare: vi.fn().mockImplementation((sql: string) => {
       if (sql.includes("sqlite_master") && sql.includes("memories_fts")) {
         return {
           get: vi.fn().mockReturnValue(ftsMemories.length > 0 ? { name: "memories_fts" } : null),
+        };
+      }
+      if (sql.includes("mergedFrom")) {
+        return {
+          get: vi.fn().mockReturnValue(mergedMemories[0] || null),
         };
       }
       if (
@@ -113,7 +121,7 @@ function makeMockDb(
         };
       }
       return {
-        all: vi.fn().mockImplementation((...args: any[]) => {
+        all: vi.fn().mockImplementation(() => {
           if (sql.includes("memories_fts MATCH")) return ftsMemories;
           if (sql.includes("content LIKE") || sql.includes("AND id !=")) return likeMemories;
           if (sql.includes("memory_conflicts") && sql.includes("LEFT JOIN")) return conflictRows;
@@ -188,11 +196,7 @@ describe("memory-conflicts", () => {
       (generateStructuredOutput as any).mockImplementation(() => new Promise(() => {}) as any);
 
       // Content overlaps with candidate and has no negation (heuristic passes)
-      const promise1 = detectConflicts(
-        "mem-same",
-        "similar technical content here",
-        "mem_project_hash"
-      );
+      void detectConflicts("mem-same", "similar technical content here", "mem_project_hash");
       const promise2 = detectConflicts("mem-same", "other content", "mem_project_hash");
 
       // Second call should be deduplicated immediately while first is still running
@@ -503,6 +507,33 @@ describe("memory-conflicts", () => {
       expect(db.prepare).toHaveBeenCalledWith(
         expect.stringContaining("ALTER TABLE memory_conflicts ADD COLUMN container_tag")
       );
+    });
+  });
+
+  describe("checkContradictionVerdict", () => {
+    it("V1: verdict resolves 'unknown' when the provider call never settles (timeout bound)", async () => {
+      const cfg = CONFIG as any;
+      const originalProvider = cfg.opencodeProvider;
+      const originalModel = cfg.opencodeModel;
+      const originalMemoryModel = cfg.memoryModel;
+      const originalMemoryUrl = cfg.memoryApiUrl;
+      try {
+        cfg.opencodeProvider = "opencode";
+        cfg.opencodeModel = "test-model";
+        cfg.memoryModel = null;
+        cfg.memoryApiUrl = null;
+        (isProviderConnected as any).mockReturnValue(true);
+        (generateStructuredOutput as any).mockImplementation(() => new Promise(() => {}) as any);
+
+        const verdict = await checkContradictionVerdict("a is b", "a is not b", undefined, 50);
+        expect(verdict).toBe("unknown");
+      } finally {
+        cfg.opencodeProvider = originalProvider;
+        cfg.opencodeModel = originalModel;
+        cfg.memoryModel = originalMemoryModel;
+        cfg.memoryApiUrl = originalMemoryUrl;
+        (isProviderConnected as any).mockReturnValue(false);
+      }
     });
   });
 

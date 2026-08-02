@@ -271,3 +271,36 @@ export function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   const unionSize = a.size + b.size - intersectionSize;
   return unionSize > 0 ? intersectionSize / unionSize : 0;
 }
+
+/**
+ * Heuristic contradiction detection using negation patterns and keyword overlap.
+ * Used as a fallback when LLM-based detection is unavailable, and as a
+ * pre-filter at ingest: a positive result on a near-duplicate pair means the
+ * pair should become a conflict instead of a silent dedup merge.
+ *
+ * @param a - First memory content
+ * @param b - Second memory content
+ * @returns true if a likely contradiction is detected
+ */
+export function checkContradictionHeuristic(a: string, b: string): boolean {
+  const aWordSet = getWordSet(a);
+  const bWordSet = getWordSet(b);
+
+  const aHasNegation = NEGATION_PATTERNS.some((p) => p.test(a));
+  const bHasNegation = NEGATION_PATTERNS.some((p) => p.test(b));
+  // Substitution phrases ("instead of", "replaced by", "no longer") signal a
+  // superseding relationship — two memories can contradict without negation.
+  const aHasSubstitution = SUBSTITUTION_PATTERNS.some((p) => p.test(a));
+  const bHasSubstitution = SUBSTITUTION_PATTERNS.some((p) => p.test(b));
+
+  // Trigger the overlap check when one side negates/substitutes and the other
+  // does not — the asymmetry is the contradiction signal.
+  const asymmetric = aHasNegation !== bHasNegation || aHasSubstitution !== bHasSubstitution;
+  if (asymmetric) {
+    const commonWords = [...aWordSet].filter((w) => bWordSet.has(w));
+    const uniqueRatio = commonWords.length / Math.max(aWordSet.size, bWordSet.size);
+    return uniqueRatio > 0.3;
+  }
+
+  return false;
+}

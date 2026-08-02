@@ -293,21 +293,39 @@ vi.mock("../src/services/user-prompt/user-prompt-manager.js", () => ({
   },
 }));
 
+const mockConflicts = [
+  {
+    id: "conflict-1",
+    memoryId1: "mem-1",
+    memoryId2: "mem-2",
+    memory1Content: "Memory 1",
+    memory2Content: "Memory 2",
+    similarityScore: 0.8,
+    detectedAt: Date.now(),
+    resolved: 0,
+    resolutionType: null,
+  },
+];
+
+const mockResolvedConflicts = [
+  {
+    id: "conflict-2",
+    memoryId1: "mem-3",
+    memoryId2: "mem-4",
+    memory1Content: "Memory 3",
+    memory2Content: "Memory 4",
+    similarityScore: 0.7,
+    detectedAt: Date.now(),
+    resolved: 1,
+    resolutionType: "keep_both",
+    resolvedAt: Date.now(),
+  },
+];
+
 vi.mock("../src/services/memory-conflicts.js", () => ({
   detectConflicts: vi.fn().mockResolvedValue([]),
-  getAllUnresolvedConflicts: (_limit: number) => [
-    {
-      id: "conflict-1",
-      memoryId1: "mem-1",
-      memoryId2: "mem-2",
-      memory1Content: "Memory 1",
-      memory2Content: "Memory 2",
-      similarityScore: 0.8,
-      detectedAt: Date.now(),
-      resolved: 0,
-      resolutionType: null,
-    },
-  ],
+  getAllUnresolvedConflicts: (_limit: number) => mockConflicts,
+  getAllConflicts: (resolved: boolean) => (resolved ? mockResolvedConflicts : mockConflicts),
   resolveConflict: () => ({ success: true, mergedMemoryId: "mem-merged" }),
 }));
 
@@ -644,11 +662,13 @@ describe("api-handlers", () => {
       expect(result.data?.[0].id).toBe("conflict-1");
     });
 
-    it("returns empty for resolved conflicts", async () => {
+    it("returns resolved conflicts when requested", async () => {
       const result = await handleListConflicts(true);
       expect(result.success).toBe(true);
-      expect(result.data).toHaveLength(0);
-      expect(result.message).toContain("not yet supported");
+      expect(result.data?.length).toBe(1);
+      expect(result.data?.[0].id).toBe("conflict-2");
+      expect(result.data?.[0].resolutionType).toBe("keep_both");
+      expect(result.data?.[0].resolvedAt).toBeDefined();
     });
   });
 

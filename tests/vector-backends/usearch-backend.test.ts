@@ -183,7 +183,9 @@ describe("USearchBackend", () => {
     const baseDir = mkdtempSync(join(tmpdir(), "usearch-backend-rebuild-"));
     tempDirs.push(baseDir);
     const db = new Database(join(baseDir, "test.db"));
-    db.run("CREATE TABLE memories (id TEXT PRIMARY KEY, vector BLOB, tags_vector BLOB)");
+    db.run(
+      "CREATE TABLE memories (id TEXT PRIMARY KEY, vector BLOB, tags_vector BLOB, is_deprecated INTEGER DEFAULT 0)"
+    );
     db.prepare("INSERT INTO memories (id, vector, tags_vector) VALUES (?, ?, ?)").run(
       "alpha",
       new Uint8Array(new Float32Array([1, 0, 0, 0]).buffer),
@@ -241,5 +243,43 @@ describe("USearchBackend", () => {
     });
 
     expect(result).toEqual([]);
+  });
+
+  it("rebuilds an index from sqlite rows excluding deprecated memories", async () => {
+    const baseDir = mkdtempSync(join(tmpdir(), "usearch-backend-rebuild-dep-"));
+    tempDirs.push(baseDir);
+    const db = new Database(join(baseDir, "test.db"));
+    db.run(
+      "CREATE TABLE memories (id TEXT PRIMARY KEY, vector BLOB, tags_vector BLOB, is_deprecated INTEGER DEFAULT 0)"
+    );
+    const insert = db.prepare(
+      "INSERT INTO memories (id, vector, tags_vector, is_deprecated) VALUES (?, ?, ?, ?)"
+    );
+    insert.run("live", new Uint8Array(new Float32Array([1, 0, 0, 0]).buffer), null, 0);
+    insert.run("deprecated", new Uint8Array(new Float32Array([0.95, 0.05, 0, 0]).buffer), null, 1);
+
+    const shard = {
+      id: 1,
+      scope: "project" as const,
+      scopeHash: "hash",
+      shardIndex: 0,
+      dbPath: join(baseDir, "test.db"),
+      vectorCount: 2,
+      isActive: true,
+      createdAt: Date.now(),
+    };
+
+    const backend = new USearchBackend({ baseDir, dimensions: 4 });
+    await backend.rebuildFromShard({ db, shard, kind: "content" });
+
+    const result = await backend.search({
+      db,
+      shard,
+      kind: "content",
+      queryVector: new Float32Array([1, 0, 0, 0]),
+      limit: 5,
+    });
+
+    expect(result.map((x) => x.id)).toEqual(["live"]);
   });
 });

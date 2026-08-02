@@ -1,4 +1,4 @@
-import { type Database } from "./sqlite/sqlite-bootstrap.js";
+import type { Database } from "./sqlite/sqlite-bootstrap.js";
 import { randomBytes } from "node:crypto";
 import { connectionManager } from "./sqlite/connection-manager.js";
 import {
@@ -7,12 +7,13 @@ import {
   extractScopeFromContainerTag,
 } from "./sqlite/shard-manager.js";
 import { vectorSearch } from "./sqlite/vector-search.js";
+import { decodeVector } from "./vector-backends/shared.js";
 import { embeddingService } from "./embedding.js";
 import { z } from "zod";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 import type { MemoryConflict } from "./sqlite/types.js";
-import { NEGATION_PATTERNS, SUBSTITUTION_PATTERNS, getWordSet } from "./utils/text-analysis.js";
+import { checkContradictionHeuristic } from "./utils/text-analysis.js";
 import { mapDbRowToConflict } from "./utils/memory-mapper.js";
 
 // ponytail: module-level Set, single consumer in detectConflicts. Per-key locks if contention matters.
@@ -25,14 +26,36 @@ const conflictChecksRunning = new Set<string>();
  * @param memory1 - Content of the first memory
  * @param memory2 - Content of the second memory
  * @param sessionID - Optional session ID for provider routing
- * @returns true if the statements are logically incompatible
+ * - "yes" / "no": a provider confirmed/denied, or no provider is configured
+ *   at all (the heuristic verdict then stands).
+ * - "unknown": a provider IS configured but errored, timed out, or produced
+ *   no result. Callers decide the fallback — dedup merges (preserving
+ *   pre-delta behavior during outages), detectConflicts falls back to the
+ *   heuristic.
+ *
+ * @param memory1 - Content of the first memory
+ * @param memory2 - Content of the second memory
+ * @param sessionID - Optional session ID for provider routing
+ * @param timeoutMs - Optional override for the provider timeout; defaults to
+ *   CONFIG.autoCaptureIterationTimeout (30000).
  */
-async function checkContradictionWithLLM(
+export async function checkContradictionVerdict(
   memory1: string,
   memory2: string,
-  sessionID?: string
-): Promise<boolean> {
+  sessionID?: string,
+  timeoutMs?: number
+): Promise<"yes" | "no" | "unknown"> {
   const prompt = `Do these two statements contradict each other? A: ${JSON.stringify(memory1)} B: ${JSON.stringify(memory2)} Answer only YES or NO`;
+  const timeout = timeoutMs ?? CONFIG.autoCaptureIterationTimeout ?? 30000;
+
+  const hasProvider =
+    (CONFIG.opencodeProvider && CONFIG.opencodeModel) ||
+    (CONFIG.memoryModel && CONFIG.memoryApiUrl);
+
+  // No provider configured: the heuristic verdict stands.
+  if (!hasProvider) {
+    return checkContradictionHeuristic(memory1, memory2) ? "yes" : "no";
+  }
 
   try {
     // Opencode provider path
@@ -45,18 +68,21 @@ async function checkContradictionWithLLM(
           contradicts: z.enum(["YES", "NO"]),
         });
 
-        const result = await generateStructuredOutput({
-          providerName: CONFIG.opencodeProvider,
-          modelId: CONFIG.opencodeModel,
-          statePath: getStatePath(),
-          systemPrompt:
-            "You are a precise contradiction detector. Analyze two statements and answer ONLY YES or NO. Be strict: only answer YES if the statements are logically incompatible.",
-          userPrompt: prompt,
-          schema,
-          temperature: 0,
-        });
+        const result = await withTimeout(
+          generateStructuredOutput({
+            providerName: CONFIG.opencodeProvider,
+            modelId: CONFIG.opencodeModel,
+            statePath: getStatePath(),
+            systemPrompt:
+              "You are a precise contradiction detector. Analyze two statements and answer ONLY YES or NO. Be strict: only answer YES if the statements are logically incompatible.",
+            userPrompt: prompt,
+            schema,
+            temperature: 0,
+          }),
+          timeout
+        );
 
-        return result.contradicts === "YES";
+        return result.contradicts === "YES" ? "yes" : "no";
       }
     }
 
@@ -87,56 +113,70 @@ async function checkContradictionWithLLM(
         },
       };
 
-      const result = await provider.executeToolCall(
-        "You are a precise contradiction detector. Analyze two statements and answer ONLY YES or NO. Be strict: only answer YES if the statements are logically incompatible.",
-        prompt,
-        toolSchema,
-        sessionID || "conflict-check"
+      const result = await withTimeout(
+        provider.executeToolCall(
+          "You are a precise contradiction detector. Analyze two statements and answer ONLY YES or NO. Be strict: only answer YES if the statements are logically incompatible.",
+          prompt,
+          toolSchema,
+          sessionID || "conflict-check"
+        ),
+        timeout
       );
 
       if (result.success && result.data) {
-        return result.data.contradicts === "YES";
+        return result.data.contradicts === "YES" ? "yes" : "no";
       }
     }
   } catch (error) {
-    log("checkContradictionWithLLM: LLM check failed, falling back to heuristic", {
+    log("checkContradictionVerdict: LLM check failed, treating verdict as unknown", {
       error: String(error),
     });
+    return "unknown";
   }
 
-  // Fallback heuristic: check for explicit negation patterns
-  return checkContradictionHeuristic(memory1, memory2);
+  // Provider configured but no path yielded a verdict (e.g. opencode provider
+  // not connected and no manual config): unavailable, not a heuristic verdict.
+  return "unknown";
 }
 
 /**
- * Heuristic contradiction detection using negation patterns and keyword overlap.
- * Used as a fallback when LLM-based detection is unavailable.
+ * Check if two memory statements contradict each other using an LLM.
+ * Falls back to a heuristic-based check if the LLM is unavailable.
+ * Byte-compatible boolean view over checkContradictionVerdict (unknown →
+ * heuristic), kept for detectConflicts and existing call sites.
  *
- * @param a - First memory content
- * @param b - Second memory content
- * @returns true if a likely contradiction is detected
+ * @param memory1 - Content of the first memory
+ * @param memory2 - Content of the second memory
+ * @param sessionID - Optional session ID for provider routing
+ * @returns true if the statements are logically incompatible
  */
-function checkContradictionHeuristic(a: string, b: string): boolean {
-  const aWordSet = getWordSet(a);
-  const bWordSet = getWordSet(b);
-
-  const aHasNegation = NEGATION_PATTERNS.some((p) => p.test(a));
-  const bHasNegation = NEGATION_PATTERNS.some((p) => p.test(b));
-  // Substitution phrases ("instead of", "replaced by", "no longer") signal a
-  // superseding relationship — two memories can contradict without negation.
-  const aHasSubstitution = SUBSTITUTION_PATTERNS.some((p) => p.test(a));
-  const bHasSubstitution = SUBSTITUTION_PATTERNS.some((p) => p.test(b));
-
-  // Trigger the overlap check when one side negates/substitutes and the other
-  // does not — the asymmetry is the contradiction signal.
-  const asymmetric = aHasNegation !== bHasNegation || aHasSubstitution !== bHasSubstitution;
-  if (asymmetric) {
-    const commonWords = [...aWordSet].filter((w) => bWordSet.has(w));
-    const uniqueRatio = commonWords.length / Math.max(aWordSet.size, bWordSet.size);
-    return uniqueRatio > 0.3;
+export async function checkContradictionWithLLM(
+  memory1: string,
+  memory2: string,
+  sessionID?: string
+): Promise<boolean> {
+  const verdict = await checkContradictionVerdict(memory1, memory2, sessionID);
+  if (verdict === "unknown") {
+    return checkContradictionHeuristic(memory1, memory2);
   }
+  return verdict === "yes";
+}
 
-  return false;
+/**
+ * Bounded race so a hung provider call can never stall callers indefinitely
+ * (e.g. the per-shard write lock in addMemory). The losing provider promise
+ * gets a no-op catch so its late rejection is not an unhandled rejection.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`LLM contradiction check timed out after ${ms}ms`)),
+      ms
+    );
+  });
+  promise.catch(() => {});
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 /**
@@ -456,7 +496,13 @@ export async function resolveConflict(
 
       const conflict = mapDbRowToConflict(row);
 
+      if (conflict.resolved === 1) {
+        return { success: false, error: "Conflict already resolved" };
+      }
+
       const now = Date.now();
+
+      let mergedMemoryId: string | undefined;
 
       switch (strategy) {
         case "keep_newer": {
@@ -472,7 +518,9 @@ export async function resolveConflict(
             return { success: false, error: "One or both memories not found" };
           }
 
-          const olderId = mem1.created_at > mem2.created_at ? mem2.id : mem1.id;
+          // R2: on created_at ties, keep the newly-added memory (memoryId1) —
+          // deprecating mem1 on ties would deprecate the NEWER row.
+          const olderId = mem1.created_at >= mem2.created_at ? mem2.id : mem1.id;
           db.prepare("UPDATE memories SET is_deprecated = 1 WHERE id = ?").run(olderId);
           break;
         }
@@ -489,8 +537,39 @@ export async function resolveConflict(
           const mem1 = db
             .prepare("SELECT * FROM memories WHERE id = ?")
             .get(conflict.memoryId1) as any;
-          if (!mem1) {
-            return { success: false, error: "Original memory not found" };
+          const mem2 = db
+            .prepare("SELECT * FROM memories WHERE id = ?")
+            .get(conflict.memoryId2) as any;
+          if (!mem1 || !mem2) {
+            return { success: false, error: "One or both original memories not found" };
+          }
+
+          // R3: idempotent merge — if a merged memory for this pair already
+          // exists (e.g. a previous attempt crashed after insertVector but
+          // before the conflict-record UPDATE), reuse it instead of inserting
+          // a duplicate. Full atomicity would require threading an outer
+          // transaction through insertVector; deferred — idempotent retry
+          // covers the practical failure.
+          const existingMerged = db
+            .prepare(
+              `
+              SELECT id FROM memories
+              WHERE metadata LIKE '%"mergedFrom"%'
+                AND metadata LIKE '%' || ? || '%'
+                AND metadata LIKE '%' || ? || '%'
+              LIMIT 1
+            `
+            )
+            .get(conflict.memoryId1, conflict.memoryId2) as any;
+
+          if (existingMerged?.id) {
+            mergedMemoryId = existingMerged.id;
+            conflict.resolutionData = JSON.stringify({ mergedMemoryId: existingMerged.id });
+            log("Conflict merge: reused existing merged memory", {
+              conflictId,
+              mergedMemoryId: existingMerged.id,
+            });
+            break;
           }
 
           // Re-embed merged content so vector matches content (P0-2 fix)
@@ -503,7 +582,7 @@ export async function resolveConflict(
               id: mergedId,
               content: mergedContent,
               vector: mergedVector,
-              tagsVector: mem1.tags_vector,
+              tagsVector: mem1.tags_vector ? decodeVector(mem1.tags_vector) : undefined,
               containerTag: mem1.container_tag,
               tags: mem1.tags,
               type: mem1.type,
@@ -541,9 +620,9 @@ export async function resolveConflict(
           );
 
           // Update conflict with merged memory info
+          mergedMemoryId = mergedId;
           conflict.resolutionData = JSON.stringify({ mergedMemoryId: mergedId });
-
-          return { success: true, mergedMemoryId: mergedId };
+          break; // fall through to the shared conflict-record UPDATE below
         }
         case "manual": {
           // Just flag for user review - update conflict record
@@ -563,7 +642,7 @@ export async function resolveConflict(
       ).run(strategy, now, conflict.resolutionData || null, conflictId);
 
       log("Conflict resolved", { conflictId, strategy });
-      return { success: true };
+      return { success: true, mergedMemoryId };
     }
 
     return { success: false, error: "Conflict not found" };
@@ -571,6 +650,60 @@ export async function resolveConflict(
     const msg = String(error);
     log("resolveConflict: error", { conflictId, strategy, error: msg });
     return { success: false, error: msg };
+  }
+}
+
+/**
+ * Record a conflict between a newly inserted memory and an existing one
+ * directly, bypassing the FTS-based rediscovery in {@link detectConflicts}.
+ * Used when ingest-dedup already identified the pair (R1): the dedup
+ * similarity (cosine) is more truthful than the FTS score, and recording
+ * here guarantees the pair becomes a conflict even if FTS would miss it.
+ * The existing-pair guard (findExistingConflict) dedupes in both orders.
+ *
+ * @returns true if a conflict row was inserted, false if the pair already
+ * had a conflict recorded.
+ */
+export async function recordConflictPair(args: {
+  newMemoryId: string;
+  existingMemoryId: string;
+  similarityScore: number;
+  containerTag: string;
+  sessionId?: string;
+}): Promise<boolean> {
+  const { newMemoryId, existingMemoryId, similarityScore, containerTag } = args;
+  // Safety: fully synchronous by design (no awaits before saveConflict) — the
+  // caller serializes the write under withShardWriteLock; the shard[0] lookup
+  // here is only a read, so lock correctness never depends on this function.
+  try {
+    const { scope, hash } = extractScopeFromContainerTag(containerTag);
+    const shards = shardManager.getAllShards(scope, hash);
+    const shard = shards[0];
+    if (!shard) return false;
+
+    const db = connectionManager.getConnection(shard.dbPath);
+    if (findExistingConflict(db, newMemoryId, existingMemoryId)) return false;
+
+    const conflict: MemoryConflict = {
+      id: `conflict_${Date.now()}_${randomBytes(4).toString("hex")}`,
+      memoryId1: newMemoryId,
+      memoryId2: existingMemoryId,
+      similarityScore,
+      detectedAt: Date.now(),
+      resolved: 0,
+      containerTag,
+    };
+    saveConflict(db, conflict);
+    log("Conflict recorded (direct pair from ingest dedup)", {
+      conflictId: conflict.id,
+      memoryId1: newMemoryId,
+      memoryId2: existingMemoryId,
+      similarity: similarityScore,
+    });
+    return true;
+  } catch (error) {
+    log("recordConflictPair: error", { error: String(error) });
+    return false;
   }
 }
 
@@ -609,12 +742,14 @@ export function getConflicts(
 }
 
 /**
- * Retrieve all unresolved conflicts across every shard in the system.
+ * Retrieve all conflicts (resolved or unresolved) across every shard in the system.
  *
+ * @param resolved - If true, return resolved conflicts; otherwise unresolved
  * @param limit - Maximum total number of conflicts to return
- * @returns Array of unresolved conflicts sorted by detection time (newest first)
+ * @returns Array of conflicts sorted by detection time (newest first)
  */
-export function getAllUnresolvedConflicts(
+export function getAllConflicts(
+  resolved: boolean,
   limit: number = 1000
 ): (MemoryConflict & { memory1Content?: string; memory2Content?: string })[] {
   const allConflicts: (MemoryConflict & { memory1Content?: string; memory2Content?: string })[] =
@@ -623,9 +758,19 @@ export function getAllUnresolvedConflicts(
 
   for (const shard of shards) {
     const db = connectionManager.getConnection(shard.dbPath);
-    const conflicts = getConflicts(db, false, limit);
+    const conflicts = getConflicts(db, resolved, limit);
     allConflicts.push(...conflicts);
   }
 
   return allConflicts.toSorted((a, b) => b.detectedAt - a.detectedAt).slice(0, limit);
+}
+
+/**
+ * Retrieve all unresolved conflicts across every shard in the system.
+ * Thin wrapper over {@link getAllConflicts} kept for API compatibility.
+ */
+export function getAllUnresolvedConflicts(
+  limit: number = 1000
+): (MemoryConflict & { memory1Content?: string; memory2Content?: string })[] {
+  return getAllConflicts(false, limit);
 }

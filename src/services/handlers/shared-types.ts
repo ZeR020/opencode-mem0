@@ -37,6 +37,7 @@ export interface FormattedConflict {
   detectedAt: string;
   resolved: boolean;
   resolutionType?: string;
+  resolvedAt?: string;
 }
 
 /** Raw row shape from the memories table */

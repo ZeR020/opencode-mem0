@@ -2,7 +2,12 @@ import { getAllShards } from "../sqlite/shard-manager.js";
 import { connectionManager } from "../sqlite/connection-manager.js";
 import { log } from "../logger.js";
 import { safeToISOString } from "../utils/safe-transforms.js";
-import { getAllUnresolvedConflicts, resolveConflict } from "../memory-conflicts.js";
+import { mapDbRowToConflict } from "../utils/memory-mapper.js";
+import {
+  getAllConflicts,
+  getAllUnresolvedConflicts,
+  resolveConflict,
+} from "../memory-conflicts.js";
 import type { ApiResponse, FormattedConflict } from "./shared-types.js";
 
 export function handleListConflicts(
@@ -10,14 +15,7 @@ export function handleListConflicts(
   limit = 100
 ): ApiResponse<FormattedConflict[]> {
   try {
-    if (resolved) {
-      return {
-        success: true,
-        data: [],
-        message: "Resolved conflicts are not yet supported — returning empty list",
-      };
-    }
-    const conflicts = getAllUnresolvedConflicts(limit);
+    const conflicts = getAllConflicts(resolved, limit);
     const formatted = conflicts.map((c) => ({
       id: c.id,
       memoryId1: c.memoryId1,
@@ -28,6 +26,7 @@ export function handleListConflicts(
       detectedAt: safeToISOString(c.detectedAt),
       resolved: c.resolved === 1,
       resolutionType: c.resolutionType,
+      resolvedAt: c.resolvedAt != null ? safeToISOString(c.resolvedAt) : undefined,
     }));
     return { success: true, data: formatted };
   } catch (error) {
@@ -68,6 +67,50 @@ export async function handleResolveConflict(
   } catch (error) {
     log("handleResolveConflict: error", { error: String(error) });
     return { success: false, error: "Internal error in handleResolveConflict" };
+  }
+}
+
+export function handleGetConflict(conflictId: string): ApiResponse<FormattedConflict> {
+  try {
+    if (!conflictId) return { success: false, error: "conflictId is required" };
+    const shards = getAllShards();
+    for (const shard of shards) {
+      const db = connectionManager.getConnection(shard.dbPath);
+      const row = db
+        .prepare(
+          `
+          SELECT c.*, m1.content as m1_content, m2.content as m2_content
+          FROM memory_conflicts c
+          LEFT JOIN memories m1 ON c.memory_id_1 = m1.id
+          LEFT JOIN memories m2 ON c.memory_id_2 = m2.id
+          WHERE c.id = ?
+          LIMIT 1
+        `
+        )
+        .get(conflictId) as any;
+      if (row) {
+        const c = mapDbRowToConflict(row);
+        return {
+          success: true,
+          data: {
+            id: c.id,
+            memoryId1: c.memoryId1,
+            memoryId2: c.memoryId2,
+            memory1Content: row.m1_content,
+            memory2Content: row.m2_content,
+            similarityScore: c.similarityScore,
+            detectedAt: safeToISOString(c.detectedAt),
+            resolved: c.resolved === 1,
+            resolutionType: c.resolutionType,
+            resolvedAt: c.resolvedAt != null ? safeToISOString(c.resolvedAt) : undefined,
+          },
+        };
+      }
+    }
+    return { success: false, error: "Conflict not found" };
+  } catch (error) {
+    log("handleGetConflict: error", { error: String(error) });
+    return { success: false, error: "Internal error in handleGetConflict" };
   }
 }
 

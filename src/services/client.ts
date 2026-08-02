@@ -10,7 +10,7 @@ import type { MemoryType } from "../types/index.js";
 import type { MemoryRecord } from "./sqlite/types.js";
 import { calculateAllScores } from "./memory-scoring.js";
 import { classifyMemory } from "./memory-lifecycle.js";
-import { detectConflicts } from "./memory-conflicts.js";
+import { detectConflicts, recordConflictPair } from "./memory-conflicts.js";
 import { mapDbRowToListItem, mapDbRowToSessionResult } from "./utils/memory-mapper.js";
 import { deduplicationService } from "./deduplication-service.js";
 
@@ -24,6 +24,24 @@ function resolveScopeValue(
     return { scope: "project", hash: "" };
   }
   return extractScopeFromContainerTag(containerTag);
+}
+
+// Serializes the dedup-recheck → insertVector critical section per shard.
+// checkDuplicateAtIngest is async (LLM contradiction veto), which yields a
+// microtask between the recheck and insertVector's BEGIN IMMEDIATE. Without
+// this lock two concurrent addMemory calls can both pass the recheck and then
+// collide on the transaction barrier ("cannot start a transaction within a
+// transaction"). The lock restores the atomicity the sync recheck used to give.
+const shardWriteLocks = new Map<string, Promise<unknown>>();
+
+function withShardWriteLock<T>(dbPath: string, fn: () => Promise<T>): Promise<T> {
+  const prev = shardWriteLocks.get(dbPath) ?? Promise.resolve();
+  const next = prev.then(fn, fn);
+  shardWriteLocks.set(
+    dbPath,
+    next.catch(() => {})
+  );
+  return next;
 }
 
 function toErrorMessage(error: unknown): string {
@@ -240,7 +258,7 @@ export class LocalMemoryClient {
       const shard = shardManager.getWriteShard(scope, hash);
 
       // Check for near-duplicate at ingest time (fast-path read, no transaction needed)
-      const dedupResult = deduplicationService.checkDuplicateAtIngest(
+      const dedupResult = await deduplicationService.checkDuplicateAtIngest(
         content,
         containerTag,
         vector,
@@ -345,29 +363,57 @@ export class LocalMemoryClient {
       // insertVector($$) internally uses BEGIN IMMEDIATE/COMMIT around the write;
       // this re-check catches any insert that snuck in between our initial check
       // and insertVector acquiring the RESERVED lock.
-      const recheckResult = deduplicationService.checkDuplicateAtIngest(
-        content,
-        containerTag,
-        vector,
-        metadata
-      );
-      if (recheckResult.isDuplicate && recheckResult.existingId) {
-        return {
-          success: true as const,
-          id: recheckResult.existingId,
-          duplicate: true,
-        };
-      }
+      return withShardWriteLock(shard.dbPath, async () => {
+        const recheckResult = await deduplicationService.checkDuplicateAtIngest(
+          content,
+          containerTag,
+          vector,
+          metadata,
+          // V4: the pre-lock check already vetted this candidate — the locked
+          // recheck reuses that verdict instead of paying a second LLM call.
+          dedupResult.conflictCandidateId
+        );
+        if (recheckResult.isDuplicate && recheckResult.existingId) {
+          return {
+            success: true as const,
+            id: recheckResult.existingId,
+            duplicate: true,
+          };
+        }
 
-      await vectorSearch.insertVector(db, record, shard);
-      shardManager.incrementVectorCount(shard.id);
+        await vectorSearch.insertVector(db, record, shard);
+        shardManager.incrementVectorCount(shard.id);
 
-      // Run conflict detection asynchronously (don't block addMemory response)
-      detectConflicts(id, content, containerTag, metadata?.sessionID).catch((err) => {
-        log("addMemory: conflict detection failed", { error: String(err) });
+        // R1: if dedup identified a contradiction pair, record the conflict
+        // directly (with the real cosine similarity) instead of relying on the
+        // generic FTS-based detectConflicts rediscovery. The pair is already
+        // known — record it now.
+        const conflictCandidate = recheckResult.conflictCandidateId
+          ? recheckResult
+          : dedupResult.conflictCandidateId
+            ? dedupResult
+            : null;
+        if (conflictCandidate?.conflictCandidateId) {
+          await recordConflictPair({
+            newMemoryId: id,
+            existingMemoryId: conflictCandidate.conflictCandidateId,
+            similarityScore: conflictCandidate.conflictSimilarity ?? 0.5,
+            containerTag,
+            sessionId: metadata?.sessionID,
+          });
+        }
+
+        // V2: the generic scan always runs — a third contradicting memory
+        // below the dedup threshold must not go unscanned. findExistingConflict
+        // prevents re-recording the directly-recorded pair above: that call is
+        // synchronous on the event loop, so the row exists before this async
+        // scan can observe the same pair.
+        detectConflicts(id, content, containerTag, metadata?.sessionID).catch((err) => {
+          log("addMemory: conflict detection failed", { error: String(err) });
+        });
+
+        return { success: true as const, id };
       });
-
-      return { success: true as const, id };
     } catch (error) {
       const errorMessage = toErrorMessage(error);
       log("addMemory: error", { error: errorMessage });

@@ -33,6 +33,15 @@ vi.mock("../src/services/sqlite/connection-manager.js", () => ({
 vi.mock("../src/services/logger.js", () => ({
   log: vi.fn(),
 }));
+
+// V3/V4: the contradiction veto in the ingest path. Fully replaced module —
+// deduplication-service only imports checkContradictionVerdict from it, so a
+// partial factory keeps the heavy real module out of this test graph.
+const contradictionVerdictMock = vi.hoisted(() => ({ checkContradictionVerdict: vi.fn() }));
+
+vi.mock("../src/services/memory-conflicts.js", () => ({
+  checkContradictionVerdict: contradictionVerdictMock.checkContradictionVerdict,
+}));
 describe("deduplication-service", () => {
   let originalEnabled: boolean;
   let originalIngestEnabled: boolean;
@@ -107,11 +116,11 @@ describe("deduplication-service", () => {
 
     it("returns false when the shard is found but there are no candidate memories", async () => {
       const shard = { id: "s1", dbPath: "path-1" };
-      vi.mocked(shardManager.getAllShards).mockReturnValue([shard]);
+      vi.mocked(shardManager.getAllShards).mockReturnValue([shard] as any);
       const mockDb = {
         prepare: vi.fn(),
       };
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb);
+      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
       vi.mocked(vectorSearch.listMemories).mockReturnValue([]);
 
       const result = await deduplicationService.checkDuplicateAtIngest(
@@ -124,17 +133,17 @@ describe("deduplication-service", () => {
 
     it("returns false when candidates exist but none meet the similarity threshold", async () => {
       const shard = { id: "s1", dbPath: "path-1" };
-      vi.mocked(shardManager.getAllShards).mockReturnValue([shard]);
+      vi.mocked(shardManager.getAllShards).mockReturnValue([shard] as any);
       const mockDb = {
         prepare: vi.fn(),
       };
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb);
+      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
 
       const vec = new Float32Array([0, 1, 0]);
       const candidates = [
         { id: "c1", content: "diff", container_tag: "tag", vector: vec.buffer, metadata: "{}" },
       ];
-      vi.mocked(vectorSearch.listMemories).mockReturnValue(candidates);
+      vi.mocked(vectorSearch.listMemories).mockReturnValue(candidates as any);
 
       const result = await deduplicationService.checkDuplicateAtIngest(
         "content",
@@ -146,13 +155,13 @@ describe("deduplication-service", () => {
 
     it("returns true, merges metadata, and updates memory access when candidate meets threshold", async () => {
       const shard = { id: "s1", dbPath: "path-1" };
-      vi.mocked(shardManager.getAllShards).mockReturnValue([shard]);
+      vi.mocked(shardManager.getAllShards).mockReturnValue([shard] as any);
 
       const mockRun = vi.fn();
       const mockDb = {
         prepare: vi.fn().mockReturnValue({ run: mockRun }),
       };
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb);
+      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
 
       const vec = new Float32Array([1, 0, 0]);
       const candidates = [
@@ -164,7 +173,7 @@ describe("deduplication-service", () => {
           metadata: '{"source": "auto", "priority": "low"}',
         },
       ];
-      vi.mocked(vectorSearch.listMemories).mockReturnValue(candidates);
+      vi.mocked(vectorSearch.listMemories).mockReturnValue(candidates as any);
 
       const result = await deduplicationService.checkDuplicateAtIngest(
         "content",
@@ -184,9 +193,9 @@ describe("deduplication-service", () => {
 
     it("skips candidates with malformed vectors during ingest dedup", async () => {
       const shard = { id: "s1", dbPath: "path-1" };
-      vi.mocked(shardManager.getAllShards).mockReturnValue([shard]);
+      vi.mocked(shardManager.getAllShards).mockReturnValue([shard] as any);
       const mockDb = { prepare: vi.fn() };
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb);
+      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
 
       const candidates = [
         {
@@ -197,7 +206,7 @@ describe("deduplication-service", () => {
           metadata: "{}",
         },
       ];
-      vi.mocked(vectorSearch.listMemories).mockReturnValue(candidates);
+      vi.mocked(vectorSearch.listMemories).mockReturnValue(candidates as any);
 
       const result = await deduplicationService.checkDuplicateAtIngest(
         "content",
@@ -205,6 +214,109 @@ describe("deduplication-service", () => {
         new Float32Array([1, 0, 0])
       );
       expect(result).toEqual({ isDuplicate: false });
+    });
+  });
+
+  describe("checkDuplicateAtIngest contradiction path (V3/V4)", () => {
+    const CONTAINER = "opencode_project_testhash_v3v4";
+    const QUERY_VEC = new Float32Array([1, 0, 0]);
+    const CANDIDATE = {
+      id: "cand-contradiction",
+      content: "use bun for builds in v3v4",
+      container_tag: CONTAINER,
+      vector: new Float32Array([1, 0, 0]).buffer,
+      metadata: "{}",
+    };
+
+    beforeEach(() => {
+      contradictionVerdictMock.checkContradictionVerdict.mockClear();
+      vi.mocked(shardManager.getAllShards).mockReturnValue([{ id: "s1", dbPath: "path-1" } as any]);
+      vi.mocked(connectionManager.getConnection).mockReturnValue({
+        prepare: vi.fn().mockReturnValue({ run: vi.fn() }),
+      } as any);
+      vi.mocked(vectorSearch.listMemories).mockReturnValue([CANDIDATE] as any);
+      (CONFIG as any).deduplicationIngestEnabled = true;
+      (CONFIG as any).deduplicationSimilarityThreshold = 0.92;
+    });
+
+    it("V3: 'yes' verdict skips the merge and surfaces the conflict candidate", async () => {
+      contradictionVerdictMock.checkContradictionVerdict.mockResolvedValue("yes");
+      const result = await deduplicationService.checkDuplicateAtIngest(
+        "never use bun for builds in v3v4",
+        CONTAINER,
+        QUERY_VEC
+      );
+      expect(result).toEqual({
+        isDuplicate: false,
+        conflictCandidateId: "cand-contradiction",
+        conflictSimilarity: 1,
+      });
+    });
+
+    it("V3: 'no' verdict proceeds with the normal merge", async () => {
+      contradictionVerdictMock.checkContradictionVerdict.mockResolvedValue("no");
+      const result = await deduplicationService.checkDuplicateAtIngest(
+        "never use bun for builds in v3v4",
+        CONTAINER,
+        QUERY_VEC
+      );
+      expect(result.isDuplicate).toBe(true);
+      expect(result.existingId).toBe("cand-contradiction");
+      expect(result.conflictCandidateId).toBeUndefined();
+    });
+
+    it("V3: 'unknown' verdict (provider outage) preserves the merge", async () => {
+      contradictionVerdictMock.checkContradictionVerdict.mockResolvedValue("unknown");
+      const result = await deduplicationService.checkDuplicateAtIngest(
+        "never use bun for builds in v3v4",
+        CONTAINER,
+        QUERY_VEC
+      );
+      expect(result.isDuplicate).toBe(true);
+      expect(result.existingId).toBe("cand-contradiction");
+      expect(result.conflictCandidateId).toBeUndefined();
+    });
+
+    it("V3: sessionID is passed through to the verdict", async () => {
+      contradictionVerdictMock.checkContradictionVerdict.mockResolvedValue("yes");
+      await deduplicationService.checkDuplicateAtIngest(
+        "never use bun for builds in v3v4",
+        CONTAINER,
+        QUERY_VEC,
+        { sessionID: "sess-42" }
+      );
+      expect(contradictionVerdictMock.checkContradictionVerdict).toHaveBeenCalledWith(
+        "never use bun for builds in v3v4",
+        "use bun for builds in v3v4",
+        "sess-42"
+      );
+    });
+
+    it("V4: a vetted candidate id reuses the verdict without a second provider call", async () => {
+      contradictionVerdictMock.checkContradictionVerdict.mockResolvedValue("yes");
+      const result = await deduplicationService.checkDuplicateAtIngest(
+        "never use bun for builds in v3v4",
+        CONTAINER,
+        QUERY_VEC,
+        undefined,
+        "cand-contradiction"
+      );
+      expect(result.isDuplicate).toBe(false);
+      expect(result.conflictCandidateId).toBe("cand-contradiction");
+      expect(contradictionVerdictMock.checkContradictionVerdict).not.toHaveBeenCalled();
+    });
+
+    it("V4: a different candidate id still calls the provider", async () => {
+      contradictionVerdictMock.checkContradictionVerdict.mockResolvedValue("yes");
+      const result = await deduplicationService.checkDuplicateAtIngest(
+        "never use bun for builds in v3v4",
+        CONTAINER,
+        QUERY_VEC,
+        undefined,
+        "some-other-candidate"
+      );
+      expect(result.conflictCandidateId).toBe("cand-contradiction");
+      expect(contradictionVerdictMock.checkContradictionVerdict).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -344,8 +456,8 @@ describe("deduplication-service", () => {
       const shard1 = { id: "shard-1", dbPath: "path-1" };
       const shard2 = { id: "shard-2", dbPath: "path-2" };
       vi.mocked(shardManager.getAllShards).mockImplementation((scope: string) => {
-        if (scope === "user") return [shard1];
-        if (scope === "project") return [shard2];
+        if (scope === "user") return [shard1] as any;
+        if (scope === "project") return [shard2] as any;
         return [];
       });
 
@@ -356,8 +468,8 @@ describe("deduplication-service", () => {
         prepare: vi.fn().mockReturnValue({ run: vi.fn(), all: vi.fn() }),
       };
       vi.mocked(connectionManager.getConnection).mockImplementation((path: string) => {
-        if (path === "path-1") return mockDb1;
-        if (path === "path-2") return mockDb2;
+        if (path === "path-1") return mockDb1 as any;
+        if (path === "path-2") return mockDb2 as any;
         throw new Error("Invalid path");
       });
 
@@ -422,12 +534,12 @@ describe("deduplication-service", () => {
     it("skips oversized shards", async () => {
       const shard = { id: "oversized-shard", dbPath: "oversized-path" };
       vi.mocked(shardManager.getAllShards).mockImplementation((scope: string) => {
-        if (scope === "user") return [shard];
+        if (scope === "user") return [shard] as any;
         return [];
       });
 
       const mockDb = { prepare: vi.fn() };
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb);
+      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
 
       const oversizedMemories = Array.from({ length: 5001 }, (_, i) => ({
         id: `m${i}`,
@@ -447,11 +559,11 @@ describe("deduplication-service", () => {
     it("handles deleteVector errors gracefully in _deleteExactDuplicates", async () => {
       const shard = { id: "shard-1", dbPath: "path-1" };
       vi.mocked(shardManager.getAllShards).mockImplementation((scope: string) => {
-        if (scope === "user") return [shard];
+        if (scope === "user") return [shard] as any;
         return [];
       });
       const mockDb = { prepare: vi.fn() };
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb);
+      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
 
       const vec1 = new Float32Array([1, 0, 0]);
       const mems = [
@@ -482,11 +594,11 @@ describe("deduplication-service", () => {
     it("skips malformed vectors in _findNearDuplicates", async () => {
       const shard = { id: "shard-1", dbPath: "path-1" };
       vi.mocked(shardManager.getAllShards).mockImplementation((scope: string) => {
-        if (scope === "user") return [shard];
+        if (scope === "user") return [shard] as any;
         return [];
       });
       const mockDb = { prepare: vi.fn() };
-      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb);
+      vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
 
       const mems = [
         {
