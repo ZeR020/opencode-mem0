@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write # npm provenance
     steps:
       - uses: actions/checkout@v5
         with:
@@ -20,7 +21,15 @@ jobs:
         with:
           bun-version: latest
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
+
+      - name: Verify tag matches package.json version
+        run: |
+          pkg_version="$(node -p "require('./package.json').version")"
+          if [ "v${pkg_version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package.json version v${pkg_version}"
+            exit 1
+          fi
 
       - run: bun run typecheck
 
@@ -61,7 +70,7 @@ jobs:
 
       - name: Publish to npm
         if: steps.release_state.outputs.npm_published == 'false'
-        run: npm publish --access public
+        run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -83,6 +92,10 @@ jobs:
             /^## \[/ && found { exit }
             found { print }
           ' docs/CHANGELOG.md)
+          if [ -z "$(echo "$body" | tr -d '[:space:]')" ]; then
+            echo "No changelog section found for version ${version} in docs/CHANGELOG.md"
+            exit 1
+          fi
           echo "body<<EOF" >> "$GITHUB_OUTPUT"
           echo "$body" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"

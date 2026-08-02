@@ -20,17 +20,16 @@ jobs:
         with:
           bun-version: latest
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
+
+      - name: Format check
+        run: bun run format:check
 
       - name: Typecheck
         run: bun run typecheck
 
-      - name: Build
-        run: bun run build
-
       - name: Test
         run: bun run test
 
-      - name: Audit
-        continue-on-error: true
-        run: bun audit
+      - name: Build
+        run: bun run build
