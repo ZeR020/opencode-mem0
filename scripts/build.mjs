@@ -1,5 +1,5 @@
 // skipcq: JS-0833 — Valid ESM syntax, DeepSource false positive for .mjs files
-import { cpSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
@@ -32,6 +32,9 @@ function main() {
     return;
   }
 
+  // Clean first — stale assets from older builds (e.g. i18n.js from the pre-SPA
+  // dashboard) otherwise persist in dist/ and get published to npm.
+  rmSync(distWebDir, { recursive: true, force: true });
   mkdirSync(distWebDir, { recursive: true });
 
   for (const entry of readdirSync(srcWebDir)) {

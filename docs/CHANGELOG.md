@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Dashboard speaks user, not schema** — "container tags" renamed to "projects" and form labels to "project tag"; the profile empty state now explains profiles are learned from auto-captured sessions and need a memory provider + 10 prompts, instead of an unactionable "keep chatting". (Raised by @ovizii in #55.)
+
+### Fixed
+
+- **Stale web assets published to npm** — the build copied `src/web` over `dist/web` without cleaning, so deleted files (e.g. the pre-redesign `i18n.js`) persisted in releases. `dist/web` is now cleaned before each build.
+
 ### Added
 
 - **`opencode-mem0 update` CLI command** — one cross-platform step to get the latest release: bumps any npm-installed copy and clears OpenCode's pinned plugin cache, so a restart loads the newest version. The update-available toast now points at this command.

@@ -420,7 +420,7 @@ function viewDashboard() {
     <div class="stats-grid">
       ${statCard("database", "memories", st?.total, state.stats ? `${scope.user} user · ${scope.project} project` : "")}
       ${statCard("terminal", "prompts analyzed", p ? p.totalPromptsAnalyzed : undefined, p?.exists === false ? "no profile yet" : "")}
-      ${statCard("tag", "container tags", state.tags.length || undefined, "")}
+      ${statCard("tag", "projects", state.tags.length || undefined, "")}
       ${statCard("file-text", "transcripts", state.transcriptTotal ?? undefined, "")}
     </div>`;
 
@@ -452,7 +452,7 @@ function viewDashboard() {
         <div class="field"><label for="qa-content">content</label>
           <textarea id="qa-content" class="textarea" name="content" required placeholder="something worth remembering…"></textarea></div>
         <div class="toolbar">
-          <div class="field grow"><label for="qa-tag">container tag</label>
+          <div class="field grow"><label for="qa-tag">project tag</label>
             <input id="qa-tag" class="input" name="containerTag" required list="container-tags" placeholder="project or user tag" />
             <datalist id="container-tags">${state.tags.map((t) => `<option value="${esc(t.tag)}">${esc(t.displayName || t.projectName || "")}</option>`).join("")}</datalist></div>
           <div class="field"><label for="qa-type">type</label>
@@ -760,7 +760,7 @@ function viewProfile() {
   const p = state.profile;
   if (state.error) return errorCard(state.error);
   if (!p || p.exists === false) {
-    return `<div class="card">${empty("[@]", p?.message || "no profile yet", "Keep chatting — the profiler builds a picture of how you work.")}</div>`;
+    return `<div class="card">${empty("[@]", p?.message || "no profile yet", "Profiles are learned automatically from auto-captured sessions — needs a memory provider and 10+ prompts.")}</div>`;
   }
   const data = p.profileData || {};
 
@@ -1132,7 +1132,7 @@ function openAddModal() {
       <form data-form="add-memory" id="add-form">
         <div class="field"><label for="am-content">content</label>
           <textarea id="am-content" class="textarea" name="content" required autofocus placeholder="something worth remembering…"></textarea></div>
-        <div class="field"><label for="am-tag">container tag</label>
+        <div class="field"><label for="am-tag">project tag</label>
           <input id="am-tag" class="input" name="containerTag" required list="container-tags" placeholder="project or user tag" /></div>
         <div class="toolbar">
           <div class="field"><label for="am-type">type</label>
@@ -1166,7 +1166,7 @@ async function submitAddMemory(form) {
       .filter(Boolean),
   };
   if (!body.content || !body.containerTag) {
-    toast("content and container tag are required", "error");
+    toast("content and project tag are required", "error");
     return false;
   }
   const res = await apiPost("/api/memories", body);
