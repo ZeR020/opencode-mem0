@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.21.0] - 2026-08-03
+
 ### Fixed
 
 - **Profile learning no longer misbehaves without a provider** — previously, with no analysis provider configured, learning either threw on every session idle (log spam forever) or, worse, consumed prompts and silently discarded them. It now stays inert with a one-time log note, and prompts remain queued so a profile can still build if a provider is configured later.
