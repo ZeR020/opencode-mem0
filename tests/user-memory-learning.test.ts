@@ -81,15 +81,13 @@ describe("user-memory-learning", () => {
     expect(mockUserProfileManager.getActiveProfile).not.toHaveBeenCalled();
   });
 
-  it("handles missing API configuration", async () => {
-    mockUserPromptManager.countUnanalyzedForUserLearning.mockReturnValue(10);
-    mockUserPromptManager.getPromptsForUserLearning.mockReturnValue([
-      { id: "p1", content: "test prompt" },
-    ]);
-    mockUserProfileManager.getActiveProfile.mockReturnValue(null);
-
-    await expect(performUserProfileLearning({} as any, "/test")).rejects.toThrow(
-      "External API not configured for user memory learning"
-    );
+  it("skips without consuming prompts when no analysis provider is configured", async () => {
+    // The mocked CONFIG has no opencodeProvider/opencodeModel and no
+    // memoryModel/memoryApiUrl — learning must stay inert and leave the
+    // prompt queue untouched (previously it threw every idle, or worse,
+    // consumed prompts and silently discarded the data).
+    await expect(performUserProfileLearning({} as any, "/test")).resolves.toBeUndefined();
+    expect(mockUserPromptManager.getPromptsForUserLearning).not.toHaveBeenCalled();
+    expect(mockUserPromptManager.markMultipleAsUserLearningCaptured).not.toHaveBeenCalled();
   });
 });

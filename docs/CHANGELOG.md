@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Profile learning no longer misbehaves without a provider** — previously, with no analysis provider configured, learning either threw on every session idle (log spam forever) or, worse, consumed prompts and silently discarded them. It now stays inert with a one-time log note, and prompts remain queued so a profile can still build if a provider is configured later.
+
 ### Changed
 
 - **Dashboard speaks user, not schema** — "container tags" renamed to "projects" and form labels to "project tag"; the profile empty state now explains profiles are learned from auto-captured sessions and need a memory provider + 10 prompts, instead of an unactionable "keep chatting". (Raised by @ovizii in #55.)

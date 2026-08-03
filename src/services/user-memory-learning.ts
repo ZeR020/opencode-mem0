@@ -63,12 +63,31 @@ const USER_PROFILE_TOOL_PARAMS = {
 };
 
 let isLearningRunning = false;
+let warnedNoAnalysisProvider = false;
 
 export async function performUserProfileLearning(
   ctx: PluginInput,
   directory: string
 ): Promise<void> {
   if (isLearningRunning) return;
+
+  // No provider that can analyze prompts? Stay inert and leave prompts queued:
+  // consuming them here would silently discard the data, and throwing every
+  // idle would spam logs forever. Warn once per process.
+  const hasAnalysisProvider =
+    Boolean(CONFIG.opencodeProvider && CONFIG.opencodeModel) ||
+    Boolean(CONFIG.memoryModel && CONFIG.memoryApiUrl);
+  if (!hasAnalysisProvider) {
+    if (!warnedNoAnalysisProvider) {
+      warnedNoAnalysisProvider = true;
+      log(
+        "User profile learning disabled — no analysis provider configured " +
+          "(set opencodeProvider/opencodeModel or memoryModel/memoryApiUrl). Prompts stay queued."
+      );
+    }
+    return;
+  }
+
   isLearningRunning = true;
   try {
     const count = userPromptManager.countUnanalyzedForUserLearning();
