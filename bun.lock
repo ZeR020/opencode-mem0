@@ -14,6 +14,7 @@
         "better-sqlite3": "^13.0.2",
         "franc-min": "^6.2.0",
         "jsonc-parser": "^3.3.1",
+        "opencode-mem0": "^2.20.1",
         "usearch": "^2.25.1",
         "zod": "^4.4.1",
       },
@@ -499,6 +500,8 @@
     "onnxruntime-node": ["onnxruntime-node@1.24.3", "", { "dependencies": { "adm-zip": "^0.5.16", "global-agent": "^3.0.0", "onnxruntime-common": "1.24.3" }, "os": [ "linux", "win32", "darwin", ] }, "sha512-JH7+czbc8ALA819vlTgcV+Q214/+VjGeBHDjX81+ZCD0PCVCIFGFNtT0V4sXG/1JXypKPgScQcB3ij/hk3YnTg=="],
 
     "onnxruntime-web": ["onnxruntime-web@1.26.0-dev.20260416-b7804b056c", "", { "dependencies": { "flatbuffers": "^25.1.24", "guid-typescript": "^1.0.9", "long": "^5.2.3", "onnxruntime-common": "1.24.0-dev.20251116-b39e144322", "platform": "^1.3.6", "protobufjs": "^7.2.4" } }, "sha512-MD6Ss4GSpQBo6zqoJzyT9LRbKYs7x/JVN23FT24EcEvlqF4VuzPOeH6X38orZPKHQDbprn7K+SBpu0/mj2CQiw=="],
+
+    "opencode-mem0": ["opencode-mem0@2.20.1", "", { "dependencies": { "@ai-sdk/anthropic": "^4.0.5", "@ai-sdk/openai": "^4.0.5", "@huggingface/transformers": "^4.2.0", "@opencode-ai/plugin": "^1.14.31", "@opencode-ai/sdk": "^1.14.31", "ai": "^7.0.4", "better-sqlite3": "^13.0.2", "franc-min": "^6.2.0", "jsonc-parser": "^3.3.1", "usearch": "^2.25.1", "zod": "^4.4.1" }, "bin": { "opencode-mem0": "dist/cli.js" } }, "sha512-tbxY9GPeuQJsNLHU7QNwIcdPCw7a0SM3tK1YPVShKRrh6qkG983D6s9hdZCkfFVE+ufdUvh+OIv1llpxtTDu2w=="],
 
     "path-key": ["path-key@3.1.1", "", {}, "sha512-ojmeN0qd+y0jszEtoY48r0Peq5dwMEkIlCOu6Q5f41lfkswXuKtYrhgoTpLnyIcHm24Uhqx+5Tqm2InSwLhE6Q=="],
 
