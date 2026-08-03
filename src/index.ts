@@ -156,7 +156,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
       if (update) {
         showToast(ctx, {
           title: "opencode-mem0",
-          message: `Update available: v${update.current} → v${update.latest}. Run: npm install opencode-mem0@latest (or clear ~/.cache/opencode) and restart.`,
+          message: `Update available: v${update.current} → v${update.latest}. Run: npm install opencode-mem0@latest && rm -rf ~/.cache/opencode, then restart.`,
           variant: "info",
           duration: 10000,
         });

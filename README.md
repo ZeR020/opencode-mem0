@@ -49,6 +49,16 @@ npx opencode-mem0 init
 
 > **No provider configured?** Auto-capture skips silently — manual memory tools and the Web UI still work. To reuse your main OpenCode provider instead of a separate key, set `opencodeProvider` + `opencodeModel`. Platform notes and troubleshooting: [Getting Started](docs/GETTING-STARTED.md).
 
+## Updating
+
+OpenCode pins plugin versions in its cache, so updates are one manual step:
+
+```bash
+npm install opencode-mem0@latest && rm -rf ~/.cache/opencode
+```
+
+(Windows: delete `%USERPROFILE%\.cache\opencode` instead.) Then restart OpenCode. When a newer release exists, the plugin shows a toast with these instructions on startup — so you'll know when it's worth doing.
+
 ## Usage
 
 Memories are captured automatically from conversations via auto-capture (enabled by default). The agent tool below is for explicit memory operations — most users never need to invoke it manually.
