@@ -51,13 +51,13 @@ npx opencode-mem0 init
 
 ## Updating
 
-OpenCode pins plugin versions in its cache, so updates are one manual step:
+OpenCode pins plugin versions in its cache, so updates are one command:
 
 ```bash
-npm install opencode-mem0@latest && rm -rf ~/.cache/opencode
+npx opencode-mem0 update
 ```
 
-(Windows: delete `%USERPROFILE%\.cache\opencode` instead.) Then restart OpenCode. When a newer release exists, the plugin shows a toast with these instructions on startup — so you'll know when it's worth doing.
+It bumps any npm-installed copy and clears OpenCode's plugin cache (cross-platform, no manual `rm`). Restart OpenCode and you're on the latest. When a newer release exists, the plugin shows a toast on startup — so you'll know when it's worth doing.
 
 ## Usage
 

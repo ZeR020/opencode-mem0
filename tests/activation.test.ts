@@ -80,3 +80,24 @@ describe("activation gate", () => {
     expect(JSON.stringify(toasts[0])).toContain("opencode-mem0 init");
   });
 });
+
+describe("update", () => {
+  it("clears the opencode plugin cache and leaves home config untouched", async () => {
+    const home = freshHome();
+    const cacheDir = join(home, ".cache", "opencode");
+    mkdirSync(join(cacheDir, "node_modules"), { recursive: true });
+    writeFileSync(join(cacheDir, "package.json"), "{}");
+
+    const { runUpdate } = await import("../src/cli.js");
+    runUpdate({ npmInstall: false });
+
+    expect(existsSync(cacheDir)).toBe(false);
+    expect(existsSync(join(home, ".config"))).toBe(false);
+  });
+
+  it("is a no-op when no cache exists", async () => {
+    freshHome();
+    const { runUpdate } = await import("../src/cli.js");
+    expect(() => runUpdate({ npmInstall: false })).not.toThrow();
+  });
+});
