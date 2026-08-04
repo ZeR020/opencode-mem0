@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 
 // Mock fetch for all API calls
 const mockFetch = vi.fn();
@@ -563,6 +565,10 @@ describe("WebServer Routes", () => {
   });
 
   describe("Server Lifecycle", () => {
+    // startWebServer refuses to boot unconfigured (containment guard): the
+    // test home needs the data dir that isConfigured() checks for.
+    mkdirSync(join(process.env.HOME!, ".opencode-mem0", "data"), { recursive: true });
+
     it("startWebServer creates and starts server", async () => {
       const ws = await startWebServer({ port: 18083, host: "127.0.0.1", enabled: true });
       expect(ws).toBeInstanceOf(WebServer);

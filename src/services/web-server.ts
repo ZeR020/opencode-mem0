@@ -4,7 +4,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
 import { serve, type PlatformServer } from "./platform-server.js";
-import { CONFIG } from "../config.js";
+import { CONFIG, isConfigured } from "../config.js";
 import type { UserProfileData } from "./user-profile/types.js";
 import {
   handleListTags,
@@ -756,6 +756,12 @@ export class WebServer {
 }
 
 export async function startWebServer(config: WebServerConfig): Promise<WebServer> {
+  // Defense in depth: the plugin entry already gates on isConfigured(), but
+  // direct launches (scripts, tests, REPL) bypass that. Booting unconfigured
+  // would create ~/.opencode-mem0 databases before `opencode-mem0 init`.
+  if (!isConfigured()) {
+    throw new Error("opencode-mem0 is not activated — run `opencode-mem0 init` first");
+  }
   const server = new WebServer(config);
   await server.start();
   return server;
