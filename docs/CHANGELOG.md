@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Dashboard clarifications** — the memories stat card reads "global · project" instead of "user · project" (user-scope means cross-project memories, unrelated to the profile feature); the Memories filter chip reads "memories + prompts" instead of "all"; clicking a memory row's text now opens the detail view (the `[+]` type marker looked like an expand button); the pin button tooltip explains pinning protects a memory from cleanup and ranks it first. (Raised by @ovizii in #55.)
+- **Dashboard clarifications** — the memories stat card reads "global · project" instead of "user · project" (user-scope means cross-project memories, unrelated to the profile feature); the Memories filter chip reads "memories + prompts" instead of "all"; clicking a memory row's `[+]`/`[?]` marker or text now opens the detail view, in both the Memories list and search results (the marker looked like an expand button); the pin button tooltip explains pinning protects a memory from cleanup and ranks it first. (Raised by @ovizii in #55.)
 
 ## [2.21.0] - 2026-08-03
 

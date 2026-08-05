@@ -542,7 +542,7 @@ function memoryRow(item) {
   return `
   <div class="row ${checked ? "selected" : ""}" data-id="${esc(item.id)}">
     <input type="checkbox" class="checkbox" data-action="select-item" data-id="${esc(item.id)}" ${checked ? "checked" : ""} aria-label="Select item" />
-    <span class="row-marker ${isPrompt ? "prompt" : ""}">${isPrompt ? "[?]" : "[+]"}</span>
+    <span class="row-marker ${isPrompt ? "prompt" : ""}" data-action="view-item" data-id="${esc(item.id)}" style="cursor:pointer">${isPrompt ? "[?]" : "[+]"}</span>
     <div class="row-main" data-action="view-item" data-id="${esc(item.id)}" style="cursor:pointer">
       <div class="row-text clamp">${esc(itemText(item)).slice(0, 400)}</div>
       <div class="row-meta">
@@ -648,8 +648,8 @@ function viewSearch() {
 function searchRow(item, i) {
   return `
   <div class="row">
-    <span class="row-marker ${item.type === "prompt" ? "prompt" : ""}">${item.type === "prompt" ? "[?]" : "[+]"}</span>
-    <div class="row-main">
+    <span class="row-marker ${item.type === "prompt" ? "prompt" : ""}" data-action="view-search-item" data-idx="${i}" style="cursor:pointer">${item.type === "prompt" ? "[?]" : "[+]"}</span>
+    <div class="row-main" data-action="view-search-item" data-idx="${i}" style="cursor:pointer">
       <div class="row-text clamp">${esc(itemText(item)).slice(0, 400)}</div>
       <div class="row-meta">
         ${itemTypeBadge(item)}
