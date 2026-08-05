@@ -146,16 +146,16 @@ export class UserPromptManager {
 
     this.db.run("UPDATE user_prompts SET captured = 0 WHERE captured = 2");
 
-    const indexes: Array<[string, string]> = [
-      ["idx_user_prompts_session", "session_id"],
-      ["idx_user_prompts_captured", "captured"],
-      ["idx_user_prompts_created", "created_at DESC"],
-      ["idx_user_prompts_project", "project_path"],
-      ["idx_user_prompts_linked", "linked_memory_id"],
-      ["idx_user_prompts_user_learning", "user_learning_captured"],
+    const indexStatements = [
+      "CREATE INDEX IF NOT EXISTS idx_user_prompts_session ON user_prompts(session_id)",
+      "CREATE INDEX IF NOT EXISTS idx_user_prompts_captured ON user_prompts(captured)",
+      "CREATE INDEX IF NOT EXISTS idx_user_prompts_created ON user_prompts(created_at DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_user_prompts_project ON user_prompts(project_path)",
+      "CREATE INDEX IF NOT EXISTS idx_user_prompts_linked ON user_prompts(linked_memory_id)",
+      "CREATE INDEX IF NOT EXISTS idx_user_prompts_user_learning ON user_prompts(user_learning_captured)",
     ];
-    for (const [name, column] of indexes) {
-      this.db.run(`CREATE INDEX IF NOT EXISTS ${name} ON user_prompts(${column})`);
+    for (const sql of indexStatements) {
+      this.db.run(sql);
     }
   }
 
