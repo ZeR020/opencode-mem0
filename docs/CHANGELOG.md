@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Independent switches for the learning pipeline** — new `promptTrackingEnabled` and `profileLearningEnabled` config flags (both default `true`). Prompt persistence is no longer coupled to `chatMessage.enabled`, so prompt tracking can be off while memory injection stays on, and automatic profile learning on session idle can be disabled on its own. Together with the existing `injectProfile` and `autoCaptureEnabled`, every stage — prompt persistence, profile learning, profile injection, auto-capture — is now independently switchable while the Web UI, explicit memory tools, and semantic search keep working. (Requested by @ovizii in #55.)
 
+### Changed
+
+- **Dashboard clarifications** — the memories stat card reads "global · project" instead of "user · project" (user-scope means cross-project memories, unrelated to the profile feature); the Memories filter chip reads "memories + prompts" instead of "all"; clicking a memory row's text now opens the detail view (the `[+]` type marker looked like an expand button); the pin button tooltip explains pinning protects a memory from cleanup and ranks it first. (Raised by @ovizii in #55.)
+
 ## [2.21.0] - 2026-08-03
 
 ### Fixed

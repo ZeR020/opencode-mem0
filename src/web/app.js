@@ -418,7 +418,7 @@ function viewDashboard() {
 
   const statsGrid = `
     <div class="stats-grid">
-      ${statCard("database", "memories", st?.total, state.stats ? `${scope.user} user · ${scope.project} project` : "")}
+      ${statCard("database", "memories", st?.total, state.stats ? `${scope.user} global · ${scope.project} project` : "")}
       ${statCard("terminal", "prompts analyzed", p ? p.totalPromptsAnalyzed : undefined, p?.exists === false ? "no profile yet" : "")}
       ${statCard("tag", "projects", state.tags.length || undefined, "")}
       ${statCard("file-text", "transcripts", state.transcriptTotal ?? undefined, "")}
@@ -543,7 +543,7 @@ function memoryRow(item) {
   <div class="row ${checked ? "selected" : ""}" data-id="${esc(item.id)}">
     <input type="checkbox" class="checkbox" data-action="select-item" data-id="${esc(item.id)}" ${checked ? "checked" : ""} aria-label="Select item" />
     <span class="row-marker ${isPrompt ? "prompt" : ""}">${isPrompt ? "[?]" : "[+]"}</span>
-    <div class="row-main">
+    <div class="row-main" data-action="view-item" data-id="${esc(item.id)}" style="cursor:pointer">
       <div class="row-text clamp">${esc(itemText(item)).slice(0, 400)}</div>
       <div class="row-meta">
         ${itemTypeBadge(item)}
@@ -555,7 +555,7 @@ function memoryRow(item) {
     </div>
     <div class="row-actions">
       <button class="btn btn-ghost btn-icon" data-action="view-item" data-id="${esc(item.id)}" aria-label="View detail" title="View"><i data-lucide="eye" class="icon"></i></button>
-      ${!isPrompt ? `<button class="btn btn-ghost btn-icon" data-action="pin-item" data-id="${esc(item.id)}" data-pinned="${item.isPinned ? 1 : 0}" aria-label="${item.isPinned ? "Unpin" : "Pin"}" title="${item.isPinned ? "Unpin" : "Pin"}"><i data-lucide="${item.isPinned ? "pin-off" : "pin"}" class="icon"></i></button>` : ""}
+      ${!isPrompt ? `<button class="btn btn-ghost btn-icon" data-action="pin-item" data-id="${esc(item.id)}" data-pinned="${item.isPinned ? 1 : 0}" aria-label="${item.isPinned ? "Unpin" : "Pin"}" title="${item.isPinned ? "Unpin — allow cleanup again" : "Pin — protect from cleanup, rank first"}"><i data-lucide="${item.isPinned ? "pin-off" : "pin"}" class="icon"></i></button>` : ""}
       ${!isPrompt ? `<button class="btn btn-ghost btn-icon" data-action="edit-item" data-id="${esc(item.id)}" aria-label="Edit" title="Edit"><i data-lucide="pencil" class="icon"></i></button>` : ""}
       <button class="btn btn-ghost btn-icon" data-action="delete-item" data-id="${esc(item.id)}" data-type="${esc(item.type)}" data-linked="${item.linkedMemoryId ? 1 : 0}" aria-label="Delete" title="Delete"><i data-lucide="trash-2" class="icon"></i></button>
     </div>
@@ -565,7 +565,7 @@ function memoryRow(item) {
 function viewMemories() {
   const chips = `
     <div class="chips" role="group" aria-label="Item filter">
-      <button class="chip ${state.memFilter === "all" ? "active" : ""}" data-action="mem-filter" data-filter="all">all</button>
+      <button class="chip ${state.memFilter === "all" ? "active" : ""}" data-action="mem-filter" data-filter="all">memories + prompts</button>
       <button class="chip ${state.memFilter === "memories" ? "active" : ""}" data-action="mem-filter" data-filter="memories">memories only</button>
     </div>`;
 
