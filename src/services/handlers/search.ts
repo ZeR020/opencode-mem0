@@ -212,8 +212,7 @@ function fetchMissingLinkedItems(results: SearchResultItem[]): SearchResultItem[
         const memory = vectorSearch.getMemoryById(db, mid);
         if (memory && !existingIds.has(memory.id)) {
           const parsedMetadata = safeJSONParse(memory.metadata) as
-            | Record<string, unknown>
-            | undefined;
+            Record<string, unknown> | undefined;
           results.push({
             type: "memory",
             id: memory.id,
