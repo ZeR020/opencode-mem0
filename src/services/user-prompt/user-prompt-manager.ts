@@ -1,4 +1,4 @@
-import { type Database, type Statement } from "../sqlite/sqlite-bootstrap.js";
+import type { Database, Statement } from "../sqlite/sqlite-bootstrap.js";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { connectionManager } from "../sqlite/connection-manager.js";
@@ -47,6 +47,7 @@ export class UserPromptManager {
     getByIds: Statement;
     recordFailedAttempt: Statement;
     getCaptureAttempts: Statement;
+    pruneCapturedForUserLearning: Statement;
   };
 
   constructor() {
@@ -109,6 +110,9 @@ export class UserPromptManager {
       ),
       getCaptureAttempts: this.db.prepare(
         "SELECT capture_attempts as attempts FROM user_prompts WHERE id = ?"
+      ),
+      pruneCapturedForUserLearning: this.db.prepare(
+        "DELETE FROM user_prompts WHERE user_learning_captured = 1 AND created_at < ?"
       ),
     };
   }
@@ -221,6 +225,17 @@ export class UserPromptManager {
       deleted: result.changes,
       linkedMemoryIds,
     };
+  }
+
+  /**
+   * Deletes prompts already consumed by user-profile learning (`user_learning_captured = 1`)
+   * that are older than `days`. Uncaptured prompts are the learning queue and are NEVER
+   * deleted here. Returns the number of deleted rows.
+   */
+  pruneCapturedOlderThan(days: number): number {
+    const cutoffTime = Date.now() - days * 24 * 60 * 60 * 1000;
+    const result = this.stmts.pruneCapturedForUserLearning.run(cutoffTime);
+    return result.changes;
   }
 
   linkMemoryToPrompt(promptId: string, memoryId: string): void {

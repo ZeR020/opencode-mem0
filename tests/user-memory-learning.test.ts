@@ -290,6 +290,170 @@ describe("backlog draining", () => {
   });
 });
 
+describe("single merge owner", () => {
+  it("stores the LLM-returned profile as-is (no double-increment) and enforces caps", async () => {
+    enableAnalysis();
+    mockConfig.userProfileAnalysisInterval = 10;
+    mockConfig.userProfileMaxBatchesPerIdle = 5;
+    mockConfig.userProfileMaxPreferences = 3;
+    mockConfig.userProfileMaxPatterns = 3;
+    mockConfig.userProfileMaxWorkflows = 3;
+
+    // Existing profile with items the LLM will "merge" back at higher values.
+    const now = Date.now();
+    userProfileManager.createProfile(
+      "test@example.com",
+      "Test",
+      "test",
+      "test@example.com",
+      {
+        preferences: [
+          {
+            category: "code-style",
+            description: "prefers tabs",
+            confidence: 0.5,
+            evidence: ["old-evidence"],
+            lastUpdated: now,
+          },
+        ],
+        patterns: [{ category: "ts", description: "typescript work", frequency: 2, lastSeen: now }],
+        workflows: [{ description: "build flow", steps: ["a"], frequency: 1 }],
+      },
+      10
+    );
+
+    // The LLM is instructed to return the FULLY MERGED profile.
+    const llmMerged = {
+      preferences: [
+        {
+          category: "code-style",
+          description: "prefers tabs",
+          confidence: 0.9,
+          evidence: ["new-evidence"],
+          lastUpdated: now,
+        },
+        {
+          category: "lang",
+          description: "python",
+          confidence: 0.8,
+          evidence: ["e"],
+          lastUpdated: now,
+        },
+        {
+          category: "tool",
+          description: "vim",
+          confidence: 0.7,
+          evidence: ["e"],
+          lastUpdated: now,
+        },
+        {
+          category: "style",
+          description: "docstrings",
+          confidence: 0.6,
+          evidence: ["e"],
+          lastUpdated: now,
+        },
+        {
+          category: "style",
+          description: "naming",
+          confidence: 0.5,
+          evidence: ["e"],
+          lastUpdated: now,
+        },
+        {
+          category: "style",
+          description: "imports",
+          confidence: 0.4,
+          evidence: ["e"],
+          lastUpdated: now,
+        },
+        {
+          category: "style",
+          description: "quotes",
+          confidence: 0.3,
+          evidence: ["e"],
+          lastUpdated: now,
+        },
+        {
+          category: "style",
+          description: "semicolons",
+          confidence: 0.2,
+          evidence: ["e"],
+          lastUpdated: now,
+        },
+      ],
+      patterns: [
+        { category: "ts", description: "typescript work", frequency: 4, lastSeen: now },
+        { category: "web", description: "react work", frequency: 3, lastSeen: now },
+        { category: "lang", description: "go work", frequency: 2, lastSeen: now },
+      ],
+      workflows: [
+        { description: "deploy flow", steps: ["a"], frequency: 5 },
+        { description: "test flow", steps: ["a"], frequency: 4 },
+        { description: "lint flow", steps: ["a"], frequency: 3 },
+        { description: "debug flow", steps: ["a"], frequency: 2 },
+        { description: "build flow", steps: ["a"], frequency: 1 },
+      ],
+    };
+    mockGenerateStructuredOutput.mockResolvedValue(llmMerged);
+    queuePrompts(10);
+
+    await performUserProfileLearning({} as any, "/test");
+
+    const profiles = allProfiles();
+    expect(profiles).toHaveLength(1);
+    const stored = JSON.parse(profiles[0].profile_data);
+
+    // Merged preference keeps the LLM's confidence (0.9), NOT existing 0.5 + 0.1.
+    const tabs = stored.preferences.find((p: any) => p.description === "prefers tabs");
+    expect(tabs.confidence).toBe(0.9);
+
+    // Merged pattern keeps the LLM's frequency (4), NOT existing 2 + 1.
+    const ts = stored.patterns.find((p: any) => p.description === "typescript work");
+    expect(ts.frequency).toBe(4);
+
+    // Caps: 8 LLM preferences → exactly maxPreferences (3), top-confidence kept.
+    expect(stored.preferences).toHaveLength(3);
+    expect(stored.preferences.map((p: any) => p.confidence)).toEqual([0.9, 0.8, 0.7]);
+    expect(stored.patterns).toHaveLength(3);
+    expect(stored.patterns.map((p: any) => p.frequency)).toEqual([4, 3, 2]);
+    expect(stored.workflows).toHaveLength(3);
+    expect(stored.workflows.map((w: any) => w.frequency)).toEqual([5, 4, 3]);
+  });
+});
+
+describe("mid-loop failure", () => {
+  it("commits the successful batch, propagates the error, and releases the single-flight lock", async () => {
+    enableAnalysis();
+    mockConfig.userProfileAnalysisInterval = 10;
+    mockConfig.userProfileMaxBatchesPerIdle = 5;
+    const queue = queuePrompts(25);
+
+    let calls = 0;
+    mockGenerateStructuredOutput.mockImplementation(() => {
+      calls += 1;
+      if (calls === 1) return Promise.resolve(ANON_PROFILE_DATA);
+      return Promise.reject(new Error("analysis failed"));
+    });
+
+    await expect(performUserProfileLearning({} as any, "/test")).rejects.toThrow("analysis failed");
+
+    // Batch 1 (10 prompts) was marked captured before the failure; 15 remain.
+    expect(queue.remaining()).toBe(15);
+    expect(mockUserPromptManager.markMultipleAsUserLearningCaptured).toHaveBeenCalledWith(
+      makePrompts(10).map((p) => p.id)
+    );
+    expect(mockUserPromptManager.getPromptsForUserLearning).toHaveBeenCalledTimes(2);
+
+    // The single-flight lock was released: a subsequent run executes instead of no-oping.
+    mockGenerateStructuredOutput.mockResolvedValue(ANON_PROFILE_DATA);
+    await performUserProfileLearning({} as any, "/test");
+
+    expect(mockUserPromptManager.getPromptsForUserLearning).toHaveBeenCalledTimes(3);
+    expect(queue.remaining()).toBe(5);
+  });
+});
+
 describe("language pinning", () => {
   const germanPrompt =
     "Dies ist ein deutscher Testsatz mit mehreren Wörtern für die Spracherkennung";

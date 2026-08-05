@@ -368,6 +368,25 @@ export class UserProfileManager {
   }
 
   /**
+   * Deterministic cap enforcement for LLM-returned profiles: in the learning path the
+   * LLM owns the merge (it is instructed to return the fully merged profile), so this
+   * only sorts by relevance and slices to the configured maximums. No confidence/frequency
+   * mutation and no evidence merging — the LLM's numbers are stored as-is.
+   */
+  enforceProfileLimits(data: UserProfileData): UserProfileData {
+    const preferences = [...safeArray(data.preferences)]
+      .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
+      .slice(0, CONFIG.userProfileMaxPreferences);
+    const patterns = [...safeArray(data.patterns)]
+      .sort((a, b) => (b.frequency ?? 0) - (a.frequency ?? 0))
+      .slice(0, CONFIG.userProfileMaxPatterns);
+    const workflows = [...safeArray(data.workflows)]
+      .sort((a, b) => (b.frequency ?? 0) - (a.frequency ?? 0))
+      .slice(0, CONFIG.userProfileMaxWorkflows);
+    return { ...data, preferences, patterns, workflows };
+  }
+
+  /**
    * Applies confidence decay to all preferences, patterns, and workflows.
    * Repeated calls within the same hour will be skipped (idempotent).
    *

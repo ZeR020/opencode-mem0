@@ -92,6 +92,24 @@ describe("project-scoped config resolution", () => {
     expect(CONFIG.profileLearningEnabled).toBe(false);
   });
 
+  it("resolves promptRetentionDays with default 30, false keeps forever, and 90 from file config", () => {
+    (globalThis as any).__mockFs.existsSync = (p: unknown) =>
+      String(p).includes(".config/opencode/opencode-mem0");
+
+    (globalThis as any).__mockFs.readFileSync = () => JSON.stringify({});
+    initConfig("/some/project");
+    expect(CONFIG.promptRetentionDays).toBe(30);
+
+    (globalThis as any).__mockFs.readFileSync = () =>
+      JSON.stringify({ promptRetentionDays: false });
+    initConfig("/some/project");
+    expect(CONFIG.promptRetentionDays).toBe(false);
+
+    (globalThis as any).__mockFs.readFileSync = () => JSON.stringify({ promptRetentionDays: 90 });
+    initConfig("/some/project");
+    expect(CONFIG.promptRetentionDays).toBe(90);
+  });
+
   it("preserves existing CONFIG when both config sources are empty (transient I/O failure)", () => {
     const mockFs = (
       globalThis as {

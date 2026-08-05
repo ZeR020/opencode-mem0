@@ -58,6 +58,7 @@ vi.mock("../src/services/user-prompt/user-prompt-manager.js", () => ({
   userPromptManager: {
     savePrompt: vi.fn(),
     buildPrompt: vi.fn().mockReturnValue("test"),
+    pruneCapturedOlderThan: vi.fn().mockReturnValue(0),
   },
 }));
 
@@ -118,6 +119,7 @@ vi.mock("../src/config.js", () => ({
     transcriptStorage: { enabled: true, maxAgeDays: 30 },
     autoCaptureEnabled: true,
     profileLearningEnabled: true,
+    promptRetentionDays: 30,
     compaction: { enabled: false, memoryLimit: 10 },
     chatMessage: { enabled: false },
     showAutoCaptureToasts: false,
@@ -212,6 +214,47 @@ describe("session.idle transcript capture wiring", () => {
 
     config.webServerEnabled = false;
     config.profileLearningEnabled = true;
+    mocks.isServerOwner.mockReturnValue(false);
+  });
+
+  it("prunes captured prompts on session.idle when server owner", async () => {
+    const { CONFIG } = await import("../src/config.js");
+    (CONFIG as { webServerEnabled: boolean }).webServerEnabled = true;
+    mocks.isServerOwner.mockReturnValue(true);
+
+    const plugin = await OpenCodeMemPlugin(makeCtx() as never);
+    if (!plugin.event) throw new Error("event hook missing");
+
+    await plugin.event({ event: { type: "session.idle", properties: { sessionID: "sess-5" } } });
+    await vi.advanceTimersByTimeAsync(10001);
+
+    const { userPromptManager } =
+      await import("../src/services/user-prompt/user-prompt-manager.js");
+    expect(userPromptManager.pruneCapturedOlderThan).toHaveBeenCalledWith(30);
+
+    (CONFIG as { webServerEnabled: boolean }).webServerEnabled = false;
+    mocks.isServerOwner.mockReturnValue(false);
+  });
+
+  it("skips pruning on session.idle when promptRetentionDays=false", async () => {
+    const { CONFIG } = await import("../src/config.js");
+    const config = CONFIG as { webServerEnabled: boolean; promptRetentionDays: number | false };
+    config.webServerEnabled = true;
+    config.promptRetentionDays = false;
+    mocks.isServerOwner.mockReturnValue(true);
+
+    const plugin = await OpenCodeMemPlugin(makeCtx() as never);
+    if (!plugin.event) throw new Error("event hook missing");
+
+    await plugin.event({ event: { type: "session.idle", properties: { sessionID: "sess-6" } } });
+    await vi.advanceTimersByTimeAsync(10001);
+
+    const { userPromptManager } =
+      await import("../src/services/user-prompt/user-prompt-manager.js");
+    expect(userPromptManager.pruneCapturedOlderThan).not.toHaveBeenCalled();
+
+    config.webServerEnabled = false;
+    config.promptRetentionDays = 30;
     mocks.isServerOwner.mockReturnValue(false);
   });
 });

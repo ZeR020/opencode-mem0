@@ -665,6 +665,10 @@ async function handleSessionIdle(
         const { cleanupService } = await import("./services/cleanup-service.js");
         if (cleanupService.shouldRunCleanup()) await cleanupService.runCleanup();
         cleanupOldTranscripts();
+        if (CONFIG.promptRetentionDays !== false) {
+          const deleted = userPromptManager.pruneCapturedOlderThan(CONFIG.promptRetentionDays);
+          if (deleted > 0) log("Pruned prompts captured for user-profile learning", { deleted });
+        }
         const { connectionManager } = await import("./services/sqlite/connection-manager.js");
         connectionManager.checkpointAll();
       }

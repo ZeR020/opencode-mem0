@@ -312,14 +312,10 @@ async function analyzeUserProfile(
         CONFIG.memoryTemperature === false ? undefined : (CONFIG.memoryTemperature ?? 0.3),
     });
 
-    if (existingProfile) {
-      const existingData = safeJSONParse(existingProfile.profileData) as any;
-      return userProfileManager.mergeProfileData(
-        existingData,
-        result as unknown as Partial<UserProfileData>
-      );
-    }
-    return result as UserProfileData;
+    // The LLM is instructed to return the fully merged profile; code only enforces
+    // the configured maximums (a second merge here would double-increment frequencies
+    // and confidence scores).
+    return userProfileManager.enforceProfileLimits(result as unknown as UserProfileData);
   }
 
   if (!CONFIG.memoryModel || !CONFIG.memoryApiUrl) {
@@ -362,10 +358,7 @@ async function analyzeUserProfile(
 
   const rawData = result.data;
 
-  if (existingProfile) {
-    const existingData = safeJSONParse(existingProfile.profileData) as any;
-    return userProfileManager.mergeProfileData(existingData, rawData);
-  }
-
-  return rawData as UserProfileData;
+  // The LLM returns the fully merged profile (tool description says "Update existing
+  // user profile with new insights"); code only enforces the configured maximums.
+  return userProfileManager.enforceProfileLimits(rawData as UserProfileData);
 }

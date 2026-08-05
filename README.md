@@ -265,17 +265,18 @@ All settings have sensible defaults — you only need a config file to change be
 
 ### User Profiles
 
-| Setting                              | Default | Description                              |
-| ------------------------------------ | ------- | ---------------------------------------- |
-| `injectProfile`                      | `true`  | Inject user profile into agent context   |
-| `userProfileAnalysisInterval`        | `10`    | Prompts between profile analysis runs    |
-| `userProfileMaxBatchesPerIdle`       | `5`     | Max prompt batches analyzed per idle run |
-| `userProfileMaxPreferences`          | `20`    | Max stored user preferences              |
-| `userProfileMaxPatterns`             | `15`    | Max stored behavioral patterns           |
-| `userProfileMaxWorkflows`            | `10`    | Max stored workflow descriptions         |
-| `userProfileChangelogRetentionCount` | `5`     | Max profile changelog entries retained   |
-| `userEmailOverride`                  | —       | Override user email for profile identity |
-| `userNameOverride`                   | —       | Override user name for profile identity  |
+| Setting                              | Default | Description                                                                                                                                          |
+| ------------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `injectProfile`                      | `true`  | Inject user profile into agent context                                                                                                               |
+| `userProfileAnalysisInterval`        | `10`    | Prompts between profile analysis runs                                                                                                                |
+| `userProfileMaxBatchesPerIdle`       | `5`     | Max prompt batches analyzed per idle run                                                                                                             |
+| `userProfileMaxPreferences`          | `20`    | Max stored user preferences                                                                                                                          |
+| `userProfileMaxPatterns`             | `15`    | Max stored behavioral patterns                                                                                                                       |
+| `userProfileMaxWorkflows`            | `10`    | Max stored workflow descriptions                                                                                                                     |
+| `userProfileChangelogRetentionCount` | `5`     | Max profile changelog entries retained                                                                                                               |
+| `promptRetentionDays`                | `30`    | Days to keep prompts consumed by profile learning; `false` keeps them forever (pruned prompts also disappear from the dashboard prompt lists/search) |
+| `userEmailOverride`                  | —       | Override user email for profile identity                                                                                                             |
+| `userNameOverride`                   | —       | Override user name for profile identity                                                                                                              |
 
 ### AI Session & Toasts
 

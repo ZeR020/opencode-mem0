@@ -247,16 +247,17 @@ Time-based decay with boosts on access and relevance strength.
 
 ## User Profile Settings
 
-| Setting                              | Type      | Default | Description                                                                                            |
-| ------------------------------------ | --------- | ------- | ------------------------------------------------------------------------------------------------------ |
-| `userProfileAnalysisInterval`        | `number`  | `10`    | Number of chat messages between profile analysis runs.                                                 |
-| `userProfileMaxBatchesPerIdle`       | `number`  | `5`     | Maximum prompt batches analyzed per idle run (each batch holds `userProfileAnalysisInterval` prompts). |
-| `userProfileMaxPreferences`          | `number`  | `20`    | Maximum preference entries in the user profile.                                                        |
-| `userProfileMaxPatterns`             | `number`  | `15`    | Maximum behavior pattern entries.                                                                      |
-| `userProfileMaxWorkflows`            | `number`  | `10`    | Maximum workflow entries.                                                                              |
-| `userProfileChangelogRetentionCount` | `number`  | `5`     | Number of profile changelog entries to retain.                                                         |
-| `showUserProfileToasts`              | `boolean` | `true`  | Show toast notifications when the user profile is updated.                                             |
-| `showErrorToasts`                    | `boolean` | `true`  | Show toast notifications for errors.                                                                   |
+| Setting                              | Type              | Default | Description                                                                                                                                                                                                                    |
+| ------------------------------------ | ----------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `userProfileAnalysisInterval`        | `number`          | `10`    | Number of chat messages between profile analysis runs.                                                                                                                                                                         |
+| `userProfileMaxBatchesPerIdle`       | `number`          | `5`     | Maximum prompt batches analyzed per idle run (each batch holds `userProfileAnalysisInterval` prompts).                                                                                                                         |
+| `userProfileMaxPreferences`          | `number`          | `20`    | Maximum preference entries in the user profile.                                                                                                                                                                                |
+| `userProfileMaxPatterns`             | `number`          | `15`    | Maximum behavior pattern entries.                                                                                                                                                                                              |
+| `userProfileMaxWorkflows`            | `number`          | `10`    | Maximum workflow entries.                                                                                                                                                                                                      |
+| `userProfileChangelogRetentionCount` | `number`          | `5`     | Number of profile changelog entries to retain.                                                                                                                                                                                 |
+| `promptRetentionDays`                | `number \| false` | `30`    | Days to keep prompts already consumed by user-profile learning before pruning them. `false` keeps them forever (the learning queue is never pruned). Pruned prompts also disappear from the dashboard prompt lists and search. |
+| `showUserProfileToasts`              | `boolean`         | `true`  | Show toast notifications when the user profile is updated.                                                                                                                                                                     |
+| `showErrorToasts`                    | `boolean`         | `true`  | Show toast notifications for errors.                                                                                                                                                                                           |
 
 ## AI Session Retention
 

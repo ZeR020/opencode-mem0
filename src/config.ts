@@ -65,6 +65,7 @@ interface OpenCodeMemConfig {
   userProfileMaxPatterns?: number;
   userProfileMaxWorkflows?: number;
   userProfileChangelogRetentionCount?: number;
+  promptRetentionDays?: number | false;
   showAutoCaptureToasts?: boolean;
   showUserProfileToasts?: boolean;
   showErrorToasts?: boolean;
@@ -175,6 +176,7 @@ export const OpenCodeMemConfigSchema = z.object({
   userProfileMaxPatterns: z.number().positive().optional(),
   userProfileMaxWorkflows: z.number().positive().optional(),
   userProfileChangelogRetentionCount: z.number().positive().optional(),
+  promptRetentionDays: z.union([z.number().positive(), z.literal(false)]).optional(),
   showAutoCaptureToasts: z.boolean().optional(),
   showUserProfileToasts: z.boolean().optional(),
   showErrorToasts: z.boolean().optional(),
@@ -283,6 +285,7 @@ const DEFAULTS: Partial<OpenCodeMemConfig> = {
   userProfileMaxPatterns: 15,
   userProfileMaxWorkflows: 10,
   userProfileChangelogRetentionCount: 5,
+  promptRetentionDays: 30,
   showAutoCaptureToasts: true,
   showUserProfileToasts: true,
   showErrorToasts: true,
@@ -471,6 +474,10 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
     userProfileMaxWorkflows: cfg.userProfileMaxWorkflows ?? defaults.userProfileMaxWorkflows,
     userProfileChangelogRetentionCount:
       cfg.userProfileChangelogRetentionCount ?? defaults.userProfileChangelogRetentionCount,
+    promptRetentionDays:
+      cfg.promptRetentionDays === false
+        ? false
+        : (cfg.promptRetentionDays ?? defaults.promptRetentionDays),
     showAutoCaptureToasts: cfg.showAutoCaptureToasts ?? defaults.showAutoCaptureToasts,
     showUserProfileToasts: cfg.showUserProfileToasts ?? defaults.showUserProfileToasts,
     showErrorToasts: cfg.showErrorToasts ?? defaults.showErrorToasts,

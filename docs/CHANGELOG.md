@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Prompt retention for profile learning** — the `user_prompts` table used to grow forever: rows consumed by user-profile learning were never deleted. New `promptRetentionDays` config (default `30`) prunes prompts already captured for learning after the configured number of days on session idle. Set it to `false` to keep captured prompts indefinitely (uncaptured prompts — the learning queue — are never pruned). Note the side effect: pruned prompts also disappear from the dashboard prompt lists and search.
+
+### Fixed
+
+- **Profile learning no longer double-counts** — the LLM is instructed to return the fully merged profile (incrementing frequencies and updating confidence scores), but the code then merged it again, bumping every matching preference's confidence by `+0.1` and every pattern/workflow frequency by `+1` per batch. Learning now stores the LLM's merged profile as-is, enforcing only the configured maximums (`userProfileMaxPreferences`, `userProfileMaxPatterns`, `userProfileMaxWorkflows`); the explicit `profile` tool path is unchanged.
+
 ## [2.22.0] - 2026-08-05
 
 ### Added
