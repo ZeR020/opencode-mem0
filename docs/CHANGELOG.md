@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.22.0] - 2026-08-05
+
 ### Added
 
+- **ASCII-art favicon** — The dashboard browser tab icon is now a stacked `[---] / [M0] / [---]` mark in the design system's cream/mono style (SVG, crisp at any size). (Entry moved from the 2.20.0 section, where it was listed before the feature actually shipped.)
 - **Independent switches for the learning pipeline** — new `promptTrackingEnabled` and `profileLearningEnabled` config flags (both default `true`). Prompt persistence is no longer coupled to `chatMessage.enabled`, so prompt tracking can be off while memory injection stays on, and automatic profile learning on session idle can be disabled on its own. Together with the existing `injectProfile` and `autoCaptureEnabled`, every stage — prompt persistence, profile learning, profile injection, auto-capture — is now independently switchable while the Web UI, explicit memory tools, and semantic search keep working. (Requested by @ovizii in #55.)
 
 ### Changed
@@ -20,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **User profile identity is now stable without an email** — previously each learning run minted a fresh random anonymous identity, so one user accumulated a new profile per batch (four profiles from forty prompts in one report). All profile lookups now share one resolver: the git email when available, otherwise the most recent active profile (existing duplicate profiles self-heal onto it), otherwise a single stable `anonymous` identity. Saving an explicit preference from the `profile` tool also no longer fails when no email can be resolved. (Reported by @ovizii in #57.)
 - **Profile learning drains its backlog** — previously only one batch (default 10 prompts) was analyzed per idle session, so a 1500-prompt backlog took roughly 150 idles. Learning now keeps analyzing FIFO batches until fewer than `userProfileAnalysisInterval` prompts remain or `userProfileMaxBatchesPerIdle` batches (default 5) are done, with a single summary toast per run. (Reported by @ovizii in #57.)
 - **Profile language stays pinned** — a mixed-language batch could flip the profile's language between runs. Updates now keep writing in the existing profile's language; new profiles are created in the dominant language detected across the batch. (Reported by @ovizii in #57.)
+- **Web server refuses to boot unactivated** — launching the web server directly (scripts, REPL, tests) bypassed the plugin entry's activation gate and created `~/.opencode-mem0` databases unconditionally. The server entry now guards too: unconfigured launch throws and writes nothing.
 
 ## [2.21.0] - 2026-08-03
 
@@ -50,8 +54,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.20.0] - 2026-08-02
 
 ### Added
-
-- **ASCII-art favicon** — The dashboard browser tab icon is now a stacked `[---] / [M0] / [---]` mark in the design system's cream/mono style (SVG, crisp at any size).
 
 - **Dashboard redesign** — Complete rebuild of the web UI with the OpenCode terminal-native manpage design system (DESIGN.md). New state-driven vanilla-JS SPA with 8 views: Dashboard (hero TUI mockup + stats + recent memories + profile snapshot), Memories, Semantic Search, Timeline (transcript history), Profile (preferences, patterns, workflows, changelog), Maintenance (cleanup, dedup, migration), Conflicts (resolve with keep-newer/keep-older/merge), and Settings. Warm cream canvas, near-black ink, Berkeley/JetBrains Mono, 4px radius on interactive elements, 0px on containers, hairline borders, no shadows or gradients, ASCII bracket markers as bullets, dark theme + system preference detection.
 
