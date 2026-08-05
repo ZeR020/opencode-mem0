@@ -28,6 +28,7 @@ CI runs the same four gates on every PR and push to `main`. A failing gate means
 - **SemVer**, tag-driven: breaking → MAJOR, additive → MINOR, fix → PATCH. A behavior change consumers rely on is breaking regardless of diff size.
 - Release flow: update `docs/CHANGELOG.md` (move `Unreleased` entries into a `## [X.Y.Z] - YYYY-MM-DD` section) → bump `package.json` **and run `bun install` to sync `bun.lock`** → commit `chore: release vX.Y.Z` → `git tag vX.Y.Z && git push --tags`. The tag triggers the release workflow, which **fails** if the tag ≠ `package.json` version or the changelog section is missing/empty.
 - Write the changelog entry **with the change**, in `## [Unreleased]`, grouped by `Added / Changed / Fixed / Deprecated / Removed / Security`, phrased for user impact — not reconstructed from git log at release time.
+- Credit people in changelog/release notes only for real contributions (code, PRs, design). Plain issue reports get no credit; exception only for an exceptional report that materially saved the fix (e.g., deep root-cause analysis).
 
 ## Scope discipline
 
