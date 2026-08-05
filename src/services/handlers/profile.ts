@@ -105,7 +105,8 @@ export async function handleGetProfileSnapshot(
     const changelog = changelogs.find((c) => c.id === changelogId);
     if (!changelog) return { success: false, error: "Changelog not found" };
     const profileData = safeJSONParse(changelog.profileDataSnapshot) as
-      Record<string, unknown> | undefined;
+      | Record<string, unknown>
+      | undefined;
     return {
       success: true,
       data: {

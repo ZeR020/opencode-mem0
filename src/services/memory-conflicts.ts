@@ -558,7 +558,8 @@ export const resolveConflict = async (
     for (const shard of targetShards) {
       const db = connectionManager.getConnection(shard.dbPath);
       const row = db.prepare("SELECT * FROM memory_conflicts WHERE id = ?").get(conflictId) as
-        ConflictRow | undefined;
+        | ConflictRow
+        | undefined;
 
       if (!row) continue;
 
