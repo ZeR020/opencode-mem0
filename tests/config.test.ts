@@ -90,6 +90,7 @@ describe("config", () => {
 
     it("should have user profile settings as numbers", () => {
       expect(typeof CONFIG.userProfileAnalysisInterval).toBe("number");
+      expect(typeof CONFIG.userProfileMaxBatchesPerIdle).toBe("number");
       expect(typeof CONFIG.userProfileMaxPreferences).toBe("number");
       expect(typeof CONFIG.userProfileMaxPatterns).toBe("number");
       expect(typeof CONFIG.userProfileMaxWorkflows).toBe("number");

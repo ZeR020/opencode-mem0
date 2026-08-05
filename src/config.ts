@@ -60,6 +60,7 @@ interface OpenCodeMemConfig {
   deduplicationSimilarityThreshold?: number;
   deduplicationIngestEnabled?: boolean;
   userProfileAnalysisInterval?: number;
+  userProfileMaxBatchesPerIdle?: number;
   userProfileMaxPreferences?: number;
   userProfileMaxPatterns?: number;
   userProfileMaxWorkflows?: number;
@@ -169,6 +170,7 @@ export const OpenCodeMemConfigSchema = z.object({
   deduplicationSimilarityThreshold: z.number().min(0).max(1).optional(),
   deduplicationIngestEnabled: z.boolean().optional(),
   userProfileAnalysisInterval: z.number().positive().optional(),
+  userProfileMaxBatchesPerIdle: z.number().positive().optional(),
   userProfileMaxPreferences: z.number().positive().optional(),
   userProfileMaxPatterns: z.number().positive().optional(),
   userProfileMaxWorkflows: z.number().positive().optional(),
@@ -276,6 +278,7 @@ const DEFAULTS: Partial<OpenCodeMemConfig> = {
   deduplicationSimilarityThreshold: 0.9,
   deduplicationIngestEnabled: true,
   userProfileAnalysisInterval: 10,
+  userProfileMaxBatchesPerIdle: 5,
   userProfileMaxPreferences: 20,
   userProfileMaxPatterns: 15,
   userProfileMaxWorkflows: 10,
@@ -461,6 +464,8 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
     deduplicationIngestEnabled: cfg.deduplicationIngestEnabled ?? true,
     userProfileAnalysisInterval:
       cfg.userProfileAnalysisInterval ?? defaults.userProfileAnalysisInterval,
+    userProfileMaxBatchesPerIdle:
+      cfg.userProfileMaxBatchesPerIdle ?? defaults.userProfileMaxBatchesPerIdle,
     userProfileMaxPreferences: cfg.userProfileMaxPreferences ?? defaults.userProfileMaxPreferences,
     userProfileMaxPatterns: cfg.userProfileMaxPatterns ?? defaults.userProfileMaxPatterns,
     userProfileMaxWorkflows: cfg.userProfileMaxWorkflows ?? defaults.userProfileMaxWorkflows,

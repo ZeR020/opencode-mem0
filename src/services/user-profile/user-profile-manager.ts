@@ -1,16 +1,16 @@
-import { type Database } from "../sqlite/sqlite-bootstrap.js";
+import type { Database } from "../sqlite/sqlite-bootstrap.js";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { connectionManager } from "../sqlite/connection-manager.js";
 import { CONFIG } from "../../config.js";
 import { safeJSONParse } from "../utils/safe-transforms.js";
 import { log } from "../logger.js";
-import {
-  type UserProfile,
-  type UserProfileData,
-  type UserProfileChangelog,
-  type UserProfilePattern,
-  type UserProfileWorkflow,
+import type {
+  UserProfile,
+  UserProfileData,
+  UserProfileChangelog,
+  UserProfilePattern,
+  UserProfileWorkflow,
 } from "./types.js";
 
 function safeArray<T>(val: T[] | string | undefined | null): T[] {
@@ -87,6 +87,20 @@ export class UserProfileManager {
     `);
 
     const row = stmt.get(userId) as any;
+    if (!row) return null;
+
+    return this.rowToProfile(row);
+  }
+
+  getLatestActiveProfile(): UserProfile | null {
+    const stmt = this.db.prepare(`
+      SELECT * FROM user_profiles 
+      WHERE is_active = 1
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+
+    const row = stmt.get() as any;
     if (!row) return null;
 
     return this.rowToProfile(row);
@@ -442,3 +456,17 @@ export const userProfileManager = new Proxy({} as UserProfileManager, {
     return value;
   },
 });
+
+/**
+ * ONE shared resolver for deriving a profile userId from tags.
+ *
+ * 1. git email when available;
+ * 2. otherwise the most recent active profile's user_id (self-heals
+ *    profiles minted under pre-fix random anonymous ids);
+ * 3. otherwise the constant string `"anonymous"` — stable across runs.
+ */
+export function resolveProfileUserId(tags: { user: { userEmail?: string } }): string {
+  if (tags.user.userEmail) return tags.user.userEmail;
+  const latest = getUserProfileManager().getLatestActiveProfile();
+  return latest?.userId ?? "anonymous";
+}

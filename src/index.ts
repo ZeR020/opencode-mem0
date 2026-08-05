@@ -503,23 +503,15 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
               });
             }
 
-            const { userProfileManager } =
+            const { resolveProfileUserId, userProfileManager } =
               await import("./services/user-profile/user-profile-manager.js");
-            const userId = tags.user.userEmail || "unknown";
+            const userId = resolveProfileUserId(tags);
 
             if (args.content !== undefined) {
               const trimmed = args.content.trim();
               if (!trimmed) {
                 return JSON.stringify({ success: false, error: "content must not be blank" });
               }
-              if (!tags.user.userEmail) {
-                return JSON.stringify({
-                  success: false,
-                  error:
-                    "Cannot save profile preference because no user email could be resolved. Configure userEmailOverride or git user.email.",
-                });
-              }
-
               const sanitizedContent = stripPrivateContent(trimmed);
               const hasNonPrivateContent =
                 sanitizedContent.replaceAll("[REDACTED]", "").trim().length > 0;

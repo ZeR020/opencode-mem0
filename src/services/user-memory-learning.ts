@@ -1,24 +1,35 @@
 import type { PluginInput } from "@opencode-ai/plugin";
-import { randomBytes } from "node:crypto";
 import { getTags } from "./tags.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
 import type { UserPrompt } from "./user-prompt/user-prompt-manager.js";
-import { userProfileManager } from "./user-profile/user-profile-manager.js";
+import { resolveProfileUserId, userProfileManager } from "./user-profile/user-profile-manager.js";
+import { detectLanguage, getLanguageName } from "./language-detector.js";
 import type { UserProfile, UserProfileData } from "./user-profile/types.js";
 import { safeJSONParse } from "./utils/safe-transforms.js";
 import { z } from "zod";
 
 const USER_PROFILE_SYSTEM_PROMPT = (
-  existingProfile: boolean
+  existingProfile: boolean,
+  languageName?: string
 ) => `You are a user behavior analyst for a coding assistant.
 
 Your task is to analyze user prompts and ${existingProfile ? "update" : "create"} a comprehensive user profile.
 
-CRITICAL: Detect the language used by the user in their prompts. You MUST output all descriptions, categories, and text in the SAME language as the user's prompts.
+${languageInstruction(existingProfile, languageName ?? null)}
 
 Use the update_user_profile tool to save the ${existingProfile ? "updated" : "new"} profile.`;
+
+function languageInstruction(existingProfile: boolean, languageName: string | null): string {
+  if (existingProfile) {
+    return "CRITICAL: The existing profile's language is established and authoritative. You MUST keep writing ALL output in the same language as the existing profile — never switch languages based on recent prompts.";
+  }
+  if (languageName) {
+    return `CRITICAL: Write ALL output in ${languageName}. Never switch languages, even if some prompts look different.`;
+  }
+  return "CRITICAL: Detect the DOMINANT language across ALL prompts below (ignore isolated outliers) and use it for all output.";
+}
 
 const USER_PROFILE_TOOL_PARAMS = {
   type: "object" as const,
@@ -90,68 +101,70 @@ export async function performUserProfileLearning(
 
   isLearningRunning = true;
   try {
-    const count = userPromptManager.countUnanalyzedForUserLearning();
     const threshold = CONFIG.userProfileAnalysisInterval;
-
-    if (count < threshold) {
-      return;
-    }
-
-    const prompts = userPromptManager.getPromptsForUserLearning(threshold);
-
-    if (prompts.length === 0) {
-      return;
-    }
+    const maxBatches = CONFIG.userProfileMaxBatchesPerIdle;
 
     const tags = getTags(directory);
-    const userId =
-      tags.user.userEmail || `anonymous-${Date.now()}-${randomBytes(4).toString("hex")}`;
+    const userId = resolveProfileUserId(tags);
 
-    let existingProfile = userProfileManager.getActiveProfile(userId);
-    if (existingProfile) {
+    // Confidence decay runs once per run (not per batch); repeated calls
+    // within the same hour are skipped anyway (idempotent).
+    if (userProfileManager.getActiveProfile(userId)) {
       userProfileManager.applyConfidenceDecay(userId);
-      existingProfile = userProfileManager.getActiveProfile(userId);
     }
 
-    const context = buildUserAnalysisContext(prompts, existingProfile);
+    let totalAnalyzed = 0;
+    let batchesThisRun = 0;
 
-    const updatedProfileData = await analyzeUserProfile(context, existingProfile);
+    while (
+      userPromptManager.countUnanalyzedForUserLearning() >= threshold &&
+      batchesThisRun < maxBatches
+    ) {
+      const prompts = userPromptManager.getPromptsForUserLearning(threshold);
+      if (prompts.length === 0) break;
 
-    if (!updatedProfileData) {
+      batchesThisRun += 1;
+      const existingProfile = userProfileManager.getActiveProfile(userId);
+      const { context, languageName } = buildUserAnalysisContext(prompts, existingProfile);
+      const updatedProfileData = await analyzeUserProfile(context, existingProfile, languageName);
+
+      if (!updatedProfileData) {
+        userPromptManager.markMultipleAsUserLearningCaptured(prompts.map((p) => p.id));
+        continue;
+      }
+
+      if (existingProfile) {
+        const changeSummary = generateChangeSummary(
+          safeJSONParse(existingProfile.profileData) as any,
+          updatedProfileData
+        );
+        userProfileManager.updateProfile(
+          existingProfile.id,
+          updatedProfileData,
+          prompts.length,
+          changeSummary
+        );
+      } else {
+        userProfileManager.createProfile(
+          userId,
+          tags.user.displayName || "Unknown",
+          tags.user.userName || "unknown",
+          tags.user.userEmail || "unknown",
+          updatedProfileData,
+          prompts.length
+        );
+      }
+
       userPromptManager.markMultipleAsUserLearningCaptured(prompts.map((p) => p.id));
-      return;
+      totalAnalyzed += prompts.length;
     }
 
-    if (existingProfile) {
-      const changeSummary = generateChangeSummary(
-        safeJSONParse(existingProfile.profileData) as any,
-        updatedProfileData
-      );
-      userProfileManager.updateProfile(
-        existingProfile.id,
-        updatedProfileData,
-        prompts.length,
-        changeSummary
-      );
-    } else {
-      userProfileManager.createProfile(
-        userId,
-        tags.user.displayName || "Unknown",
-        tags.user.userName || "unknown",
-        tags.user.userEmail || "unknown",
-        updatedProfileData,
-        prompts.length
-      );
-    }
-
-    userPromptManager.markMultipleAsUserLearningCaptured(prompts.map((p) => p.id));
-
-    if (CONFIG.showUserProfileToasts) {
+    if (totalAnalyzed > 0 && CONFIG.showUserProfileToasts) {
       await ctx.client?.tui
         .showToast({
           body: {
             title: "User Profile Updated",
-            message: `Analyzed ${prompts.length} prompts and updated your profile`,
+            message: `Analyzed ${totalAnalyzed} prompts and updated your profile`,
             variant: "success",
             duration: 3000,
           },
@@ -179,10 +192,15 @@ function generateChangeSummary(oldProfile: UserProfileData, newProfile: UserProf
   return changes.length > 0 ? changes.join(", ") : "Profile refinement";
 }
 
-function buildUserAnalysisContext(
+export function buildUserAnalysisContext(
   prompts: UserPrompt[],
   existingProfile: UserProfile | null
-): string {
+): { context: string; languageName: string | null } {
+  const languageName = existingProfile ? null : detectDominantLanguageName(prompts);
+  const languageSection = `## Language
+
+${languageInstruction(Boolean(existingProfile), languageName)}`;
+
   const existingProfileSection = existingProfile
     ? `
 ## Existing User Profile
@@ -193,9 +211,13 @@ ${existingProfile.profileData}
     : `
 **Instructions**: Create a new user profile from scratch based on the prompts below.`;
 
-  return `# User Profile Analysis
+  return {
+    languageName,
+    context: `# User Profile Analysis
 
 Analyze ${prompts.length} user prompts to ${existingProfile ? "update" : "create"} the user profile.
+
+${languageSection}
 
 ${existingProfileSection}
 
@@ -220,12 +242,31 @@ Identify and ${existingProfile ? "update" : "create"}:
    - Development sequences, habits, learning style
    - Break down into steps if applicable
 
-${existingProfile ? "Merge with existing profile, incrementing frequencies and updating confidence scores." : "Create initial profile with conservative confidence scores."}`;
+${existingProfile ? "Merge with existing profile, incrementing frequencies and updating confidence scores." : "Create initial profile with conservative confidence scores."}`,
+  };
+}
+
+function detectDominantLanguageName(prompts: UserPrompt[]): string | null {
+  const counts = new Map<string, number>();
+  for (const prompt of prompts) {
+    const code = detectLanguage(prompt.content);
+    counts.set(code, (counts.get(code) ?? 0) + 1);
+  }
+  let bestCode: string | null = null;
+  let bestCount = 0;
+  for (const [code, count] of counts) {
+    if (count > bestCount) {
+      bestCode = code;
+      bestCount = count;
+    }
+  }
+  return bestCode ? getLanguageName(bestCode) : null;
 }
 
 async function analyzeUserProfile(
   context: string,
-  existingProfile: UserProfile | null
+  existingProfile: UserProfile | null,
+  languageName: string | null
 ): Promise<UserProfileData | null> {
   if (CONFIG.opencodeProvider && CONFIG.opencodeModel) {
     const { isProviderConnected, getStatePath, generateStructuredOutput } =
@@ -264,7 +305,7 @@ async function analyzeUserProfile(
       providerName: CONFIG.opencodeProvider,
       modelId: CONFIG.opencodeModel,
       statePath: getStatePath(),
-      systemPrompt: USER_PROFILE_SYSTEM_PROMPT(Boolean(existingProfile)),
+      systemPrompt: USER_PROFILE_SYSTEM_PROMPT(Boolean(existingProfile), languageName ?? undefined),
       userPrompt: context,
       schema,
       temperature:
@@ -309,7 +350,7 @@ async function analyzeUserProfile(
   };
 
   const result = await provider.executeToolCall(
-    USER_PROFILE_SYSTEM_PROMPT(Boolean(existingProfile)),
+    USER_PROFILE_SYSTEM_PROMPT(Boolean(existingProfile), languageName ?? undefined),
     context,
     toolSchema,
     `user-profile-${Date.now()}`

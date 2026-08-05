@@ -4,7 +4,7 @@ import { performUserProfileLearning } from "../user-memory-learning.js";
 import { safeToISOString, safeJSONParse } from "../utils/safe-transforms.js";
 import type { UserProfileData } from "../user-profile/types.js";
 import type { ApiResponse } from "./shared-types.js";
-import { userProfileManager } from "../user-profile/user-profile-manager.js";
+import { userProfileManager, resolveProfileUserId } from "../user-profile/user-profile-manager.js";
 import { getTags } from "../tags.js";
 import { userPromptManager } from "../user-prompt/user-prompt-manager.js";
 
@@ -15,7 +15,7 @@ export async function handleGetUserProfile(
     let targetUserId = userId;
     if (!targetUserId) {
       const tags = getTags(process.cwd());
-      targetUserId = tags.user.userEmail || "unknown";
+      targetUserId = resolveProfileUserId(tags);
     }
     const decayResult = userProfileManager.applyConfidenceDecay(targetUserId);
     const profile = userProfileManager.getActiveProfile(targetUserId);
@@ -136,7 +136,7 @@ export async function handleRefreshProfile(
     let targetUserId = userId;
     if (!targetUserId) {
       const tags = getTags(process.cwd());
-      targetUserId = tags.user.userEmail || "unknown";
+      targetUserId = resolveProfileUserId(tags);
     }
     const decayResult = userProfileManager.applyConfidenceDecay(targetUserId);
     const threshold = CONFIG.userProfileAnalysisInterval;

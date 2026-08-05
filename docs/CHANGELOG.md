@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Dashboard clarifications** — the memories stat card reads "global · project" instead of "user · project" (user-scope means cross-project memories, unrelated to the profile feature); the Memories filter chip reads "memories + prompts" instead of "all"; clicking a memory row's `[+]`/`[?]` marker or text now opens the detail view, in both the Memories list and search results (the marker looked like an expand button); the pin button tooltip explains pinning protects a memory from cleanup and ranks it first. (Raised by @ovizii in #55.)
 
+### Fixed
+
+- **User profile identity is now stable without an email** — previously each learning run minted a fresh random anonymous identity, so one user accumulated a new profile per batch (four profiles from forty prompts in one report). All profile lookups now share one resolver: the git email when available, otherwise the most recent active profile (existing duplicate profiles self-heal onto it), otherwise a single stable `anonymous` identity. Saving an explicit preference from the `profile` tool also no longer fails when no email can be resolved. (Reported by @ovizii in #57.)
+- **Profile learning drains its backlog** — previously only one batch (default 10 prompts) was analyzed per idle session, so a 1500-prompt backlog took roughly 150 idles. Learning now keeps analyzing FIFO batches until fewer than `userProfileAnalysisInterval` prompts remain or `userProfileMaxBatchesPerIdle` batches (default 5) are done, with a single summary toast per run. (Reported by @ovizii in #57.)
+- **Profile language stays pinned** — a mixed-language batch could flip the profile's language between runs. Updates now keep writing in the existing profile's language; new profiles are created in the dominant language detected across the batch. (Reported by @ovizii in #57.)
+
 ## [2.21.0] - 2026-08-03
 
 ### Fixed

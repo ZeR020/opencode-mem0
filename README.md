@@ -268,7 +268,8 @@ All settings have sensible defaults — you only need a config file to change be
 | Setting                              | Default | Description                              |
 | ------------------------------------ | ------- | ---------------------------------------- |
 | `injectProfile`                      | `true`  | Inject user profile into agent context   |
-| `userProfileAnalysisInterval`        | `10`    | Sessions between profile re-analysis     |
+| `userProfileAnalysisInterval`        | `10`    | Prompts between profile analysis runs    |
+| `userProfileMaxBatchesPerIdle`       | `5`     | Max prompt batches analyzed per idle run |
 | `userProfileMaxPreferences`          | `20`    | Max stored user preferences              |
 | `userProfileMaxPatterns`             | `15`    | Max stored behavioral patterns           |
 | `userProfileMaxWorkflows`            | `10`    | Max stored workflow descriptions         |

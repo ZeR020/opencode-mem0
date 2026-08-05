@@ -206,7 +206,7 @@ describe("memory tool profile runtime behavior", () => {
     expect(result.error).toBe("Private content blocked");
   });
 
-  it("errors when no user email can be resolved", async () => {
+  it("saves a preference under a stable anonymous identity when no email can be resolved", async () => {
     writeProjectConfig({
       storagePath: join(tmpDir, "data"),
       webServerEnabled: false,
@@ -214,16 +214,24 @@ describe("memory tool profile runtime behavior", () => {
     });
 
     const plugin = await createPlugin({ userEmail: undefined, userName: undefined });
-    const result = JSON.parse(
+    const writeResult = JSON.parse(
       await plugin.tool.memory.execute(
         { mode: "profile", content: "Default Jira board is DOPS" },
         { sessionID: "s5" }
       )
     );
+    // Previously this errored ("no user email could be resolved"); the stable
+    // anonymous identity makes the write succeed and stay reachable.
+    expect(writeResult.success).toBe(true);
 
-    expect(result.success).toBe(false);
-    expect(result.error).toContain(
-      "Cannot save profile preference because no user email could be resolved"
+    const readResult = JSON.parse(
+      await plugin.tool.memory.execute({ mode: "profile" }, { sessionID: "s5" })
     );
+    expect(readResult.success).toBe(true);
+    expect(
+      readResult.profile.preferences.some(
+        (p: any) => p.description === "Default Jira board is DOPS"
+      )
+    ).toBe(true);
   });
 });
