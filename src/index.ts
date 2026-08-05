@@ -10,7 +10,7 @@ import { performAutoCapture } from "./services/auto-capture.js";
 import { performUserProfileLearning } from "./services/user-memory-learning.js";
 import { userPromptManager } from "./services/user-prompt/user-prompt-manager.js";
 import { performTranscriptCapture, cleanupOldTranscripts } from "./services/transcript-capture.js";
-import { startWebServer, WebServer } from "./services/web-server.js";
+import { startWebServer, type WebServer } from "./services/web-server.js";
 import { safeJSONParse } from "./services/utils/safe-transforms.js";
 import {
   startScoringRecalculation,
@@ -299,10 +299,17 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         const userMessage = textParts.map((p) => p.text).join("\n");
         if (!userMessage.trim()) return;
 
-        try {
-          userPromptManager.savePrompt(input.sessionID, output.message.id, directory, userMessage);
-        } catch (error) {
-          log("Failed to save user prompt", { error: String(error) });
+        if (CONFIG.promptTrackingEnabled) {
+          try {
+            userPromptManager.savePrompt(
+              input.sessionID,
+              output.message.id,
+              directory,
+              userMessage
+            );
+          } catch (error) {
+            log("Failed to save user prompt", { error: String(error) });
+          }
         }
 
         const messagesResponse = await ctx.client.session.messages({
@@ -660,7 +667,9 @@ async function handleSessionIdle(
       }
 
       if (webServer?.isServerOwner()) {
-        await performUserProfileLearning(ctx, directory);
+        if (CONFIG.profileLearningEnabled) {
+          await performUserProfileLearning(ctx, directory);
+        }
         const { cleanupService } = await import("./services/cleanup-service.js");
         if (cleanupService.shouldRunCleanup()) await cleanupService.runCleanup();
         cleanupOldTranscripts();

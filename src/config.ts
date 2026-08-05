@@ -33,6 +33,8 @@ interface OpenCodeMemConfig {
   injectProfile?: boolean;
   containerTagPrefix?: string;
   autoCaptureEnabled?: boolean;
+  promptTrackingEnabled?: boolean;
+  profileLearningEnabled?: boolean;
   autoCaptureMaxIterations?: number;
   autoCaptureMaxRetries?: number;
   autoCaptureIterationTimeout?: number;
@@ -138,6 +140,8 @@ export const OpenCodeMemConfigSchema = z.object({
   injectProfile: z.boolean().optional(),
   containerTagPrefix: z.string().optional(),
   autoCaptureEnabled: z.boolean().optional(),
+  promptTrackingEnabled: z.boolean().optional(),
+  profileLearningEnabled: z.boolean().optional(),
   autoCaptureMaxIterations: z.number().positive().optional(),
   autoCaptureMaxRetries: z.number().positive().optional(),
   autoCaptureIterationTimeout: z.number().positive().optional(),
@@ -255,6 +259,8 @@ const DEFAULTS: Partial<OpenCodeMemConfig> = {
   injectProfile: true,
   containerTagPrefix: "opencode",
   autoCaptureEnabled: true,
+  promptTrackingEnabled: true,
+  profileLearningEnabled: true,
   autoCaptureMaxIterations: 5,
   autoCaptureMaxRetries: 3,
   autoCaptureIterationTimeout: 30000,
@@ -425,6 +431,8 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
     injectProfile: cfg.injectProfile ?? defaults.injectProfile,
     containerTagPrefix: cfg.containerTagPrefix ?? defaults.containerTagPrefix,
     autoCaptureEnabled: cfg.autoCaptureEnabled ?? defaults.autoCaptureEnabled,
+    promptTrackingEnabled: cfg.promptTrackingEnabled ?? defaults.promptTrackingEnabled,
+    profileLearningEnabled: cfg.profileLearningEnabled ?? defaults.profileLearningEnabled,
     autoCaptureMaxIterations: cfg.autoCaptureMaxIterations ?? defaults.autoCaptureMaxIterations,
     autoCaptureMaxRetries: cfg.autoCaptureMaxRetries ?? defaults.autoCaptureMaxRetries,
     autoCaptureIterationTimeout:

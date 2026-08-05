@@ -172,12 +172,14 @@ All settings have sensible defaults — you only need a config file to change be
 
 ### Auto-Capture
 
-| Setting                       | Default | Description                                             |
-| ----------------------------- | ------- | ------------------------------------------------------- |
-| `autoCaptureEnabled`          | `true`  | Auto-extract memories from idle sessions                |
-| `autoCaptureMaxIterations`    | `5`     | Max capture iterations per idle session                 |
-| `autoCaptureIterationTimeout` | `30000` | Timeout (ms) per capture iteration                      |
-| `autoCaptureLanguage`         | —       | Language hint for auto-capture (e.g., `en`, `de`, `zh`) |
+| Setting                       | Default | Description                                                                                                |
+| ----------------------------- | ------- | ---------------------------------------------------------------------------------------------------------- |
+| `autoCaptureEnabled`          | `true`  | Auto-extract memories from idle sessions                                                                   |
+| `promptTrackingEnabled`       | `true`  | Persist user prompts for profile learning (disable to stop prompt tracking while keeping memory injection) |
+| `profileLearningEnabled`      | `true`  | Learn user profile from idle sessions (disable to stop profile learning while keeping other idle features) |
+| `autoCaptureMaxIterations`    | `5`     | Max capture iterations per idle session                                                                    |
+| `autoCaptureIterationTimeout` | `30000` | Timeout (ms) per capture iteration                                                                         |
+| `autoCaptureLanguage`         | —       | Language hint for auto-capture (e.g., `en`, `de`, `zh`)                                                    |
 
 ### Memory Scoring
 

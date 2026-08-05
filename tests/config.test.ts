@@ -78,6 +78,11 @@ describe("config", () => {
       expect(typeof CONFIG.deduplicationEnabled).toBe("boolean");
     });
 
+    it("should default promptTrackingEnabled and profileLearningEnabled to true", () => {
+      expect(CONFIG.promptTrackingEnabled).toBe(true);
+      expect(CONFIG.profileLearningEnabled).toBe(true);
+    });
+
     it("should expose memory scope config", () => {
       const defaultScope = CONFIG.memory.defaultScope ?? "project";
       expect(["project", "all-projects"]).toContain(defaultScope);

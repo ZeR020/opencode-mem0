@@ -130,6 +130,8 @@ Auto-capture observes chat exchanges and automatically extracts memorable inform
 | Setting                       | Type      | Default       | Description                                                                                                  |
 | ----------------------------- | --------- | ------------- | ------------------------------------------------------------------------------------------------------------ |
 | `autoCaptureEnabled`          | `boolean` | `true`        | Enable automatic memory extraction from conversations.                                                       |
+| `promptTrackingEnabled`       | `boolean` | `true`        | Persist user prompts for profile learning (disable to stop prompt tracking while keeping memory injection).  |
+| `profileLearningEnabled`      | `boolean` | `true`        | Learn user profile from idle sessions (disable to stop profile learning while keeping other idle features).  |
 | `autoCaptureMaxIterations`    | `number`  | `5`           | Maximum LLM reasoning iterations per auto-capture call.                                                      |
 | `autoCaptureIterationTimeout` | `number`  | `30000`       | Timeout in milliseconds per LLM iteration.                                                                   |
 | `autoCaptureLanguage`         | `string`  | Auto-detected | Force a specific language for captured memories (ISO 639-3 code). Default uses automatic language detection. |

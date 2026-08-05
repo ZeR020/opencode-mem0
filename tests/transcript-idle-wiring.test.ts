@@ -15,14 +15,14 @@ vi.mock("../src/services/web-server.js", () => ({
   WebServer: vi.fn().mockImplementation(() => ({
     getUrl: () => "http://localhost:4747",
     isRunning: () => true,
-    isServerOwner: () => false,
+    isServerOwner: mocks.isServerOwner,
     setOnTakeoverCallback: vi.fn(),
     stop: vi.fn(),
   })),
   startWebServer: vi.fn().mockResolvedValue({
     getUrl: () => "http://localhost:4747",
     isRunning: () => true,
-    isServerOwner: () => false,
+    isServerOwner: mocks.isServerOwner,
     setOnTakeoverCallback: vi.fn(),
     stop: vi.fn(),
   }),
@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => ({
   performTranscriptCapture: vi.fn().mockResolvedValue(undefined),
   cleanupOldTranscripts: vi.fn(),
   performUserProfileLearning: vi.fn().mockResolvedValue(undefined),
+  isServerOwner: vi.fn().mockReturnValue(false),
 }));
 
 vi.mock("../src/services/auto-capture.js", () => ({
@@ -116,6 +117,7 @@ vi.mock("../src/config.js", () => ({
     memoryLifecycle: { enabled: false },
     transcriptStorage: { enabled: true, maxAgeDays: 30 },
     autoCaptureEnabled: true,
+    profileLearningEnabled: true,
     compaction: { enabled: false, memoryLimit: 10 },
     chatMessage: { enabled: false },
     showAutoCaptureToasts: false,
@@ -172,5 +174,44 @@ describe("session.idle transcript capture wiring", () => {
     await vi.advanceTimersByTimeAsync(10001);
 
     expect(mocks.performAutoCapture).toHaveBeenCalledWith(expect.any(Object), "sess-2", "/test");
+  });
+
+  it("calls performUserProfileLearning on session.idle when server owner", async () => {
+    const { CONFIG } = await import("../src/config.js");
+    (CONFIG as { webServerEnabled: boolean }).webServerEnabled = true;
+    mocks.isServerOwner.mockReturnValue(true);
+
+    const plugin = await OpenCodeMemPlugin(makeCtx() as never);
+    if (!plugin.event) throw new Error("event hook missing");
+
+    await plugin.event({ event: { type: "session.idle", properties: { sessionID: "sess-3" } } });
+
+    await vi.advanceTimersByTimeAsync(10001);
+
+    expect(mocks.performUserProfileLearning).toHaveBeenCalledWith(expect.any(Object), "/test");
+
+    (CONFIG as { webServerEnabled: boolean }).webServerEnabled = false;
+    mocks.isServerOwner.mockReturnValue(false);
+  });
+
+  it("skips performUserProfileLearning on session.idle when profileLearningEnabled=false", async () => {
+    const { CONFIG } = await import("../src/config.js");
+    const config = CONFIG as { webServerEnabled: boolean; profileLearningEnabled: boolean };
+    config.webServerEnabled = true;
+    config.profileLearningEnabled = false;
+    mocks.isServerOwner.mockReturnValue(true);
+
+    const plugin = await OpenCodeMemPlugin(makeCtx() as never);
+    if (!plugin.event) throw new Error("event hook missing");
+
+    await plugin.event({ event: { type: "session.idle", properties: { sessionID: "sess-4" } } });
+
+    await vi.advanceTimersByTimeAsync(10001);
+
+    expect(mocks.performUserProfileLearning).not.toHaveBeenCalled();
+
+    config.webServerEnabled = false;
+    config.profileLearningEnabled = true;
+    mocks.isServerOwner.mockReturnValue(false);
   });
 });

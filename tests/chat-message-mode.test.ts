@@ -133,6 +133,7 @@ vi.mock("../src/config.js", () => ({
     memoryLifecycle: { enabled: false },
     transcriptStorage: { enabled: false },
     autoCaptureEnabled: false,
+    promptTrackingEnabled: true,
   },
   initConfig: vi.fn(),
 }));
@@ -140,10 +141,12 @@ vi.mock("../src/config.js", () => ({
 import { OpenCodeMemPlugin } from "../src/index.js";
 import { memoryClient } from "../src/services/client.js";
 import { formatContextForPrompt } from "../src/services/context.js";
+import { userPromptManager } from "../src/services/user-prompt/user-prompt-manager.js";
 
 const searchMemoriesSpy = memoryClient.searchMemories as ReturnType<typeof vi.fn>;
 const listMemoriesSpy = memoryClient.listMemories as ReturnType<typeof vi.fn>;
 const formatContextForPromptSpy = formatContextForPrompt as ReturnType<typeof vi.fn>;
+const savePromptSpy = userPromptManager.savePrompt as unknown as ReturnType<typeof vi.fn>;
 
 describe("chat-message-mode", () => {
   const makeCtx = (): Record<string, unknown> => ({
@@ -173,6 +176,7 @@ describe("chat-message-mode", () => {
     searchMemoriesSpy.mockReset();
     listMemoriesSpy.mockReset();
     formatContextForPromptSpy.mockClear();
+    savePromptSpy.mockClear();
   });
 
   it("uses searchMemories when mode='relevant'", async () => {
@@ -272,5 +276,27 @@ describe("chat-message-mode", () => {
     expect(projectMemories.results[0].similarity).toBe(0.87);
     expect(projectMemories.results[1].similarity).toBe(0.65);
     expect(projectMemories.results[0].memory).toBe("use bcrypt for password hashing");
+  });
+
+  it("skips savePrompt when promptTrackingEnabled=false but still injects", async () => {
+    const { CONFIG } = await import("../src/config.js");
+    (CONFIG as { promptTrackingEnabled: boolean }).promptTrackingEnabled = false;
+    searchMemoriesSpy.mockResolvedValue({
+      success: true,
+      results: [{ similarity: 0.8, memory: "use bcrypt for password hashing" }],
+      total: 1,
+      timing: 0,
+    });
+
+    const plugin = await OpenCodeMemPlugin(makeCtx() as any); // skipcq: JS-0323
+    const input = { sessionID: "s-1" };
+    const output = makeOutput("how do I secure login?");
+
+    await (plugin as any)["chat.message"](input, output); // skipcq: JS-0323
+
+    expect(savePromptSpy).not.toHaveBeenCalled();
+    expect(searchMemoriesSpy).toHaveBeenCalledTimes(1);
+    expect(formatContextForPromptSpy).toHaveBeenCalledTimes(1);
+    (CONFIG as { promptTrackingEnabled: boolean }).promptTrackingEnabled = true;
   });
 });

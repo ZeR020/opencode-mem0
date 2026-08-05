@@ -82,6 +82,16 @@ describe("project-scoped config resolution", () => {
     expect(CONFIG.autoCaptureEnabled).toBe(false);
   });
 
+  it("resolves promptTrackingEnabled and profileLearningEnabled from config", () => {
+    (globalThis as any).__mockFs.existsSync = (p: unknown) =>
+      String(p).includes(".config/opencode/opencode-mem0");
+    (globalThis as any).__mockFs.readFileSync = () =>
+      JSON.stringify({ promptTrackingEnabled: false, profileLearningEnabled: false });
+    initConfig("/some/project");
+    expect(CONFIG.promptTrackingEnabled).toBe(false);
+    expect(CONFIG.profileLearningEnabled).toBe(false);
+  });
+
   it("preserves existing CONFIG when both config sources are empty (transient I/O failure)", () => {
     const mockFs = (
       globalThis as {
