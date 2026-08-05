@@ -93,3 +93,19 @@ describe("pruneCapturedOlderThan", () => {
     expect(promptIds()).toEqual([]);
   });
 });
+
+describe("searchPrompts LIKE escaping", () => {
+  // Regression: the old escapeLikePattern (String.raw`\${char}`) replaced %, _ and \
+  // with the literal 8-char text '\${char}' — queries containing those chars never
+  // matched anything. The escaping must produce LIKE-escaped literals under ESCAPE '\'.
+  it("finds prompts whose content contains %, _ or backslash", () => {
+    const now = Date.now();
+    insertPrompt("p1", now, 0, "deploy at 100% capacity_now under \\srv\\share", 1);
+
+    expect(userPromptManager.searchPrompts("100%").map((p) => p.id)).toEqual(["p1"]);
+    expect(userPromptManager.searchPrompts("capacity_now").map((p) => p.id)).toEqual(["p1"]);
+    expect(userPromptManager.searchPrompts("\\srv\\share").map((p) => p.id)).toEqual(["p1"]);
+    // escaped wildcards must not act as wildcards: '10_' must not match '100%'
+    expect(userPromptManager.searchPrompts("10_")).toHaveLength(0);
+  });
+});

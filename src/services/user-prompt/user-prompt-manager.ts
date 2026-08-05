@@ -7,7 +7,7 @@ import { CONFIG } from "../../config.js";
 const USER_PROMPTS_DB_NAME = "user-prompts.db";
 
 function escapeLikePattern(value: string): string {
-  return value.replace(/[\\%_]/g, (char) => String.raw`\${char}`);
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
 export interface UserPrompt {

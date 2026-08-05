@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Profile learning no longer double-counts** — the LLM is instructed to return the fully merged profile (incrementing frequencies and updating confidence scores), but the code then merged it again, bumping every matching preference's confidence by `+0.1` and every pattern/workflow frequency by `+1` per batch. Learning now stores the LLM's merged profile as-is, enforcing only the configured maximums (`userProfileMaxPreferences`, `userProfileMaxPatterns`, `userProfileMaxWorkflows`); the explicit `profile` tool path is unchanged.
+- **Prompt search matches `%`, `_`, and `\` again** — the LIKE-pattern escaper replaced those characters with the literal text `\${char}` (an escaped-dollar template that never interpolated), so any dashboard prompt search containing them matched nothing. Escaping now produces proper LIKE literals. Regression test included. (Found during code review of the retention work.)
 
 ## [2.22.0] - 2026-08-05
 
