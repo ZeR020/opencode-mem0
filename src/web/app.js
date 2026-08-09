@@ -326,7 +326,7 @@ function statusDot(cls, text) {
 
 function tagSelectOptions(active) {
   return (
-    `<option value="">all containers</option>` +
+    `<option value="">all projects</option>` +
     state.tags
       .map((t) => {
         const label = t.displayName || t.projectName || t.tag;
@@ -588,7 +588,7 @@ function viewMemories() {
     ${sectionLabel("browse")}
     <div class="toolbar mb-3">
       ${chips}
-      <div class="field"><label for="mem-tag-filter">container</label>
+      <div class="field"><label for="mem-tag-filter">project</label>
         <select id="mem-tag-filter" class="select" data-action-change="mem-tag">${tagSelectOptions(state.memTag)}</select></div>
       <div class="spacer"></div>
       <button class="btn btn-primary" data-action="open-add-modal"><i data-lucide="plus" class="icon"></i>add memory</button>
@@ -623,7 +623,7 @@ function viewSearch() {
   else if (!state.searchRan)
     results = `<div class="card">${empty("[?]", "semantic search across memories & prompts", "Natural language works — the embedding model does the matching.")}</div>`;
   else if (!state.searchItems.length)
-    results = `<div class="card">${empty("[0]", "no matches", "Try different phrasing or clear the container filter.")}</div>`;
+    results = `<div class="card">${empty("[0]", "no matches", "Try different phrasing or clear the project filter.")}</div>`;
   else
     results = `<div class="card"><div class="rows">${state.searchItems.map((item, i) => searchRow(item, i)).join("")}</div>${pagination(state.searchPage, state.searchTotalPages, "search-page")}</div>`;
 
@@ -634,7 +634,7 @@ function viewSearch() {
         <div class="toolbar">
           <div class="field grow"><label for="search-q">query</label>
             <input id="search-q" class="input" name="q" value="${esc(state.searchQuery)}" placeholder="how does the auth flow work?" autocomplete="off" /></div>
-          <div class="field"><label for="search-tag">container</label>
+          <div class="field"><label for="search-tag">project</label>
             <select id="search-tag" class="select" name="tag">${tagSelectOptions(state.searchTag)}</select></div>
           <div class="field"><label>&nbsp;</label>
             <button class="btn btn-primary" type="submit"><i data-lucide="search" class="icon"></i>search</button></div>
@@ -1238,7 +1238,7 @@ function openItemModal(item) {
   const isPrompt = item.type === "prompt";
   const kv = [
     ["id", item.id],
-    ["container", item.containerTag],
+    ["project tag", item.containerTag],
     isPrompt ? ["session", item.sessionId] : null,
     item.memoryType ? ["type", item.memoryType] : null,
     item.projectPath ? ["project", item.projectPath] : null,
