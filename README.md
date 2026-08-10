@@ -1,3 +1,5 @@
+
+
 <!-- generated-by: gsd-doc-writer -->
 
 <div align="center">
@@ -72,13 +74,13 @@ The plugin exposes a `memory` tool to the OpenCode agent with six modes:
 | `add`     | Store a new memory            | `content`, `type?`, `tags?` |
 | `search`  | Hybrid search (vector + FTS5) | `query`, `scope?`           |
 | `profile` | Read/write user preferences   | `content?`                  |
-| `list`    | List recent memories          | `limit?`, `scope?`          |
+| `list`    | List recent memories          | `limit?`, `scope?`           |
 | `forget`  | Delete a memory by ID         | `memoryId`                  |
 | `help`    | Show usage guide              | —                           |
 
 ```
 Agent:  memory mode=search query="dark mode preference"
-→ {"success":true,"query":"dark mode preference","count":1,"results":[{"id":"abc123","content":"User prefers dark mode","similarity":92}]}
+→ {"success":true,"query":"dark mode preference","count":1,"results":[{"id":"abc123","content":"User prefers dark mode","similarity":0.92}]}
 ```
 
 ```
