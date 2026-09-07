@@ -1,7 +1,9 @@
 import { createRequire } from "node:module";
 import { log } from "../logger.js";
 
-export type SqliteRow = { [column: string]: string | number | bigint | boolean | null | Uint8Array };
+export type SqliteRow = {
+  [column: string]: string | number | bigint | boolean | null | Uint8Array;
+};
 
 export interface Statement {
   run(...params: unknown[]): { changes: number; lastInsertRowid: number | bigint };
@@ -54,7 +56,10 @@ let DatabaseImpl: RawDatabaseConstructor & { new (path: string): Database };
 type RequireFn = (id: string) => unknown;
 let _require: RequireFn | undefined;
 const getRequire = (): RequireFn => {
-  _require ??= globalThis.require !== undefined ? globalThis.require as RequireFn : createRequire(import.meta.url);
+  _require ??=
+    globalThis.require !== undefined
+      ? (globalThis.require as RequireFn)
+      : createRequire(import.meta.url);
   return _require;
 };
 
