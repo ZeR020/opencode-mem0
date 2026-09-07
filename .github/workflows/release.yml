@@ -118,8 +118,12 @@ jobs:
             range="${GITHUB_REF_NAME}"
           fi
 
-          # Author emails, deduped. Bots excluded; noreply emails KEPT — they carry the GitHub login.
-          # No .mailmap in this repo — operate on raw %aE.
+          # Author emails, deduped. Bots excluded.
+          # GitHub private noreply: ID+username@users.noreply.github.com
+          # Two formats exist:
+          #   - old style: 12345+username@users.noreply.github.com  (digit+login)
+          #   - new style: 88128532+ZeR020@users.noreply.github.com (numericID+login)
+          # Extract the login from the segment after '+', before '@users.'.
           author_emails=$(git log "$range" --format='%aE' | \
             sort -u | \
             grep -viE '\[bot\]|github-actions')
@@ -127,10 +131,9 @@ jobs:
           names=""
           for email in $author_emails; do
             case "$email" in
-              # GitHub private noreply: ID+login@users.noreply.github.com
-              *+?*@users.noreply.github.com)
-                login="${email#*+}"
-                login="${login%%@*}"
+              # GitHub private noreply: anything after '+' up to '@users.noreply' is the login
+              *+*@users.noreply.github.com)
+                login=$(echo "$email" | sed 's/.*+\([^@]*\)@users\.noreply\.github\.com/\1/')
                 names="${names}@${login}, "
                 ;;
               *)
