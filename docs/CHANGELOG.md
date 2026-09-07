@@ -33,17 +33,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **ASCII-art favicon** — The dashboard browser tab icon is now a stacked `[---] / [M0] / [---]` mark in the design system's cream/mono style (SVG, crisp at any size). (Entry moved from the 2.20.0 section, where it was listed before the feature actually shipped.)
-- **Independent switches for the learning pipeline** — new `promptTrackingEnabled` and `profileLearningEnabled` config flags (both default `true`). Prompt persistence is no longer coupled to `chatMessage.enabled`, so prompt tracking can be off while memory injection stays on, and automatic profile learning on session idle can be disabled on its own. Together with the existing `injectProfile` and `autoCaptureEnabled`, every stage — prompt persistence, profile learning, profile injection, auto-capture — is now independently switchable while the Web UI, explicit memory tools, and semantic search keep working. (Requested by @ovizii in #55.)
+- **Independent switches for the learning pipeline** — new `promptTrackingEnabled` and `profileLearningEnabled` config flags (both default `true`). Prompt persistence is no longer coupled to `chatMessage.enabled`, so prompt tracking can be off while memory injection stays on, and automatic profile learning on session idle can be disabled on its own. Together with the existing `injectProfile` and `autoCaptureEnabled`, every stage — prompt persistence, profile learning, profile injection, auto-capture — is now independently switchable while the Web UI, explicit memory tools, and semantic search keep working. (Requested by ovizii in #55.)
 
 ### Changed
 
-- **Dashboard clarifications** — the memories stat card reads "global · project" instead of "user · project" (user-scope means cross-project memories, unrelated to the profile feature); the Memories filter chip reads "memories + prompts" instead of "all"; clicking a memory row's `[+]`/`[?]` marker or text now opens the detail view, in both the Memories list and search results (the marker looked like an expand button); the pin button tooltip explains pinning protects a memory from cleanup and ranks it first. (Raised by @ovizii in #55.)
+- **Dashboard clarifications** — the memories stat card reads "global · project" instead of "user · project" (user-scope means cross-project memories, unrelated to the profile feature); the Memories filter chip reads "memories + prompts" instead of "all"; clicking a memory row's `[+]`/`[?]` marker or text now opens the detail view, in both the Memories list and search results (the marker looked like an expand button); the pin button tooltip explains pinning protects a memory from cleanup and ranks it first. (Reported by ovizii in #55)
 
 ### Fixed
 
-- **User profile identity is now stable without an email** — previously each learning run minted a fresh random anonymous identity, so one user accumulated a new profile per batch (four profiles from forty prompts in one report). All profile lookups now share one resolver: the git email when available, otherwise the most recent active profile (existing duplicate profiles self-heal onto it), otherwise a single stable `anonymous` identity. Saving an explicit preference from the `profile` tool also no longer fails when no email can be resolved. (Reported by @ovizii in #57.)
-- **Profile learning drains its backlog** — previously only one batch (default 10 prompts) was analyzed per idle session, so a 1500-prompt backlog took roughly 150 idles. Learning now keeps analyzing FIFO batches until fewer than `userProfileAnalysisInterval` prompts remain or `userProfileMaxBatchesPerIdle` batches (default 5) are done, with a single summary toast per run. (Reported by @ovizii in #57.)
-- **Profile language stays pinned** — a mixed-language batch could flip the profile's language between runs. Updates now keep writing in the existing profile's language; new profiles are created in the dominant language detected across the batch. (Reported by @ovizii in #57.)
+- **User profile identity is now stable without an email** — previously each learning run minted a fresh random anonymous identity, so one user accumulated a new profile per batch (four profiles from forty prompts in one report). All profile lookups now share one resolver: the git email when available, otherwise the most recent active profile (existing duplicate profiles self-heal onto it), otherwise a single stable `anonymous` identity. Saving an explicit preference from the `profile` tool also no longer fails when no email can be resolved. (Reported by ovizii in #57.)
+- **Profile learning drains its backlog** — previously only one batch (default 10 prompts) was analyzed per idle session, so a 1500-prompt backlog took roughly 150 idles. Learning now keeps analyzing FIFO batches until fewer than `userProfileAnalysisInterval` prompts remain or `userProfileMaxBatchesPerIdle` batches (default 5) are done, with a single summary toast per run. (Reported by ovizii in #57.)
+- **Profile language stays pinned** — a mixed-language batch could flip the profile's language between runs. Updates now keep writing in the existing profile's language; new profiles are created in the dominant language detected across the batch. (Reported by ovizii in #57.)
 - **Web server refuses to boot unactivated** — launching the web server directly (scripts, REPL, tests) bypassed the plugin entry's activation gate and created `~/.opencode-mem0` databases unconditionally. The server entry now guards too: unconfigured launch throws and writes nothing.
 
 ## [2.21.0] - 2026-08-03
@@ -54,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Dashboard speaks user, not schema** — "container tags" renamed to "projects" and form labels to "project tag"; the profile empty state now explains profiles are learned from auto-captured sessions and need a memory provider + 10 prompts, instead of an unactionable "keep chatting". (Raised by @ovizii in #55.)
+- **Dashboard speaks user, not schema** — "container tags" renamed to "projects" and form labels to "project tag"; the profile empty state now explains profiles are learned from auto-captured sessions and need a memory provider + 10 prompts, instead of an unactionable "keep chatting". (Reported by ovizii in #55)
 
 ### Fixed
 
@@ -250,7 +250,7 @@ No community contributors for this release. All work by @ZeR020.
 
 ### Fixed
 
-- **Web UI blank in v2.17.1+ (#47)** — The restrictive CSP added in v2.17.1 blocked the Web UI's CDN script tags (lucide, marked, DOMPurify, jsonrepair), so `marked` was undefined at load and `app.js` crashed before `loadStats()` ran (UI showed "Total: 0", API still served correct data). Fixed by vendoring the four libraries locally into `src/web/vendor/` with pinned versions (lucide@1.22.0, marked@17.0.1, dompurify@3.2.2, jsonrepair@3.14.1), loading them via `/vendor/*.min.js`, and adding those four routes to the static map. The strict CSP (`default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'`) is unchanged — the UI now has zero runtime CDN/outbound network dependency, consistent with the "all data stays local" contract. Reported by @ovizii.
+- **Web UI blank in v2.17.1+ (#47)** — The restrictive CSP added in v2.17.1 blocked the Web UI's CDN script tags (lucide, marked, DOMPurify, jsonrepair), so `marked` was undefined at load and `app.js` crashed before `loadStats()` ran (UI showed "Total: 0", API still served correct data). Fixed by vendoring the four libraries locally into `src/web/vendor/` with pinned versions (lucide@1.22.0, marked@17.0.1, dompurify@3.2.2, jsonrepair@3.14.1), loading them via `/vendor/*.min.js`, and adding those four routes to the static map. The strict CSP (`default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'`) is unchanged — the UI now has zero runtime CDN/outbound network dependency, consistent with the "all data stays local" contract. Reported by ovizii.
 
 ### Security
 
@@ -258,7 +258,7 @@ No community contributors for this release. All work by @ZeR020.
 
 ### Contributors
 
-- @ovizii (issue report)
+- ovizii (issue report)
 
 ## [2.17.3] - 2026-06-30
 
