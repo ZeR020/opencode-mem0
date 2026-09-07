@@ -76,8 +76,8 @@ vi.mock("../src/services/sqlite/vector-search.js", () => ({
 
 function makeShard(id: string) {
   return {
-    id,
-    scope: "project",
+    id: 0,
+    scope: "project" as const,
     scopeHash: "",
     shardIndex: 0,
     dbPath: `/tmp/${id}.db`,
@@ -99,6 +99,8 @@ function makeDb(path: string) {
           store_type: "stm",
           strength: 0.5,
           access_count: 0,
+          recency_score: 0,
+          last_decay_at: 0,
         },
       ]
     : path.includes("shard-b")
@@ -112,6 +114,8 @@ function makeDb(path: string) {
             store_type: "stm",
             strength: 0.5,
             access_count: 0,
+            recency_score: 0,
+            last_decay_at: 0,
           },
         ]
       : [
@@ -124,6 +128,8 @@ function makeDb(path: string) {
             store_type: "stm",
             strength: 0.5,
             access_count: 0,
+            recency_score: 0,
+            last_decay_at: 0,
           },
         ];
 
@@ -291,7 +297,10 @@ function makeDb(path: string) {
     listMemories(containerTag: string) {
       return containerTag === "" ? rows : rows.filter((r) => r.container_tag === containerTag);
     },
-    run() {},
+    exec(_sql: string) {},
+    run(_sql?: string, ..._args: unknown[]) {
+      return { changes: 0 };
+    },
     close() {},
   };
 }
@@ -656,7 +665,7 @@ describe("Memory Engine Integration", () => {
       dbByPath.set("/tmp/shard-current.db", db);
 
       const { shardManager } = await import("../src/services/sqlite/shard-manager.js");
-      vi.spyOn(shardManager, "getAllShards").mockImplementation((scope: string) => {
+      vi.spyOn(shardManager, "getAllShards").mockImplementation((scope) => {
         return scope === "user" ? [makeShard("shard-current")] : [];
       });
 
@@ -760,7 +769,7 @@ describe("Memory Engine Integration", () => {
           return {
             get: () => ({ name: "memories_fts" }),
             all: () => [{ name: "memories_fts" }],
-            run: () => {},
+            run: () => ({ changes: 0 }),
           };
         }
         if (sql.includes("memories_fts MATCH")) {
@@ -769,7 +778,7 @@ describe("Memory Engine Integration", () => {
               { id: "existing-1", content: "Use JavaScript for the project", is_deprecated: 0 },
             ],
             get: () => null,
-            run: () => {},
+            run: () => ({ changes: 0 }),
           };
         }
         if (sql.includes("memory_conflicts")) {
@@ -785,7 +794,7 @@ describe("Memory Engine Integration", () => {
         return {
           all: () => [],
           get: () => null,
-          run: () => {},
+          run: () => ({ changes: 0 }),
         };
       };
 
@@ -817,7 +826,7 @@ describe("Memory Engine Integration", () => {
               resolution_data: null,
             }),
             all: () => [],
-            run: () => {},
+            run: () => ({ changes: 0 }),
           };
         }
         if (sql.includes("SELECT id, created_at FROM memories")) {
@@ -828,7 +837,7 @@ describe("Memory Engine Integration", () => {
               return null;
             },
             all: () => [],
-            run: () => {},
+            run: () => ({ changes: 0 }),
           };
         }
         if (sql.includes("UPDATE memories SET is_deprecated = 1")) {

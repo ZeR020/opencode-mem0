@@ -9,7 +9,7 @@ const mockSessionManager = {
 
 // Mock fetch globally
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+globalThis.fetch = mockFetch as unknown as typeof fetch;
 
 vi.mock("../src/services/logger.js", () => ({
   log: () => {},
@@ -226,6 +226,7 @@ describe("GoogleGeminiProvider", () => {
       {
         apiKey: "test-key",
         model: "gemini-1.5-flash",
+        apiUrl: "",
         maxIterations: 1,
         iterationTimeout: 5000,
         memoryTemperature: false,
