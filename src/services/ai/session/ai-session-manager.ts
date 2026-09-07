@@ -168,6 +168,7 @@ export class AISessionManager {
       ]
     );
 
+    // SAFETY: session row exists after the insert above; getSession would only miss on driver failure
     // skipcq: JS-0339 — session is guaranteed after insert above
     return this.getSession(params.sessionId, params.provider)!;
   }
@@ -256,7 +257,9 @@ export class AISessionManager {
       sequence: row.sequence,
       role: row.role,
       content: row.content,
-      toolCalls: row.tool_calls ? (safeJSONParse(row.tool_calls) as AIMessage["toolCalls"]) : undefined,
+      toolCalls: row.tool_calls
+        ? (safeJSONParse(row.tool_calls) as AIMessage["toolCalls"])
+        : undefined,
       toolCallId: row.tool_call_id,
       contentBlocks: row.content_blocks
         ? (safeJSONParse(row.content_blocks) as AIMessage["contentBlocks"])

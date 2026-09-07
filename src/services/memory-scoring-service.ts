@@ -204,7 +204,7 @@ export function recalculateAllScores(recalculateNoveltyAndInterference: boolean 
       } catch (error) {
         if (inTxn) {
           try {
-            db!.run("ROLLBACK");
+            db?.run("ROLLBACK");
           } catch (rollbackErr) {
             log("Score recalculation rollback failed", { error: String(rollbackErr) });
           }

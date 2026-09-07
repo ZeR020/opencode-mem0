@@ -168,7 +168,7 @@ export class UserPromptManager {
 
   getLastUncapturedPrompt(sessionId: string): UserPrompt | null {
     const maxRetries = CONFIG.autoCaptureMaxRetries ?? 3;
-    const row = this.stmts.getLastUncaptured.get(sessionId, maxRetries) as any;
+    const row = this.stmts.getLastUncaptured.get(sessionId, maxRetries);
     if (!row) return null;
     return this.rowToPrompt(row);
   }
@@ -178,8 +178,8 @@ export class UserPromptManager {
   }
 
   getCaptureAttempts(promptId: string): number {
-    const row = this.stmts.getCaptureAttempts.get(promptId) as any;
-    return row?.attempts ?? 0;
+    const row = this.stmts.getCaptureAttempts.get(promptId);
+    return Number(row?.attempts ?? 0);
   }
 
   deletePrompt(promptId: string): void {
@@ -200,8 +200,8 @@ export class UserPromptManager {
   }
 
   countUnanalyzedForUserLearning(): number {
-    const row = this.stmts.countUnanalyzed.get() as any;
-    return row?.count || 0;
+    const row = this.stmts.countUnanalyzed.get();
+    return Number(row?.count || 0);
   }
 
   getPromptsForUserLearning(limit: number): UserPrompt[] {
@@ -243,7 +243,7 @@ export class UserPromptManager {
   }
 
   getPromptById(promptId: string): UserPrompt | null {
-    const row = this.stmts.getById.get(promptId) as any;
+    const row = this.stmts.getById.get(promptId);
     if (!row) return null;
     return this.rowToPrompt(row);
   }
@@ -270,7 +270,7 @@ export class UserPromptManager {
   getPromptsByIds(ids: string[]): UserPrompt[] {
     if (ids.length === 0) return [];
     if (ids.length === 1) {
-      const row = this.stmts.getByIds.get(ids[0]) as any;
+      const row = this.stmts.getByIds.get(ids[0]);
       return row ? [this.rowToPrompt(row)] : [];
     }
     const placeholders = ids.map(() => "?").join(",");

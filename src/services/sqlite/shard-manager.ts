@@ -96,7 +96,7 @@ class ShardManager {
   }
 
   getActiveShard(scope: "user" | "project", scopeHash: string): ShardInfo | null {
-    const row = this.activeShardStmt.get(scope, scopeHash) as any;
+    const row = this.activeShardStmt.get(scope, scopeHash);
     return row ? this.toShardInfo(row) : null;
   }
 
@@ -283,7 +283,7 @@ class ShardManager {
       const db = connectionManager.getConnection(shard.dbPath);
       const result = db
         .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='memories'")
-        .get() as any;
+        .get();
       if (!result) {
         log("Shard DB missing 'memories' table", { dbPath: shard.dbPath, shardId: shard.id });
         return false;
@@ -345,7 +345,7 @@ class ShardManager {
   }
 
   async deleteShard(shardId: number): Promise<void> {
-    const row = this.metadataDb.prepare("SELECT * FROM shards WHERE id = ?").get(shardId) as any;
+    const row = this.metadataDb.prepare("SELECT * FROM shards WHERE id = ?").get(shardId);
 
     if (row) {
       const shard = this.toShardInfo(row);

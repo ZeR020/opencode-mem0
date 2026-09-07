@@ -86,7 +86,7 @@ export class UserProfileManager {
       LIMIT 1
     `);
 
-    const row = stmt.get(userId) as any;
+    const row = stmt.get(userId);
     if (!row) return null;
 
     return this.rowToProfile(row);
@@ -100,7 +100,7 @@ export class UserProfileManager {
       LIMIT 1
     `);
 
-    const row = stmt.get() as any;
+    const row = stmt.get();
     if (!row) return null;
 
     return this.rowToProfile(row);
@@ -179,8 +179,8 @@ export class UserProfileManager {
       inTxn = true;
 
       const getVersionStmt = this.db.prepare("SELECT version FROM user_profiles WHERE id = ?");
-      const versionRow = getVersionStmt.get(profileId) as any;
-      const newVersion = (versionRow?.version || 0) + 1;
+      const versionRow = getVersionStmt.get(profileId);
+      const newVersion = Number(versionRow?.version || 0) + 1;
 
       const updateStmt = this.db.prepare(`
         UPDATE user_profiles
@@ -468,7 +468,7 @@ function getUserProfileManager(): UserProfileManager {
 export const userProfileManager = new Proxy({} as UserProfileManager, {
   get(_target, prop) {
     const instance = getUserProfileManager();
-    const value = (instance as any)[prop];
+    const value = Reflect.get(instance, prop);
     if (typeof value === "function") {
       return value.bind(instance);
     }

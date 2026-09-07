@@ -146,7 +146,7 @@ export function extractFirstJSON(text: string): unknown | null {
     let endIdx = -1;
 
     for (let i = startIdx; i < text.length; i++) {
-      const char = text[i]!;
+      const char = text[i] ?? "";
 
       if (inString) {
         if (escape) {

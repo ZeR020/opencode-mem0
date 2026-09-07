@@ -180,7 +180,7 @@ export function promoteToLTM(
 
         const memory = db
           .prepare("SELECT id, store_type, strength, access_count FROM memories WHERE id = ?")
-          .get(memoryId) as any;
+          .get(memoryId);
 
         if (!memory) continue;
 

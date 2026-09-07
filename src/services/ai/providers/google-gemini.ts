@@ -278,7 +278,7 @@ export class GoogleGeminiProvider extends BaseAIProvider {
         return this.apiErrorResponse(response, iterations, "Gemini");
       }
 
-      const data = (await response.json()) as any;
+      const data = await response.json();
       const toolResult = this._handleGeminiResponse(
         data,
         session,

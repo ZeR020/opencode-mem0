@@ -19,8 +19,8 @@ export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
   let magB = 0;
 
   for (let i = 0; i < a.length; i++) {
-    const av = a[i]!;
-    const bv = b[i]!;
+    const av = a[i] ?? 0;
+    const bv = b[i] ?? 0;
     dot += av * bv;
     magA += av * av;
     magB += bv * bv;
