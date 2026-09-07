@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Remaining "container" schema jargon in the Web UI** — the Memories browse filter, the Search query filter, and the memory/prompt detail view still said "container" / "all containers" after the dashboard relabel. All now say "project" / "all projects" / "project tag", matching the rest of the UI. (Raised by @ovizii in #55.)
+- **Remaining "container" schema jargon in the Web UI** — the Memories browse filter, the Search query filter, and the memory/prompt detail view still said "container" / "all containers" after the dashboard relabel. All now say "project" / "all projects" / "project tag", matching the rest of the UI. (Reported in issue #55.)
 
 ### Changed
 
