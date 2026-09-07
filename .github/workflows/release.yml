@@ -100,12 +100,73 @@ jobs:
           echo "$body" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
+      - name: Extract contributors from commits
+        if: steps.release_state.outputs.github_release_exists == 'false'
+        id: contributors
+        run: |
+          # Find the previous tag for this release series.
+          # "Previous" means the highest tag below the current one that is a valid semver.
+          current_tag="${GITHUB_REF_NAME#v}"
+          prev_tag=$(git tag --sort=-v:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | grep -v "^v${current_tag}$" | head -1 | sed 's/^v//')
+
+          echo "previous_tag=${prev_tag}" >> "$GITHUB_OUTPUT"
+
+          # Extract unique contributors between previous tag and current tag.
+          # Use mailmap to collapse alternate identities (work vs personal email).
+          # Filter out bots and the GitHub Actions actor.
+          if [ -n "$prev_tag" ]; then
+            range="v${prev_tag}..${GITHUB_REF_NAME}"
+          else
+            range="${GITHUB_REF_NAME}"
+          fi
+
+          contributors=$(git log "$range" --format='%aN <%aE>' | \
+            git mailmap --file=.mailmap --stdin 2>/dev/null | \
+            sort -u | \
+            grep -viE '(\[bot\]|github-actions|noreply)' | \
+            head -20)
+
+          if [ -z "$contributors" ]; then
+            echo "contributors_paragraph=<!-- no contributors -->" >> "$GITHUB_OUTPUT"
+          else
+            # Resolve committer logins via the repo contributor list.
+            # Build a login→name map from recent contributors.
+            declare -A login_map
+            for line in $(gh api repos/{\$owner}/{\$repo}/contributors?per_page=100 --jq '.[].login' --paginate 2>/dev/null | grep -v '^$' | sort -u); do
+              login_map["${line,,}"]="@$line"
+            done
+
+            names=""
+            for entry in $contributors; do
+              # entry is "Name <email>" — extract name only
+              name=$(echo "$entry" | sed 's/ <.*//')
+              # Try to map email → GitHub login via contributor list
+              login=$(git log "$range" --format='%aE' --author="$name" | head -1 | \
+                gh api repos/{\$owner}/{\$repo}/contributors?per_page=100 --jq '.[] | select(.email == \"\(.email)\") | .login' 2>/dev/null | head -1)
+              if [ -n "$login" ]; then
+                names="${names} ${login},"
+              else
+                names="${names} ${name},"
+              fi
+            done
+
+            names=$(echo "$names" | sed 's/, */, /g' | sed 's/, $//')
+            paragraph="### Contributors"
+            paragraph="${paragraph}\\\n\\\n${names}"
+            echo "contributors_paragraph<<EOF" >> "$GITHUB_OUTPUT"
+            echo "$paragraph" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create GitHub Release
         if: steps.release_state.outputs.github_release_exists == 'false'
         uses: softprops/action-gh-release@v3
         with:
-          body: ${{ steps.changelog.outputs.body }}
-          generate_release_notes: true
+          body: |
+            ${{ steps.changelog.outputs.body }}
+
+            ${{ steps.contributors.outputs.contributors_paragraph }}
+          generate_release_notes: false
       - name: Skip GitHub Release
         if: steps.release_state.outputs.github_release_exists == 'true'
         run: |
