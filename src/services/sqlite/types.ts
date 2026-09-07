@@ -43,6 +43,12 @@ export interface MemoryRecord {
   isDeprecated?: number;
 }
 
+/** JSON blob stored on a memory. Only the fields we actually read are named. */
+export interface MemoryMetadata {
+  promptId?: string;
+  sessionID?: string;
+}
+
 export interface MemoryConflict {
   id: string;
   memoryId1: string;
@@ -61,7 +67,7 @@ export interface SearchResult {
   memory: string;
   similarity: number;
   tags?: string[];
-  metadata?: Record<string, unknown>;
+  metadata?: MemoryMetadata;
   displayName?: string;
   userName?: string;
   userEmail?: string;
