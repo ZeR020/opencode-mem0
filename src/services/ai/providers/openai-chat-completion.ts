@@ -373,12 +373,11 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
       const requestBody = this._buildChatRequestBody(toolSchema);
       requestBody.messages = messages;
 
-      const headers: Record<string, string> = {
+      const headers = {
         "Content-Type": "application/json",
       };
-
       if (this.config.apiKey) {
-        headers.Authorization = `Bearer ${this.config.apiKey}`;
+        Object.assign(headers, { Authorization: `Bearer ${this.config.apiKey}` });
       }
 
       const fetchResult = await this.fetchWithTimeout(
