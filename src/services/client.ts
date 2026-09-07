@@ -389,11 +389,12 @@ export class LocalMemoryClient {
         // directly (with the real cosine similarity) instead of relying on the
         // generic FTS-based detectConflicts rediscovery. The pair is already
         // known — record it now.
-        const conflictCandidate = recheckResult.conflictCandidateId
-          ? recheckResult
-          : dedupResult.conflictCandidateId
-            ? dedupResult
-            : null;
+        let conflictCandidate = null;
+        if (recheckResult.conflictCandidateId) {
+          conflictCandidate = recheckResult;
+        } else if (dedupResult.conflictCandidateId) {
+          conflictCandidate = dedupResult;
+        }
         if (conflictCandidate?.conflictCandidateId) {
           await recordConflictPair({
             newMemoryId: id,

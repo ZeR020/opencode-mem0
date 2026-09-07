@@ -44,7 +44,7 @@ function safeParseMetadata(raw: string | null | undefined): Record<string, unkno
   try {
     return JSON.parse(raw) as Record<string, unknown>;
   } catch {
-    log("Corrupt metadata for memory", { raw: raw.substring(0, 100) });
+    log("Corrupt metadata for memory", { raw: raw.slice(0, 100) });
     return undefined;
   }
 }

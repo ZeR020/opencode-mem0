@@ -201,7 +201,7 @@ export const NEGATION_PATTERNS: RegExp[] = [
   // Pattern 3: Removal/negation action words (extends ms pattern with mc #4,8,9)
   /\b(removed|deleted|reverted|undone|cancelled|canceled|disabled|disable|deprecated|obsolete|turned off)\b/i,
   // Pattern 4: Negative prefixes
-  /\b(un|dis|mis|non)[a-z]+\b/i,
+  /\b(un|dis|mis|non)[a-z]+\b/i, // as-typo-ignore: English prefix mis-
   // Pattern 5: False/error states
   /\b(false|incorrect|wrong|invalid|failed|error)\b/i,
 ];

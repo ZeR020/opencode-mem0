@@ -61,7 +61,7 @@ class MigrationService {
 
         const metadata = Object.fromEntries(metadataResult.map((row) => [row.key, row.value]));
 
-        const storedDimensions = Number.parseInt(metadata.embedding_dimensions || "0");
+        const storedDimensions = Number.parseInt(metadata.embedding_dimensions || "0", 10);
         const storedModel = metadata.embedding_model || "unknown";
 
         if (
@@ -121,9 +121,8 @@ class MigrationService {
 
       if (strategy === "fresh-start") {
         return await this.freshStartMigration(mismatch, startTime);
-      } else {
-        return await this.reEmbedMigration(mismatch, startTime);
       }
+      return await this.reEmbedMigration(mismatch, startTime);
     } catch (error) {
       log("Migration: failed", { error: String(error) });
       return {
