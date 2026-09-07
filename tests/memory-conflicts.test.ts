@@ -647,7 +647,7 @@ describe("memory-conflicts", () => {
   });
 
   describe("checkContradictionHeuristic (via detectConflicts)", () => {
-    it("detects contraditions with negation patterns", async () => {
+    it("detects contradictions with negation patterns", async () => {
       const candidate = {
         id: "mem-old",
         content: "removed deprecated function foo",

@@ -126,7 +126,7 @@ describe("distributed-limit", () => {
       { id: "shard-c", dbPath: "/tmp/c.db" },
     ]);
 
-    listMemoriesSpy.mockImplementation((db: any, _tag: string, limit: number) => {
+    listMemoriesSpy.mockImplementation((db: any, _tag: string) => {
       if (db._dbPath.includes("a")) {
         const memories = [];
         for (let i = 0; i < 20; i++) {

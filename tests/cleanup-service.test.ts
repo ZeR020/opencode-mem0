@@ -82,22 +82,22 @@ describe("CleanupService", () => {
   describe("shouldRunCleanup", () => {
     it("returns false when autoCleanupEnabled is false", async () => {
       CONFIG.autoCleanupEnabled = false;
-      expect(await service.shouldRunCleanup()).toBe(false);
+      expect(service.shouldRunCleanup()).toBe(false);
     });
 
     it("returns false when cleanup is already running", async () => {
       (service as any).isRunning = true;
-      expect(await service.shouldRunCleanup()).toBe(false);
+      expect(service.shouldRunCleanup()).toBe(false);
     });
 
     it("returns false when less than a day has passed", async () => {
       (service as any).lastCleanupTime = Date.now() - 1000;
-      expect(await service.shouldRunCleanup()).toBe(false);
+      expect(service.shouldRunCleanup()).toBe(false);
     });
 
     it("returns true when all conditions are met", async () => {
       (service as any).lastCleanupTime = 0;
-      expect(await service.shouldRunCleanup()).toBe(true);
+      expect(service.shouldRunCleanup()).toBe(true);
     });
   });
 

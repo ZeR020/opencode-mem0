@@ -48,7 +48,7 @@ afterEach(() => {
 describe("config handler", () => {
   it("GET returns defaults with a masked empty key when no config file exists", async () => {
     const { handleGetConfig } = await loadFresh();
-    const res = await handleGetConfig();
+    const res = handleGetConfig();
     const data = expectData(res);
     expect(data.memoryProvider).toBe("openai-chat");
     expect(data.memoryApiKeyMasked).toBe("");
@@ -78,7 +78,7 @@ describe("config handler", () => {
     await handleUpdateConfig({ memoryApiKey: "sk-test-1234567890" });
     const fileText = readFileSync(CONFIG_FILES[0], "utf8");
     expect(fileText).toContain("sk-test-1234567890");
-    const res = await handleGetConfig();
+    const res = handleGetConfig();
     const data = expectData(res);
     expect(data.memoryApiKeyMasked).toBe("\u2022\u2022\u2022\u2022" + "7890");
     expect(data.memoryApiKeyMasked).not.toContain("sk-test");
