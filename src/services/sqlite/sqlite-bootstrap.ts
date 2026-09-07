@@ -1,9 +1,11 @@
 import { createRequire } from "node:module";
 import { log } from "../logger.js";
 
+export type SqliteRow = { [column: string]: string | number | bigint | boolean | null | Uint8Array };
+
 export interface Statement {
   run(...params: unknown[]): { changes: number; lastInsertRowid: number | bigint };
-  get(...params: unknown[]): unknown;
+  get(...params: unknown[]): SqliteRow | undefined;
   all(...params: unknown[]): unknown[];
 }
 
@@ -28,7 +30,7 @@ interface RawDatabase {
 
 interface RawStatement {
   run(...params: unknown[]): { changes: number; lastInsertRowid: number | bigint };
-  get(...params: unknown[]): unknown;
+  get(...params: unknown[]): SqliteRow | undefined;
   all(...params: unknown[]): unknown[];
 }
 
@@ -64,7 +66,11 @@ const wrapStatement = (stmt: RawStatement): Statement => ({
       lastInsertRowid: result.lastInsertRowid,
     };
   },
-  get: (...params: unknown[]) => stmt.get(...normalizeParams(params)),
+  get: (...params: unknown[]) => {
+    const row = stmt.get(...normalizeParams(params));
+    if (row == null || typeof row !== "object") return undefined;
+    return row;
+  },
   all: (...params: unknown[]) => stmt.all(...normalizeParams(params)),
 });
 

@@ -32,7 +32,7 @@ const UNSAFE_KEYS = new Set([
 ]);
 
 export function applySafeExtraParams(
-  requestBody: Record<string, any>,
+  requestBody: Record<string, unknown>,
   extraParams: Record<string, unknown>
 ): void {
   for (const [key, value] of Object.entries(extraParams)) {

@@ -111,6 +111,7 @@ export class UserProfileValidator {
     if (errors.length > 0) {
       return { valid: false, errors };
     }
+    // SAFETY: profileSchema.safeParse succeeded and extra checks passed; result.data is UserProfileData
     return { valid: true, errors: [], data: result.data as unknown as UserProfileData };
   }
 }

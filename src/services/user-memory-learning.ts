@@ -315,6 +315,7 @@ async function analyzeUserProfile(
     // The LLM is instructed to return the fully merged profile; code only enforces
     // the configured maximums (a second merge here would double-increment frequencies
     // and confidence scores).
+    // SAFETY: generateStructuredOutput is constrained by schema; persisted shape is UserProfileData
     return userProfileManager.enforceProfileLimits(result as unknown as UserProfileData);
   }
 

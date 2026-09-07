@@ -351,6 +351,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
           projectMemories = {
             results: memories.map((m) => ({
               similarity: m.similarity ?? 1,
+              // SAFETY: sqlite search rows may store text in `chunk` when `memory` is empty
               memory: m.memory || (m as unknown as Record<string, string>).chunk || "",
             })),
             total: memories.length,
@@ -368,6 +369,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
           projectMemories = {
             results: memories.map((m) => ({
               similarity: 1,
+              // SAFETY: listMemories rows expose `summary`, not SearchResult.memory
               memory: (m as unknown as Record<string, string>).summary || "",
             })),
             total: memories.length,
@@ -580,8 +582,11 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
               success: true,
               count: listRes.memories?.length,
               memories: listRes.memories?.map((m) => ({
+                // SAFETY: listMemories rows expose id as a string column
                 id: (m as unknown as Record<string, string>).id,
+                // SAFETY: listMemories rows expose summary as the content column
                 content: (m as unknown as Record<string, string>).summary,
+                // SAFETY: listMemories rows expose createdAt as a string timestamp
                 createdAt: (m as unknown as Record<string, string>).createdAt,
               })),
             });
@@ -746,6 +751,7 @@ function formatSearchResults(
       if (sim < 0) sim = 0;
       return {
         id: r.id,
+        // SAFETY: search hits may store text in `chunk` when `memory` is empty
         content: r.memory || (r as unknown as Record<string, string>).chunk || "",
         similarity: sim,
       };
