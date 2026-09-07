@@ -81,7 +81,7 @@ async function main() {
     write(`\nListed ${listResult.memories.length} memories:`);
     for (const memory of listResult.memories) {
       write(`  [${memory.id}] ${memory.summary}`);
-      write(`    Strength: ${memory.strength?.toFixed(3)} | Store: ${memory.storeType || "stm"}`);
+      write(`    Strength: ${memory.strength?.toFixed(3)}`);
     }
   }
 
