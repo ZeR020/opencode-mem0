@@ -54,7 +54,7 @@ let DatabaseImpl: RawDatabaseConstructor & { new (path: string): Database };
 type RequireFn = (id: string) => unknown;
 let _require: RequireFn | undefined;
 const getRequire = (): RequireFn => {
-  _require ??= typeof require !== "undefined" ? require : createRequire(import.meta.url);
+  _require ??= globalThis.require !== undefined ? globalThis.require as RequireFn : createRequire(import.meta.url);
   return _require;
 };
 

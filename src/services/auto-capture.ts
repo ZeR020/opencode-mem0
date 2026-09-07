@@ -117,7 +117,7 @@ async function processCaptureResult(
 }
 
 function isLLMConfigured(): boolean {
-  return !!(
+  return Boolean(
     (CONFIG.opencodeProvider && CONFIG.opencodeModel) ||
     (CONFIG.memoryModel && CONFIG.memoryApiUrl)
   );
@@ -276,7 +276,7 @@ function extractAIContent(messages: PromptMessage[]): {
       }
 
       if (input.length > MAX_TOOL_INPUT_LENGTH) {
-        input = `${input.substring(0, MAX_TOOL_INPUT_LENGTH)}...`;
+        input = `${input.slice(0, MAX_TOOL_INPUT_LENGTH)}...`;
       }
 
       toolCalls.push({ name, input });
@@ -291,7 +291,7 @@ async function getLatestProjectMemory(containerTag: string): Promise<string | nu
     const result = await memoryClient.listMemories(containerTag, 1);
     if (!result.success || result.memories.length === 0) return null;
     const content = result.memories[0]!.summary;
-    return content.length <= 500 ? content : `${content.substring(0, 500)}...`;
+    return content.length <= 500 ? content : `${content.slice(0, 500)}...`;
   } catch {
     return null;
   }

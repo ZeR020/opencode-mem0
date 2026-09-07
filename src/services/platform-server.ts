@@ -105,8 +105,8 @@ function createNodeServer(options: ServeOptions): Promise<PlatformServer> {
 }
 
 export function serve(options: ServeOptions): Promise<PlatformServer> {
-  if (typeof Bun !== "undefined" && Bun.serve) {
-    const bunServer = Bun.serve(options);
+  if (globalThis.Bun !== undefined && globalThis.Bun.serve) {
+    const bunServer = globalThis.Bun.serve(options);
     return Promise.resolve({
       stop: () => bunServer.stop(),
       requestIP: (req: Request) => bunServer.requestIP(req),
