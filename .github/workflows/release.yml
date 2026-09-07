@@ -104,57 +104,61 @@ jobs:
         if: steps.release_state.outputs.github_release_exists == 'false'
         id: contributors
         run: |
-          # Find the previous tag for this release series.
-          # "Previous" means the highest tag below the current one that is a valid semver.
+          # Find the previous semver tag below the current one.
           current_tag="${GITHUB_REF_NAME#v}"
-          prev_tag=$(git tag --sort=-v:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | grep -v "^v${current_tag}$" | head -1 | sed 's/^v//')
+          prev_tag=$(git tag --sort=-v:refname | \
+            grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | \
+            grep -v "^v${current_tag}$" | \
+            head -1 | sed 's/^v//')
 
-          echo "previous_tag=${prev_tag}" >> "$GITHUB_OUTPUT"
-
-          # Extract unique contributors between previous tag and current tag.
-          # Use mailmap to collapse alternate identities (work vs personal email).
-          # Filter out bots and the GitHub Actions actor.
+          # Commit range for this release.
           if [ -n "$prev_tag" ]; then
             range="v${prev_tag}..${GITHUB_REF_NAME}"
           else
             range="${GITHUB_REF_NAME}"
           fi
 
-          contributors=$(git log "$range" --format='%aN <%aE>' | \
+          # Get all committer emails in this release (deduplicated, no bots).
+          # mailmap collapses alternate identities; exclude bots + noreply.
+          committer_emails=$(git log "$range" --format='%aE' | \
             git mailmap --file=.mailmap --stdin 2>/dev/null | \
             sort -u | \
-            grep -viE '(\[bot\]|github-actions|noreply)' | \
-            head -20)
+            grep -viE '(^nobody@nowhere|\[bot\]|github-actions|noreply)')
 
-          if [ -z "$contributors" ]; then
+          if [ -z "$committer_emails" ]; then
             echo "contributors_paragraph=<!-- no contributors -->" >> "$GITHUB_OUTPUT"
           else
-            # Resolve committer logins via the repo contributor list.
-            # Build a login→name map from recent contributors.
-            declare -A login_map
-            for line in $(gh api repos/{\$owner}/{\$repo}/contributors?per_page=100 --jq '.[].login' --paginate 2>/dev/null | grep -v '^$' | sort -u); do
-              login_map["${line,,}"]="@$line"
-            done
+            # Fetch all contributor logins + emails from the repo API.
+            contributor_data=$(gh api repos/$GITHUB_REPOSITORY/contributors \
+              --paginate \
+              --jq '.[] | {login, email} | join("|")' 2>/dev/null)
 
+            # Build a list: match emails against the contributor API,
+            # fall back to git author name when no GitHub login is found.
             names=""
-            for entry in $contributors; do
-              # entry is "Name <email>" — extract name only
-              name=$(echo "$entry" | sed 's/ <.*//')
-              # Try to map email → GitHub login via contributor list
-              login=$(git log "$range" --format='%aE' --author="$name" | head -1 | \
-                gh api repos/{\$owner}/{\$repo}/contributors?per_page=100 --jq '.[] | select(.email == \"\(.email)\") | .login' 2>/dev/null | head -1)
+            for email in $committer_emails; do
+              # Try to find a GitHub login for this email.
+              login=$(echo "$contributor_data" | \
+                grep "|${email}$" | \
+                head -1 | cut -d'|' -f1)
               if [ -n "$login" ]; then
-                names="${names} ${login},"
+                names="${names}${login}, "
               else
-                names="${names} ${name},"
+                # Fall back to the git author name for this email.
+                author=$(git log "$range" --format='%aN' --author="$email" | head -1)
+                if [ -n "$author" ]; then
+                  names="${names}${author}, "
+                fi
               fi
             done
 
-            names=$(echo "$names" | sed 's/, */, /g' | sed 's/, $//')
-            paragraph="### Contributors"
-            paragraph="${paragraph}\\\n\\\n${names}"
+            # Strip trailing comma+space.
+            names=$(echo "$names" | sed 's/, $//')
+
             echo "contributors_paragraph<<EOF" >> "$GITHUB_OUTPUT"
-            echo "$paragraph" >> "$GITHUB_OUTPUT"
+            echo "### Contributors" >> "$GITHUB_OUTPUT"
+            echo "" >> "$GITHUB_OUTPUT"
+            echo "$names" >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
           fi
 
