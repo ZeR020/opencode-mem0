@@ -105,11 +105,13 @@ jobs:
         id: contributors
         run: |
           # Find the previous semver tag below the current one.
+          # Every filter here may legitimately match nothing (first release),
+          # so keep each pipeline non-fatal under `bash -e`.
           current_tag="${GITHUB_REF_NAME#v}"
           prev_tag=$(git tag --sort=-v:refname | \
             grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | \
             grep -v "^v${current_tag}$" | \
-            head -1 | sed 's/^v//')
+            head -1 | sed 's/^v//') || true
 
           # Commit range for this release.
           if [ -n "$prev_tag" ]; then
@@ -118,31 +120,36 @@ jobs:
             range="${GITHUB_REF_NAME}"
           fi
 
-          # Author emails, deduped. Bots excluded.
-          # GitHub private noreply: ID+username@users.noreply.github.com
-          # Two formats exist:
-          #   - old style: 12345+username@users.noreply.github.com  (digit+login)
-          #   - new style: 88128532+ZeR020@users.noreply.github.com (numericID+login)
-          # Extract the login from the segment after '+', before '@users.'.
-          author_emails=$(git log "$range" --format='%aE' | \
+          # One `Name <email>` record per line, deduped, bots excluded.
+          authors=$(git log "$range" --format='%aN <%aE>' | \
             sort -u | \
-            grep -viE '\[bot\]|github-actions')
+            grep -viE '\[bot\]|github-actions') || true
 
+          # GitHub private noreply emails carry the login: ID+login@users.noreply.github.com
+          # (and the legacy login@users.noreply.github.com form). Prefer the login so the
+          # release notes link to the account; fall back to the commit author name.
           names=""
-          for email in $author_emails; do
+          while IFS= read -r author; do
+            [ -n "$author" ] || continue
+            email="${author##*<}"
+            email="${email%>}"
+            name="${author% <*}"
             case "$email" in
-              # GitHub private noreply: anything after '+' up to '@users.noreply' is the login
-              *+*@users.noreply.github.com)
-                login=$(echo "$email" | sed 's/.*+\([^@]*\)@users\.noreply\.github\.com/\1/')
-                names="${names}@${login}, "
+              *@users.noreply.github.com)
+                login="${email%@users.noreply.github.com}"
+                login="${login##*+}"
+                credit="@${login}"
                 ;;
               *)
-                author=$(git log "$range" --format='%aN' --author="$email" | head -1)
-                [ -n "$author" ] && names="${names}${author}, "
+                credit="$name"
                 ;;
             esac
-          done
-          names=$(echo "$names" | sed 's/, $//')
+            case ", ${names}" in
+              *", ${credit}, "*) continue ;;
+            esac
+            names="${names}${credit}, "
+          done <<< "$authors"
+          names="${names%, }"
 
           if [ -z "$names" ]; then
             echo "contributors_paragraph=<!-- no contributors -->" >> "$GITHUB_OUTPUT"
