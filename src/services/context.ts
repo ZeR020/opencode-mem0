@@ -45,11 +45,13 @@ export function formatMemoryEntry(
 
   switch (format) {
     case "xml": {
+      // LLM prompt XML, not DOM. No sanitizer dep. Escape & first, then markup and both quotes.
       const safeContent = content
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;");
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
       return `<memory similarity="${(result.similarity || 0).toFixed(2)}" relevance="${relevance.toFixed(2)}" type="${result.type || "note"}">${safeContent}</memory>`;
     }
     case "yaml": {

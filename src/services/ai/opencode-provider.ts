@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, chmodSync, renameSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { generateText, Output } from "ai";
 import { log } from "../logger.js";
@@ -107,13 +107,19 @@ async function refreshOAuthToken(auth: OAuthAuth): Promise<OAuthAuth> {
   };
 }
 
+function atomicWrite(path: string, text: string): void {
+  const tmp = `${path}.tmp-${process.pid}`;
+  writeFileSync(tmp, text, { mode: 0o600 });
+  renameSync(tmp, path);
+}
+
 function persistRefreshedAuth(auth: OAuthAuth, statePath: string, providerName: string): void {
   const authPath = findAuthJsonPath(statePath);
   if (authPath) {
     try {
       const allAuth = JSON.parse(readFileSync(authPath, "utf-8")) as Record<string, Auth>;
       allAuth[providerName] = auth;
-      writeFileSync(authPath, JSON.stringify(allAuth));
+      atomicWrite(authPath, JSON.stringify(allAuth));
       try {
         chmodSync(authPath, 0o600);
       } catch (error) {

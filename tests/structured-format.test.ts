@@ -39,13 +39,14 @@ describe("structured-format", () => {
     it("xml format escapes special characters", () => {
       const result = {
         similarity: 0.8,
-        memory: 'Use "special" <tags> & entities',
+        memory: 'Use "special" <tags> & entities and it\'s fine',
         type: "note",
       };
       const formatted = formatMemoryEntry(result as any, 0.75, "xml");
       expect(formatted).toContain("&quot;special&quot;");
       expect(formatted).toContain("&lt;tags&gt;");
       expect(formatted).toContain("&amp; entities");
+      expect(formatted).toContain("it&apos;s fine");
     });
 
     it("yaml format returns structured entry", () => {
