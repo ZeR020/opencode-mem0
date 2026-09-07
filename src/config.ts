@@ -368,7 +368,7 @@ function loadConfigFromPaths(paths: string[]): OpenCodeMemConfig {
 }
 
 function getEmbeddingDimensions(model: string): number {
-  const dimensionMap: Record<string, number> = {
+  const dimensionMap = {
     "Xenova/nomic-embed-text-v1": 768,
     "Xenova/nomic-embed-text-v1-unsupervised": 768,
     "Xenova/nomic-embed-text-v1-ablated": 768,
@@ -397,7 +397,7 @@ function getEmbeddingDimensions(model: string): number {
     "voyage-3-lite": 512,
     "voyage-code-3": 1024,
   };
-  return dimensionMap[model] || 768;
+  return dimensionMap[model as keyof typeof dimensionMap] || 768;
 }
 
 function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
