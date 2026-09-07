@@ -33,7 +33,8 @@ export class EmbeddingService {
   private cacheMisses = 0;
 
   static getInstance(): EmbeddingService {
-    return ((globalThis as any)[GLOBAL_EMBEDDING_KEY] ??= new EmbeddingService());
+    return ((globalThis as Record<symbol, EmbeddingService | undefined>)[GLOBAL_EMBEDDING_KEY] ??=
+      new EmbeddingService());
   }
 
   private getHashKey(text: string): string {

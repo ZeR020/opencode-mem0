@@ -571,7 +571,7 @@ describe("api-handlers", () => {
 
   describe("handleEmbeddingCacheStats", () => {
     it("returns cache statistics", async () => {
-      const result = await handleEmbeddingCacheStats();
+      const result = handleEmbeddingCacheStats();
       expect(result.success).toBe(true);
       expect(result.data?.size).toBe(100);
       expect(result.data?.hits).toBe(50);
@@ -581,7 +581,7 @@ describe("api-handlers", () => {
 
   describe("handleStats", () => {
     it("returns memory statistics", async () => {
-      const result = await handleStats();
+      const result = handleStats();
       expect(result.success).toBe(true);
       expect(result.data?.total).toBeDefined();
       expect(result.data?.byScope).toBeDefined();
@@ -591,18 +591,18 @@ describe("api-handlers", () => {
 
   describe("handlePinMemory", () => {
     it("pins existing memory", async () => {
-      const result = await handlePinMemory("mem-1");
+      const result = handlePinMemory("mem-1");
       expect(result.success).toBe(true);
     });
 
     it("returns not found for missing memory", async () => {
-      const result = await handlePinMemory("nonexistent");
+      const result = handlePinMemory("nonexistent");
       expect(result.success).toBe(false);
       expect(result.error).toBe("Memory not found");
     });
 
     it("rejects empty id", async () => {
-      const result = await handlePinMemory("");
+      const result = handlePinMemory("");
       expect(result.success).toBe(false);
       expect(result.error).toContain("required");
     });
@@ -610,12 +610,12 @@ describe("api-handlers", () => {
 
   describe("handleUnpinMemory", () => {
     it("unpins existing memory", async () => {
-      const result = await handleUnpinMemory("mem-2");
+      const result = handleUnpinMemory("mem-2");
       expect(result.success).toBe(true);
     });
 
     it("returns not found for missing memory", async () => {
-      const result = await handleUnpinMemory("nonexistent");
+      const result = handleUnpinMemory("nonexistent");
       expect(result.success).toBe(false);
       expect(result.error).toBe("Memory not found");
     });
@@ -656,14 +656,14 @@ describe("api-handlers", () => {
 
   describe("handleListConflicts", () => {
     it("returns unresolved conflicts", async () => {
-      const result = await handleListConflicts(false);
+      const result = handleListConflicts(false);
       expect(result.success).toBe(true);
       expect(result.data?.length).toBe(1);
       expect(result.data?.[0].id).toBe("conflict-1");
     });
 
     it("returns resolved conflicts when requested", async () => {
-      const result = await handleListConflicts(true);
+      const result = handleListConflicts(true);
       expect(result.success).toBe(true);
       expect(result.data?.length).toBe(1);
       expect(result.data?.[0].id).toBe("conflict-2");
@@ -700,7 +700,7 @@ describe("api-handlers", () => {
 
   describe("handleConflictStats", () => {
     it("returns conflict statistics", async () => {
-      const result = await handleConflictStats();
+      const result = handleConflictStats();
       expect(result.success).toBe(true);
       expect(result.data?.unresolved).toBeDefined();
       expect(result.data?.resolved).toBeDefined();
@@ -709,7 +709,7 @@ describe("api-handlers", () => {
 
   describe("handleDetectTagMigration", () => {
     it("returns migration status", async () => {
-      const result = await handleDetectTagMigration();
+      const result = handleDetectTagMigration();
       expect(result.success).toBe(true);
       expect(result.data?.needsMigration).toBeDefined();
       expect(result.data?.count).toBeDefined();
@@ -719,7 +719,7 @@ describe("api-handlers", () => {
       const spy = vi.spyOn(shardManager, "getAllShards").mockImplementation(() => {
         throw new Error("DB error");
       });
-      const result = await handleDetectTagMigration();
+      const result = handleDetectTagMigration();
       expect(result.success).toBe(false);
       expect(result.error).toBe("Internal error in handleDetectTagMigration");
       spy.mockRestore();
@@ -728,7 +728,7 @@ describe("api-handlers", () => {
 
   describe("handleGetTagMigrationProgress", () => {
     it("returns progress tracker", async () => {
-      const result = await handleGetTagMigrationProgress();
+      const result = handleGetTagMigrationProgress();
       expect(result.success).toBe(true);
       expect(result.data?.processed).toBe(0);
       expect(result.data?.isComplete).toBe(true);
@@ -749,7 +749,7 @@ describe("api-handlers", () => {
   describe("embedding cache stats and API status", () => {
     describe("handleEmbeddingCacheStats", () => {
       it("returns embedding cache statistics on success", async () => {
-        const result = await handleEmbeddingCacheStats();
+        const result = handleEmbeddingCacheStats();
         expect(result.success).toBe(true);
         expect(result.data).toEqual({
           size: 100,
@@ -762,7 +762,7 @@ describe("api-handlers", () => {
 
       it("returns success: false when getCacheStats throws", async () => {
         mockState.getCacheStatsError = "Cache service down";
-        const result = await handleEmbeddingCacheStats();
+        const result = handleEmbeddingCacheStats();
         expect(result.success).toBe(false);
         expect(result.error).toBe("Internal error in handleEmbeddingCacheStats");
       });
@@ -779,7 +779,7 @@ describe("api-handlers", () => {
           run: () => ({ changes: 1 }),
         }));
 
-        const result = await handleApiStatus();
+        const result = handleApiStatus();
         expect(result.success).toBe(true);
         expect(result.data).toEqual({
           mode: "full",
@@ -798,7 +798,7 @@ describe("api-handlers", () => {
           run: () => ({ changes: 1 }),
         }));
 
-        const result = await handleApiStatus();
+        const result = handleApiStatus();
         expect(result.success).toBe(true);
         expect(result.data?.ready).toBe(false);
       });
@@ -811,7 +811,7 @@ describe("api-handlers", () => {
           throw new Error("DB error");
         });
 
-        const result = await handleApiStatus();
+        const result = handleApiStatus();
         expect(result.success).toBe(true);
         expect(result.data?.ready).toBe(false);
       });
@@ -827,7 +827,7 @@ describe("api-handlers", () => {
           run: () => ({ changes: 1 }),
         }));
 
-        const result = await handleApiStatus();
+        const result = handleApiStatus();
         expect(result.success).toBe(true);
         expect(result.data?.mode).toBe("text-only");
       });
@@ -843,14 +843,14 @@ describe("api-handlers", () => {
           run: () => ({ changes: 1 }),
         }));
 
-        const result = await handleApiStatus();
+        const result = handleApiStatus();
         expect(result.success).toBe(true);
         expect(result.data?.warmedUp).toBe(false);
       });
 
       it("returns success: false when embeddingService lookup throws", async () => {
         mockState.isWarmedUpError = "Service unavailable";
-        const result = await handleApiStatus();
+        const result = handleApiStatus();
         expect(result.success).toBe(false);
         expect(result.error).toBe("Internal error in handleApiStatus");
       });

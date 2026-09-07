@@ -32,7 +32,7 @@ const UNSAFE_KEYS = new Set([
 ]);
 
 export function applySafeExtraParams(
-  requestBody: Record<string, any>,
+  requestBody: Record<string, unknown>,
   extraParams: Record<string, unknown>
 ): void {
   for (const [key, value] of Object.entries(extraParams)) {
@@ -146,7 +146,7 @@ export function extractFirstJSON(text: string): unknown | null {
     let endIdx = -1;
 
     for (let i = startIdx; i < text.length; i++) {
-      const char = text[i]!;
+      const char = text[i] ?? "";
 
       if (inString) {
         if (escape) {

@@ -135,7 +135,11 @@ export async function performUserProfileLearning(
 
       if (existingProfile) {
         const changeSummary = generateChangeSummary(
-          safeJSONParse(existingProfile.profileData) as any,
+          safeJSONParse<UserProfileData>(existingProfile.profileData) ?? {
+            preferences: [],
+            patterns: [],
+            workflows: [],
+          },
           updatedProfileData
         );
         userProfileManager.updateProfile(
@@ -315,6 +319,7 @@ async function analyzeUserProfile(
     // The LLM is instructed to return the fully merged profile; code only enforces
     // the configured maximums (a second merge here would double-increment frequencies
     // and confidence scores).
+    // SAFETY: generateStructuredOutput is constrained by schema; persisted shape is UserProfileData
     return userProfileManager.enforceProfileLimits(result as unknown as UserProfileData);
   }
 

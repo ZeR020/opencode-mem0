@@ -209,8 +209,7 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
       if (item.type === "function_call" && item.name === expectedToolName) {
         if (item.arguments) {
           try {
-            const parsed = extractFirstJSON(item.arguments) ?? JSON.parse(item.arguments);
-            return parsed;
+            return extractFirstJSON(item.arguments) ?? JSON.parse(item.arguments);
           } catch (error) {
             log("Failed to parse function call arguments", {
               error: String(error),

@@ -8,7 +8,7 @@ describe("handleEmbeddingCacheStats", () => {
   });
 
   it("should return cache stats with zero hits/misses when empty", async () => {
-    const result = await handleEmbeddingCacheStats();
+    const result = handleEmbeddingCacheStats();
     expect(result.success).toBe(true);
     expect(result.data).toEqual({
       size: 0,
@@ -30,7 +30,7 @@ describe("handleEmbeddingCacheStats", () => {
     await embeddingService.embed("hello"); // hit
     await embeddingService.embed("world"); // miss
 
-    const result = await handleEmbeddingCacheStats();
+    const result = handleEmbeddingCacheStats();
     expect(result.success).toBe(true);
     expect(result.data?.size).toBe(2);
     expect(result.data?.hits).toBe(1);

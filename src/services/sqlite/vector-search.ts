@@ -2,7 +2,7 @@ import type { Database } from "./sqlite-bootstrap.js";
 import { connectionManager } from "./connection-manager.js";
 import { log } from "../logger.js";
 import { CONFIG } from "../../config.js";
-import type { MemoryRecord, SearchResult, ShardInfo } from "./types.js";
+import type { MemoryMetadata, MemoryRecord, SearchResult, ShardInfo } from "./types.js";
 import { createVectorBackend } from "../vector-backends/backend-factory.js";
 import { ExactScanBackend } from "../vector-backends/exact-scan-backend.js";
 import type { VectorBackend } from "../vector-backends/types.js";
@@ -39,12 +39,12 @@ function toBlob(vector?: Float32Array): Uint8Array | null {
   return vector ? new Uint8Array(vector.buffer, vector.byteOffset, vector.byteLength) : null;
 }
 
-function safeParseMetadata(raw: string | null | undefined): Record<string, unknown> | undefined {
+function safeParseMetadata(raw: string | null | undefined): MemoryMetadata | undefined {
   if (!raw) return undefined;
   try {
-    return JSON.parse(raw) as Record<string, unknown>;
+    return JSON.parse(raw) as MemoryMetadata;
   } catch {
-    log("Corrupt metadata for memory", { raw: raw.substring(0, 100) });
+    log("Corrupt metadata for memory", { raw: raw.slice(0, 100) });
     return undefined;
   }
 }
@@ -822,8 +822,8 @@ export class VectorSearch {
     const result = this.getStmt(
       db,
       "SELECT COUNT(*) as count FROM memories WHERE is_deprecated = 0"
-    ).get() as any;
-    return result.count;
+    ).get();
+    return Number(result?.count ?? 0);
   }
 
   getDistinctTags(db: Database): any[] {

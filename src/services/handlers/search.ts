@@ -12,7 +12,7 @@ import {
   getProjectPathFromTag,
   MAX_SEARCH_RESULTS,
 } from "./shared.js";
-import type { ApiResponse, PaginatedResponse } from "./shared-types.js";
+import type { ApiResponse, MemoryMetadata, PaginatedResponse } from "./shared-types.js";
 
 interface FormattedPrompt {
   type: "prompt";
@@ -35,7 +35,7 @@ interface FormattedMemory {
   createdAt: string;
   updatedAt?: string;
   similarity?: number;
-  metadata?: Record<string, unknown>;
+  metadata?: MemoryMetadata;
   displayName?: string;
   userName?: string;
   userEmail?: string;
@@ -160,7 +160,7 @@ function formatSearchMemory(r: SearchResult): FormattedMemory {
     projectName: r.projectName,
     gitRepoUrl: r.gitRepoUrl,
     isPinned: r.isPinned === 1,
-    linkedPromptId: (r.metadata as Record<string, unknown>)?.promptId as string | undefined,
+    linkedPromptId: r.metadata?.promptId,
   };
 }
 
@@ -211,9 +211,7 @@ function fetchMissingLinkedItems(results: SearchResultItem[]): SearchResultItem[
       for (const mid of missingMemoryIds) {
         const memory = vectorSearch.getMemoryById(db, mid);
         if (memory && !existingIds.has(memory.id)) {
-          const parsedMetadata = safeJSONParse(memory.metadata) as
-            | Record<string, unknown>
-            | undefined;
+          const parsedMetadata = safeJSONParse<MemoryMetadata>(memory.metadata);
           results.push({
             type: "memory",
             id: memory.id,
@@ -231,7 +229,7 @@ function fetchMissingLinkedItems(results: SearchResultItem[]): SearchResultItem[
             projectName: memory.project_name,
             gitRepoUrl: memory.git_repo_url,
             isPinned: memory.is_pinned === 1,
-            linkedPromptId: parsedMetadata?.promptId as string | undefined,
+            linkedPromptId: parsedMetadata?.promptId,
             isContext: true,
           });
         }

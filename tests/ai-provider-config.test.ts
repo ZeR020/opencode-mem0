@@ -41,7 +41,7 @@ class FakeSessionManager {
     return this.messages.length - 1;
   }
 
-  addMessageAtomic(sessionId: string, message: any): void {
+  addMessageAtomic(message: any): void {
     this.messages.push({ ...message, sequence: this.messages.length });
   }
 

@@ -1,12 +1,13 @@
 import { BaseAIProvider, type ProviderConfig, type ToolCallResult } from "./base-provider.js";
 import { AISessionManager } from "../session/ai-session-manager.js";
+import type { AISession } from "../session/session-types.js";
 import { ToolSchemaConverter, type ChatCompletionTool } from "../tools/tool-schema.js";
 import { log } from "../../logger.js";
 import { UserProfileValidator } from "../validators/user-profile-validator.js";
 
 interface AnthropicMessage {
   role: "user" | "assistant";
-  content: string | Array<{ type: string; text?: string; [key: string]: any }>;
+  content: string | Array<{ type: string; text?: string; [key: string]: unknown }>;
 }
 
 interface AnthropicResponse {
@@ -18,7 +19,7 @@ interface AnthropicResponse {
     text?: string;
     id?: string;
     name?: string;
-    input?: any;
+    input?: unknown;
   }>;
   model: string;
   stop_reason: string;
@@ -41,7 +42,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
   }
 
   private _buildAnthropicMessages(
-    session: any,
+    session: AISession,
     _systemPrompt: string,
     userPrompt: string
   ): AnthropicMessage[] {
@@ -68,7 +69,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
 
   private _handleAnthropicResponse(
     data: AnthropicResponse,
-    session: any,
+    session: AISession,
     messages: AnthropicMessage[],
     toolSchema: ChatCompletionTool,
     iterations: number
@@ -101,7 +102,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
     }
   }
 
-  private _appendRetryMessage(session: any, messages: AnthropicMessage[]): void {
+  private _appendRetryMessage(session: AISession, messages: AnthropicMessage[]): void {
     const retryPrompt =
       "Please use the save_memories tool to extract and save the memories from the conversation as instructed.";
     this.aiSessionManager.addMessageAtomic({
@@ -146,13 +147,12 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
         tools: [tool],
       };
 
-      const headers: Record<string, string> = {
+      const headers = {
         "Content-Type": "application/json",
         "anthropic-version": "2023-06-01",
       };
-
       if (this.config.apiKey) {
-        headers["x-api-key"] = this.config.apiKey;
+        Object.assign(headers, { "x-api-key": this.config.apiKey });
       }
 
       const fetchResult = await this.fetchWithTimeout(

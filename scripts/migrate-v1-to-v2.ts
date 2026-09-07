@@ -1,4 +1,4 @@
-import { getDatabase } from "../src/services/sqlite/sqlite-bootstrap.ts";
+import { getDatabase, type Database } from "../src/services/sqlite/sqlite-bootstrap.ts";
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { join, dirname, resolve, relative, isAbsolute } from "node:path";
 import { homedir } from "node:os";
@@ -24,7 +24,7 @@ void (function (): void {
    * Detect if a database has the old v1 schema by checking for the absence
    * of key v2 columns (e.g., `store_type`, `strength`).
    */
-  function isV1Schema(db: DatabaseType): boolean {
+  function isV1Schema(db: Database): boolean {
     const columns = db.prepare("PRAGMA table_info(memories)").all() as ColumnInfo[];
     const columnNames = new Set(columns.map((c) => c.name));
     // If store_type or strength is missing, it's v1
@@ -35,7 +35,7 @@ void (function (): void {
    * Add all v2 scoring and lifecycle columns to an existing memories table.
    * Uses safe `ALTER TABLE ADD COLUMN` with IF NOT EXISTS semantics.
    */
-  function addV2Columns(db: DatabaseType): number {
+  function addV2Columns(db: Database): number {
     const columns = db.prepare("PRAGMA table_info(memories)").all() as ColumnInfo[];
     const columnNames = new Set(columns.map((c) => c.name));
     let added = 0;
@@ -76,7 +76,7 @@ void (function (): void {
    * Calculates recency based on created_at, and assigns reasonable defaults
    * for other scores.
    */
-  function backfillScores(db: DatabaseType): number {
+  function backfillScores(db: Database): number {
     let updated = 0;
 
     try {
@@ -130,7 +130,7 @@ void (function (): void {
   /**
    * Create the memory_conflicts table if it doesn't exist.
    */
-  function createConflictsTable(db: DatabaseType): boolean {
+  function createConflictsTable(db: Database): boolean {
     try {
       const exists = db
         .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='memory_conflicts'")
@@ -243,7 +243,7 @@ void (function (): void {
   /**
    * Add missing indexes for v2 performance.
    */
-  function addV2Indexes(db: DatabaseType): void {
+  function addV2Indexes(db: Database): void {
     const indexes = [
       "CREATE INDEX IF NOT EXISTS idx_strength ON memories(strength DESC)",
       "CREATE INDEX IF NOT EXISTS idx_recency ON memories(recency_score DESC)",
@@ -342,7 +342,7 @@ void (function (): void {
     log(`Discovered ${dbs.length} databases`);
 
     for (const dbPath of dbs) {
-      let db: DatabaseType | null = null;
+      let db: Database | null = null;
       try {
         db = new Database(dbPath);
         const hasMemories = db
@@ -403,8 +403,12 @@ void (function (): void {
     return result;
   }
 
-  const print = (msg: string): void => process.stdout.write(`${msg}\n`);
-  const printerr = (msg: string): void => process.stderr.write(`${msg}\n`);
+  const print = (msg: string): void => {
+    process.stdout.write(`${msg}\n`);
+  };
+  const printerr = (msg: string): void => {
+    process.stderr.write(`${msg}\n`);
+  };
 
   // CLI entry point
   const rawStoragePath = process.argv[2] || join(homedir(), ".opencode-mem", "data");

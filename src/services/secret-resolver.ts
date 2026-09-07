@@ -34,7 +34,16 @@ export function resolveSecretValue(value: string | undefined): string | undefine
 
   if (value.startsWith("file://")) {
     const rawPath = value.slice(7);
-    const resolved = rawPath.startsWith("~") ? expandPath(rawPath) : fileURLToPath(new URL(value));
+    let resolved: string;
+    if (rawPath.startsWith("~")) {
+      resolved = expandPath(rawPath);
+    } else {
+      try {
+        resolved = fileURLToPath(new URL(value));
+      } catch {
+        throw new Error(`Invalid secret file URL: ${value}`);
+      }
+    }
     const filePath = normalize(expandPath(resolved));
 
     if (filePath.includes("..")) {

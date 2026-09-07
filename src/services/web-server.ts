@@ -65,6 +65,17 @@ interface WebServerConfig {
   apiKey?: string;
 }
 
+type RedactedValue =
+  | Record<string, unknown>
+  | unknown[]
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | null
+  | undefined;
+
 function isLoopbackHost(host: string): boolean {
   return LOCAL_HOSTS.has(host.trim().toLowerCase());
 }
@@ -109,7 +120,7 @@ export class WebServer {
       this.server = await serve({
         port: this.config.port,
         hostname: this.config.host,
-        fetch: this.handleRequest.bind(this),
+        fetch: (req) => this.handleRequest(req),
       });
       this.isOwner = true;
     } catch (error) {
@@ -231,8 +242,8 @@ export class WebServer {
 
   // --- HTTP request handling ---
 
-  private redactPII(obj: unknown): unknown {
-    if (!obj || typeof obj !== "object") return obj;
+  private redactPII(obj: unknown): RedactedValue {
+    if (!obj || typeof obj !== "object") return obj as RedactedValue;
     if (Array.isArray(obj)) return obj.map((item) => this.redactPII(item));
 
     const newObj: Record<string, unknown> = {};
@@ -249,7 +260,12 @@ export class WebServer {
   }
 
   private async handleRequest(req: Request): Promise<Response> {
-    const url = new URL(req.url);
+    let url: URL;
+    try {
+      url = new URL(req.url);
+    } catch {
+      return this.jsonResponse({ success: false, error: "Bad Request" }, 400);
+    }
     const path = url.pathname;
     const method = req.method;
 
@@ -355,25 +371,25 @@ export class WebServer {
       case "GET /api/tags":
         return this.jsonResponse(await handleListTags(), 200, !isLocal);
       case "GET /api/memories":
-        return await this._apiListMemories(url, isLocal);
+        return this._apiListMemories(url, isLocal);
       case "POST /api/memories":
-        return await this._apiAddMemory(req, isLocal);
+        return this._apiAddMemory(req, isLocal);
       case "POST /api/memories/bulk-delete":
-        return await this._apiBulkDeleteMemories(req, isLocal);
+        return this._apiBulkDeleteMemories(req, isLocal);
       case "GET /api/search":
-        return await this._apiSearch(url, isLocal);
+        return this._apiSearch(url, isLocal);
       case "GET /api/memories/search":
-        return await this._apiSearch(url, isLocal);
+        return this._apiSearch(url, isLocal);
       case "GET /api/transcripts":
         return this._apiListTranscripts(url, isLocal);
       case "GET /api/transcripts/search":
-        return await this._apiSearchTranscripts(url, isLocal);
+        return this._apiSearchTranscripts(url, isLocal);
       case "GET /api/stats":
         return this.jsonResponse(handleStats(), 200, !isLocal);
       case "GET /api/config":
         return this.jsonResponse(handleGetConfig(), 200, !isLocal);
       case "PUT /api/config":
-        return await this._apiUpdateConfig(req, isLocal);
+        return this._apiUpdateConfig(req, isLocal);
       case "GET /api/status":
         return this.jsonResponse(handleApiStatus(), 200, !isLocal);
       case "GET /api/health":
@@ -381,7 +397,7 @@ export class WebServer {
       case "GET /api/embedding-cache":
         return this.jsonResponse(handleEmbeddingCacheStats(), 200, !isLocal);
       case "GET /api/conflicts":
-        return await this._apiListConflicts(url, isLocal);
+        return this._apiListConflicts(url, isLocal);
       case "GET /api/conflicts/stats":
         return this.jsonResponse(handleConflictStats(), 200, !isLocal);
       case "POST /api/cleanup":
@@ -393,55 +409,55 @@ export class WebServer {
       case "GET /api/migration/tags/detect":
         return this.jsonResponse(handleDetectTagMigration(), 200, !isLocal);
       case "POST /api/migration/tags/run-batch":
-        return await this._apiRunTagMigration(req, isLocal);
+        return this._apiRunTagMigration(req, isLocal);
       case "GET /api/migration/tags/progress":
         return this.jsonResponse(handleGetTagMigrationProgress(), 200, !isLocal);
       case "POST /api/migration/run":
-        return await this._apiRunMigration(req, isLocal);
+        return this._apiRunMigration(req, isLocal);
       case "GET /api/user-profile":
-        return await this._apiGetUserProfile(url, isLocal);
+        return this._apiGetUserProfile(url, isLocal);
       case "PUT /api/user-profile":
-        return await this._apiUpdateUserProfile(req, isLocal);
+        return this._apiUpdateUserProfile(req, isLocal);
       case "GET /api/profile":
-        return await this._apiGetUserProfile(url, isLocal);
+        return this._apiGetUserProfile(url, isLocal);
       case "PUT /api/profile":
-        return await this._apiUpdateUserProfile(req, isLocal);
+        return this._apiUpdateUserProfile(req, isLocal);
       case "GET /api/user-profile/changelog":
-        return await this._apiGetProfileChangelog(url, isLocal);
+        return this._apiGetProfileChangelog(url, isLocal);
       case "GET /api/user-profile/snapshot":
-        return await this._apiGetProfileSnapshot(url, isLocal);
+        return this._apiGetProfileSnapshot(url, isLocal);
       case "POST /api/user-profile/refresh":
-        return await this._apiRefreshProfile(req, isLocal);
+        return this._apiRefreshProfile(req, isLocal);
       case "POST /api/prompts/bulk-delete":
-        return await this._apiBulkDeletePrompts(req, isLocal);
+        return this._apiBulkDeletePrompts(req, isLocal);
       default:
         break;
     }
 
     // Parameterized routes
     if (method === "DELETE" && path.startsWith("/api/memories/")) {
-      return await this._apiDeleteMemory(url, path, isLocal);
+      return this._apiDeleteMemory(url, path, isLocal);
     }
     if (method === "GET" && path.startsWith("/api/memories/")) {
       return this._apiGetMemory(path, isLocal);
     }
     if (method === "PUT" && path.startsWith("/api/memories/")) {
-      return await this._apiUpdateMemory(req, path, isLocal);
+      return this._apiUpdateMemory(req, path, isLocal);
     }
     if (method === "POST" && /^\/api\/memories\/[^/]+\/pin$/.test(path)) {
-      return await this._apiPinMemory(path, isLocal);
+      return this._apiPinMemory(path, isLocal);
     }
     if (method === "POST" && /^\/api\/memories\/[^/]+\/unpin$/.test(path)) {
-      return await this._apiUnpinMemory(path, isLocal);
+      return this._apiUnpinMemory(path, isLocal);
     }
     if (method === "POST" && path.startsWith("/api/conflicts/")) {
-      return await this._apiResolveConflict(req, path, isLocal);
+      return this._apiResolveConflict(req, path, isLocal);
     }
     if (method === "GET" && path.startsWith("/api/conflicts/")) {
       return this._apiGetConflict(path, isLocal);
     }
     if (method === "DELETE" && path.startsWith("/api/prompts/")) {
-      return await this._apiDeletePrompt(url, path, isLocal);
+      return this._apiDeletePrompt(url, path, isLocal);
     }
 
     return new Response("Not Found", { status: 404 });
@@ -534,7 +550,7 @@ export class WebServer {
 
   private async _apiListConflicts(url: URL, isLocal: boolean): Promise<Response> {
     const resolved = url.searchParams.get("resolved") === "true";
-    const limit = Number.parseInt(url.searchParams.get("limit") || "100");
+    const limit = Number.parseInt(url.searchParams.get("limit") || "100", 10);
     const result = handleListConflicts(resolved, limit);
     return this.jsonResponse(result, 200, !isLocal);
   }
@@ -648,7 +664,7 @@ export class WebServer {
 
   private async _apiGetProfileChangelog(url: URL, isLocal: boolean): Promise<Response> {
     const profileId = url.searchParams.get("profileId");
-    const limit = Number.parseInt(url.searchParams.get("limit") || "5");
+    const limit = Number.parseInt(url.searchParams.get("limit") || "5", 10);
     if (!profileId) {
       return this.jsonResponse({ success: false, error: "profileId parameter required" });
     }
@@ -720,12 +736,12 @@ export class WebServer {
     pageSizeKey = "pageSize",
     pageSizeFallbackKey?: string
   ): { page: number; pageSize: number } {
-    const rawPage = Number.parseInt(url.searchParams.get(pageKey) || "1");
+    const rawPage = Number.parseInt(url.searchParams.get(pageKey) || "1", 10);
     const rawPageSizeStr =
       url.searchParams.get(pageSizeKey) ||
       (pageSizeFallbackKey ? url.searchParams.get(pageSizeFallbackKey) : null) ||
       "20";
-    const rawPageSize = Number.parseInt(rawPageSizeStr);
+    const rawPageSize = Number.parseInt(rawPageSizeStr, 10);
     const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.min(rawPage, 10000) : 1;
     const pageSize =
       Number.isFinite(rawPageSize) && rawPageSize > 0 && rawPageSize <= 100 ? rawPageSize : 20;

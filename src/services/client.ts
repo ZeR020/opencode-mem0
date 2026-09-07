@@ -11,7 +11,11 @@ import type { MemoryRecord } from "./sqlite/types.js";
 import { calculateAllScores } from "./memory-scoring.js";
 import { classifyMemory } from "./memory-lifecycle.js";
 import { detectConflicts, recordConflictPair } from "./memory-conflicts.js";
-import { mapDbRowToListItem, mapDbRowToSessionResult } from "./utils/memory-mapper.js";
+import {
+  mapDbRowToListItem,
+  mapDbRowToSessionResult,
+  type ScoredMemoryRow,
+} from "./utils/memory-mapper.js";
 import { deduplicationService } from "./deduplication-service.js";
 
 export type MemoryScope = "project" | "all-projects";
@@ -48,46 +52,6 @@ const withShardWriteLock = <T>(dbPath: string, fn: () => Promise<T>): Promise<T>
 const toErrorMessage = (error: unknown): string => {
   return error instanceof Error ? error.message : String(error);
 };
-
-interface MemoryRow {
-  id: string;
-  content: string;
-  created_at: number;
-  metadata: string | null;
-  display_name: string | null;
-  user_name: string | null;
-  user_email: string | null;
-  project_path: string | null;
-  project_name: string | null;
-  git_repo_url: string | null;
-  strength: number;
-  recency_score: number;
-  frequency_score: number;
-  importance_score: number;
-  utility_score: number;
-  novelty_score: number;
-  confidence_score: number;
-  interference_penalty: number;
-  access_count: number;
-  is_pinned: number;
-  [key: string]: unknown;
-}
-
-interface SessionSearchRow {
-  id: string;
-  content: string;
-  tags: string | null;
-  metadata: string | null;
-  container_tag: string;
-  display_name: string | null;
-  user_name: string | null;
-  user_email: string | null;
-  project_path: string | null;
-  project_name: string | null;
-  git_repo_url: string | null;
-  created_at: number;
-  [key: string]: unknown;
-}
 
 // rowToMemoryListItem and rowToSessionSearchResult replaced by
 // mapDbRowToListItem / mapDbRowToSessionResult from memory-mapper.ts
@@ -295,7 +259,7 @@ export class LocalMemoryClient {
 
       try {
         const existingMemories = vectorSearch.listMemories(db, containerTag, 50);
-        existingContents = existingMemories.map((memory: MemoryRow) => memory.content || "");
+        existingContents = existingMemories.map((memory: ScoredMemoryRow) => memory.content || "");
 
         // Check for potential conflicts (simplified: memories with similar content)
         conflictingMemories = existingContents
@@ -389,11 +353,12 @@ export class LocalMemoryClient {
         // directly (with the real cosine similarity) instead of relying on the
         // generic FTS-based detectConflicts rediscovery. The pair is already
         // known — record it now.
-        const conflictCandidate = recheckResult.conflictCandidateId
-          ? recheckResult
-          : dedupResult.conflictCandidateId
-            ? dedupResult
-            : null;
+        let conflictCandidate = null;
+        if (recheckResult.conflictCandidateId) {
+          conflictCandidate = recheckResult;
+        } else if (dedupResult.conflictCandidateId) {
+          conflictCandidate = dedupResult;
+        }
         if (conflictCandidate?.conflictCandidateId) {
           await recordConflictPair({
             newMemoryId: id,
@@ -465,7 +430,7 @@ export class LocalMemoryClient {
         };
       }
 
-      let allMemories: MemoryRow[] = [];
+      let allMemories: ScoredMemoryRow[] = [];
 
       for (const shard of shards) {
         const db = connectionManager.getConnection(shard.dbPath);
@@ -473,7 +438,7 @@ export class LocalMemoryClient {
           db,
           scope === "all-projects" ? "" : containerTag,
           limit * 2
-        ) as MemoryRow[];
+        ) as ScoredMemoryRow[];
         allMemories = allMemories.concat(memories);
       }
 
@@ -516,15 +481,15 @@ export class LocalMemoryClient {
         return { success: true as const, results: [], total: 0, timing: 0 };
       }
 
-      let allMemories: SessionSearchRow[] = [];
+      let allMemories: ScoredMemoryRow[] = [];
 
       for (const shard of shards) {
         const db = connectionManager.getConnection(shard.dbPath);
-        const memories = vectorSearch.getMemoriesBySessionID(db, sessionID) as SessionSearchRow[];
+        const memories = vectorSearch.getMemoriesBySessionID(db, sessionID) as ScoredMemoryRow[];
         allMemories = allMemories.concat(memories);
       }
 
-      allMemories.sort((left, right) => right.created_at - left.created_at);
+      allMemories.sort((left, right) => Number(right.created_at) - Number(left.created_at));
 
       const results = allMemories.slice(0, limit).map(mapDbRowToSessionResult);
 

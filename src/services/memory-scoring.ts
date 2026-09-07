@@ -238,8 +238,7 @@ export function calculateNovelty(content: string, existingContents: string[]): n
   }
 
   // Novelty = 1 - similarity (with floor to avoid 0)
-  const novelty = Math.max(0.1, 1 - maxSimilarity);
-  return novelty;
+  return Math.max(0.1, 1 - maxSimilarity);
 }
 
 const HIGH_CONFIDENCE_TYPES = ["decision", "architecture", "configuration", "security"];

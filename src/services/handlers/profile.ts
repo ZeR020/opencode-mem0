@@ -160,15 +160,18 @@ export async function handleRefreshProfile(
     }
 
     const remaining = userPromptManager.countUnanalyzedForUserLearning();
+    let message: string;
+    if (analyzed > 0) {
+      message = `Profile refresh completed — analyzed ${analyzed} prompts`;
+    } else if (remaining >= threshold) {
+      message = "Profile refresh completed";
+    } else {
+      message = `Need ${threshold - remaining} more unanalyzed prompt(s) before profile analysis runs (${remaining}/${threshold}).`;
+    }
     return {
       success: true,
       data: {
-        message:
-          analyzed > 0
-            ? `Profile refresh completed — analyzed ${analyzed} prompts`
-            : remaining >= threshold
-              ? "Profile refresh completed"
-              : `Need ${threshold - remaining} more unanalyzed prompt(s) before profile analysis runs (${remaining}/${threshold}).`,
+        message,
         analyzed,
         unanalyzedPrompts: remaining,
         threshold,

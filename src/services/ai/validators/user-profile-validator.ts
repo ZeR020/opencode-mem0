@@ -40,19 +40,17 @@ const workflowSchema = z.object({
     .nonempty({ message: "steps cannot be empty" }),
 });
 
-const profileSchema = z
-  .object({
-    preferences: z.array(preferenceSchema).optional(),
-    patterns: z.array(patternSchema).optional(),
-    workflows: z.array(workflowSchema).optional(),
-  })
-  .passthrough();
+const profileSchema = z.looseObject({
+  preferences: z.array(preferenceSchema).optional(),
+  patterns: z.array(patternSchema).optional(),
+  workflows: z.array(workflowSchema).optional(),
+});
 
 /**
  * Convert zod issues to the error-message format callers and tests expect.
  * `preferences[0].category is missing or invalid` / `preferences[0] is not an object`.
  */
-function formatError(issue: z.ZodIssue): string {
+function formatError(issue: z.core.$ZodIssue): string {
   if (issue.path.length === 0) return issue.message;
   const [section, index, ...rest] = issue.path;
   if (typeof index === "number" && typeof section === "string") {
@@ -111,6 +109,7 @@ export class UserProfileValidator {
     if (errors.length > 0) {
       return { valid: false, errors };
     }
+    // SAFETY: profileSchema.safeParse succeeded and extra checks passed; result.data is UserProfileData
     return { valid: true, errors: [], data: result.data as unknown as UserProfileData };
   }
 }

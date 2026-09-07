@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+globalThis.fetch = mockFetch as unknown as typeof fetch;
 
 vi.mock("../src/services/logger.js", () => ({
   log: vi.fn(),
@@ -46,7 +46,7 @@ describe("AnthropicMessagesProvider", () => {
     function: {
       name: "save_memories",
       description: "Save user memories",
-      parameters: { type: "object", properties: {} },
+      parameters: { type: "object", properties: {}, required: [] },
     },
   };
 

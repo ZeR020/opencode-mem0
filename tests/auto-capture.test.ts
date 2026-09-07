@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { PluginInput } from "@opencode-ai/plugin";
 
 const mockUserPromptManager = {
   getLastUncapturedPrompt: vi.fn(),

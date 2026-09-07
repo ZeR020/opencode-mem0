@@ -5,6 +5,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { connectionManager } from "../../sqlite/connection-manager.js";
 import { CONFIG } from "../../../config.js";
 import { log } from "../../logger.js";
+import { safeJSONParse } from "../../utils/safe-transforms.js";
 import {
   type AIProviderType,
   type AISession,
@@ -167,6 +168,7 @@ export class AISessionManager {
       ]
     );
 
+    // SAFETY: session row exists after the insert above; getSession would only miss on driver failure
     // skipcq: JS-0339 — session is guaranteed after insert above
     return this.getSession(params.sessionId, params.provider)!;
   }
@@ -240,7 +242,7 @@ export class AISessionManager {
       provider: row.provider as AIProviderType,
       sessionId: row.session_id,
       conversationId: row.conversation_id,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      metadata: row.metadata ? (safeJSONParse(row.metadata) as AISession["metadata"]) : undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       expiresAt: row.expires_at,
@@ -255,9 +257,13 @@ export class AISessionManager {
       sequence: row.sequence,
       role: row.role,
       content: row.content,
-      toolCalls: row.tool_calls ? JSON.parse(row.tool_calls) : undefined,
+      toolCalls: row.tool_calls
+        ? (safeJSONParse(row.tool_calls) as AIMessage["toolCalls"])
+        : undefined,
       toolCallId: row.tool_call_id,
-      contentBlocks: row.content_blocks ? JSON.parse(row.content_blocks) : undefined,
+      contentBlocks: row.content_blocks
+        ? (safeJSONParse(row.content_blocks) as AIMessage["contentBlocks"])
+        : undefined,
       createdAt: row.created_at,
     };
   }

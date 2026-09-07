@@ -66,10 +66,11 @@ function logWithLevel(level: LogLevel, message: string, data?: unknown) {
   const logDir = dirname(logFile);
   if (!existsSync(logDir)) mkdirSync(logDir, { recursive: true });
 
-  const isInitialized = (globalThis as any)[GLOBAL_LOGGER_KEY];
+  const g = globalThis as Record<symbol, boolean | undefined>;
+  const isInitialized = g[GLOBAL_LOGGER_KEY];
   if (!isInitialized) {
     rotateLog();
-    (globalThis as any)[GLOBAL_LOGGER_KEY] = true;
+    g[GLOBAL_LOGGER_KEY] = true;
   }
 
   if (pendingWrites >= MAX_QUEUE_LENGTH) {

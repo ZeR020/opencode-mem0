@@ -133,10 +133,10 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
 
   protected filterIncompleteToolCallSequences(messages: AIMessage[]): AIMessage[] {
     const result: AIMessage[] = [];
-    let i = 0;
+    let skipUntil = 0;
 
-    while (i < messages.length) {
-      const msg = messages[i];
+    for (const [i, msg] of messages.entries()) {
+      if (i < skipUntil) continue;
       if (!msg) break;
 
       if (msg.role === "assistant" && msg.toolCalls && msg.toolCalls.length > 0) {
@@ -146,13 +146,12 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
         );
         if (complete) {
           consumedMessages.forEach((m) => result.push(m));
-          i = nextIndex;
+          skipUntil = nextIndex;
         } else {
           break;
         }
       } else {
         result.push(msg);
-        i++;
       }
     }
 
@@ -374,12 +373,11 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
       const requestBody = this._buildChatRequestBody(toolSchema);
       requestBody.messages = messages;
 
-      const headers: Record<string, string> = {
+      const headers = {
         "Content-Type": "application/json",
       };
-
       if (this.config.apiKey) {
-        headers.Authorization = `Bearer ${this.config.apiKey}`;
+        Object.assign(headers, { Authorization: `Bearer ${this.config.apiKey}` });
       }
 
       const fetchResult = await this.fetchWithTimeout(
