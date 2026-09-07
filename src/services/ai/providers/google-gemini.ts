@@ -19,6 +19,8 @@ function safeParseToolResponse(content: string): any {
 
 const extractFunctionName = (id: string) => id.split(":")[0];
 
+const DEFAULT_GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta";
+
 /**
  * Google Gemini Provider
  * Supports Google's Gemini models (e.g. gemini-1.5-flash) via Google AI Studio API.
@@ -254,7 +256,7 @@ export class GoogleGeminiProvider extends BaseAIProvider {
 
     while (iterations < maxIterations) {
       iterations++;
-      const baseUrl = this.config.apiUrl || "https://generativelanguage.googleapis.com/v1beta";
+      const baseUrl = this.config.apiUrl || DEFAULT_GEMINI_API_URL;
       const url = `${baseUrl}/models/${this.config.model}:generateContent`;
       const requestBody = this._buildGeminiRequestBody(contents, systemPrompt, toolSchema);
 

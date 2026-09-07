@@ -5,7 +5,7 @@ import { connectionManager } from "../sqlite/connection-manager.js";
 import { log } from "../logger.js";
 import { CONFIG } from "../../config.js";
 import { userPromptManager } from "../user-prompt/user-prompt-manager.js";
-import { scoringSkippedCycles, scoringLastDurationMs } from "../memory-scoring-service.js";
+import { getScoringStats } from "../memory-scoring-service.js";
 import { getLifecycleStats } from "../memory-lifecycle.js";
 import { cleanupService } from "../cleanup-service.js";
 import { deduplicationService } from "../deduplication-service.js";
@@ -270,7 +270,7 @@ export function handleStats(): ApiResponse<{
         byScope: { user: userCount, project: projectCount },
         byType: typeCount,
         backgroundJobs: {
-          scoring: { skippedCycles: scoringSkippedCycles, lastDurationMs: scoringLastDurationMs },
+          scoring: getScoringStats(),
           lifecycle: {
             skippedCycles: lifecycleStats.skippedCycles,
             lastDurationMs: lifecycleStats.lastDurationMs,
