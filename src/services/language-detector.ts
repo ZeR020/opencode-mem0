@@ -1,14 +1,14 @@
 import { franc } from "franc-min";
 
-const FALLBACK_MAP: Record<string, string> = {
+const FALLBACK_MAP = {
   cmn: "zh",
   yue: "zh",
   arz: "ar",
   hbs: "sr",
-};
+} as const;
 
 const normalizeDetectedLanguage = (code: string): string => {
-  const mapped = FALLBACK_MAP[code];
+  const mapped = FALLBACK_MAP[code as keyof typeof FALLBACK_MAP];
   if (mapped) return mapped;
 
   try {
