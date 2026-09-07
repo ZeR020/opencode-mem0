@@ -251,9 +251,6 @@ export const OpenCodeMemConfigSchema = z.object({
   rateLimitEnabled: z.boolean().optional(),
 });
 
-// DEFAULTS uses Partial<OpenCodeMemConfig> for simplicity. The object literal
-// guarantees every key is populated, so non-null assertions in build helpers
-// below are safe — they assert against the Partial type, not runtime nulls.
 const DEFAULTS: Partial<OpenCodeMemConfig> = {
   storagePath: join(DATA_DIR, "data"),
   embeddingModel: "Xenova/nomic-embed-text-v1",
@@ -484,72 +481,72 @@ function mergeConfigWithDefaults(fileConfig: OpenCodeMemConfig) {
     showUserProfileToasts: cfg.showUserProfileToasts ?? defaults.showUserProfileToasts,
     showErrorToasts: cfg.showErrorToasts ?? defaults.showErrorToasts,
     memory: {
-      defaultScope: cfg.memory?.defaultScope ?? defaults.memory!.defaultScope,
+      defaultScope: cfg.memory?.defaultScope ?? defaults.memory.defaultScope,
     },
     compaction: {
-      enabled: cfg.compaction?.enabled ?? defaults.compaction!.enabled,
-      memoryLimit: cfg.compaction?.memoryLimit ?? defaults.compaction!.memoryLimit,
+      enabled: cfg.compaction?.enabled ?? defaults.compaction.enabled,
+      memoryLimit: cfg.compaction?.memoryLimit ?? defaults.compaction.memoryLimit,
     },
     transcriptStorage: {
-      enabled: cfg.transcriptStorage?.enabled ?? defaults.transcriptStorage!.enabled,
-      maxAgeDays: cfg.transcriptStorage?.maxAgeDays ?? defaults.transcriptStorage!.maxAgeDays,
+      enabled: cfg.transcriptStorage?.enabled ?? defaults.transcriptStorage.enabled,
+      maxAgeDays: cfg.transcriptStorage?.maxAgeDays ?? defaults.transcriptStorage.maxAgeDays,
     },
     memoryScoring: {
-      enabled: cfg.memoryScoring?.enabled ?? defaults.memoryScoring!.enabled,
+      enabled: cfg.memoryScoring?.enabled ?? defaults.memoryScoring.enabled,
       recalculationIntervalMinutes:
         cfg.memoryScoring?.recalculationIntervalMinutes ??
-        defaults.memoryScoring!.recalculationIntervalMinutes,
+        defaults.memoryScoring.recalculationIntervalMinutes,
       recalculationBatchSize:
-        cfg.memoryScoring?.recalculationBatchSize ?? defaults.memoryScoring!.recalculationBatchSize,
+        cfg.memoryScoring?.recalculationBatchSize ?? defaults.memoryScoring.recalculationBatchSize,
       recencyHalfLifeDays:
-        cfg.memoryScoring?.recencyHalfLifeDays ?? defaults.memoryScoring!.recencyHalfLifeDays,
+        cfg.memoryScoring?.recencyHalfLifeDays ?? defaults.memoryScoring.recencyHalfLifeDays,
       utilityHalfLifeDays:
-        cfg.memoryScoring?.utilityHalfLifeDays ?? defaults.memoryScoring!.utilityHalfLifeDays,
+        cfg.memoryScoring?.utilityHalfLifeDays ?? defaults.memoryScoring.utilityHalfLifeDays,
     },
     memoryLifecycle: {
-      stmDecayDays: cfg.memoryLifecycle?.stmDecayDays ?? defaults.memoryLifecycle!.stmDecayDays,
-      ltmDecayDays: cfg.memoryLifecycle?.ltmDecayDays ?? defaults.memoryLifecycle!.ltmDecayDays,
+      stmDecayDays: cfg.memoryLifecycle?.stmDecayDays ?? defaults.memoryLifecycle.stmDecayDays,
+      ltmDecayDays: cfg.memoryLifecycle?.ltmDecayDays ?? defaults.memoryLifecycle.ltmDecayDays,
       promotionThreshold:
-        cfg.memoryLifecycle?.promotionThreshold ?? defaults.memoryLifecycle!.promotionThreshold,
+        cfg.memoryLifecycle?.promotionThreshold ?? defaults.memoryLifecycle.promotionThreshold,
       archiveThreshold:
-        cfg.memoryLifecycle?.archiveThreshold ?? defaults.memoryLifecycle!.archiveThreshold,
+        cfg.memoryLifecycle?.archiveThreshold ?? defaults.memoryLifecycle.archiveThreshold,
       archiveAfterDays:
-        cfg.memoryLifecycle?.archiveAfterDays ?? defaults.memoryLifecycle!.archiveAfterDays,
+        cfg.memoryLifecycle?.archiveAfterDays ?? defaults.memoryLifecycle.archiveAfterDays,
       checkIntervalMinutes:
-        cfg.memoryLifecycle?.checkIntervalMinutes ?? defaults.memoryLifecycle!.checkIntervalMinutes,
+        cfg.memoryLifecycle?.checkIntervalMinutes ?? defaults.memoryLifecycle.checkIntervalMinutes,
       decayBatchSize:
-        cfg.memoryLifecycle?.decayBatchSize ?? defaults.memoryLifecycle!.decayBatchSize,
+        cfg.memoryLifecycle?.decayBatchSize ?? defaults.memoryLifecycle.decayBatchSize,
     },
     chatMessage: {
-      enabled: cfg.chatMessage?.enabled ?? defaults.chatMessage!.enabled,
-      maxMemories: cfg.chatMessage?.maxMemories ?? defaults.chatMessage!.maxMemories,
+      enabled: cfg.chatMessage?.enabled ?? defaults.chatMessage.enabled,
+      maxMemories: cfg.chatMessage?.maxMemories ?? defaults.chatMessage.maxMemories,
       excludeCurrentSession:
-        cfg.chatMessage?.excludeCurrentSession ?? defaults.chatMessage!.excludeCurrentSession,
+        cfg.chatMessage?.excludeCurrentSession ?? defaults.chatMessage.excludeCurrentSession,
       maxAgeDays: cfg.chatMessage?.maxAgeDays,
-      injectOn: (cfg.chatMessage?.injectOn ?? defaults.chatMessage!.injectOn) as "first" | "always",
-      mode: (cfg.chatMessage?.mode ?? defaults.chatMessage!.mode) as "relevant" | "fast",
+      injectOn: (cfg.chatMessage?.injectOn ?? defaults.chatMessage.injectOn) as "first" | "always",
+      mode: (cfg.chatMessage?.mode ?? defaults.chatMessage.mode) as "relevant" | "fast",
     },
     retrieval: {
-      maxResults: cfg.retrieval?.maxResults ?? defaults.retrieval!.maxResults,
+      maxResults: cfg.retrieval?.maxResults ?? defaults.retrieval.maxResults,
       diversityThreshold:
-        cfg.retrieval?.diversityThreshold ?? defaults.retrieval!.diversityThreshold,
-      contextBoost: cfg.retrieval?.contextBoost ?? defaults.retrieval!.contextBoost,
+        cfg.retrieval?.diversityThreshold ?? defaults.retrieval.diversityThreshold,
+      contextBoost: cfg.retrieval?.contextBoost ?? defaults.retrieval.contextBoost,
     },
     injection: {
-      tokenBudget: cfg.injection?.tokenBudget ?? defaults.injection!.tokenBudget,
-      format: cfg.injection?.format ?? defaults.injection!.format,
+      tokenBudget: cfg.injection?.tokenBudget ?? defaults.injection.tokenBudget,
+      format: cfg.injection?.format ?? defaults.injection.format,
       relevanceThreshold:
-        cfg.injection?.relevanceThreshold ?? defaults.injection!.relevanceThreshold,
+        cfg.injection?.relevanceThreshold ?? defaults.injection.relevanceThreshold,
     },
     contextualDecay: {
-      enabled: cfg.contextualDecay?.enabled ?? defaults.contextualDecay!.enabled,
-      baseDecayRate: cfg.contextualDecay?.baseDecayRate ?? defaults.contextualDecay!.baseDecayRate,
+      enabled: cfg.contextualDecay?.enabled ?? defaults.contextualDecay.enabled,
+      baseDecayRate: cfg.contextualDecay?.baseDecayRate ?? defaults.contextualDecay.baseDecayRate,
       strengthBoostFactor:
-        cfg.contextualDecay?.strengthBoostFactor ?? defaults.contextualDecay!.strengthBoostFactor,
+        cfg.contextualDecay?.strengthBoostFactor ?? defaults.contextualDecay.strengthBoostFactor,
       accessBoostFactor:
-        cfg.contextualDecay?.accessBoostFactor ?? defaults.contextualDecay!.accessBoostFactor,
-      minDecayRate: cfg.contextualDecay?.minDecayRate ?? defaults.contextualDecay!.minDecayRate,
-      maxDecayRate: cfg.contextualDecay?.maxDecayRate ?? defaults.contextualDecay!.maxDecayRate,
+        cfg.contextualDecay?.accessBoostFactor ?? defaults.contextualDecay.accessBoostFactor,
+      minDecayRate: cfg.contextualDecay?.minDecayRate ?? defaults.contextualDecay.minDecayRate,
+      maxDecayRate: cfg.contextualDecay?.maxDecayRate ?? defaults.contextualDecay.maxDecayRate,
     },
     logLevel: cfg.logLevel ?? defaults.logLevel,
     warmupTimeoutMs: cfg.warmupTimeoutMs ?? defaults.warmupTimeoutMs,
