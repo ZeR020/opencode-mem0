@@ -118,43 +118,32 @@ jobs:
             range="${GITHUB_REF_NAME}"
           fi
 
-          # Get all committer emails in this release (deduplicated, no bots).
-          # mailmap collapses alternate identities; exclude bots + noreply.
-          committer_emails=$(git log "$range" --format='%aE' | \
-            git mailmap --file=.mailmap --stdin 2>/dev/null | \
+          # Author emails, deduped. Bots excluded; noreply emails KEPT — they carry the GitHub login.
+          # No .mailmap in this repo — operate on raw %aE.
+          author_emails=$(git log "$range" --format='%aE' | \
             sort -u | \
-            grep -viE '(^nobody@nowhere|\[bot\]|github-actions|noreply)')
+            grep -viE '\[bot\]|github-actions')
 
-          if [ -z "$committer_emails" ]; then
+          names=""
+          for email in $author_emails; do
+            case "$email" in
+              # GitHub private noreply: ID+login@users.noreply.github.com
+              *+?*@users.noreply.github.com)
+                login="${email#*+}"
+                login="${login%%@*}"
+                names="${names}@${login}, "
+                ;;
+              *)
+                author=$(git log "$range" --format='%aN' --author="$email" | head -1)
+                [ -n "$author" ] && names="${names}${author}, "
+                ;;
+            esac
+          done
+          names=$(echo "$names" | sed 's/, $//')
+
+          if [ -z "$names" ]; then
             echo "contributors_paragraph=<!-- no contributors -->" >> "$GITHUB_OUTPUT"
           else
-            # Fetch all contributor logins + emails from the repo API.
-            contributor_data=$(gh api repos/$GITHUB_REPOSITORY/contributors \
-              --paginate \
-              --jq '.[] | {login, email} | join("|")' 2>/dev/null)
-
-            # Build a list: match emails against the contributor API,
-            # fall back to git author name when no GitHub login is found.
-            names=""
-            for email in $committer_emails; do
-              # Try to find a GitHub login for this email.
-              login=$(echo "$contributor_data" | \
-                grep "|${email}$" | \
-                head -1 | cut -d'|' -f1)
-              if [ -n "$login" ]; then
-                names="${names}${login}, "
-              else
-                # Fall back to the git author name for this email.
-                author=$(git log "$range" --format='%aN' --author="$email" | head -1)
-                if [ -n "$author" ]; then
-                  names="${names}${author}, "
-                fi
-              fi
-            done
-
-            # Strip trailing comma+space.
-            names=$(echo "$names" | sed 's/, $//')
-
             echo "contributors_paragraph<<EOF" >> "$GITHUB_OUTPUT"
             echo "### Contributors" >> "$GITHUB_OUTPUT"
             echo "" >> "$GITHUB_OUTPUT"
