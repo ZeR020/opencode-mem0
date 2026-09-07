@@ -11,12 +11,12 @@ type ProviderCtor = new (
   sessionManager: AISessionManager
 ) => BaseAIProvider;
 
-const PROVIDERS: Record<AIProviderType, ProviderCtor> = {
+const PROVIDERS = {
   "openai-chat": OpenAIChatCompletionProvider,
   "openai-responses": OpenAIResponsesProvider,
   anthropic: AnthropicMessagesProvider,
   "google-gemini": GoogleGeminiProvider,
-};
+} satisfies Record<AIProviderType, ProviderCtor>;
 
 export class AIProviderFactory {
   private static sessionManager: AISessionManager | null = null;
