@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Remaining "container" schema jargon in the Web UI** — the Memories browse filter, the Search query filter, and the memory/prompt detail view still said "container" / "all containers" after the dashboard relabel. All now say "project" / "all projects" / "project tag", matching the rest of the UI. (Raised by @ovizii in #55.)
 
+### Changed
+
+- **Codebase tightening (`lean-cuts`)** — dropped the self-referential `opencode-mem0` dependency and switched config parsing to the already-installed `jsonc-parser` (deleted the hand-rolled `jsonc.ts` service); removed redundant `isConfigured` condition. Also: test mock typings fixed to match real shapes (`PluginInput`, `ChatCompletionTool`, mock fetches, `ShardInfo`), scripts/examples aligned with the real `Database` type, mechanical lint cleanup (redundant awaits, `parseInt` radix, `.substring` → `.slice`, else-after-return, nested ternaries), honest types replacing `as any` casts and non-null assertions (five sites kept with documented `SAFETY:` where removal changed behavior), zod v4 API migration (`.passthrough()` → `z.looseObject()`, `ZodIssue` → `z.core.$ZodIssue`), LLM-prompt XML escaping moved off `replaceAll` chains to an ordered escape, Gemini base URL extracted to a module constant, provider config writes now atomic (temp+rename), and scoring-state exports replaced by an immutable `getScoringStats()` snapshot.
+
 ## [2.23.0] - 2026-08-05
 
 ### Added
