@@ -15,7 +15,13 @@ import {
   buildPaginatedTimeline,
   formatTimelineItem,
 } from "./shared.js";
-import type { ApiResponse, PaginatedResponse, TagInfo } from "./shared-types.js";
+import type {
+  ApiResponse,
+  FormattedTimelineItem,
+  MemoryMetadata,
+  PaginatedResponse,
+  TagInfo,
+} from "./shared-types.js";
 
 export async function handleListTags(): Promise<ApiResponse<{ project: TagInfo[] }>> {
   try {
@@ -56,7 +62,7 @@ export async function handleListMemories(
   page = 1,
   pageSize = 20,
   includePrompts = true
-): Promise<ApiResponse<PaginatedResponse<Record<string, unknown>>>> {
+): Promise<ApiResponse<PaginatedResponse<FormattedTimelineItem>>> {
   try {
     const { safePage, safePageSize } = sanitizeListParams(page, pageSize);
     const perShardLimit = Math.min(safePageSize * 2, 500);
@@ -136,8 +142,8 @@ export async function handleDeleteMemory(
     if (!id) return { success: false, error: "id is required" };
     const found = findMemoryInShards(id);
     if (!found) return { success: false, error: "Memory not found" };
-    const metadata = safeJSONParse(found.memory.metadata) as Record<string, unknown> | undefined;
-    const linkedPromptId = metadata?.promptId as string | undefined;
+    const metadata = safeJSONParse<MemoryMetadata>(found.memory.metadata);
+    const linkedPromptId = metadata?.promptId;
     if (cascade && linkedPromptId) {
       userPromptManager.deletePrompt(linkedPromptId);
     }
@@ -198,16 +204,16 @@ export async function handleUpdateMemory(
       tagsVector,
       containerTag: existingMemory.container_tag || "",
       tags: tags.length > 0 ? tags.join(",") : undefined,
-      type: data.type || existingMemory.type,
+      type: data.type || existingMemory.type || undefined,
       createdAt: Number(existingMemory.created_at),
       updatedAt: Date.now(),
-      metadata: existingMemory.metadata,
-      displayName: existingMemory.display_name,
-      userName: existingMemory.user_name,
-      userEmail: existingMemory.user_email,
-      projectPath: existingMemory.project_path,
-      projectName: existingMemory.project_name,
-      gitRepoUrl: existingMemory.git_repo_url,
+      metadata: existingMemory.metadata ?? undefined,
+      displayName: existingMemory.display_name ?? undefined,
+      userName: existingMemory.user_name ?? undefined,
+      userEmail: existingMemory.user_email ?? undefined,
+      projectPath: existingMemory.project_path ?? undefined,
+      projectName: existingMemory.project_name ?? undefined,
+      gitRepoUrl: existingMemory.git_repo_url ?? undefined,
     };
 
     const db = connectionManager.getConnection(found.shard.dbPath);

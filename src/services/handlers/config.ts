@@ -27,6 +27,24 @@ const CONFIG_KEYS = [
   "autoCaptureEnabled",
 ] as const;
 
+/** Whitelisted keys the dashboard may read/write. */
+export interface SafeConfig {
+  memoryProvider?: string;
+  memoryModel?: string;
+  memoryApiUrl?: string;
+  memoryApiKey?: string;
+  memoryTemperature?: number | false;
+  opencodeProvider?: string;
+  opencodeModel?: string;
+  autoCaptureEnabled?: boolean;
+}
+
+type ConfigInput = object | string | number | boolean | null;
+
+function isConfigObject(v: ConfigInput): v is SafeConfig {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
 export interface ConfigView {
   memoryProvider: string;
   memoryModel: string | null;
@@ -49,14 +67,12 @@ function findConfigFile(): { path: string; format: "jsonc" | "json" } | null {
   return null;
 }
 
-function readConfigObject(): Record<string, unknown> {
+function readConfigObject(): SafeConfig {
   const file = findConfigFile();
   if (!file) return {};
   try {
-    const parsed = parse(readFileSync(file.path, "utf8"));
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
+    const parsed = parse(readFileSync(file.path, "utf8")) as ConfigInput;
+    return isConfigObject(parsed) ? parsed : {};
   } catch (error) {
     log("handleGetConfig: failed to parse config file", { error: String(error) });
     return {};
@@ -97,7 +113,7 @@ function findProjectConfigFile(): string | null {
 
 function buildConfigView(): ConfigView {
   const file = findConfigFile();
-  const rawKey = file ? (readConfigObject().memoryApiKey as string | undefined) : undefined;
+  const rawKey = file ? readConfigObject().memoryApiKey : undefined;
   return {
     memoryProvider: CONFIG.memoryProvider ?? "openai-chat",
     memoryModel: CONFIG.memoryModel ?? null,
@@ -128,11 +144,9 @@ function atomicWrite(path: string, text: string): void {
   renameSync(tmp, path);
 }
 
-export async function handleUpdateConfig(
-  partial: Record<string, unknown>
-): Promise<ApiResponse<ConfigView>> {
+export async function handleUpdateConfig(partial: ConfigInput): Promise<ApiResponse<ConfigView>> {
   try {
-    if (partial === null || typeof partial !== "object" || Array.isArray(partial)) {
+    if (!isConfigObject(partial)) {
       return { success: false, error: "Request body must be a JSON object" };
     }
 
@@ -149,13 +163,13 @@ export async function handleUpdateConfig(
     }
 
     const current = readConfigObject();
-    const next: Record<string, unknown> = { ...current };
+    const next: SafeConfig = { ...current };
     for (const key of CONFIG_KEYS) {
       if (!Object.hasOwn(partial, key)) continue;
       if (partial[key] === "") {
         delete next[key];
       } else {
-        next[key] = partial[key];
+        Object.assign(next, { [key]: partial[key] });
       }
     }
 
@@ -222,14 +236,15 @@ export async function handleUpdateConfig(
     // requested whitelisted keys onto the live CONFIG (last write wins).
     // Secrets must be applied the same way buildConfig resolves them — a raw
     // env:// or file:// reference assigned here would 401 on the next call.
+    const live = CONFIG as SafeConfig;
     for (const key of CONFIG_KEYS) {
       if (!Object.hasOwn(partial, key)) continue;
       if (partial[key] === "") {
-        delete (CONFIG as Record<string, unknown>)[key];
+        delete live[key];
       } else if (key === "memoryApiKey") {
-        (CONFIG as Record<string, unknown>)[key] = resolveSecretValue(String(partial[key]));
+        live.memoryApiKey = resolveSecretValue(String(partial[key]));
       } else {
-        (CONFIG as Record<string, unknown>)[key] = partial[key];
+        Object.assign(live, { [key]: partial[key] });
       }
     }
 

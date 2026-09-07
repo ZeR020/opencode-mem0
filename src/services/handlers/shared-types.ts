@@ -1,5 +1,9 @@
 // Shared types used across handler modules — extracted from api-handlers.ts
 
+import type { MemoryMetadata } from "../sqlite/types.js";
+
+export type { MemoryMetadata };
+
 // API response types
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -44,19 +48,19 @@ export interface FormattedConflict {
 export interface RawMemoryRow {
   id: string;
   content: string;
-  type?: string;
-  tags?: string;
-  metadata?: string;
+  type?: string | null;
+  tags?: string | null;
+  metadata?: string | null;
   created_at: number | string;
-  updated_at?: number | string;
-  container_tag?: string;
-  display_name?: string;
-  user_name?: string;
-  user_email?: string;
-  project_path?: string;
-  project_name?: string;
-  git_repo_url?: string;
-  is_pinned?: number;
+  updated_at?: number | string | null;
+  container_tag?: string | null;
+  display_name?: string | null;
+  user_name?: string | null;
+  user_email?: string | null;
+  project_path?: string | null;
+  project_name?: string | null;
+  git_repo_url?: string | null;
+  is_pinned?: number | null;
 }
 
 export interface TimelineMemoryItem extends Omit<Memory, "createdAt" | "updatedAt" | "type"> {
@@ -91,7 +95,7 @@ export interface Memory {
   tags?: string[];
   createdAt: string;
   updatedAt?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: MemoryMetadata;
   displayName?: string;
   userName?: string;
   userEmail?: string;
@@ -100,6 +104,35 @@ export interface Memory {
   gitRepoUrl?: string;
   isPinned?: boolean;
 }
+
+export type FormattedTimelineItem =
+  | {
+      type: "memory";
+      id: string;
+      content: string;
+      memoryType?: string;
+      tags?: string[];
+      createdAt: string;
+      updatedAt?: string;
+      metadata?: MemoryMetadata;
+      linkedPromptId?: string;
+      displayName?: string;
+      userName?: string;
+      userEmail?: string;
+      projectPath?: string;
+      projectName?: string;
+      gitRepoUrl?: string;
+      isPinned?: boolean;
+    }
+  | {
+      type: "prompt";
+      id: string;
+      sessionId: string;
+      content: string;
+      createdAt: string;
+      projectPath?: string | null;
+      linkedMemoryId?: string | null;
+    };
 
 export interface UserPrompt {
   id: string;

@@ -14,6 +14,7 @@ import type {
   TimelineItem,
   LinkedTimelinePair,
   UserPrompt,
+  FormattedTimelineItem,
 } from "./shared-types.js";
 import type { ShardInfo } from "../sqlite/types.js";
 import { userPromptManager } from "../user-prompt/user-prompt-manager.js";
@@ -107,8 +108,7 @@ export function fetchMemoriesForList(
 }
 
 export function mapRawMemoryToTyped(r: RawMemoryRow): TimelineMemoryItem {
-  // SAFETY: RawMemoryRow is a sqlite memories table row; mapDbRow reads snake_case keys
-  const base = mapDbRow(r as unknown as Record<string, unknown>);
+  const base = mapDbRow(r);
   const linkedPromptId = base.metadata?.promptId;
   return {
     type: "memory",
@@ -119,7 +119,7 @@ export function mapRawMemoryToTyped(r: RawMemoryRow): TimelineMemoryItem {
     createdAt: Number(r.created_at),
     updatedAt: r.updated_at ? Number(r.updated_at) : undefined,
     metadata: base.metadata,
-    linkedPromptId: typeof linkedPromptId === "string" ? linkedPromptId : undefined,
+    linkedPromptId,
     displayName: base.displayName,
     userName: base.userName,
     userEmail: base.userEmail,
@@ -200,7 +200,7 @@ export function buildPaginatedTimeline(
   return { items: paginatedResults, total, totalPages };
 }
 
-export function formatTimelineItem(item: TimelineItem): Record<string, unknown> {
+export function formatTimelineItem(item: TimelineItem): FormattedTimelineItem {
   if (item.type === "memory") {
     return {
       type: "memory",
