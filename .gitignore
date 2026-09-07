@@ -45,6 +45,7 @@ CLAUDE.md
 .opencode/
 .sandbox/
 .pi-subagents/
+.worktrees/
 
 # ─── Caches & temp ─────────────────────────────────────────────
 .cache/
