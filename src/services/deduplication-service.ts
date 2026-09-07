@@ -108,8 +108,9 @@ export class DeduplicationService {
     const contentMap = new Map<string, DedupMemoryRow[]>();
     for (const memory of memories) {
       const key = `${memory.container_tag}:${memory.content}`;
-      if (!contentMap.has(key)) contentMap.set(key, []);
-      contentMap.get(key)!.push(memory);
+      const bucket = contentMap.get(key);
+      if (bucket) bucket.push(memory);
+      else contentMap.set(key, [memory]);
     }
     return contentMap;
   }

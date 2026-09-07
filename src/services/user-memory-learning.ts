@@ -135,7 +135,11 @@ export async function performUserProfileLearning(
 
       if (existingProfile) {
         const changeSummary = generateChangeSummary(
-          safeJSONParse(existingProfile.profileData) as any,
+          safeJSONParse<UserProfileData>(existingProfile.profileData) ?? {
+            preferences: [],
+            patterns: [],
+            workflows: [],
+          },
           updatedProfileData
         );
         userProfileManager.updateProfile(

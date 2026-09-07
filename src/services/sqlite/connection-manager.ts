@@ -222,4 +222,6 @@ function emergencyFlush(): void {
   }
 }
 
-(globalThis as any)[Symbol.for("opencode-mem0.emergencyFlush")] = emergencyFlush;
+(globalThis as Record<symbol, (() => void) | undefined>)[
+  Symbol.for("opencode-mem0.emergencyFlush")
+] = emergencyFlush;

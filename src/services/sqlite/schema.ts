@@ -14,10 +14,8 @@ const MIGRATIONS: Record<number, string[]> = {
 
 export function getCurrentVersion(db: Database): number {
   try {
-    const row = db
-      .prepare("SELECT COALESCE(MAX(version), 0) as version FROM schema_version")
-      .get() as any;
-    return row?.version ?? 0;
+    const row = db.prepare("SELECT COALESCE(MAX(version), 0) as version FROM schema_version").get();
+    return Number(row?.version ?? 0);
   } catch {
     return 0;
   }

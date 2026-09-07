@@ -254,7 +254,7 @@ function extractAIContent(messages: PromptMessage[]): {
 
     const textParts = msg.parts.filter((p) => p.type === "text" && p.text);
     if (textParts.length > 0) {
-      const text = textParts.map((p) => p.text!).join("\n");
+      const text = textParts.map((p) => p.text ?? "").join("\n");
       if (text.trim()) {
         textResponses.push(text.trim());
       }
@@ -290,7 +290,9 @@ async function getLatestProjectMemory(containerTag: string): Promise<string | nu
   try {
     const result = await memoryClient.listMemories(containerTag, 1);
     if (!result.success || result.memories.length === 0) return null;
-    const content = result.memories[0]!.summary;
+    const first = result.memories[0];
+    if (!first) return null;
+    const content = first.summary;
     return content.length <= 500 ? content : `${content.substring(0, 500)}...`;
   } catch {
     return null;
@@ -342,8 +344,11 @@ async function generateSummaryViaOpencode(
     log("opencodeProvider takes precedence over memoryModel for auto-capture");
   }
 
-  const providerName = CONFIG.opencodeProvider!;
-  const modelId = CONFIG.opencodeModel!;
+  const providerName = CONFIG.opencodeProvider;
+  const modelId = CONFIG.opencodeModel;
+  if (!providerName || !modelId) {
+    throw new Error("opencode provider/model not configured");
+  }
 
   const { isProviderConnected, getStatePath, generateStructuredOutput } =
     await import("./ai/opencode-provider.js");

@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { IncomingMessage, ServerOptions, ServerResponse } from "node:http";
 import { log } from "./logger.js";
 
 export interface PlatformServer {
@@ -27,11 +27,12 @@ function normalizeHeaders(rawHeaders: IncomingMessage["headers"]): Headers {
 }
 
 const kRemoteAddress = Symbol.for("opencode-mem0.remoteAddress");
+type RequestWithIP = Request & { [kRemoteAddress]?: string };
 
 function createNodeServer(options: ServeOptions): Promise<PlatformServer> {
   // skipcq: JS-0323 — reuseAddr option is needed for Windows port reuse but not in ServerOptions type
   const nodeServer = createServer(
-    { reuseAddr: true } as any,
+    { reuseAddr: true } as ServerOptions,
     async (req: IncomingMessage, res: ServerResponse) => {
       try {
         const host = req.headers.host || `${options.hostname}:${options.port}`;
@@ -53,13 +54,13 @@ function createNodeServer(options: ServeOptions): Promise<PlatformServer> {
         }
         const body = chunks.length > 0 ? Buffer.concat(chunks) : undefined;
 
-        const request = new Request(url, {
+        const request: RequestWithIP = new Request(url, {
           method: req.method,
           headers: normalizeHeaders(req.headers),
           body: body && body.length > 0 ? body : undefined,
         });
 
-        (request as any)[kRemoteAddress] = req.socket.remoteAddress || "127.0.0.1";
+        request[kRemoteAddress] = req.socket.remoteAddress || "127.0.0.1";
 
         const response = await options.fetch(request);
 
@@ -96,7 +97,7 @@ function createNodeServer(options: ServeOptions): Promise<PlatformServer> {
           nodeServer.close();
         },
         requestIP(req: Request) {
-          const ip = (req as any)[kRemoteAddress];
+          const ip = (req as RequestWithIP)[kRemoteAddress];
           return ip ? { address: ip } : { address: "127.0.0.1" };
         },
       });

@@ -168,6 +168,7 @@ export class AISessionManager {
       ]
     );
 
+    // SAFETY: session row exists after the insert above; getSession would only miss on driver failure
     // skipcq: JS-0339 — session is guaranteed after insert above
     return this.getSession(params.sessionId, params.provider)!;
   }

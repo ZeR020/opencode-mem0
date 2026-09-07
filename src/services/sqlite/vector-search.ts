@@ -822,8 +822,8 @@ export class VectorSearch {
     const result = this.getStmt(
       db,
       "SELECT COUNT(*) as count FROM memories WHERE is_deprecated = 0"
-    ).get() as any;
-    return result.count;
+    ).get();
+    return Number(result?.count ?? 0);
   }
 
   getDistinctTags(db: Database): any[] {

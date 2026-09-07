@@ -343,6 +343,32 @@ type ConflictRow = {
   m2_content?: string;
 };
 
+/** Raw memories table row used when merging two conflict originals. */
+type MemoryMergeRow = {
+  tags_vector?: Uint8Array | ArrayBuffer | null;
+  container_tag: string;
+  tags?: string;
+  type?: string;
+  display_name?: string;
+  user_name?: string;
+  user_email?: string;
+  project_path?: string;
+  project_name?: string;
+  git_repo_url?: string;
+  recency_score?: number;
+  frequency_score?: number;
+  importance_score?: number;
+  utility_score?: number;
+  novelty_score?: number;
+  confidence_score?: number;
+  interference_penalty?: number;
+  strength?: number;
+  access_count?: number;
+  last_accessed?: number | null;
+  store_type?: "stm" | "ltm";
+  decay_rate?: number;
+};
+
 /**
  * Find memories similar to the given content within the same container.
  * Uses FTS5 full-text search when available, falling back to LIKE queries.
@@ -603,12 +629,10 @@ export const resolveConflict = async (
           }
 
           // Create merged memory, deprecate both originals
-          const mem1 = db
-            .prepare("SELECT * FROM memories WHERE id = ?")
-            .get(conflict.memoryId1) as any;
-          const mem2 = db
-            .prepare("SELECT * FROM memories WHERE id = ?")
-            .get(conflict.memoryId2) as any;
+          const mem1 = db.prepare("SELECT * FROM memories WHERE id = ?").get(conflict.memoryId1) as
+            | MemoryMergeRow
+            | undefined;
+          const mem2 = db.prepare("SELECT * FROM memories WHERE id = ?").get(conflict.memoryId2);
           if (!mem1 || !mem2) {
             return { success: false, error: "One or both original memories not found" };
           }
@@ -676,7 +700,7 @@ export const resolveConflict = async (
               interferencePenalty: mem1.interference_penalty ?? 0,
               strength: mem1.strength ?? 0.5,
               accessCount: mem1.access_count ?? 0,
-              lastAccessed: mem1.last_accessed ?? null,
+              lastAccessed: mem1.last_accessed ?? undefined,
               storeType: mem1.store_type ?? "ltm",
               decayRate: mem1.decay_rate ?? 0.05,
             },
