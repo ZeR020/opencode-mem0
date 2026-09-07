@@ -1,5 +1,6 @@
 import { CONFIG } from "../config.js";
 import { TECHNICAL_KEYWORDS, jaccardSimilarity } from "./utils/text-analysis.js";
+import type { MemoryMetadata } from "./sqlite/types.js";
 
 export interface RetrievalContext {
   projectPath?: string;
@@ -203,7 +204,7 @@ export function calculateContextBoost(
   result: {
     projectPath?: string;
     projectName?: string;
-    metadata?: Record<string, unknown>;
+    metadata?: MemoryMetadata;
   },
   context: RetrievalContext
 ) {
