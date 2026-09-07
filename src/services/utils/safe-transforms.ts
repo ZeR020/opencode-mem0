@@ -12,10 +12,10 @@ export function safeToISOString(timestamp: unknown): string {
   return new Date().toISOString();
 }
 
-export function safeJSONParse(jsonString: unknown): unknown {
+export function safeJSONParse<T>(jsonString: unknown): T | undefined {
   if (typeof jsonString !== "string") return undefined;
   try {
-    return JSON.parse(jsonString);
+    return JSON.parse(jsonString) as T;
   } catch {
     return undefined;
   }

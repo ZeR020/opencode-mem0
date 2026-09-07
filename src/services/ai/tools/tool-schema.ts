@@ -17,7 +17,7 @@ export interface ResponsesAPITool {
   description: string;
   parameters: {
     type: string;
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     required: string[];
   };
 }
@@ -27,7 +27,7 @@ export interface AnthropicTool {
   description: string;
   input_schema: {
     type: string;
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     required: string[];
   };
 }

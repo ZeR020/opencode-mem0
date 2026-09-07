@@ -65,6 +65,17 @@ interface WebServerConfig {
   apiKey?: string;
 }
 
+type RedactedValue =
+  | Record<string, unknown>
+  | unknown[]
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | null
+  | undefined;
+
 function isLoopbackHost(host: string): boolean {
   return LOCAL_HOSTS.has(host.trim().toLowerCase());
 }
@@ -231,8 +242,8 @@ export class WebServer {
 
   // --- HTTP request handling ---
 
-  private redactPII(obj: unknown): unknown {
-    if (!obj || typeof obj !== "object") return obj;
+  private redactPII(obj: unknown): RedactedValue {
+    if (!obj || typeof obj !== "object") return obj as RedactedValue;
     if (Array.isArray(obj)) return obj.map((item) => this.redactPII(item));
 
     const newObj: Record<string, unknown> = {};
@@ -249,7 +260,12 @@ export class WebServer {
   }
 
   private async handleRequest(req: Request): Promise<Response> {
-    const url = new URL(req.url);
+    let url: URL;
+    try {
+      url = new URL(req.url);
+    } catch {
+      return this.jsonResponse({ success: false, error: "Bad Request" }, 400);
+    }
     const path = url.pathname;
     const method = req.method;
 

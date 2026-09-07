@@ -107,6 +107,7 @@ export function fetchMemoriesForList(
 }
 
 export function mapRawMemoryToTyped(r: RawMemoryRow): TimelineMemoryItem {
+  // SAFETY: RawMemoryRow is a sqlite memories table row; mapDbRow reads snake_case keys
   const base = mapDbRow(r as unknown as Record<string, unknown>);
   const linkedPromptId = base.metadata?.promptId;
   return {

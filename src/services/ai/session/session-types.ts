@@ -26,7 +26,7 @@ export interface AISession {
   provider: AIProviderType;
   sessionId: string;
   conversationId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: number;
   updatedAt: number;
   expiresAt: number;
@@ -36,10 +36,10 @@ export interface SessionCreateParams {
   provider: AIProviderType;
   sessionId: string;
   conversationId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface SessionUpdateParams {
   conversationId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
