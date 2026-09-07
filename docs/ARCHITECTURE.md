@@ -140,7 +140,6 @@ src/
 │   ├── logger.ts               # Structured logging with level control
 │   ├── privacy.ts              # Private content stripping (API keys, tokens)
 │   ├── language-detector.ts    # Language detection via franc-min
-│   ├── jsonc.ts                # JSONC (JSON with comments) parser
 │   ├── secret-resolver.ts      # Secret resolution from env vars
 │   ├── sqlite/
 │   │   ├── sqlite-bootstrap.ts  # SQLite abstraction: Bun vs better-sqlite3 detection
@@ -220,6 +219,8 @@ The vector backend is selected via `vectorBackend` config:
 - `exact-scan` — Brute-force cosine similarity (no index overhead).
 
 ## Configuration Layer
+
+Config loading now uses jsonc-parser via config.ts loadConfigFromPaths.
 
 Configuration is loaded from two locations and deep-merged:
 

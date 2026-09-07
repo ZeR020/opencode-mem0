@@ -2,7 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { stripJsoncComments } from "./services/jsonc.js";
+import { parse, type ParseError } from "jsonc-parser";
 import { resolveSecretValue } from "./services/secret-resolver.js";
 import { log, setLogLevel } from "./services/logger.js";
 import { z } from "zod";
@@ -357,8 +357,10 @@ function loadConfigFromPaths(paths: string[]): OpenCodeMemConfig {
     if (existsSync(path)) {
       try {
         const content = readFileSync(path, "utf-8");
-        const json = stripJsoncComments(content);
-        return JSON.parse(json) as OpenCodeMemConfig;
+        const errors: ParseError[] = [];
+        const json = parse(content, errors, { allowTrailingComma: true });
+        if (errors.length) throw new Error("Invalid JSONC");
+        return json as OpenCodeMemConfig;
       } catch (error) {
         log(`Failed to load config from ${path}: ${error}`, { level: "error" });
         throw new Error(`Config error in ${path}: ${error}`);
@@ -631,5 +633,5 @@ export function initConfig(directory: string): void {
 }
 
 export function isConfigured(): boolean {
-  return Boolean(_globalFileConfig) && existsSync(CONFIG.storagePath);
+  return existsSync(CONFIG.storagePath);
 }
