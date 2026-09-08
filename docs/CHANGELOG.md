@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Dashboard requests are now rejected unless the Host header is loopback or explicitly configured — closes a DNS-rebinding route to the unauthenticated local API.
 - Bun.serve now applies the same 256 KiB request body cap as the Node adapter, preventing memory-exhaustion via oversized dashboard payloads.
+- Web dashboard loads app.js after DOMPurify and sanitizes fail-closed when the sanitizer is unavailable.
 
 ## [2.23.1] - 2026-09-07
 
