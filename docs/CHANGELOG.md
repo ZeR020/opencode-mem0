@@ -18,8 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Warmup timeout race no longer triggers an unhandled promise rejection.**
 - **Auto-capture and profile learning now wait for opencode provider state instead of racing it at startup.**
 - **The forget tool now reports actual deletion failures instead of always claiming success.**
-### Fixed
-
 - **Re-embed migrations now update vectors in place, and migration operations report success only when every shard succeeded — failures propagate to the admin UI instead of being logged away.**
 - **Exact-duplicate cleanup is now transactional (no partial purges on crash) and no longer writes memory content into host logs.**
 - **Memory archival now commits its sqlite transaction before touching the vector index — no more async work inside BEGIN IMMEDIATE, and archived ids are reliably deleted from the index.**
