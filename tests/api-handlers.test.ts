@@ -345,22 +345,23 @@ const {
   handleAddMemory,
   handleDeleteMemory,
   handleUpdateMemory,
-  handleSearch,
+  handlePinMemory,
+  handleUnpinMemory,
+  handleBulkDelete,
+} = await import("../src/services/handlers/memory.js");
+const { handleSearch } = await import("../src/services/handlers/search.js");
+const {
   handleEmbeddingCacheStats,
   handleApiStatus,
   handleStats,
-  handlePinMemory,
-  handleUnpinMemory,
   handleDeletePrompt,
-  handleBulkDelete,
-  handleGetUserProfile,
-  handleListConflicts,
-  handleResolveConflict,
-  handleConflictStats,
   handleDetectTagMigration,
   handleGetTagMigrationProgress,
   handleRunTagMigrationBatch,
-} = await import("../src/services/api-handlers.js");
+} = await import("../src/services/handlers/admin.js");
+const { handleGetUserProfile } = await import("../src/services/handlers/profile.js");
+const { handleListConflicts, handleResolveConflict, handleConflictStats } =
+  await import("../src/services/handlers/conflicts.js");
 // vitest: await import after vi.mock ensures the mocked detectConflicts is resolved.
 const { detectConflicts } = await import("../src/services/memory-conflicts.js");
 

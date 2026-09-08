@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { handleEmbeddingCacheStats } from "../src/services/api-handlers.js";
+import { handleEmbeddingCacheStats } from "../src/services/handlers/admin.js";
 import { embeddingService } from "../src/services/embedding.js";
 
 describe("handleEmbeddingCacheStats", () => {
