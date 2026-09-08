@@ -374,15 +374,25 @@ export async function applyDecay(): Promise<{
             totalUpdated++;
             if (result.decayed) totalDecayed++;
             if (result.archived) {
-              archiveMemory(db, memory.id, shard);
-              toArchive.push({ id: memory.id, shard });
-              totalArchived++;
+              if (archiveMemorySqlite(db, memory.id)) {
+                toArchive.push({ id: memory.id, shard });
+                totalArchived++;
+              }
             }
           }
         }
 
         db.run("COMMIT");
         inTxn = false;
+
+        for (const item of toArchive) {
+          try {
+            await vectorSearch.deleteVector(db, item.id, item.shard);
+            shardManager.decrementVectorCount(item.shard.id);
+          } catch (err) {
+            log("archiveMemory vector delete error", { memoryId: item.id, error: String(err) });
+          }
+        }
       } catch (error) {
         if (inTxn) {
           try {
@@ -420,61 +430,42 @@ export async function applyDecay(): Promise<{
   }
 }
 
-/**
- * Archive a memory by moving it to an archive table and deleting from memories.
- */
-async function archiveMemory(db: any, memoryId: string, shard: any): Promise<void> {
-  try {
-    // Create archive table if not exists
-    db.run(`
-      CREATE TABLE IF NOT EXISTS memories_archive (
-        id TEXT PRIMARY KEY,
-        content TEXT NOT NULL,
-        tags TEXT,
-        type TEXT,
-        created_at INTEGER NOT NULL,
-        archived_at INTEGER NOT NULL,
-        strength REAL,
-        access_count INTEGER,
-        container_tag TEXT,
-        metadata TEXT,
-        store_type TEXT,
-        decay_rate REAL
-      )
-    `);
+function archiveMemorySqlite(db: any, memoryId: string): boolean {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS memories_archive (
+      id TEXT PRIMARY KEY,
+      content TEXT NOT NULL,
+      tags TEXT,
+      type TEXT,
+      created_at INTEGER NOT NULL,
+      archived_at INTEGER NOT NULL,
+      strength REAL,
+      access_count INTEGER,
+      container_tag TEXT,
+      metadata TEXT,
+      store_type TEXT,
+      decay_rate REAL
+    )
+  `);
 
-    // Copy to archive
-    const insertResult = db.run(
-      `
-      INSERT INTO memories_archive
-      SELECT id, content, tags, type, created_at, ?, strength, access_count,
-             container_tag, metadata, store_type, decay_rate
-      FROM memories WHERE id = ?
-    `,
-      Date.now(),
-      memoryId
-    );
+  const insertResult = db.run(
+    `
+    INSERT INTO memories_archive
+    SELECT id, content, tags, type, created_at, ?, strength, access_count,
+           container_tag, metadata, store_type, decay_rate
+    FROM memories WHERE id = ?
+  `,
+    Date.now(),
+    memoryId
+  );
 
-    if (insertResult.changes === 0) {
-      log("archiveMemory: memory already removed, skipping delete", { memoryId });
-      return;
-    }
-
-    // Delete from memories
-    db.run("DELETE FROM memories WHERE id = ?", memoryId);
-
-    // Ensure the vector is removed from the backend index
-    try {
-      await vectorSearch.deleteVector(db, memoryId, shard);
-      shardManager.decrementVectorCount(shard.id);
-    } catch (err) {
-      log("archiveMemory vector delete error", { memoryId, error: String(err) });
-    }
-
-    log("Memory archived", { memoryId, shardId: shard.id });
-  } catch (error) {
-    log("archiveMemory error", { memoryId, error: String(error) });
+  if (insertResult.changes === 0) {
+    log("archiveMemory: memory already removed, skipping delete", { memoryId });
+    return false;
   }
+
+  db.run("DELETE FROM memories WHERE id = ?", memoryId);
+  return true;
 }
 
 /**
