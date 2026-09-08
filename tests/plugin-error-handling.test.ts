@@ -253,4 +253,32 @@ describe("OpenCodeMemPlugin error handling", () => {
       (globalThis as Record<symbol, unknown>)[warmupKey] = true;
     }
   });
+
+  it("factory returns without awaiting warmup", async () => {
+    const warmupKey = Symbol.for("opencode-mem0.plugin.warmedup");
+    delete (globalThis as Record<symbol, unknown>)[warmupKey];
+    const { memoryClient } = await import("../src/services/client.js");
+    const { CONFIG } = await import("../src/config.js");
+    (CONFIG as { warmupTimeoutMs: number }).warmupTimeoutMs = 30000;
+    (memoryClient.warmup as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => {}));
+
+    const mockCtx = {
+      directory: "/test",
+      client: {
+        session: { prompt: vi.fn().mockResolvedValue({ success: true }) },
+        tui: { showToast: vi.fn().mockResolvedValue(undefined) },
+        path: { get: vi.fn().mockResolvedValue({ data: { state: "/test/.opencode" } }) },
+        provider: { list: vi.fn().mockResolvedValue({ data: { connected: [] } }) },
+      },
+    };
+
+    const plugin = await Promise.race([
+      OpenCodeMemPlugin(mockCtx as never),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("factory blocked on warmup")), 200)
+      ),
+    ]);
+    expect(typeof plugin.event).toBe("function");
+    (globalThis as Record<symbol, unknown>)[warmupKey] = true;
+  });
 });
