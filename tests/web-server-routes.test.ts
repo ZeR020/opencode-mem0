@@ -205,6 +205,45 @@ describe("WebServer Routes", () => {
       expect(res.status).toBe(200);
     });
 
+    it("allows a remote client Host when listed in webServerAllowedHosts", async () => {
+      server = new WebServer({
+        port: 18081,
+        host: "0.0.0.0",
+        enabled: true,
+        apiKey: "secret123",
+        allowedHosts: ["dashboard.lan.example"],
+      });
+      (serve as any).mockResolvedValue(mockPlatformServer);
+      await server.start();
+      const fetchHandler = (serve as any).mock.calls[0][0].fetch;
+      const res = await fetchHandler(
+        new Request("http://dashboard.lan.example:18081/api/health", {
+          headers: { host: "dashboard.lan.example:18081" },
+        })
+      );
+      expect(res.status).toBe(200);
+    });
+
+    it("parses unbracketed IPv6 Host headers as whole hostnames", async () => {
+      server = new WebServer({
+        port: 18082,
+        host: "2001:db8::5",
+        enabled: true,
+        apiKey: "secret123",
+      });
+      (serve as any).mockResolvedValue(mockPlatformServer);
+      await server.start();
+      const fetchHandler = (serve as any).mock.calls[0][0].fetch;
+      // Browsers bracket IPv6, but raw clients may not — must not be
+      // misparsed as host "2001:db8:" + port "5".
+      const res = await fetchHandler(
+        new Request("http://[2001:db8::5]:18082/api/health", {
+          headers: { host: "[2001:db8::5]:18082" },
+        })
+      );
+      expect(res.status).toBe(200);
+    });
+
     it("allows the configured non-loopback host", async () => {
       server = new WebServer({
         port: 18080,

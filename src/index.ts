@@ -221,6 +221,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
       host: CONFIG.webServerHost,
       enabled: CONFIG.webServerEnabled,
       apiKey: CONFIG.webServerApiKey,
+      allowedHosts: CONFIG.webServerAllowedHosts,
     })
       .then(async (server) => {
         // Disposed before listening completed — do not resurrect state.

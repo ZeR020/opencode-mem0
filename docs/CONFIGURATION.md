@@ -139,14 +139,15 @@ Auto-capture observes chat exchanges and automatically extracts memorable inform
 
 ## Web UI Settings
 
-| Setting            | Type      | Default       | Description                                                                                                                                                                        |
-| ------------------ | --------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `webServerEnabled` | `boolean` | `true`        | Enable the management web UI.                                                                                                                                                      |
-| `webServerPort`    | `number`  | `4747`        | Port for the web UI server.                                                                                                                                                        |
-| `webServerHost`    | `string`  | `"127.0.0.1"` | Host binding for the web server. Defaults to loopback for security. **`webServerApiKey` is required if binding to a non-loopback address.**                                        |
-| `webServerApiKey`  | `string`  | —             | API key for authenticating web UI requests. Required when `webServerHost` is not a loopback address (`127.0.0.1`, `localhost`, `::1`). Value is used as-is (no secret resolution). |
+| Setting                 | Type       | Default       | Description                                                                                                                                                                                                  |
+| ----------------------- | ---------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `webServerEnabled`      | `boolean`  | `true`        | Enable the management web UI.                                                                                                                                                                                |
+| `webServerPort`         | `number`   | `4747`        | Port for the web UI server.                                                                                                                                                                                  |
+| `webServerHost`         | `string`   | `"127.0.0.1"` | Host binding for the web server. Defaults to loopback for security. **`webServerApiKey` is required if binding to a non-loopback address.**                                                                  |
+| `webServerApiKey`       | `string`   | —             | API key for authenticating web UI requests. Required when `webServerHost` is not a loopback address (`127.0.0.1`, `localhost`, `::1`). Value is used as-is (no secret resolution).                           |
+| `webServerAllowedHosts` | `string[]` | `[]`          | Extra hostnames accepted in the `Host` header. Add the public hostname (or LAN IP) clients use to reach the dashboard when binding to `0.0.0.0`/an interface address or when running behind a reverse proxy. |
 
-Requests are accepted only when the `Host` header is loopback (`127.0.0.1`, `localhost`, `[::1]`) or the configured `webServerHost` (hostname compared case-insensitively, port ignored). If you reverse-proxy the dashboard, set `webServerHost` to the proxy hostname.
+Requests are accepted only when the `Host` header is loopback (`127.0.0.1`, `localhost`, `[::1]`), the configured `webServerHost`, or one of `webServerAllowedHosts`. **Binding remotely or behind a reverse proxy:** keep `webServerHost` as the address to _bind_ (e.g. `127.0.0.1` behind a local proxy, `0.0.0.0` for LAN access) and list the hostname clients send in `Host` under `webServerAllowedHosts`.
 
 ## Vector Search Settings
 

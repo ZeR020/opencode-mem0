@@ -96,6 +96,27 @@ const wrapStatement = (stmt: RawStatement): Statement => ({
   all: (...params: unknown[]) => stmt.all(...normalizeParams(params)),
 });
 
+/**
+ * FTS5-safe query: quotes each whitespace-separated token as a phrase so
+ * punctuation (don't, foo.js, a@b.com) never produces invalid MATCH
+ * syntax and reserved words (AND/OR/NOT/NEAR) lose operator meaning.
+ * Quotes and glob chars are stripped — tokens cannot escape their phrase.
+ * Returns "" when nothing survives sanitization.
+ */
+export function toSafeFtsQuery(query: string, maxLength: number = 500): string {
+  const tokens = query
+    .replace(/["*]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length > 0)
+    .slice(0, 100);
+  let safe = tokens.map((t) => `"${t}"`).join(" ");
+  if (safe.length > maxLength) {
+    safe = safe.slice(0, maxLength);
+    const boundary = safe.lastIndexOf('"');
+    safe = boundary > 0 ? safe.slice(0, boundary + 1) : "";
+  }
+  return safe;
+}
 class SqliteDatabase implements Database {
   protected readonly db: RawDatabase;
 

@@ -38,4 +38,24 @@ describe("transcript FTS query sanitization", () => {
     expect(junk.transcripts).toEqual([]);
     expect(junk.total).toBe(0);
   });
+
+  it("matches punctuated terms that previously caused silent empty results", () => {
+    mgr.saveTranscript("sess-2", "/p", [
+      { role: "user", content: "fixed the don't panic bug in react.js via email@example.com" },
+    ]);
+
+    // Punctuation FTS5 rejects in barewords — quoted phrases must match.
+    for (const q of ["don't", "react.js", "email@example.com", "panic bug"]) {
+      const res = mgr.searchTranscripts(q);
+      expect(res.transcripts.some((t) => t.sessionId === "sess-2")).toBe(true);
+    }
+    // Reserved word as bareword was a syntax error — now a valid (empty) phrase query.
+    expect(mgr.searchTranscripts("AND").total).toBe(0);
+  });
+
+  it("truncates very long queries without producing unbalanced quotes", () => {
+    expect(() => mgr.searchTranscripts("word ".repeat(400))).not.toThrow();
+    const res = mgr.searchTranscripts("word ".repeat(400));
+    expect(res).toBeTruthy();
+  });
 });

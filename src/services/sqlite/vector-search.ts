@@ -1,4 +1,4 @@
-import { StmtCache, type Database } from "./sqlite-bootstrap.js";
+import { StmtCache, toSafeFtsQuery, type Database } from "./sqlite-bootstrap.js";
 import { connectionManager } from "./connection-manager.js";
 import { log, warn } from "../logger.js";
 import { CONFIG } from "../../config.js";
@@ -252,11 +252,7 @@ export class VectorSearch {
   private searchFTS5(db: Database, queryText: string | undefined, limit: number): string[] {
     if (!queryText || queryText.length === 0) return [];
 
-    const safeFtsQuery = queryText
-      .replace(/[*^:\-+?()"]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 500);
+    const safeFtsQuery = toSafeFtsQuery(queryText);
 
     if (safeFtsQuery.length === 0) return [];
 
