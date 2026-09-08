@@ -13,10 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.24.0] - 2026-09-08
 
-### CI
-
-- SonarCloud is removed. Its one load-bearing job (the coverage gate) is replaced by native vitest coverage thresholds (whole-repo ratchet at the current baseline: 80% statements / 73% branches / 82% functions / 81% lines) enforced inside the `check` CI job — no external service, no token, and stricter than Sonar's new-code-only view. `sonar.yml`, `sonar-project.properties` and the `sonarcloud` required check are gone; the `SONAR_TOKEN` secret is now unused and can be deleted in repo settings.
-
 ### Fixed
 
 - **Plugin lifecycle hardened per code-review findings** — provider-state waits are bounded (a hung host bootstrap can no longer wedge auto-capture or profile learning forever), idle events arriving after `dispose` start no new work, a web server that finishes starting after `dispose` is stopped instead of running orphaned, and the initial score recalculation runs on a macrotask so the host receives the plugin before the shard scan.
