@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **better-sqlite3 is an optional dependency — installs no longer hard-fail on platforms where its native build breaks (bun:sqlite / node:sqlite users unaffected).**
 - **Dashboard route handlers are imported directly — the api-handlers.ts re-export layer is gone.**
 - **Config types are now derived from the zod schema (z.infer) instead of a hand-maintained duplicate interface.**
 - **Startup no longer blocks on embedding warmup or score recalculation** — the plugin loads immediately and warms up in the background.

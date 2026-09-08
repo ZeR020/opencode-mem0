@@ -143,11 +143,11 @@ After the initial download, subsequent runs are near-instant. Alternatively, use
 | `%USERPROFILE%\.config\opencode\opencode-mem0.jsonc` | Global config                           |
 | `%USERPROFILE%\.opencode-mem0\data`                  | SQLite databases, embedding model cache |
 
-### better-sqlite3 install fails (node-gyp / MSBuild error)
+### better-sqlite3 native build fails (node-gyp / MSBuild warning)
 
-**Symptom:** `npm install opencode-mem0` fails with `node-gyp` or `MSBuild` errors (Windows ARM64 or a very new Node version without prebuilt binaries).
+**Symptom:** `npm install` warns that optional `better-sqlite3` failed to build (`node-gyp` / `MSBuild`). The install itself succeeds.
 
-**Solution:** Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the **"Desktop development with C++"** workload + [Python 3](https://www.python.org/downloads/), then retry. One-time setup.
+**Solution:** Ignore it on Bun or Node >= 22.5 — `bun:sqlite` / `node:sqlite` cover those runtimes. On Node < 22.5, install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the **"Desktop development with C++"** workload + [Python 3](https://www.python.org/downloads/) and retry so the native fallback can load.
 
 ### Auto-capture skips with "LLM provider not configured"
 
