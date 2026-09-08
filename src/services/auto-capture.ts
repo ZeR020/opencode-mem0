@@ -131,8 +131,9 @@ export async function performAutoCapture(
   isCapturing = true;
   let claimedPromptId: string | null = null;
   try {
-    const { ensureProviderState } = await import("./ai/opencode-provider.js");
+    const { ensureProviderState, isPluginDisposed } = await import("./ai/opencode-provider.js");
     await ensureProviderState();
+    if (isPluginDisposed()) return;
     const prompt = userPromptManager.getLastUncapturedPrompt(sessionID);
     if (!prompt) return;
     if (!userPromptManager.claimPrompt(prompt.id)) return;

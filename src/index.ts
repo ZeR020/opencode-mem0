@@ -33,7 +33,11 @@ import type { UserProfileData } from "./services/user-profile/types.js";
 import type { SearchResult } from "./services/sqlite/types.js";
 import { getLanguageName } from "./services/language-detector.js";
 import type { MemoryScope } from "./services/client.js";
-import { setProviderStateInit } from "./services/ai/opencode-provider.js";
+import {
+  isPluginDisposed,
+  markPluginDisposed,
+  setProviderStateInit,
+} from "./services/ai/opencode-provider.js";
 
 async function showToast(
   ctx: PluginInput,
@@ -125,6 +129,8 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   const tags = getTags(directory);
   let webServer: WebServer | null = null;
   const sessionIdleTimers = new Map<string, NodeJS.Timeout>();
+  // Reset for repeated factory invocations (tests, host reloads).
+  markPluginDisposed(false);
 
   const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("opencode-mem0.plugin.warmedup");
 
@@ -217,6 +223,11 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
       apiKey: CONFIG.webServerApiKey,
     })
       .then(async (server) => {
+        // Disposed before listening completed — do not resurrect state.
+        if (isPluginDisposed()) {
+          server.stop();
+          return;
+        }
         webServer = server;
         const url = webServer.getUrl();
 
@@ -256,16 +267,19 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
       });
   }
 
+  let initialScoringTimer: ReturnType<typeof setTimeout> | undefined;
   // Start background memory scoring recalculation
   if (isConfigured() && CONFIG.memoryScoring.enabled) {
     startScoringRecalculation();
-    void Promise.resolve().then(() => {
+    // setTimeout (macrotask), not a microtask: the host's await of this factory
+    // resumes before the scan runs, so plugin loading is not blocked by it.
+    initialScoringTimer = setTimeout(() => {
       try {
         recalculateAllScores(true);
       } catch (error) {
         log("Initial scoring recalculation failed", { error: String(error) });
       }
-    });
+    }, 0);
   }
 
   // Start memory lifecycle job (STM/LTM decay, promotion, archiving)
@@ -283,6 +297,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
 
   const shutdownHandler = async () => {
     delete (globalThis as any)[Symbol.for("opencode-mem0.shutdown")];
+    markPluginDisposed(true);
     try {
       for (const timer of sessionIdleTimers.values()) {
         clearTimeout(timer);
@@ -290,6 +305,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
       sessionIdleTimers.clear();
       stopScoringRecalculation();
       stopLifecycleJob();
+      if (initialScoringTimer) clearTimeout(initialScoringTimer);
       clearInterval(sessionCleanupTimer);
       if (webServer) {
         webServer.stop();
@@ -646,6 +662,8 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
     event: async (input: { event: { type: string; properties?: Record<string, unknown> } }) => {
       const event = input.event;
 
+      // Entry checkpoint: once disposed, no new idle/compaction work starts.
+      if (isPluginDisposed()) return;
       if (event.type === "session.idle") {
         await handleSessionIdle(event, ctx, directory, sessionIdleTimers, webServer);
       }

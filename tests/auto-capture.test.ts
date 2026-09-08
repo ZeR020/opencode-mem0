@@ -63,6 +63,8 @@ vi.mock("../src/services/user-prompt/user-prompt-manager.js", () => ({
   userPromptManager: mockUserPromptManager,
 }));
 vi.mock("../src/services/ai/opencode-provider.js", () => ({
+  markPluginDisposed: vi.fn(),
+  isPluginDisposed: () => false,
   isProviderConnected: (...args: unknown[]) => mockIsProviderConnected(...args),
   getStatePath: (...args: unknown[]) => mockGetStatePath(...args),
   generateStructuredOutput: (...args: unknown[]) => mockGenerateStructuredOutput(...args),

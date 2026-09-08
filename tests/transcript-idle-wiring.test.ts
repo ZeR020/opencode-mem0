@@ -29,6 +29,8 @@ vi.mock("../src/services/web-server.js", () => ({
 }));
 
 vi.mock("../src/services/ai/opencode-provider.js", () => ({
+  markPluginDisposed: vi.fn(),
+  isPluginDisposed: () => false,
   setStatePath: vi.fn(),
   setConnectedProviders: vi.fn(),
   setProviderStateInit: vi.fn(),
@@ -279,8 +281,7 @@ describe("session.idle transcript capture wiring", () => {
     expect(clearTimeoutSpy).toHaveBeenCalled();
     expect(clearIntervalSpy).toHaveBeenCalled();
 
-    const { stopScoringRecalculation } =
-      await import("../src/services/memory-scoring-service.js");
+    const { stopScoringRecalculation } = await import("../src/services/memory-scoring-service.js");
     const { stopLifecycleJob } = await import("../src/services/memory-lifecycle.js");
     const { memoryClient } = await import("../src/services/client.js");
     expect(stopScoringRecalculation).toHaveBeenCalled();

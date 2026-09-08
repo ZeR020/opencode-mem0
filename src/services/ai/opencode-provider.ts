@@ -17,12 +17,42 @@ let _connectedProviders: string[] = [];
 
 let providerStateInit: Promise<void> = Promise.resolve();
 
+// Bounded: a hung host bootstrap must not wedge auto-capture/profile
+// processing forever — after this timeout we proceed without provider state.
+// ponytail: fixed timeout; make configurable if slow hosts become real.
+const PROVIDER_STATE_TIMEOUT_MS = 10_000;
+
+let disposed = false;
+
 export function setProviderStateInit(promise: Promise<void>): void {
   providerStateInit = promise;
 }
 
+export function markPluginDisposed(value: boolean): void {
+  disposed = value;
+}
+
+export function isPluginDisposed(): boolean {
+  return disposed;
+}
+
 export async function ensureProviderState(): Promise<void> {
-  await providerStateInit;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      providerStateInit,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("provider state init timeout")),
+          PROVIDER_STATE_TIMEOUT_MS
+        );
+      }),
+    ]);
+  } catch {
+    log("opencode provider state not ready in time — proceeding without it");
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 export function setStatePath(path: string): void {
