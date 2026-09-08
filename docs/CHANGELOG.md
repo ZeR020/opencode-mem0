@@ -15,14 +15,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Plugin lifecycle hardened per code-review findings** — provider-state waits are bounded (a hung host bootstrap can no longer wedge auto-capture or profile learning forever), idle events arriving after `dispose` start no new work, a web server that finishes starting after `dispose` is stopped instead of running orphaned, and the initial score recalculation runs on a macrotask so the host receives the plugin before the shard scan.
-- **Embedding warmup wait is bounded** — a slow or hung local-model load no longer stalls the first chat prompt indefinitely; the search path degrades to text-only for that prompt while the model load continues in the background, instead of failing or permanently disabling embeddings.
-- **`updateVector` no longer wipes `tags_vector` when only the content embedding is refreshed** — semantic tag search survives content-only re-embeds (Devin finding on #63).
-- **The `memories_fts` update trigger is column-scoped** — routine `access_count`/score updates on every search result and decay cycle no longer re-tokenize content, cutting FTS write amplification (Copilot/Codex finding on #63).
-- **Vector-index writes after a sqlite COMMIT no longer misreport failure** — a failing backend insert used to reject `insertVector`/`updateVector`/`replaceVector` even though the memory was durably persisted (callers retried into duplicates), and the rebuild-dirty flag never actually repaired an initialized USearch index because `rebuildFromShard` skipped initialized indexes. Dirty shards now force a full index rebuild from sqlite on the next search (Devin finding on #63).
-- **Re-embed migrations now update the live vector index** — the migration wrote new vectors to sqlite but never touched an initialized in-memory index, so searches served stale old-model/old-dimension results until process restart (Copilot/Codex/Devin finding on #63). Migrated memories also get their tag embeddings re-generated from the stored tags text; after a successful shard both index kinds are force-rebuilt from sqlite on the next search.
-- **Keyword search no longer returns silent empty results for punctuated queries** — `don't`, `foo.js`, `email@example.com`, and reserved words like `AND` previously produced invalid FTS5 MATCH syntax that degraded to an empty result set. Tokens are now quoted as phrases (both the memory and transcript search paths) and unbracketed IPv6 Host headers parse correctly (Devin/Copilot findings on #64).
-- **New `webServerAllowedHosts` setting** — binding the dashboard remotely (`webServerHost:`"0.0.0.0"`) or behind a reverse proxy previously rejected every remote client's Host header (Codex P1 on #64); the documented workaround also changed the listen interface. The bind address and the accepted Host names are now configured separately, keeping the DNS-rebinding protection for loopback defaults.
+#### Plugin lifecycle
+
+- **Provider-state waits are bounded** — a hung host bootstrap can no longer wedge auto-capture or profile learning forever.
+- **No new work starts after disposal** — idle events arriving after `dispose` back out instead of opening new captures; a web server that finishes starting after `dispose` is stopped instead of running orphaned.
+- **First-prompt score scan runs on a macrotask** — the host receives the plugin and its first prompt before the initial shard scan kicks in.
+
+#### Embedding & search
+
+- **Model warmup is bounded** — a slow local-model load no longer stalls the first chat prompt; that search degrades to text-only while the load finishes in the background.
+- **Punctuated queries return results** — `don't`, `foo.js`, `email@example.com`, and reserved words like `AND` previously returned silently empty results (invalid FTS5 MATCH syntax). Tokens are now phrase-quoted on both the memory and transcript search paths.
+
+#### SQLite & vector index
+
+- **Content-only re-embeds keep tag vectors** — `updateVector` no longer nulls `tags_vector`, so semantic tag search survives.
+- **FTS update trigger is column-scoped** — routine `access_count` and score touches no longer re-tokenize content, cutting write amplification.
+- **Post-commit index failures are reported honestly** — a failing backend insert no longer rejects an already-committed memory (callers retried into duplicates), and a dirty index now force-replaces itself from sqlite on the next search instead of staying broken until restart.
+- **Re-embed migrations update the live index** — searches no longer serve stale old-dimension vectors until a process restart; migrated memories also get fresh tag embeddings.
+
+#### Web dashboard
+
+- **IPv6 Host headers parse correctly** — unbracketed literals like `2001:db8::1` are no longer misread as host+port.
+- **New `webServerAllowedHosts` setting** — binding remotely (`webServerHost: `"0.0.0.0"`) or behind a reverse proxy previously rejected every remote client with 403, and the old workaround changed the listen interface. Bind address and accepted Host names are configured separately; loopback protection is unchanged.
 
 ## [2.23.2] - 2026-09-08
 
