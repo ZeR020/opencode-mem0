@@ -165,4 +165,19 @@ describe("tool memory scope", () => {
     await memoryTool.execute({ mode: "list" }, { sessionID: "s1" });
     expect(lastListScope).toBe("project");
   });
+
+  it("reports actual deletion failures from forget", async () => {
+    mockClient.deleteMemory = () => ({ success: false, error: "Memory not found" });
+    const plugin = await createPlugin();
+    const memoryTool = plugin.tool?.memory;
+    if (!memoryTool) throw new Error("memory tool not available");
+
+    const result = JSON.parse(
+      await memoryTool.execute({ mode: "forget", memoryId: "missing" }, { sessionID: "s1" })
+    );
+    expect(result.success).toBe(false);
+    expect(result.message).toBe("Memory not found");
+
+    mockClient.deleteMemory = () => ({ success: true });
+  });
 });

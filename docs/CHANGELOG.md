@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Plugin now implements the opencode `dispose` hook** — all timers, jobs, the web server, and sqlite connections are cleaned up when the host disposes or reloads the plugin.
 - **Warmup timeout race no longer triggers an unhandled promise rejection.**
 - **Auto-capture and profile learning now wait for opencode provider state instead of racing it at startup.**
+- **The forget tool now reports actual deletion failures instead of always claiming success.**
 
 ## [2.23.1] - 2026-09-07
 
