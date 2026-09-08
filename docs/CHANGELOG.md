@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The forget tool now reports actual deletion failures instead of always claiming success.**
 ### Fixed
 
+- **SQL connection pool no longer evicts (and mid-checkpoint-closes) connections with an open transaction.**
 - **SQLite write transactions are no longer held open across async vector-index updates — eliminating nested-transaction/SQLITE_BUSY risks under concurrent captures, decay, and admin operations.**
 - **Keyword search and FTS boost now work: the memories_fts FTS5 virtual table (absent since shards were created without it) is created on new and existing shards — keyword search no longer silently degrades to a full-table LIKE scan.**
 - **Decay cycle now rotates through all decayable memories (ordered by last_decay_at) instead of repeatedly processing only the first batch; rows past the batch cap now decay and archive.**
