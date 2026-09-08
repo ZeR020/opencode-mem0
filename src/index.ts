@@ -130,12 +130,20 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   if (!(globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] && isConfigured()) {
     try {
       const timeoutMs = CONFIG.warmupTimeoutMs ?? 30000;
-      await Promise.race([
-        memoryClient.warmup(),
-        new Promise<void>((_, reject) =>
-          setTimeout(() => reject(new Error(`Warmup timed out after ${timeoutMs}ms`)), timeoutMs)
-        ),
-      ]);
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          memoryClient.warmup(),
+          new Promise<void>((_, reject) => {
+            timeoutId = setTimeout(
+              () => reject(new Error(`Warmup timed out after ${timeoutMs}ms`)),
+              timeoutMs
+            );
+          }),
+        ]);
+      } finally {
+        clearTimeout(timeoutId);
+      }
       (globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] = true;
     } catch (error) {
       log("Plugin warmup failed", { error: String(error) });

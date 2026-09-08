@@ -199,4 +199,56 @@ describe("OpenCodeMemPlugin error handling", () => {
     expect(toastErrors.length).toBeGreaterThanOrEqual(1);
     expect(toastErrors[0].data?.error).toContain("Takeover toast failed");
   });
+
+  it("warmup timeout race no longer triggers an unhandled promise rejection", async () => {
+    vi.useFakeTimers();
+    const rejections: unknown[] = [];
+    const onUnhandled = (reason: unknown) => {
+      rejections.push(reason);
+    };
+    process.on("unhandledRejection", onUnhandled);
+    const warmupKey = Symbol.for("opencode-mem0.plugin.warmedup");
+    delete (globalThis as Record<symbol, unknown>)[warmupKey];
+    const timeoutMs = 50;
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+    const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
+    try {
+      const { memoryClient } = await import("../src/services/client.js");
+      const { CONFIG } = await import("../src/config.js");
+      (CONFIG as { warmupTimeoutMs: number }).warmupTimeoutMs = timeoutMs;
+      (memoryClient.warmup as ReturnType<typeof vi.fn>).mockImplementation(
+        () => new Promise<void>((resolve) => setTimeout(() => resolve(), 1))
+      );
+
+      const mockCtx = {
+        directory: "/test",
+        client: {
+          session: { prompt: vi.fn().mockResolvedValue({ success: true }) },
+          tui: { showToast: vi.fn().mockResolvedValue(undefined) },
+          path: { get: vi.fn().mockResolvedValue({ data: { state: "/test/.opencode" } }) },
+          provider: { list: vi.fn().mockResolvedValue({ data: { connected: [] } }) },
+        },
+      };
+
+      const pluginPromise = OpenCodeMemPlugin(mockCtx as never);
+      await Promise.resolve();
+      const timeoutCallIndex = setTimeoutSpy.mock.calls.findIndex((call) => call[1] === timeoutMs);
+      expect(timeoutCallIndex).toBeGreaterThanOrEqual(0);
+      const timeoutId = setTimeoutSpy.mock.results[timeoutCallIndex]?.value;
+
+      await vi.advanceTimersByTimeAsync(1);
+      await pluginPromise;
+      await vi.advanceTimersByTimeAsync(timeoutMs + 50);
+      await Promise.resolve();
+
+      expect(clearTimeoutSpy).toHaveBeenCalledWith(timeoutId);
+      expect(rejections).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+      setTimeoutSpy.mockRestore();
+      clearTimeoutSpy.mockRestore();
+      vi.useRealTimers();
+      (globalThis as Record<symbol, unknown>)[warmupKey] = true;
+    }
+  });
 });
