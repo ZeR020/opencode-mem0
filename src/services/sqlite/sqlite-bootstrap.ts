@@ -18,6 +18,23 @@ export interface Database {
   close(): void;
 }
 
+export class StmtCache {
+  private readonly cache = new WeakMap<Database, Map<string, Statement>>();
+  get(db: Database, sql: string): Statement {
+    let dbCache = this.cache.get(db);
+    if (!dbCache) {
+      dbCache = new Map();
+      this.cache.set(db, dbCache);
+    }
+    let stmt = dbCache.get(sql);
+    if (!stmt) {
+      stmt = db.prepare(sql);
+      dbCache.set(sql, stmt);
+    }
+    return stmt;
+  }
+}
+
 /**
  * Minimal shape of the raw underlying driver. Each backend (bun:sqlite,
  * node:sqlite, better-sqlite3) structurally satisfies this; we cast the
