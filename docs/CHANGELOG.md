@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The forget tool now reports actual deletion failures instead of always claiming success.**
 ### Fixed
 
+- **Memory archival now commits its sqlite transaction before touching the vector index — no more async work inside BEGIN IMMEDIATE, and archived ids are reliably deleted from the index.**
 - **Batched writes are no longer dropped when their connection was evicted before flush.**
 - **SQL connection pool no longer evicts (and mid-checkpoint-closes) connections with an open transaction.**
 - **SQLite write transactions are no longer held open across async vector-index updates — eliminating nested-transaction/SQLITE_BUSY risks under concurrent captures, decay, and admin operations.**
