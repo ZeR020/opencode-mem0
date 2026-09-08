@@ -17,24 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - SonarCloud is removed. Its one load-bearing job (the coverage gate) is replaced by native vitest coverage thresholds (whole-repo ratchet at the current baseline: 80% statements / 73% branches / 82% functions / 81% lines) enforced inside the `check` CI job — no external service, no token, and stricter than Sonar's new-code-only view. `sonar.yml`, `sonar-project.properties` and the `sonarcloud` required check are gone; the `SONAR_TOKEN` secret is now unused and can be deleted in repo settings.
 
-- None yet.
-
 ### Fixed
 
-- **Plugin lifecycle hardened per code-review findings**
-- **Embedding warmup wait is bounded**
-- \*\*`updateVector` no longer wipes
-- **The `memories_fts` update trigger is column-scoped**
-- **Vector-index writes after a sqlite COMMIT no longer misreport failure**
-- **Re-embed migrations now update the live vector index**
+- **Plugin lifecycle hardened per code-review findings** — provider-state waits are bounded (a hung host bootstrap can no longer wedge auto-capture or profile learning forever), idle events arriving after `dispose` start no new work, a web server that finishes starting after `dispose` is stopped instead of running orphaned, and the initial score recalculation runs on a macrotask so the host receives the plugin before the shard scan.
+- **Embedding warmup wait is bounded** — a slow or hung local-model load no longer stalls the first chat prompt indefinitely; the search path degrades to text-only for that prompt while the model load continues in the background, instead of failing or permanently disabling embeddings.
+- **`updateVector` no longer wipes `tags_vector` when only the content embedding is refreshed** — semantic tag search survives content-only re-embeds (Devin finding on #63).
+- **The `memories_fts` update trigger is column-scoped** — routine `access_count`/score updates on every search result and decay cycle no longer re-tokenize content, cutting FTS write amplification (Copilot/Codex finding on #63).
+- **Vector-index writes after a sqlite COMMIT no longer misreport failure** — a failing backend insert used to reject `insertVector`/`updateVector`/`replaceVector` even though the memory was durably persisted (callers retried into duplicates), and the rebuild-dirty flag never actually repaired an initialized USearch index because `rebuildFromShard` skipped initialized indexes. Dirty shards now force a full index rebuild from sqlite on the next search (Devin finding on #63).
+- **Re-embed migrations now update the live vector index** — the migration wrote new vectors to sqlite but never touched an initialized in-memory index, so searches served stale old-model/old-dimension results until process restart (Copilot/Codex/Devin finding on #63). Migrated memories also get their tag embeddings re-generated from the stored tags text; after a successful shard both index kinds are force-rebuilt from sqlite on the next search.
 - **Keyword search no longer returns silent empty results for punctuated queries** — `don't`, `foo.js`, `email@example.com`, and reserved words like `AND` previously produced invalid FTS5 MATCH syntax that degraded to an empty result set. Tokens are now quoted as phrases (both the memory and transcript search paths) and unbracketed IPv6 Host headers parse correctly (Devin/Copilot findings on #64).
-- **New `webServerAllowedHosts` setting** — binding the dashboard remotely (`webServerHost: "0.0.0.0"`) or behind a reverse proxy previously rejected every remote client's Host header (Codex P1 on #64); the documented workaround also changed the listen interface. The bind address and the accepted Host names are now configured separately, keeping the DNS-rebinding protection for loopback defaults.
-  — the migration wrote new vectors to sqlite but never touched an initialized in-memory index, so searches served stale old-model/old-dimension results until process restart (Copilot/Codex/Devin finding on #63). Migrated memories also get their tag embeddings re-generated from the stored tags text; after a successful shard both index kinds are force-rebuilt from sqlite on the next search.
-  — a failing backend insert used to reject `insertVector`/`updateVector`/`replaceVector` even though the memory was durably persisted (callers retried into duplicates), and the rebuild-dirty flag never actually repaired an initialized USearch index because `rebuildFromShard` skipped initialized indexes. Dirty shards now force a full index rebuild from sqlite on the next search (Devin finding on #63).
-  — routine `access_count`/score updates on every search result and decay cycle no longer re-tokenize content, cutting FTS write amplification (Copilot/Codex finding on #63).
-  `tags_vector` when only the content embedding is refreshed\*\* — semantic tag search survives content-only re-embeds (Devin finding on #63).
-  — a slow or hung local-model load no longer stalls the first chat prompt indefinitely; the search path degrades to text-only for that prompt while the model load continues in the background, instead of failing or permanently disabling embeddings.
-  — provider-state waits are bounded (a hung host bootstrap can no longer wedge auto-capture or profile learning forever), idle events arriving after `dispose` start no new work, a web server that finishes starting after `dispose` is stopped instead of running orphaned, and the initial score recalculation runs on a macrotask so the host receives the plugin before the shard scan.
+- **New `webServerAllowedHosts` setting** — binding the dashboard remotely (`webServerHost:`"0.0.0.0"`) or behind a reverse proxy previously rejected every remote client's Host header (Codex P1 on #64); the documented workaround also changed the listen interface. The bind address and the accepted Host names are now configured separately, keeping the DNS-rebinding protection for loopback defaults.
 
 ## [2.23.2] - 2026-09-08
 
