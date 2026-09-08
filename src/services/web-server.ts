@@ -67,6 +67,8 @@ interface WebServerConfig {
   host: string;
   enabled: boolean;
   apiKey?: string;
+  /** Extra hostnames accepted in the Host header when binding remotely or behind a proxy. */
+  allowedHosts?: string[];
 }
 
 type RedactedValue =
@@ -90,6 +92,9 @@ function hostnameFromHostHeader(raw: string): string {
     const end = host.indexOf("]");
     if (end !== -1) return host.slice(1, end);
   }
+  // Unbracketed IPv6 literals (multiple colons) are the whole hostname —
+  // splitting on the last colon misclassifies 2001:db8::1 as host:port.
+  if ((host.match(/:/g) ?? []).length > 1) return host;
   const colon = host.lastIndexOf(":");
   if (colon > 0 && /^\d+$/.test(host.slice(colon + 1))) {
     return host.slice(0, colon);
@@ -102,8 +107,10 @@ function isHostAllowed(headers: Headers, config: WebServerConfig): boolean {
   if (!raw) return false;
   const hostname = hostnameFromHostHeader(raw);
   const allowed = new Set(["127.0.0.1", "localhost", "::1"]);
-  const configured = hostnameFromHostHeader(config.host);
-  if (configured) allowed.add(configured);
+  for (const source of [config.host, ...(config.allowedHosts ?? [])]) {
+    const configured = hostnameFromHostHeader(source);
+    if (configured) allowed.add(configured);
+  }
   if (allowed.has(hostname)) return true;
   const rawLower = raw.trim().toLowerCase();
   if (config.port !== 80 && config.port !== 443) {

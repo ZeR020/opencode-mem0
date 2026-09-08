@@ -1,4 +1,4 @@
-import { type Database } from "./sqlite-bootstrap.js";
+import { toSafeFtsQuery, type Database } from "./sqlite-bootstrap.js";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -175,11 +175,7 @@ export class TranscriptManager {
   ): { transcripts: TranscriptRecord[]; total: number } {
     if (!CONFIG.transcriptStorage.enabled) return { transcripts: [], total: 0 };
 
-    const safeFtsQuery = query
-      .replace(/[*^:\-+?()"]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 500);
+    const safeFtsQuery = toSafeFtsQuery(query);
     if (safeFtsQuery.length === 0) return { transcripts: [], total: 0 };
 
     try {
