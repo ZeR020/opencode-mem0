@@ -62,6 +62,7 @@ vi.mock("../src/services/ai/opencode-provider.js", () => ({
   isProviderConnected: () => true,
   getStatePath: () => "/tmp/test-state",
   generateStructuredOutput: (...args: unknown[]) => mockGenerateStructuredOutput(...args),
+  ensureProviderState: () => Promise.resolve(),
 }));
 
 // The REAL user-profile-manager module (no mock): the shared resolver and the

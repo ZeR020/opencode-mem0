@@ -57,6 +57,7 @@ vi.mock("../src/services/ai/opencode-provider.js", () => ({
   isProviderConnected: vi.fn().mockReturnValue(false),
   getStatePath: vi.fn().mockReturnValue("/tmp/state.json"),
   generateStructuredOutput: vi.fn(),
+  ensureProviderState: () => Promise.resolve(),
 }));
 
 vi.mock("../src/services/ai/ai-provider-factory.js", () => ({
