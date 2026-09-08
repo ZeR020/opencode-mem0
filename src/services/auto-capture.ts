@@ -134,6 +134,7 @@ export async function performAutoCapture(
     const prompt = userPromptManager.getLastUncapturedPrompt(sessionID);
     if (!prompt) return;
     if (!userPromptManager.claimPrompt(prompt.id)) return;
+    claimedPromptId = prompt.id;
     const maxRetries = CONFIG.autoCaptureMaxRetries ?? 3;
     const existingAttempts = userPromptManager.getCaptureAttempts(prompt.id);
 
