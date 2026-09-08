@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Warmup timeout race no longer triggers an unhandled promise rejection.**
 - **Auto-capture and profile learning now wait for opencode provider state instead of racing it at startup.**
 - **The forget tool now reports actual deletion failures instead of always claiming success.**
+### Fixed
+
+- **Decay cycle now rotates through all decayable memories (ordered by last_decay_at) instead of repeatedly processing only the first batch; rows past the batch cap now decay and archive.**
 
 ## [2.23.1] - 2026-09-07
 
