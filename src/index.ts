@@ -129,33 +129,35 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("opencode-mem0.plugin.warmedup");
 
   if (!(globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] && isConfigured()) {
-    try {
-      const timeoutMs = CONFIG.warmupTimeoutMs ?? 30000;
-      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    void (async () => {
       try {
-        await Promise.race([
-          memoryClient.warmup(),
-          new Promise<void>((_, reject) => {
-            timeoutId = setTimeout(
-              () => reject(new Error(`Warmup timed out after ${timeoutMs}ms`)),
-              timeoutMs
-            );
-          }),
-        ]);
-      } finally {
-        clearTimeout(timeoutId);
+        const timeoutMs = CONFIG.warmupTimeoutMs ?? 30000;
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        try {
+          await Promise.race([
+            memoryClient.warmup(),
+            new Promise<void>((_, reject) => {
+              timeoutId = setTimeout(
+                () => reject(new Error(`Warmup timed out after ${timeoutMs}ms`)),
+                timeoutMs
+              );
+            }),
+          ]);
+        } finally {
+          clearTimeout(timeoutId);
+        }
+        (globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] = true;
+      } catch (error) {
+        log("Plugin warmup failed", { error: String(error) });
+        if (error instanceof Error && error.message.includes("timed out")) {
+          embeddingService.embeddingAvailable = false;
+          embeddingService.isWarmedUp = true;
+          log(
+            "Embedding model warmup timed out — marking embeddings unavailable. Searches will use text-only fallback."
+          );
+        }
       }
-      (globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] = true;
-    } catch (error) {
-      log("Plugin warmup failed", { error: String(error) });
-      if (error instanceof Error && error.message.includes("timed out")) {
-        embeddingService.embeddingAvailable = false;
-        embeddingService.isWarmedUp = true;
-        log(
-          "Embedding model warmup timed out — marking embeddings unavailable. Searches will use text-only fallback."
-        );
-      }
-    }
+    })();
   }
 
   // Notify when a newer release exists (OpenCode pins plugin versions in its
@@ -257,12 +259,13 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   // Start background memory scoring recalculation
   if (isConfigured() && CONFIG.memoryScoring.enabled) {
     startScoringRecalculation();
-    // Run one-time recalculation on startup to ensure existing memories are scored
-    try {
-      recalculateAllScores(true);
-    } catch (error) {
-      log("Initial scoring recalculation failed", { error: String(error) });
-    }
+    void Promise.resolve().then(() => {
+      try {
+        recalculateAllScores(true);
+      } catch (error) {
+        log("Initial scoring recalculation failed", { error: String(error) });
+      }
+    });
   }
 
   // Start memory lifecycle job (STM/LTM decay, promotion, archiving)
@@ -612,7 +615,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
             const delRes = await memoryClient.deleteMemory(args.memoryId);
             return JSON.stringify({
               success: delRes.success,
-              message: delRes.success ? "Memory removed" : (delRes.error || "Memory removal failed"),
+              message: delRes.success ? "Memory removed" : delRes.error || "Memory removal failed",
             });
           }
 

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Startup no longer blocks on embedding warmup or score recalculation** — the plugin loads immediately and warms up in the background.
+
 ### Fixed
 
 - **Auto-capture no longer strands prompts in captured=2 state when capture is skipped after claiming** — early returns now release the claim for the next idle cycle.
