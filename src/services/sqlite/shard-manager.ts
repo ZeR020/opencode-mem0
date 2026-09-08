@@ -6,7 +6,7 @@ import { connectionManager } from "./connection-manager.js";
 import { log } from "../logger.js";
 import { vectorSearch } from "./vector-search.js";
 import type { ShardInfo } from "./types.js";
-import { runMigrations } from "./schema.js";
+import { ensureMemoriesFts, runMigrations } from "./schema.js";
 
 const METADATA_DB_NAME = "metadata.db";
 
@@ -227,6 +227,7 @@ class ShardManager {
 
     this.migrateScoringColumns(db);
     this.migrateConflictColumns(db);
+    ensureMemoriesFts(db);
   }
 
   private migrateScoringColumns(db: Database): void {

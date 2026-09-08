@@ -2,7 +2,7 @@ import { getDatabase, type Database } from "./sqlite-bootstrap.js";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { log } from "../logger.js";
-import { runMigrations } from "./schema.js";
+import { ensureMemoriesFts, runMigrations } from "./schema.js";
 
 const DB = getDatabase();
 
@@ -106,7 +106,12 @@ class ConnectionManager {
         db.run("ALTER TABLE memories ADD COLUMN tags TEXT");
       }
       if (columns.length > 0) {
-        db.run("CREATE INDEX IF NOT EXISTS idx_last_decay_at ON memories(last_decay_at)");
+        try {
+          db.run("CREATE INDEX IF NOT EXISTS idx_last_decay_at ON memories(last_decay_at)");
+        } catch {
+          // last_decay_at may be missing on pre-scoring shards; scoring migrate adds it later
+        }
+        ensureMemoriesFts(db);
       }
     } catch (error) {
       log("Schema migration error", { error: String(error) });
