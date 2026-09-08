@@ -135,6 +135,19 @@ describe("WebServer Routes", () => {
       expect(json.success).toBe(false);
     });
 
+    it("rejects a wrong-length API key with 401", async () => {
+      server = new WebServer({
+        port: 18081,
+        host: "127.0.0.1",
+        enabled: true,
+        apiKey: "secret123",
+      });
+      (serve as any).mockResolvedValue(mockPlatformServer);
+
+      const res = await makeRequest("/api/tags", "GET", undefined, "x");
+      expect(res.status).toBe(401);
+    });
+
     it("allows requests with correct API key", async () => {
       server = new WebServer({
         port: 18082,

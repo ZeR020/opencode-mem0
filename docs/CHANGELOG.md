@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bun.serve now applies the same 256 KiB request body cap as the Node adapter, preventing memory-exhaustion via oversized dashboard payloads.
 - Web dashboard loads app.js after DOMPurify and sanitizes fail-closed when the sanitizer is unavailable.
 - Transcript keyword search now sanitizes FTS5 operator syntax from user queries, matching the memory search path.
+- API key comparison is now constant-time without a length short-circuit.
 
 ## [2.23.1] - 2026-09-07
 
