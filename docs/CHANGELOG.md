@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Dependencies
+
+- `@types/better-sqlite3` 7.6.13 → 9.6.0 — aligns the type definitions with the `better-sqlite3` 13.x runtime (Dependabot #58, whose lockfile sync is folded into this commit).
+
 ## [2.24.0] - 2026-09-08
 
 ### CI
