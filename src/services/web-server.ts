@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { randomInt, timingSafeEqual } from "node:crypto";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { log } from "./logger.js";
+import { log, warn } from "./logger.js";
 import { serve, type PlatformServer } from "./platform-server.js";
 import { CONFIG, isConfigured } from "../config.js";
 import type { UserProfileData } from "./user-profile/types.js";
@@ -78,6 +78,37 @@ type RedactedValue =
 
 function isLoopbackHost(host: string): boolean {
   return LOCAL_HOSTS.has(host.trim().toLowerCase());
+}
+
+function hostnameFromHostHeader(raw: string): string {
+  const host = raw.trim().toLowerCase();
+  if (host.startsWith("[")) {
+    const end = host.indexOf("]");
+    if (end !== -1) return host.slice(1, end);
+  }
+  const colon = host.lastIndexOf(":");
+  if (colon > 0 && /^\d+$/.test(host.slice(colon + 1))) {
+    return host.slice(0, colon);
+  }
+  return host;
+}
+
+function isHostAllowed(headers: Headers, config: WebServerConfig): boolean {
+  const raw = headers.get("host");
+  if (!raw) return false;
+  const hostname = hostnameFromHostHeader(raw);
+  const allowed = new Set(["127.0.0.1", "localhost", "::1"]);
+  const configured = hostnameFromHostHeader(config.host);
+  if (configured) allowed.add(configured);
+  if (allowed.has(hostname)) return true;
+  const rawLower = raw.trim().toLowerCase();
+  if (config.port !== 80 && config.port !== 443) {
+    for (const h of allowed) {
+      if (rawLower === `${h}:${config.port}`) return true;
+      if (h.includes(":") && rawLower === `[${h}]:${config.port}`) return true;
+    }
+  }
+  return false;
 }
 
 export class WebServer {
@@ -260,6 +291,13 @@ export class WebServer {
   }
 
   private async handleRequest(req: Request): Promise<Response> {
+    if (!isHostAllowed(req.headers, this.config)) {
+      warn("Rejected request with disallowed Host header", {
+        host: req.headers.get("host"),
+      });
+      return this.jsonResponse({ success: false, error: "Forbidden" }, 403);
+    }
+
     let url: URL;
     try {
       url = new URL(req.url);

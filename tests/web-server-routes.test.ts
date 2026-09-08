@@ -9,6 +9,7 @@ global.fetch = mockFetch as unknown as typeof fetch;
 // Mock logger
 vi.mock("../src/services/logger.js", () => ({
   log: vi.fn(),
+  warn: vi.fn(),
 }));
 
 // Mock dependencies
@@ -107,7 +108,7 @@ describe("WebServer Routes", () => {
     await server.start();
     const fetchHandler = (serve as any).mock.calls[0][0].fetch;
 
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { host: "127.0.0.1:18080" };
     if (apiKey) headers["x-opencode-mem-key"] = apiKey;
 
     const req = new Request(`http://127.0.0.1:18080${path}`, {
@@ -145,6 +146,48 @@ describe("WebServer Routes", () => {
       (handleListTags as any).mockResolvedValue({ success: true, tags: [] });
 
       const res = await makeRequest("/api/tags", "GET", undefined, "secret123");
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe("Host header allowlist", () => {
+    it("rejects Host: evil.example.com with 403", async () => {
+      await server.start();
+      const fetchHandler = (serve as any).mock.calls[0][0].fetch;
+      const res = await fetchHandler(
+        new Request("http://evil.example.com/api/health", {
+          headers: { host: "evil.example.com" },
+        })
+      );
+      expect(res.status).toBe(403);
+    });
+
+    it("allows Host: localhost:4747", async () => {
+      await server.start();
+      const fetchHandler = (serve as any).mock.calls[0][0].fetch;
+      const res = await fetchHandler(
+        new Request("http://localhost:4747/api/health", {
+          headers: { host: "localhost:4747" },
+        })
+      );
+      expect(res.status).toBe(200);
+    });
+
+    it("allows the configured non-loopback host", async () => {
+      server = new WebServer({
+        port: 18080,
+        host: "192.168.1.10",
+        enabled: true,
+        apiKey: "secret123",
+      });
+      (serve as any).mockResolvedValue(mockPlatformServer);
+      await server.start();
+      const fetchHandler = (serve as any).mock.calls[0][0].fetch;
+      const res = await fetchHandler(
+        new Request("http://192.168.1.10:18080/api/health", {
+          headers: { host: "192.168.1.10:18080" },
+        })
+      );
       expect(res.status).toBe(200);
     });
   });
@@ -507,6 +550,7 @@ describe("WebServer Routes", () => {
       const fetchHandler = (serve as any).mock.calls[0][0].fetch;
       const req = new Request("http://127.0.0.1:18080/api/config", {
         method: "PUT",
+        headers: { host: "127.0.0.1:18080" },
         body: "{not valid json",
       });
       const res = await fetchHandler(req);

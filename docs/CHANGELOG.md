@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Keyword search and FTS boost now work: the memories_fts FTS5 virtual table (absent since shards were created without it) is created on new and existing shards — keyword search no longer silently degrades to a full-table LIKE scan.**
 - **Decay cycle now rotates through all decayable memories (ordered by last_decay_at) instead of repeatedly processing only the first batch; rows past the batch cap now decay and archive.**
 
+### Security
+
+- Dashboard requests are now rejected unless the Host header is loopback or explicitly configured — closes a DNS-rebinding route to the unauthenticated local API.
+
 ## [2.23.1] - 2026-09-07
 
 ### Fixed
