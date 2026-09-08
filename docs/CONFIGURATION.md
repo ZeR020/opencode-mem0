@@ -146,6 +146,8 @@ Auto-capture observes chat exchanges and automatically extracts memorable inform
 | `webServerHost`    | `string`  | `"127.0.0.1"` | Host binding for the web server. Defaults to loopback for security. **`webServerApiKey` is required if binding to a non-loopback address.**                                        |
 | `webServerApiKey`  | `string`  | —             | API key for authenticating web UI requests. Required when `webServerHost` is not a loopback address (`127.0.0.1`, `localhost`, `::1`). Value is used as-is (no secret resolution). |
 
+Requests are accepted only when the `Host` header is loopback (`127.0.0.1`, `localhost`, `[::1]`) or the configured `webServerHost` (hostname compared case-insensitively, port ignored). If you reverse-proxy the dashboard, set `webServerHost` to the proxy hostname.
+
 ## Vector Search Settings
 
 | Setting              | Type                                           | Default           | Description                                                                                                                                                     |
