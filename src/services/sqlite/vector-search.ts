@@ -154,25 +154,12 @@ export class VectorSearch {
 
   async insertVector(db: Database, record: MemoryRecord, shard?: ShardInfo): Promise<void> {
     const insertMemory = this.getStmt(db, MEMORIES_INSERT_SQL);
+    const backend = shard ? await this.getBackend() : undefined;
 
     db.run("BEGIN IMMEDIATE");
     try {
       insertMemory.run(...recordToInsertParams(record));
-
-      if (shard) {
-        const backend = await this.getBackend();
-        await backend.insert({ id: record.id, vector: record.vector, shard, kind: "content" });
-        if (record.tagsVector) {
-          await backend.insert({ id: record.id, vector: record.tagsVector, shard, kind: "tags" });
-        }
-      }
-
       db.run("COMMIT");
-
-      if (shard) {
-        this.rebuildDirty.set(`${shard.id}:content`, true);
-        this.rebuildDirty.set(`${shard.id}:tags`, true);
-      }
     } catch (error) {
       try {
         db.run("ROLLBACK");
@@ -180,6 +167,18 @@ export class VectorSearch {
         log("Rollback failed", { error: String(rollbackErr) });
       }
       throw error;
+    }
+
+    if (shard && backend) {
+      try {
+        await backend.insert({ id: record.id, vector: record.vector, shard, kind: "content" });
+        if (record.tagsVector) {
+          await backend.insert({ id: record.id, vector: record.tagsVector, shard, kind: "tags" });
+        }
+      } finally {
+        this.rebuildDirty.set(`${shard.id}:content`, true);
+        this.rebuildDirty.set(`${shard.id}:tags`, true);
+      }
     }
   }
 
@@ -657,6 +656,8 @@ export class VectorSearch {
     shard?: ShardInfo,
     tagsVector?: Float32Array
   ): Promise<void> {
+    const backend = shard ? await this.getBackend() : undefined;
+
     db.run("BEGIN IMMEDIATE");
     try {
       this.getStmt(db, "UPDATE memories SET vector = ?, tags_vector = ? WHERE id = ?").run(
@@ -664,17 +665,6 @@ export class VectorSearch {
         toBlob(tagsVector),
         memoryId
       );
-
-      if (shard) {
-        const backend = await this.getBackend();
-        await backend.insert({ id: memoryId, vector, shard, kind: "content" });
-        if (tagsVector) {
-          await backend.insert({ id: memoryId, vector: tagsVector, shard, kind: "tags" });
-        } else {
-          await backend.delete({ id: memoryId, shard, kind: "tags" });
-        }
-      }
-
       db.run("COMMIT");
     } catch (error) {
       try {
@@ -683,6 +673,21 @@ export class VectorSearch {
         log("Rollback failed", { error: String(rollbackErr) });
       }
       throw error;
+    }
+
+    if (shard && backend) {
+      try {
+        await backend.insert({ id: memoryId, vector, shard, kind: "content" });
+        if (tagsVector) {
+          await backend.insert({ id: memoryId, vector: tagsVector, shard, kind: "tags" });
+        } else {
+          await backend.delete({ id: memoryId, shard, kind: "tags" });
+        }
+      } catch (error) {
+        this.rebuildDirty.set(`${shard.id}:content`, true);
+        this.rebuildDirty.set(`${shard.id}:tags`, true);
+        throw error;
+      }
     }
   }
 
@@ -693,22 +698,12 @@ export class VectorSearch {
     shard?: ShardInfo
   ): Promise<void> {
     const insertMemory = this.getStmt(db, MEMORIES_INSERT_SQL);
+    const backend = shard ? await this.getBackend() : undefined;
 
     db.run("BEGIN IMMEDIATE");
     try {
       this.getStmt(db, "DELETE FROM memories WHERE id = ?").run(memoryId);
       insertMemory.run(...recordToInsertParams(record));
-
-      if (shard) {
-        const backend = await this.getBackend();
-        await backend.delete({ id: memoryId, shard, kind: "content" });
-        await backend.delete({ id: memoryId, shard, kind: "tags" });
-        await backend.insert({ id: record.id, vector: record.vector, shard, kind: "content" });
-        if (record.tagsVector) {
-          await backend.insert({ id: record.id, vector: record.tagsVector, shard, kind: "tags" });
-        }
-      }
-
       db.run("COMMIT");
     } catch (error) {
       try {
@@ -717,6 +712,21 @@ export class VectorSearch {
         log("Rollback failed", { error: String(rollbackErr) });
       }
       throw error;
+    }
+
+    if (shard && backend) {
+      try {
+        await backend.delete({ id: memoryId, shard, kind: "content" });
+        await backend.delete({ id: memoryId, shard, kind: "tags" });
+        await backend.insert({ id: record.id, vector: record.vector, shard, kind: "content" });
+        if (record.tagsVector) {
+          await backend.insert({ id: record.id, vector: record.tagsVector, shard, kind: "tags" });
+        }
+      } catch (error) {
+        this.rebuildDirty.set(`${shard.id}:content`, true);
+        this.rebuildDirty.set(`${shard.id}:tags`, true);
+        throw error;
+      }
     }
   }
 
