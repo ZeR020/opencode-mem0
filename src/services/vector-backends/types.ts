@@ -35,7 +35,13 @@ export interface VectorBackend {
   }): void | Promise<void>;
   delete(args: { id: string; shard: ShardInfo; kind: VectorKind }): void | Promise<void>;
   search(args: VectorBackendSearchParams): BackendSearchResult[] | Promise<BackendSearchResult[]>;
-  rebuildFromShard(args: { db: unknown; shard: ShardInfo; kind: VectorKind }): void | Promise<void>;
+  rebuildFromShard(args: {
+    db: unknown;
+    shard: ShardInfo;
+    kind: VectorKind;
+    /** Repair pass: replace an already-initialized index instead of skipping it. */
+    force?: boolean;
+  }): void | Promise<void>;
   deleteShardIndexes(args: { shard: ShardInfo }): void | Promise<void>;
 }
 

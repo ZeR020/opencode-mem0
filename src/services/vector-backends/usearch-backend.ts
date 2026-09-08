@@ -91,10 +91,15 @@ export class USearchBackend implements VectorBackend {
     }
   }
 
-  async rebuildFromShard(args: { db: unknown; shard: ShardInfo; kind: VectorKind }): Promise<void> {
+  async rebuildFromShard(args: {
+    db: unknown;
+    shard: ShardInfo;
+    kind: VectorKind;
+    force?: boolean;
+  }): Promise<void> {
     const indexKey = getIndexKey(args.shard, args.kind);
     const existing = this.indexes.get(indexKey);
-    if (existing?.initialized) {
+    if (existing?.initialized && !args.force) {
       return;
     }
 

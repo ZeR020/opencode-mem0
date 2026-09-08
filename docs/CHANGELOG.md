@@ -14,7 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Plugin lifecycle hardened per code-review findings**
 - **Embedding warmup wait is bounded**
 - \*\*`updateVector` no longer wipes
-- **The `memories_fts` update trigger is column-scoped** — routine `access_count`/score updates on every search result and decay cycle no longer re-tokenize content, cutting FTS write amplification (Copilot/Codex finding on #63).
+- **The `memories_fts` update trigger is column-scoped**
+- **Vector-index writes after a sqlite COMMIT no longer misreport failure** — a failing backend insert used to reject `insertVector`/`updateVector`/`replaceVector` even though the memory was durably persisted (callers retried into duplicates), and the rebuild-dirty flag never actually repaired an initialized USearch index because `rebuildFromShard` skipped initialized indexes. Dirty shards now force a full index rebuild from sqlite on the next search (Devin finding on #63).
+  — routine `access_count`/score updates on every search result and decay cycle no longer re-tokenize content, cutting FTS write amplification (Copilot/Codex finding on #63).
   `tags_vector` when only the content embedding is refreshed\*\* — semantic tag search survives content-only re-embeds (Devin finding on #63).
   — a slow or hung local-model load no longer stalls the first chat prompt indefinitely; the search path degrades to text-only for that prompt while the model load continues in the background, instead of failing or permanently disabling embeddings.
   — provider-state waits are bounded (a hung host bootstrap can no longer wedge auto-capture or profile learning forever), idle events arriving after `dispose` start no new work, a web server that finishes starting after `dispose` is stopped instead of running orphaned, and the initial score recalculation runs on a macrotask so the host receives the plugin before the shard scan.
