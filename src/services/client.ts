@@ -139,7 +139,11 @@ export class LocalMemoryClient {
       try {
         queryVector = await embeddingService.embedWithTimeout(query);
       } catch (error) {
-        if (!embeddingService.embeddingAvailable) {
+        // Warmup-wait timeouts surface as AbortError while the service is
+        // still healthy — degrade to text-only search instead of failing the
+        // prompt (the model load keeps running for the next attempt).
+        const warmupPending = error instanceof Error && error.name === "AbortError";
+        if (!embeddingService.embeddingAvailable || warmupPending) {
           log("Embedding unavailable — falling back to text-only search", {
             queryLength: query.length,
             queryHash: query.slice(0, 20),

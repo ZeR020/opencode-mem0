@@ -119,7 +119,7 @@ export class EmbeddingService {
 
     try {
       if (!this.isWarmedUp) {
-        await this.warmup();
+        await this.waitWarmupWithinBudget(signal);
       }
 
       if (CONFIG.embeddingApiUrl && CONFIG.embeddingApiKey) {
@@ -170,6 +170,36 @@ export class EmbeddingService {
       return await this.embed(text, abortController.signal);
     } finally {
       clearTimeout(timeoutId);
+    }
+  }
+  // Bounded wait on model initialization: a slow or hung load must not
+  // stall callers indefinitely. Rejects AbortError-shaped so embed()'s
+  // catch rethrows without permanently disabling the service — the init
+  // promise keeps running, and the next call re-races it.
+  private async waitWarmupWithinBudget(signal?: AbortSignal): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let onAbort: (() => void) | undefined;
+    try {
+      await Promise.race([
+        this.warmup(),
+        new Promise<never>((_, reject) => {
+          const giveUp = () => {
+            const err = new Error("embedding warmup wait timed out");
+            err.name = "AbortError";
+            reject(err);
+          };
+          onAbort = () => {
+            const err = new Error("embedding warmup wait aborted");
+            err.name = "AbortError";
+            reject(err);
+          };
+          signal?.addEventListener("abort", onAbort, { once: true });
+          timer = setTimeout(giveUp, CONFIG.warmupTimeoutMs ?? 30_000);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+      if (onAbort && signal) signal.removeEventListener("abort", onAbort);
     }
   }
 
