@@ -1,4 +1,4 @@
-import { getDatabase, type Database } from "./sqlite-bootstrap.js";
+import { getDatabase, StmtCache, type Database } from "./sqlite-bootstrap.js";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { log } from "../logger.js";
@@ -15,7 +15,7 @@ class ConnectionManager {
   private readonly creating: Set<string> = new Set();
   private isClosing = false;
   private readonly batches: Map<string, Array<{ sql: string; params: any[] }>> = new Map();
-  private readonly stmtCache = new WeakMap<Database, Map<string, any>>();
+  private readonly stmts = new StmtCache();
   private readonly inTxn = new Set<string>();
 
   private trackTransactions(dbPath: string, db: Database): void {
@@ -32,20 +32,6 @@ class ConnectionManager {
   private touchAccessOrder(dbPath: string): void {
     this.accessOrder = this.accessOrder.filter((p) => p !== dbPath);
     this.accessOrder.push(dbPath);
-  }
-
-  private getStmt(db: Database, sql: string): any {
-    let dbCache = this.stmtCache.get(db);
-    if (!dbCache) {
-      dbCache = new Map();
-      this.stmtCache.set(db, dbCache);
-    }
-    let stmt = dbCache.get(sql);
-    if (!stmt) {
-      stmt = db.prepare(sql);
-      dbCache.set(sql, stmt);
-    }
-    return stmt;
   }
 
   batchWrite(dbPath: string, sql: string, params: any[]): void {
@@ -69,7 +55,7 @@ class ConnectionManager {
     db.run("BEGIN IMMEDIATE");
     try {
       for (const item of batch) {
-        const stmt = this.getStmt(db, item.sql);
+        const stmt = this.stmts.get(db, item.sql);
         stmt.run(...item.params);
       }
       db.run("COMMIT");

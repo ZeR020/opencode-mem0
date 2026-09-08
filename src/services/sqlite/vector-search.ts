@@ -1,4 +1,4 @@
-import type { Database } from "./sqlite-bootstrap.js";
+import { StmtCache, type Database } from "./sqlite-bootstrap.js";
 import { connectionManager } from "./connection-manager.js";
 import { log } from "../logger.js";
 import { CONFIG } from "../../config.js";
@@ -95,7 +95,7 @@ const MEMORIES_INSERT_SQL = `
 export class VectorSearch {
   private readonly backendPromise: Promise<VectorBackend>;
   private readonly fallbackBackend: VectorBackend;
-  private readonly stmtCache = new WeakMap<Database, Map<string, any>>();
+  private readonly stmts = new StmtCache();
   private readonly wordSetCache = new Map<string, Set<string>>();
   private readonly MAX_WORDSET_CACHE = 1000;
   private readonly rebuildDirty = new Map<string, boolean>();
@@ -117,18 +117,8 @@ export class VectorSearch {
     }
   }
 
-  private getStmt(db: Database, sql: string): any {
-    let dbCache = this.stmtCache.get(db);
-    if (!dbCache) {
-      dbCache = new Map();
-      this.stmtCache.set(db, dbCache);
-    }
-    let stmt = dbCache.get(sql);
-    if (!stmt) {
-      stmt = db.prepare(sql);
-      dbCache.set(sql, stmt);
-    }
-    return stmt;
+  private getStmt(db: Database, sql: string) {
+    return this.stmts.get(db, sql);
   }
 
   private getBackend(): Promise<VectorBackend> {
