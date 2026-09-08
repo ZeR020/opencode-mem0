@@ -29,6 +29,8 @@ function normalizeHeaders(rawHeaders: IncomingMessage["headers"]): Headers {
 const kRemoteAddress = Symbol.for("opencode-mem0.remoteAddress");
 type RequestWithIP = Request & { [kRemoteAddress]?: string };
 
+const MAX_BODY_BYTES = 262_144; // 256 KiB for JSON API payloads
+
 function createNodeServer(options: ServeOptions): Promise<PlatformServer> {
   // skipcq: JS-0323 — reuseAddr option is needed for Windows port reuse but not in ServerOptions type
   const nodeServer = createServer(
@@ -38,7 +40,6 @@ function createNodeServer(options: ServeOptions): Promise<PlatformServer> {
         const host = req.headers.host || `${options.hostname}:${options.port}`;
         const url = `http://${host}${req.url}`;
 
-        const MAX_BODY_BYTES = 262_144; // 256 KiB for JSON API payloads
         const chunks: Buffer[] = [];
         let totalBytes = 0;
         for await (const chunk of req) {
@@ -107,7 +108,10 @@ function createNodeServer(options: ServeOptions): Promise<PlatformServer> {
 
 export function serve(options: ServeOptions): Promise<PlatformServer> {
   if (globalThis.Bun !== undefined && globalThis.Bun.serve) {
-    const bunServer = globalThis.Bun.serve(options);
+    const bunServer = globalThis.Bun.serve({
+      ...options,
+      maxRequestBodySize: MAX_BODY_BYTES,
+    });
     return Promise.resolve({
       stop: () => bunServer.stop(),
       requestIP: (req: Request) => bunServer.requestIP(req),
