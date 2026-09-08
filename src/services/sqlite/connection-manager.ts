@@ -64,11 +64,7 @@ class ConnectionManager {
     const batch = this.batches.get(dbPath);
     if (!batch || batch.length === 0) return;
 
-    const db = this.connections.get(dbPath);
-    if (!db) {
-      this.batches.delete(dbPath);
-      throw new Error(`No open connection for ${dbPath} — cannot flush batch`);
-    }
+    const db = this.connections.get(dbPath) ?? this.getConnection(dbPath);
 
     db.run("BEGIN IMMEDIATE");
     try {
