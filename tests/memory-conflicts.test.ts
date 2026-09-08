@@ -54,6 +54,8 @@ vi.mock("../src/services/logger.js", () => ({
 }));
 
 vi.mock("../src/services/ai/opencode-provider.js", () => ({
+  markPluginDisposed: vi.fn(),
+  isPluginDisposed: () => false,
   isProviderConnected: vi.fn().mockReturnValue(false),
   getStatePath: vi.fn().mockReturnValue("/tmp/state.json"),
   generateStructuredOutput: vi.fn(),

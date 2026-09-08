@@ -100,6 +100,8 @@ vi.mock("../src/services/logger.js", () => ({
 }));
 
 vi.mock("../src/services/ai/opencode-provider.js", () => ({
+  markPluginDisposed: vi.fn(),
+  isPluginDisposed: () => false,
   setStatePath: vi.fn(),
   setConnectedProviders: vi.fn(),
   setProviderStateInit: vi.fn(),
