@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Dashboard search and memory edits no longer stall on the embedding model load** — the web handlers awaited `warmup()` directly, which waits for the entire model download with no budget and so defeated the bounded-wait fix (a first search could hang for minutes). They now go through the budgeted embed path: search degrades to keyword-only results while the model finishes loading, and a memory edit fails with a retry-able "model is still loading" message instead of a generic internal error.
+
 ### Dependencies
 
 - `@types/better-sqlite3` 7.6.13 → 9.6.0 — aligns the type definitions with the `better-sqlite3` 13.x runtime (Dependabot #58, whose lockfile sync is folded into this commit).

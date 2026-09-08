@@ -8,6 +8,8 @@ const mockState = vi.hoisted(() => ({
   cacheStats: { size: 100, maxSize: 1000, hits: 50, misses: 50, rate: 0.5 },
   getCacheStatsError: null as string | null,
   isWarmedUpError: null as string | null,
+  embedError: null as string | null,
+  embedErrorName: "Error" as string,
 }));
 const mockDbByPath = new Map<string, unknown>();
 
@@ -175,7 +177,14 @@ vi.mock("../src/services/embedding.js", () => ({
       return mockState.isWarmedUp;
     },
     warmup: () => Promise.resolve(),
-    embedWithTimeout: () => Promise.resolve(new Float32Array([1, 2, 3])),
+    embedWithTimeout: () => {
+      if (mockState.embedError) {
+        const err = new Error(mockState.embedError);
+        err.name = mockState.embedErrorName;
+        return Promise.reject(err);
+      }
+      return Promise.resolve(new Float32Array([1, 2, 3]));
+    },
     getCacheStats: () => {
       if (mockState.getCacheStatsError) {
         throw new Error(mockState.getCacheStatsError);
@@ -373,6 +382,8 @@ describe("api-handlers", () => {
     mockState.cacheStats = { size: 100, maxSize: 1000, hits: 50, misses: 50, rate: 0.5 };
     mockState.getCacheStatsError = null;
     mockState.isWarmedUpError = null;
+    mockState.embedError = null;
+    mockState.embedErrorName = "Error";
   });
 
   describe("handleListTags", () => {
@@ -542,6 +553,16 @@ describe("api-handlers", () => {
       expect(result.success).toBe(false);
       expect(result.error).toContain("required");
     });
+
+    it("reports a retry-able message when the embedding model is still loading", async () => {
+      // Warmup-budget timeouts surface as AbortError while embeddingAvailable
+      // stays true — the edit must fail honestly, not as an internal error.
+      mockState.embedError = "embedding warmup wait timed out";
+      mockState.embedErrorName = "AbortError";
+      const result = await handleUpdateMemory("mem-1", { content: "Updated content" });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("still loading");
+    });
   });
 
   describe("handleSearch", () => {
@@ -567,6 +588,15 @@ describe("api-handlers", () => {
       expect(result.success).toBe(true);
       expect(result.data?.page).toBe(1);
       expect(result.data?.pageSize).toBe(20);
+    });
+
+    it("degrades to keyword-only results when warmup exceeds its budget", async () => {
+      // Warmup-budget timeouts surface as AbortError while embeddingAvailable
+      // stays true — search must degrade to text-only, not 500.
+      mockState.embedError = "embedding warmup wait timed out";
+      mockState.embedErrorName = "AbortError";
+      const result = await handleSearch("test");
+      expect(result.success).toBe(true);
     });
   });
 

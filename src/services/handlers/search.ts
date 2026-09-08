@@ -50,10 +50,22 @@ interface FormattedMemory {
 type SearchResultItem = FormattedPrompt | FormattedMemory;
 
 async function buildSearchQueryVector(query: string): Promise<Float32Array | null> {
-  await embeddingService.warmup();
   try {
+    // No explicit warmup() here: embed() races model init against the
+    // warmup budget itself; awaiting warmup() directly would stall the
+    // request for the full model download.
     return await embeddingService.embedWithTimeout(query);
   } catch (error) {
+    // Warmup-wait timeouts surface as AbortError while the model keeps
+    // loading in the background — degrade to keyword-only results,
+    // matching the agent-side search path.
+    if (error instanceof Error && error.name === "AbortError") {
+      log("Embedding warmup timed out — falling back to text-only search", {
+        query,
+        error: String(error),
+      });
+      return null;
+    }
     if (!embeddingService.embeddingAvailable) {
       log("Embedding unavailable — falling back to text-only search", {
         query,

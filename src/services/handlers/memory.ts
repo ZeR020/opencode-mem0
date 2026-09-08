@@ -184,7 +184,8 @@ export async function handleUpdateMemory(
 ): Promise<ApiResponse<void>> {
   try {
     if (!id) return { success: false, error: "id is required" };
-    await embeddingService.warmup();
+    // embed() races model init against the warmup budget itself; an
+    // explicit warmup() here would stall the edit for a full model download.
     const found = findMemoryInShards(id);
     if (!found) return { success: false, error: "Memory not found" };
     const existingMemory = found.memory;
@@ -221,6 +222,9 @@ export async function handleUpdateMemory(
     return { success: true };
   } catch (error) {
     log("handleUpdateMemory: error", { error: String(error) });
+    if (error instanceof Error && error.name === "AbortError") {
+      return { success: false, error: "Embedding model is still loading — retry shortly" };
+    }
     return { success: false, error: "Internal error in handleUpdateMemory" };
   }
 }
