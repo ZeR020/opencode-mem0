@@ -1,5 +1,6 @@
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { rmSync } from "node:fs";
+import type { PluginInput } from "@opencode-ai/plugin";
 
 const searchCalls: unknown[][] = [];
 let lastListScope: string | undefined;
@@ -130,7 +131,36 @@ mockClient = {
 async function createPlugin(defaultScope?: "project" | "all-projects") {
   mockConfig.memory.defaultScope = defaultScope;
   const { OpenCodeMemPlugin } = await import("../src/index.js");
-  return OpenCodeMemPlugin({ directory: "/workspace", client: {} });
+  return OpenCodeMemPlugin({
+    directory: "/workspace",
+    client: {},
+  } as unknown as PluginInput);
+}
+
+// The public `Tool` type demands a full ToolContext and returns a
+// ToolResult wrapper, but the memory tool's execute actually takes
+// `{ sessionID }` and returns a JSON string (see src/index.ts: every
+// branch JSON.stringifies). Type the call sites to that contract.
+type MemoryToolLike = {
+  execute: (
+    args: {
+      mode?: "add" | "search" | "profile" | "list" | "forget" | "help";
+      content?: string;
+      query?: string;
+      tags?: string;
+      type?: string;
+      memoryId?: string;
+      limit?: number;
+      scope?: "project" | "all-projects";
+    },
+    ctx: { sessionID: string }
+  ) => Promise<string>;
+};
+
+function getMemoryTool(plugin: { tool?: Record<string, unknown> }): MemoryToolLike {
+  const memoryTool = plugin.tool?.memory;
+  if (!memoryTool) throw new Error("memory tool not available");
+  return memoryTool as MemoryToolLike;
 }
 
 describe("tool memory scope", () => {
@@ -141,27 +171,21 @@ describe("tool memory scope", () => {
   });
 
   it("falls back to config default scope", async () => {
-    const plugin = await createPlugin("all-projects");
-    const memoryTool = plugin.tool?.memory;
-    if (!memoryTool) throw new Error("memory tool not available");
+    const memoryTool = getMemoryTool(await createPlugin("all-projects"));
 
     await memoryTool.execute({ mode: "search", query: "hello" }, { sessionID: "s1" });
     expect(searchCalls[0]?.[2]).toBe("all-projects");
   });
 
   it("lets explicit args scope override config", async () => {
-    const plugin = await createPlugin("all-projects");
-    const memoryTool = plugin.tool?.memory;
-    if (!memoryTool) throw new Error("memory tool not available");
+    const memoryTool = getMemoryTool(await createPlugin("all-projects"));
 
     await memoryTool.execute({ mode: "list", scope: "project" }, { sessionID: "s1" });
     expect(lastListScope).toBe("project");
   });
 
   it("falls back to project when config scope is unset", async () => {
-    const plugin = await createPlugin(undefined);
-    const memoryTool = plugin.tool?.memory;
-    if (!memoryTool) throw new Error("memory tool not available");
+    const memoryTool = getMemoryTool(await createPlugin(undefined));
 
     await memoryTool.execute({ mode: "list" }, { sessionID: "s1" });
     expect(lastListScope).toBe("project");
@@ -169,9 +193,7 @@ describe("tool memory scope", () => {
 
   it("reports actual deletion failures from forget", async () => {
     mockClient.deleteMemory = () => ({ success: false, error: "Memory not found" });
-    const plugin = await createPlugin();
-    const memoryTool = plugin.tool?.memory;
-    if (!memoryTool) throw new Error("memory tool not available");
+    const memoryTool = getMemoryTool(await createPlugin());
 
     const result = JSON.parse(
       await memoryTool.execute({ mode: "forget", memoryId: "missing" }, { sessionID: "s1" })
