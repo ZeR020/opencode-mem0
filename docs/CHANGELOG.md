@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- None yet.
+
+## [2.23.2] - 2026-09-08
+
 ### Changed
 
 - **Prepared-statement caching is shared, and plugin.ts re-exports OpenCodeMemPlugin directly.**
