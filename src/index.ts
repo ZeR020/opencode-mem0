@@ -271,6 +271,10 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   const shutdownHandler = async () => {
     delete (globalThis as any)[Symbol.for("opencode-mem0.shutdown")];
     try {
+      for (const timer of sessionIdleTimers.values()) {
+        clearTimeout(timer);
+      }
+      sessionIdleTimers.clear();
       stopScoringRecalculation();
       stopLifecycleJob();
       clearInterval(sessionCleanupTimer);
@@ -634,6 +638,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         await handleSessionCompacted(event, ctx, directory);
       }
     },
+    dispose: shutdownHandler,
   };
 };
 

@@ -257,4 +257,32 @@ describe("session.idle transcript capture wiring", () => {
     config.promptRetentionDays = 30;
     mocks.isServerOwner.mockReturnValue(false);
   });
+
+  it("dispose clears idle timers", async () => {
+    const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
+    const clearIntervalSpy = vi.spyOn(globalThis, "clearInterval");
+    const plugin = await OpenCodeMemPlugin(makeCtx() as never);
+    if (!plugin.event) throw new Error("event hook missing");
+    const dispose = (plugin as { dispose?: () => Promise<void> }).dispose;
+    expect(dispose).toEqual(expect.any(Function));
+
+    await plugin.event({
+      event: { type: "session.idle", properties: { sessionID: "sess-dispose" } },
+    });
+    await dispose!();
+    await vi.advanceTimersByTimeAsync(20000);
+
+    expect(mocks.performAutoCapture).not.toHaveBeenCalled();
+    expect(mocks.performTranscriptCapture).not.toHaveBeenCalled();
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    expect(clearIntervalSpy).toHaveBeenCalled();
+
+    const { stopScoringRecalculation } =
+      await import("../src/services/memory-scoring-service.js");
+    const { stopLifecycleJob } = await import("../src/services/memory-lifecycle.js");
+    const { memoryClient } = await import("../src/services/client.js");
+    expect(stopScoringRecalculation).toHaveBeenCalled();
+    expect(stopLifecycleJob).toHaveBeenCalled();
+    expect(memoryClient.close).toHaveBeenCalled();
+  });
 });
