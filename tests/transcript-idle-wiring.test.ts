@@ -31,6 +31,8 @@ vi.mock("../src/services/web-server.js", () => ({
 vi.mock("../src/services/ai/opencode-provider.js", () => ({
   setStatePath: vi.fn(),
   setConnectedProviders: vi.fn(),
+  setProviderStateInit: vi.fn(),
+  ensureProviderState: () => Promise.resolve(),
 }));
 
 const mocks = vi.hoisted(() => ({

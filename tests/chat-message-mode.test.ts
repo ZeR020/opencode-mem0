@@ -102,6 +102,8 @@ vi.mock("../src/services/logger.js", () => ({
 vi.mock("../src/services/ai/opencode-provider.js", () => ({
   setStatePath: vi.fn(),
   setConnectedProviders: vi.fn(),
+  setProviderStateInit: vi.fn(),
+  ensureProviderState: () => Promise.resolve(),
 }));
 
 vi.mock("../src/services/language-detector.js", () => ({

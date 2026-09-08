@@ -15,6 +15,16 @@ type FetchInput = string | Request | URL;
 let _statePath: string | null = null;
 let _connectedProviders: string[] = [];
 
+let providerStateInit: Promise<void> = Promise.resolve();
+
+export function setProviderStateInit(promise: Promise<void>): void {
+  providerStateInit = promise;
+}
+
+export async function ensureProviderState(): Promise<void> {
+  await providerStateInit;
+}
+
 export function setStatePath(path: string): void {
   _statePath = path;
 }

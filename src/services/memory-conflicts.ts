@@ -41,10 +41,11 @@ const verdictViaOpencode = async (
 ): Promise<"yes" | "no" | null> => {
   if (!CONFIG.opencodeProvider || !CONFIG.opencodeModel) return null;
 
-  const { isProviderConnected, getStatePath, generateStructuredOutput } =
+  const { isProviderConnected, getStatePath, generateStructuredOutput, ensureProviderState } =
     await import("./ai/opencode-provider.js");
 
   if (!isProviderConnected(CONFIG.opencodeProvider)) return null;
+  await ensureProviderState();
 
   const schema = z.object({
     contradicts: z.enum(["YES", "NO"]),

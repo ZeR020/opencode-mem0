@@ -33,6 +33,7 @@ import type { UserProfileData } from "./services/user-profile/types.js";
 import type { SearchResult } from "./services/sqlite/types.js";
 import { getLanguageName } from "./services/language-detector.js";
 import type { MemoryScope } from "./services/client.js";
+import { setProviderStateInit } from "./services/ai/opencode-provider.js";
 
 async function showToast(
   ctx: PluginInput,
@@ -186,9 +187,9 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
     }
   }
 
-  // Wire opencode state path and provider list — fire-and-forget to avoid blocking init
-  // These calls can hang if opencode isn't fully bootstrapped yet
-  (async () => {
+  // Wire opencode state path and provider list — fire-and-forget to avoid blocking init.
+  // Callers await ensureProviderState() before getStatePath().
+  const providerStateReady = (async () => {
     try {
       const { setStatePath, setConnectedProviders } =
         await import("./services/ai/opencode-provider.js");
@@ -204,6 +205,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
       log("Failed to initialize opencode provider state", { error: String(error) });
     }
   })();
+  setProviderStateInit(providerStateReady);
 
   if (isConfigured() && CONFIG.webServerEnabled) {
     startWebServer({

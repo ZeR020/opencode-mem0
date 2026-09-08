@@ -34,6 +34,7 @@ const mockGetLanguageName = vi.fn().mockReturnValue("English");
 const mockIsProviderConnected = vi.fn().mockReturnValue(true);
 const mockGetStatePath = vi.fn().mockReturnValue("/some/path");
 const mockGenerateStructuredOutput = vi.fn();
+const mockEnsureProviderState = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("../src/services/tags.js", () => ({
   getTags: (...args: any[]) => mockGetTags(...args),
@@ -65,6 +66,7 @@ vi.mock("../src/services/ai/opencode-provider.js", () => ({
   isProviderConnected: (...args: unknown[]) => mockIsProviderConnected(...args),
   getStatePath: (...args: unknown[]) => mockGetStatePath(...args),
   generateStructuredOutput: (...args: unknown[]) => mockGenerateStructuredOutput(...args),
+  ensureProviderState: (...args: unknown[]) => mockEnsureProviderState(...args),
 }));
 
 vi.mock("../src/services/language-detector.js", () => ({
@@ -132,6 +134,7 @@ describe("auto-capture helpers", () => {
     mockIsProviderConnected.mockReset().mockReturnValue(true);
     mockGetStatePath.mockReset().mockReturnValue("/some/path");
     mockGenerateStructuredOutput.mockReset();
+    mockEnsureProviderState.mockReset().mockResolvedValue(undefined);
   });
 
   it("acquires mutex and prevents concurrent capture calls", async () => {
@@ -356,6 +359,30 @@ describe("auto-capture helpers", () => {
     expect(mockUserPromptManager.getLastUncapturedPrompt).toHaveBeenCalledTimes(2);
     expect(mockUserPromptManager.claimPrompt).toHaveBeenCalledTimes(2);
     expect(mockUserPromptManager.getLastUncapturedPrompt).toHaveNthReturnedWith(2, prompt);
+  });
+
+  it("waits for provider state before capturing", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    mockEnsureProviderState.mockReturnValue(gate);
+    mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
+      id: "p1",
+      messageId: "m1",
+      content: "test",
+    });
+    mockUserPromptManager.claimPrompt.mockReturnValue(true);
+    const messages = vi.fn().mockResolvedValue({ data: undefined });
+    const ctx = { client: { session: { messages } } } as any;
+
+    const pending = performAutoCapture(ctx, "sess-1", "/test");
+    await Promise.resolve();
+    expect(messages).not.toHaveBeenCalled();
+
+    release();
+    await expect(pending).resolves.toBeUndefined();
+    expect(messages).toHaveBeenCalled();
   });
 
   it("returns early when AI response has only tool calls with no text", async () => {

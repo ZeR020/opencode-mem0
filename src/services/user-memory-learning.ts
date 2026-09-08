@@ -101,6 +101,8 @@ export async function performUserProfileLearning(
 
   isLearningRunning = true;
   try {
+    const { ensureProviderState } = await import("./ai/opencode-provider.js");
+    await ensureProviderState();
     const threshold = CONFIG.userProfileAnalysisInterval;
     const maxBatches = CONFIG.userProfileMaxBatchesPerIdle;
 
