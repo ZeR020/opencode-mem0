@@ -196,6 +196,7 @@ class ShardManager {
       "idx_store_type ON memories(store_type)",
       "idx_decay_strength ON memories(strength, created_at)",
       "idx_is_deprecated ON memories(is_deprecated)",
+      "idx_last_decay_at ON memories(last_decay_at)",
     ];
     for (const idx of INDEXES) {
       db.run(`CREATE INDEX IF NOT EXISTS ${idx}`);

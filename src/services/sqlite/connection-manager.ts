@@ -105,6 +105,9 @@ class ConnectionManager {
       if (!hasTags && columns.length > 0) {
         db.run("ALTER TABLE memories ADD COLUMN tags TEXT");
       }
+      if (columns.length > 0) {
+        db.run("CREATE INDEX IF NOT EXISTS idx_last_decay_at ON memories(last_decay_at)");
+      }
     } catch (error) {
       log("Schema migration error", { error: String(error) });
     }

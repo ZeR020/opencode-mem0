@@ -342,6 +342,7 @@ export async function applyDecay(): Promise<{
             `SELECT id, strength, decay_rate, created_at, last_decay_at, store_type, access_count, type, is_pinned
              FROM memories
              WHERE (store_type = 'stm' OR (store_type = 'ltm' AND decay_rate > 0)) AND is_pinned = 0
+             ORDER BY last_decay_at ASC, id ASC
              LIMIT ?`
           )
           .all(decayBatchSize) as any[];
