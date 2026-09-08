@@ -365,14 +365,18 @@ export class WebServer {
     if (!apiKey) return false;
     const headerKey = req.headers.get("x-opencode-mem-key") ?? "";
     const bearerKey = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/, "");
-    const keyBuf = Buffer.from(apiKey);
-    // Compare both possible header sources in constant time
-    const hBuf = Buffer.from(headerKey.padEnd(apiKey.length, "\0").slice(0, apiKey.length));
-    const bBuf = Buffer.from(bearerKey.padEnd(apiKey.length, "\0").slice(0, apiKey.length));
-    return (
-      (headerKey.length === apiKey.length && timingSafeEqual(keyBuf, hBuf)) ||
-      (bearerKey.length === apiKey.length && timingSafeEqual(keyBuf, bBuf))
-    );
+    // Compare on fixed-size padded buffers: constant 32-byte inputs mean the
+    // comparison time never depends on secret length, and the secret is never
+    // hashed. Truncation only matters beyond 32 bytes (~256-bit keys).
+    const pad32 = (secret: string) => {
+      const buf = Buffer.alloc(32);
+      Buffer.from(secret, "utf8").copy(buf, 0, 0, 32);
+      return buf;
+    };
+    const expected = pad32(apiKey);
+    const headerOk = timingSafeEqual(pad32(headerKey), expected);
+    const bearerOk = timingSafeEqual(pad32(bearerKey), expected);
+    return headerOk || bearerOk;
   }
 
   private async _dispatchApiRoute(
