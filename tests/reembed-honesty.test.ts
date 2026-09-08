@@ -26,6 +26,7 @@ import { CONFIG } from "../src/config.js";
 import { connectionManager } from "../src/services/sqlite/connection-manager.js";
 import { shardManager } from "../src/services/sqlite/shard-manager.js";
 import { migrationService } from "../src/services/migration-service.js";
+import { vectorSearch } from "../src/services/sqlite/vector-search.js";
 
 const NEW_DIMS = 8;
 const OLD_DIMS = 4;
@@ -145,11 +146,15 @@ describe("re-embed honesty", () => {
   it("updates vectors in place and reports success", async () => {
     embedMock.embedWithTimeout.mockResolvedValue(new Float32Array(NEW_DIMS).fill(0.5));
 
+    const markDirty = vi.spyOn(vectorSearch, "markShardDirty");
     const result = await migrationService.migrateToNewModel("re-embed");
     expect(result.success).toBe(true);
     expect(result.reEmbeddedMemories).toBe(2);
     expect(shardManager.deleteShard).not.toHaveBeenCalled();
     expect(shardManager.getWriteShard).not.toHaveBeenCalled();
+    // Live index must be invalidated — searches after a "successful"
+    // migration may not serve stale old-dimension vectors until restart.
+    expect(markDirty).toHaveBeenCalledWith(expect.objectContaining({ dbPath }));
 
     const db = connectionManager.getConnection(dbPath);
     const rows = db.prepare("SELECT id, vector FROM memories ORDER BY id").all() as Array<{

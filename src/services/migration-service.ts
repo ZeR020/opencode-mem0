@@ -4,6 +4,7 @@ import { vectorSearch } from "./sqlite/vector-search.js";
 import { embeddingService } from "./embedding.js";
 import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
+import type { ShardInfo } from "./sqlite/types.js";
 
 export interface DimensionMismatch {
   needsMigration: boolean;
@@ -227,11 +228,23 @@ class MigrationService {
     processedCount: number,
     totalMemories: number,
     shardId: string,
-    db: ReturnType<typeof connectionManager.getConnection>
+    db: ReturnType<typeof connectionManager.getConnection>,
+    shard?: ShardInfo
   ): Promise<{ success: boolean; processedCount: number }> {
     try {
       const vector = await embeddingService.embedWithTimeout(memory.content);
-      await vectorSearch.updateVector(db, memory.id, vector);
+      // Re-embed the tags text too: after a dimension change the stored
+      // tags_vector has old dimensions and would poison a rebuilt index —
+      // reproducing the exact capture-time embedding text keeps tag search
+      // consistent (Devin findings on #63).
+      let tagsVector: Float32Array | undefined;
+      const tagsText = typeof memory.tags === "string" ? memory.tags.trim() : "";
+      if (tagsText) {
+        tagsVector = await embeddingService.embedWithTimeout(
+          `Topics: ${tagsText.split(",").join(", ")}`
+        );
+      }
+      await vectorSearch.updateVector(db, memory.id, vector, shard, tagsVector);
       const nextCount = processedCount + 1;
 
       this.reportProgress({
@@ -263,6 +276,14 @@ class MigrationService {
       total: totalMemories,
     });
 
+    // The mismatch list carries dbPaths — resolve full ShardInfo so the
+    // re-embeds can update the live backend index (R1 finding on #63).
+    const shardByDbPath = new Map<string, ShardInfo>(
+      [...shardManager.getAllShards("user", ""), ...shardManager.getAllShards("project", "")].map(
+        (s) => [s.dbPath, s]
+      )
+    );
+
     let reEmbeddedCount = 0;
     let processedCount = 0;
     let shardHadFailures = false;
@@ -283,13 +304,15 @@ class MigrationService {
         const tempMemories = this._backupMemories(memories);
         let thisShardFailed = false;
 
+        const shard = shardByDbPath.get(shardInfo.dbPath);
         for (const memory of tempMemories) {
           const result = await this._reEmbedSingleMemory(
             memory,
             processedCount,
             totalMemories,
             String(shardInfo.shardId),
-            db
+            db,
+            shard
           );
           processedCount = result.processedCount;
           if (result.success) {
@@ -309,6 +332,10 @@ class MigrationService {
             "embedding_model",
             CONFIG.embeddingModel,
           ]);
+          // The dims may have changed: any initialized in-memory index
+          // holds old-dimension vectors. Force a rebuild from sqlite on
+          // next search — the live index must not go stale until restart.
+          if (shard) vectorSearch.markShardDirty(shard);
         } else {
           log("Migration: keeping original shard due to re-embedding failures", {
             shardId: shardInfo.shardId,
