@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.24.0] - 2026-09-08
+
 ### CI
 
 - SonarCloud is removed. Its one load-bearing job (the coverage gate) is replaced by native vitest coverage thresholds (whole-repo ratchet at the current baseline: 80% statements / 73% branches / 82% functions / 81% lines) enforced inside the `check` CI job — no external service, no token, and stricter than Sonar's new-code-only view. `sonar.yml`, `sonar-project.properties` and the `sonarcloud` required check are gone; the `SONAR_TOKEN` secret is now unused and can be deleted in repo settings.
