@@ -176,12 +176,15 @@ class MigrationService {
       total: mismatch.shardMismatches.length,
     });
 
+    const expected = mismatch.shardMismatches.length;
+    const success = deletedShards === expected;
     return {
-      success: true,
+      success,
       strategy: "fresh-start",
       deletedShards,
       reEmbeddedMemories: 0,
       duration: Date.now() - startTime,
+      ...(success ? {} : { error: "Failed to delete one or more shards" }),
     };
   }
 
@@ -223,41 +226,12 @@ class MigrationService {
     memory: any,
     processedCount: number,
     totalMemories: number,
-    shardId: string
+    shardId: string,
+    db: ReturnType<typeof connectionManager.getConnection>
   ): Promise<{ success: boolean; processedCount: number }> {
     try {
       const vector = await embeddingService.embedWithTimeout(memory.content);
-      const scope = memory.containerTag.includes("_user_") ? "user" : "project";
-      const hash = memory.containerTag.split("_").slice(2).join("_");
-      const newShard = shardManager.getWriteShard(scope, hash);
-      const newDb = connectionManager.getConnection(newShard.dbPath);
-
-      await vectorSearch.insertVector(
-        newDb,
-        {
-          id: memory.id,
-          content: memory.content,
-          vector,
-          containerTag: memory.containerTag,
-          type: memory.type || undefined,
-          createdAt: memory.createdAt,
-          updatedAt: memory.updatedAt,
-          metadata: memory.metadata || undefined,
-          displayName: memory.displayName || undefined,
-          userName: memory.userName || undefined,
-          userEmail: memory.userEmail || undefined,
-          projectPath: memory.projectPath || undefined,
-          projectName: memory.projectName || undefined,
-          gitRepoUrl: memory.gitRepoUrl || undefined,
-        },
-        newShard
-      );
-
-      if (memory.isPinned === 1) {
-        vectorSearch.pinMemory(newDb, memory.id);
-      }
-
-      shardManager.incrementVectorCount(newShard.id);
+      await vectorSearch.updateVector(db, memory.id, vector);
       const nextCount = processedCount + 1;
 
       this.reportProgress({
@@ -291,7 +265,7 @@ class MigrationService {
 
     let reEmbeddedCount = 0;
     let processedCount = 0;
-    let deletedShards = 0;
+    let shardHadFailures = false;
 
     for (const shardInfo of mismatch.shardMismatches) {
       this.reportProgress({
@@ -307,32 +281,41 @@ class MigrationService {
         // Default 10000 is too low for shards with large memory counts.
         const memories = vectorSearch.getAllMemories(db, 1_000_000);
         const tempMemories = this._backupMemories(memories);
-        let shardHadFailures = false;
+        let thisShardFailed = false;
 
         for (const memory of tempMemories) {
           const result = await this._reEmbedSingleMemory(
             memory,
             processedCount,
             totalMemories,
-            String(shardInfo.shardId)
+            String(shardInfo.shardId),
+            db
           );
           processedCount = result.processedCount;
           if (result.success) {
             reEmbeddedCount++;
           } else {
+            thisShardFailed = true;
             shardHadFailures = true;
           }
         }
 
-        if (!shardHadFailures) {
-          await shardManager.deleteShard(shardInfo.shardId);
-          deletedShards++;
+        if (!thisShardFailed) {
+          db.run("INSERT OR REPLACE INTO shard_metadata (key, value) VALUES (?, ?)", [
+            "embedding_dimensions",
+            String(CONFIG.embeddingDimensions),
+          ]);
+          db.run("INSERT OR REPLACE INTO shard_metadata (key, value) VALUES (?, ?)", [
+            "embedding_model",
+            CONFIG.embeddingModel,
+          ]);
         } else {
           log("Migration: keeping original shard due to re-embedding failures", {
             shardId: shardInfo.shardId,
           });
         }
       } catch (error) {
+        shardHadFailures = true;
         log("Migration: error processing shard", {
           shardId: shardInfo.shardId,
           error: String(error),
@@ -346,12 +329,14 @@ class MigrationService {
       total: totalMemories,
     });
 
+    const success = !shardHadFailures && reEmbeddedCount === totalMemories;
     return {
-      success: true,
+      success,
       strategy: "re-embed",
-      deletedShards,
+      deletedShards: 0,
       reEmbeddedMemories: reEmbeddedCount,
       duration: Date.now() - startTime,
+      ...(success ? {} : { error: "One or more memories failed to re-embed" }),
     };
   }
 
