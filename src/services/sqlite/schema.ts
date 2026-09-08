@@ -71,9 +71,14 @@ export function ensureMemoriesFts(db: Database): void {
     END
   `);
 
+  // Scoped to the indexed columns: an unscoped AFTER UPDATE fired on every
+  // UPDATE — including access_count/score touches on every search and decay
+  // cycle — re-tokenizing content on each (Copilot/Codex finding on #63).
+  // DROP+CREATE replaces the unscoped trigger from older databases.
+  db.run("DROP TRIGGER IF EXISTS memories_fts_update");
   db.run(`
-    CREATE TRIGGER IF NOT EXISTS memories_fts_update
-    AFTER UPDATE ON memories BEGIN
+    CREATE TRIGGER memories_fts_update
+    AFTER UPDATE OF content, tags ON memories BEGIN
       INSERT INTO memories_fts(memories_fts, rowid, id, content, tags)
       VALUES ('delete', old.rowid, old.id, old.content, old.tags);
       INSERT INTO memories_fts(rowid, id, content, tags)

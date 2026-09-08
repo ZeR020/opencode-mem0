@@ -154,4 +154,53 @@ describe("memories_fts", () => {
       .get("alpha") as { id: string } | undefined;
     expect(hit?.id).toBe("old-1");
   });
+
+  it("update trigger is scoped to content/tags — metadata updates don't rewrite FTS", () => {
+    const dir = mkdtempSync(join(tmpdir(), "memories-fts-scope-"));
+    dirs.push(dir);
+    const dbPath = join(dir, "scope.db");
+
+    const raw = new Database(dbPath);
+    raw.run(MEMORIES_DDL);
+    raw.close();
+
+    const db = connectionManager.getConnection(dbPath);
+
+    // The trigger itself must be column-scoped.
+    const trig = db
+      .prepare("SELECT sql FROM sqlite_master WHERE type='trigger' AND name='memories_fts_update'")
+      .get() as { sql: string };
+    expect(trig.sql).toContain("AFTER UPDATE OF content, tags ON memories");
+
+    const now = Date.now();
+    db.run(
+      `INSERT INTO memories (id, content, vector, container_tag, tags, created_at, updated_at, is_deprecated)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
+      "m1",
+      "unscoped keyword original",
+      new Uint8Array(16),
+      "mem_user_ftstest",
+      "alpha",
+      now,
+      now
+    );
+
+    // Metadata-only update (as every search/decay cycle does):
+    db.run("UPDATE memories SET access_count = access_count + 1 WHERE id = 'm1'");
+    const stillThere = db
+      .prepare("SELECT id FROM memories_fts WHERE memories_fts MATCH ?")
+      .get("unscoped") as { id: string } | undefined;
+    expect(stillThere?.id).toBe("m1");
+
+    // Content update must sync the index.
+    db.run("UPDATE memories SET content = 'brandnewcontent cylindercat' WHERE id = 'm1'");
+    const oldHit = db
+      .prepare("SELECT id FROM memories_fts WHERE memories_fts MATCH ?")
+      .get("unscoped") as { id: string } | undefined;
+    expect(oldHit).toBeUndefined();
+    const newHit = db
+      .prepare("SELECT id FROM memories_fts WHERE memories_fts MATCH ?")
+      .get("cylindercat") as { id: string } | undefined;
+    expect(newHit?.id).toBe("m1");
+  });
 });
