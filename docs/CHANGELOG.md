@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### CI
+
+- The SonarCloud quality gate now blocks merges: the scan job fails on a red gate (`sonar.qualitygate.wait`) and the `sonarcloud` check is required by branch protection on `main`.
+
 - None yet.
 
 ### Fixed

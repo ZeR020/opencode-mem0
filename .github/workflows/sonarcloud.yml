@@ -40,3 +40,10 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          # Fail the job when the SonarCloud quality gate fails — the check
+          # is required by branch protection, so a failing gate (e.g. new-code
+          # coverage below target) must actually block the merge.
+          args: >
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300
