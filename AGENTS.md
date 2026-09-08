@@ -38,14 +38,14 @@ CI runs the same four gates on every PR and push to `main`. A failing gate means
 ## Testing
 
 - New logic ships with a test (`tests/**/*.test.ts`, vitest). Bug fixes get a regression test that fails without the fix.
-- Coverage of `src/` is gated by SonarCloud — don't add files to the coverage-exclusion lists to dodge the gate.
+- Coverage of `src/` is ratcheted by vitest thresholds in `CI` (`vitest.config.ts`) — don't add files to the coverage-exclusion lists or lower thresholds to dodge the gate.
 
 ## What CI enforces (don't duplicate locally)
 
-| Concern                      | Enforced by                   |
-| ---------------------------- | ----------------------------- |
-| Format, types, tests, build  | `ci.yml` (required check)     |
-| Code quality + coverage gate | SonarCloud                    |
-| Secrets in staged diffs      | `.husky/pre-commit`           |
-| Dependency updates           | Dependabot (minor/patch only) |
-| npm + GitHub release         | `release.yml` on `v*` tags    |
+| Concern                     | Enforced by                   |
+| --------------------------- | ----------------------------- |
+| Format, types, tests, build | `ci.yml` (required check)     |
+| Coverage ratchet            | vitest thresholds in `ci.yml` |
+| Secrets in staged diffs     | `.husky/pre-commit`           |
+| Dependency updates          | Dependabot (minor/patch only) |
+| npm + GitHub release        | `release.yml` on `v*` tags    |

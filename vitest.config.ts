@@ -13,6 +13,11 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "lcov", "html"],
       reportsDirectory: "./coverage",
+      // Coverage ratchet: whole-repo floors at the 2026-09 baseline. CI
+      // fails below these; they can only be raised, never lowered.
+      // Replaces the removed SonarCloud gate — stricter, since Sonar
+      // only measured new code; this also catches rot in old files.
+      thresholds: { statements: 80, branches: 73, functions: 82, lines: 81 },
       exclude: [
         "node_modules",
         "dist",
@@ -22,7 +27,6 @@ export default defineConfig({
         "**/*.config.ts",
         "**/*.config.js",
         "**/*.d.ts",
-        "sonar-project.properties",
         ".gitignore",
         "src/web/**",
         "examples/**",
