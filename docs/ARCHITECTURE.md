@@ -192,7 +192,7 @@ Data is persisted in the directory configured by `storagePath` (default: `~/.ope
 └── .cache/                  # HuggingFace model cache (Xenova/nomic-embed-text-v1)
 ```
 
-Each shard database contains a `memories` table with columns for content, vector blob, scoring fields (recency, frequency, importance, utility, novelty, confidence, interference, strength), lifecycle fields (store_type, decay_rate, is_deprecated, is_pinned), and metadata (tags, type, user info, project info). The `schema_version` table tracks applied migrations.
+Each shard database contains a `memories` table with columns for content, vector blob, scoring fields (recency, frequency, importance, utility, novelty, confidence, interference, strength), lifecycle fields (store_type, decay_rate, is_deprecated, is_pinned), and metadata (tags, type, user info, project info). An FTS5 virtual table `memories_fts` (external-content over `memories`, kept in sync by INSERT/UPDATE/DELETE triggers) indexes `id`, `content`, and `tags` for keyword search. The `schema_version` table tracks applied migrations.
 
 The `ConnectionManager` maintains up to 20 LRU-cached connections with WAL journaling, 64MB cache, and batch write support. When a shard exceeds `maxVectorsPerShard` (default: 50,000 vectors), the `ShardManager` rotates to a new shard file.
 
@@ -204,7 +204,7 @@ Search follows a multi-stage pipeline:
 2. **Shard selection** — Resolve scope (project vs all-projects) and fetch matching shards.
 3. **Per-shard search** — For each shard:
    - Vector backend returns top-K candidates by cosine similarity (over-fetch with 2× base multiplier, adaptive up to 8×).
-   - FTS5 text search adds keyword-matching candidates.
+   - FTS5 text search against `memories_fts` adds keyword-matching candidates (MATCH on content/tags; created on new shards and backfilled on existing ones).
    - Results are merged and deduplicated.
 4. **Reranking** — Apply `RetrievalContext` scoring:
    - Context boost: memories matching project path, recent files, or query topics get up to 1.5× boost.
