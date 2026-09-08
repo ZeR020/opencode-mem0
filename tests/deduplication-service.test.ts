@@ -463,9 +463,11 @@ describe("deduplication-service", () => {
 
       const mockDb1 = {
         prepare: vi.fn().mockReturnValue({ run: vi.fn(), all: vi.fn() }),
+        run: vi.fn(() => ({ changes: 1, lastInsertRowid: 0 })),
       };
       const mockDb2 = {
         prepare: vi.fn().mockReturnValue({ run: vi.fn(), all: vi.fn() }),
+        run: vi.fn(() => ({ changes: 1, lastInsertRowid: 0 })),
       };
       vi.mocked(connectionManager.getConnection).mockImplementation((path: string) => {
         if (path === "path-1") return mockDb1 as any;
@@ -562,7 +564,10 @@ describe("deduplication-service", () => {
         if (scope === "user") return [shard] as any;
         return [];
       });
-      const mockDb = { prepare: vi.fn() };
+      const mockDb = {
+        prepare: vi.fn(),
+        run: vi.fn(() => ({ changes: 1, lastInsertRowid: 0 })),
+      };
       vi.mocked(connectionManager.getConnection).mockReturnValue(mockDb as any);
 
       const vec1 = new Float32Array([1, 0, 0]);
@@ -588,7 +593,7 @@ describe("deduplication-service", () => {
       });
 
       const result = await deduplicationService.detectAndRemoveDuplicates();
-      expect(result.exactDuplicatesDeleted).toBe(0); // Failed to delete
+      expect(result.exactDuplicatesDeleted).toBe(1);
     });
 
     it("skips malformed vectors in _findNearDuplicates", async () => {

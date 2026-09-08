@@ -74,7 +74,7 @@ export class DeduplicationService {
           continue;
         }
 
-        exactDeleted += this._deleteExactDuplicates(memories, db, shard);
+        exactDeleted += await this._deleteExactDuplicates(memories, db, shard);
 
         const contentMap = this.buildContentMap(memories);
         // Every group has at least one entry (pushed in buildContentMap).
@@ -115,34 +115,49 @@ export class DeduplicationService {
     return contentMap;
   }
 
-  private _deleteExactDuplicates(
+  private async _deleteExactDuplicates(
     memories: DedupMemoryRow[],
     db: Database,
     shard: ShardInfo
-  ): number {
+  ): Promise<number> {
     const contentMap = this.buildContentMap(memories);
-
-    let exactDeleted = 0;
+    const toDelete: DedupMemoryRow[] = [];
     for (const [, duplicates] of contentMap) {
       if (duplicates.length > 1) {
         duplicates.sort((left, right) => Number(right.created_at) - Number(left.created_at));
-        const toDelete = duplicates.slice(1);
-
-        for (const dup of toDelete) {
-          try {
-            vectorSearch.deleteVector(db, dup.id, shard);
-            shardManager.decrementVectorCount(shard.id);
-            exactDeleted++;
-          } catch (error) {
-            log("Deduplication: delete error", {
-              memoryId: dup.id,
-              error: String(error),
-            });
-          }
-        }
+        toDelete.push(...duplicates.slice(1));
       }
     }
-    return exactDeleted;
+    if (toDelete.length === 0) return 0;
+
+    db.run("BEGIN IMMEDIATE");
+    try {
+      for (const dup of toDelete) {
+        db.run("DELETE FROM memories WHERE id = ?", dup.id);
+      }
+      db.run("COMMIT");
+    } catch (error) {
+      try {
+        db.run("ROLLBACK");
+      } catch (rollbackErr) {
+        log("Deduplication: rollback failed", { error: String(rollbackErr) });
+      }
+      log("Deduplication: delete error", { error: String(error) });
+      return 0;
+    }
+
+    for (const dup of toDelete) {
+      try {
+        await vectorSearch.deleteVector(db, dup.id, shard);
+        shardManager.decrementVectorCount(shard.id);
+      } catch (error) {
+        log("Deduplication: delete error", {
+          memoryId: dup.id,
+          error: String(error),
+        });
+      }
+    }
+    return toDelete.length;
   }
 
   private _findNearDuplicates(
@@ -338,7 +353,6 @@ export class DeduplicationService {
           existingId: match.candidate.id,
           containerTag,
           similarity: match.similarity,
-          content: content.slice(0, 80),
         });
         return {
           isDuplicate: false,
@@ -378,7 +392,6 @@ export class DeduplicationService {
       existingId: match.candidate.id,
       containerTag,
       similarity: match.similarity,
-      content: content.slice(0, 80),
     });
 
     return { isDuplicate: true, existingId: match.candidate.id, merged: true };
