@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Config types are now derived from the zod schema (z.infer) instead of a hand-maintained duplicate interface.**
 - **Startup no longer blocks on embedding warmup or score recalculation** — the plugin loads immediately and warms up in the background.
 
 ### Fixed

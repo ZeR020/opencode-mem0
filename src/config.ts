@@ -17,113 +17,6 @@ export const CONFIG_FILES = [
 
 export type VectorBackendConfig = "usearch-first" | "usearch" | "exact-scan";
 
-interface OpenCodeMemConfig {
-  storagePath?: string;
-  userEmailOverride?: string;
-  userNameOverride?: string;
-  memory?: {
-    defaultScope?: "project" | "all-projects";
-  };
-  embeddingModel?: string;
-  embeddingDimensions?: number;
-  embeddingApiUrl?: string;
-  embeddingApiKey?: string;
-  similarityThreshold?: number;
-  maxMemories?: number;
-  injectProfile?: boolean;
-  containerTagPrefix?: string;
-  autoCaptureEnabled?: boolean;
-  promptTrackingEnabled?: boolean;
-  profileLearningEnabled?: boolean;
-  autoCaptureMaxIterations?: number;
-  autoCaptureMaxRetries?: number;
-  autoCaptureIterationTimeout?: number;
-  autoCaptureLanguage?: string;
-  memoryProvider?: AIProviderType;
-  memoryModel?: string;
-  memoryApiUrl?: string;
-  memoryApiKey?: string;
-  memoryTemperature?: number | false;
-  memoryExtraParams?: Record<string, unknown>;
-  opencodeProvider?: string;
-  opencodeModel?: string;
-  vectorBackend?: VectorBackendConfig;
-  aiSessionRetentionDays?: number;
-  webServerEnabled?: boolean;
-  webServerPort?: number;
-  webServerHost?: string;
-  webServerApiKey?: string;
-  maxVectorsPerShard?: number;
-  autoCleanupEnabled?: boolean;
-  autoCleanupRetentionDays?: number;
-  deduplicationEnabled?: boolean;
-  deduplicationSimilarityThreshold?: number;
-  deduplicationIngestEnabled?: boolean;
-  userProfileAnalysisInterval?: number;
-  userProfileMaxBatchesPerIdle?: number;
-  userProfileMaxPreferences?: number;
-  userProfileMaxPatterns?: number;
-  userProfileMaxWorkflows?: number;
-  userProfileChangelogRetentionCount?: number;
-  promptRetentionDays?: number | false;
-  showAutoCaptureToasts?: boolean;
-  showUserProfileToasts?: boolean;
-  showErrorToasts?: boolean;
-  transcriptStorage?: {
-    enabled?: boolean;
-    maxAgeDays?: number;
-  };
-  memoryScoring?: {
-    enabled?: boolean;
-    recalculationIntervalMinutes?: number;
-    recalculationBatchSize?: number;
-    recencyHalfLifeDays?: number;
-    utilityHalfLifeDays?: number;
-  };
-  memoryLifecycle?: {
-    stmDecayDays?: number;
-    ltmDecayDays?: number;
-    promotionThreshold?: number;
-    archiveThreshold?: number;
-    archiveAfterDays?: number;
-    checkIntervalMinutes?: number;
-    decayBatchSize?: number;
-  };
-  compaction?: {
-    enabled?: boolean;
-    memoryLimit?: number;
-  };
-  chatMessage?: {
-    enabled?: boolean;
-    maxMemories?: number;
-    excludeCurrentSession?: boolean;
-    maxAgeDays?: number;
-    injectOn?: "first" | "always";
-    mode?: "relevant" | "fast";
-  };
-  retrieval?: {
-    maxResults?: number;
-    diversityThreshold?: number;
-    contextBoost?: number;
-  };
-  injection?: {
-    tokenBudget?: number;
-    format?: "plain" | "xml" | "yaml";
-    relevanceThreshold?: number;
-  };
-  contextualDecay?: {
-    enabled?: boolean;
-    baseDecayRate?: number;
-    strengthBoostFactor?: number;
-    accessBoostFactor?: number;
-    minDecayRate?: number;
-    maxDecayRate?: number;
-  };
-  logLevel?: "debug" | "info" | "warn" | "error";
-  warmupTimeoutMs?: number;
-  rateLimitEnabled?: boolean;
-}
-
 export const OpenCodeMemConfigSchema = z.object({
   storagePath: z.string().optional(),
   userEmailOverride: z.string().optional(),
@@ -250,6 +143,8 @@ export const OpenCodeMemConfigSchema = z.object({
   warmupTimeoutMs: z.number().positive().optional(),
   rateLimitEnabled: z.boolean().optional(),
 });
+
+export type OpenCodeMemConfig = z.infer<typeof OpenCodeMemConfigSchema>;
 
 const DEFAULTS: Partial<OpenCodeMemConfig> = {
   storagePath: join(DATA_DIR, "data"),
