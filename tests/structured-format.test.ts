@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { formatMemoryEntry, formatContextForPrompt } from "../src/services/context.js";
@@ -130,11 +130,12 @@ describe("structured-format", () => {
     const originalHome = process.env.HOME;
     const originalUserProfile = process.env.USERPROFILE;
     let testConfig: any;
+    let testHome: string | undefined;
 
     beforeAll(async () => {
-      const home = mkdtempSync(join(tmpdir(), "opencode-mem0-test-"));
-      process.env.HOME = home;
-      process.env.USERPROFILE = home;
+      testHome = mkdtempSync(join(tmpdir(), "opencode-mem0-test-"));
+      process.env.HOME = testHome;
+      process.env.USERPROFILE = testHome;
       // Dynamic import to get fresh config with temp home
       const mod = await import("../src/config.js");
       testConfig = mod.CONFIG;
@@ -143,6 +144,9 @@ describe("structured-format", () => {
     afterAll(() => {
       process.env.HOME = originalHome;
       process.env.USERPROFILE = originalUserProfile;
+      // `home` used to be scoped inside beforeAll, unreachable here —
+      // every run leaked one tmp dir.
+      if (testHome) rmSync(testHome, { recursive: true, force: true });
     });
 
     it("has injection.format defaulting to plain", () => {

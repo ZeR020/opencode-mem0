@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { rmSync } from "node:fs";
 import { CONFIG } from "../src/config.js";
 
 interface MockDatabase {
@@ -308,7 +309,7 @@ function makeDb(path: string) {
 // Set up config mock with all new feature flags enabled
 vi.mock("../src/config.js", () => ({
   CONFIG: {
-    storagePath: "/tmp/opencode-mem0-test",
+    storagePath: `/tmp/opencode-mem0-test-engine-${process.pid}`,
     transcriptStorage: { enabled: true, maxAgeDays: 30 },
     memoryScoring: {
       enabled: true,
@@ -870,4 +871,8 @@ describe("Memory Engine Integration", () => {
       expect(result.error).toBeTruthy();
     });
   });
+});
+
+afterAll(() => {
+  rmSync(`/tmp/opencode-mem0-test-engine-${process.pid}`, { recursive: true, force: true });
 });

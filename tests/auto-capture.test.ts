@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterAll, describe, it, expect, vi, beforeEach } from "vitest";
+import { rmSync } from "node:fs";
 import type { PluginInput } from "@opencode-ai/plugin";
 
 const mockUserPromptManager = {
@@ -77,7 +78,7 @@ vi.mock("../src/services/language-detector.js", () => ({
 }));
 vi.mock("../src/config.js", () => ({
   CONFIG: {
-    storagePath: "/tmp/opencode-mem0-test",
+    storagePath: `/tmp/opencode-mem0-test-ac-${process.pid}`,
     showAutoCaptureToasts: false,
     autoCaptureMaxRetries: 3,
     showUserProfileToasts: false,
@@ -1903,4 +1904,8 @@ describe("auto-capture helpers", () => {
       });
     });
   });
+});
+
+afterAll(() => {
+  rmSync(`/tmp/opencode-mem0-test-ac-${process.pid}`, { recursive: true, force: true });
 });

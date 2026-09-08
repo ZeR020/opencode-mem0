@@ -30,19 +30,22 @@ async function makeManager() {
   return { manager: new UserProfileManager(), tmpDir };
 }
 
-describe("UserProfileManager – explicit preference writes", () => {
-  afterEach(async () => {
-    connectionManager.closeAll();
-    for (const dir of tmpDirs) {
-      rmSync(dir, { recursive: true, force: true });
-    }
-    tmpDirs.length = 0;
-    if (originalStoragePath !== undefined) {
-      const { CONFIG } = await import("../src/config.js");
-      CONFIG.storagePath = originalStoragePath;
-    }
-  });
+// Top-level so BOTH describe blocks get the tmp-dir cleanup — this used
+// to live inside the first describe only, leaking every dir the
+// "confidence decay" tests created (4 per run).
+afterEach(async () => {
+  connectionManager.closeAll();
+  for (const dir of tmpDirs) {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  tmpDirs.length = 0;
+  if (originalStoragePath !== undefined) {
+    const { CONFIG } = await import("../src/config.js");
+    CONFIG.storagePath = originalStoragePath;
+  }
+});
 
+describe("UserProfileManager – explicit preference writes", () => {
   it("creates a profile with an explicit preference when none exists", async () => {
     const { manager: mgr } = await makeManager();
     const userId = "test@example.com";

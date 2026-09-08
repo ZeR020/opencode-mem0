@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import { rmSync } from "node:fs";
 
 const searchCalls: unknown[][] = [];
 let lastListScope: string | undefined;
@@ -51,7 +52,7 @@ vi.mock("../src/services/client.js", () => ({
 
 mockConfig = {
   autoCaptureLanguage: "auto",
-  storagePath: "/tmp/opencode-mem0-test",
+  storagePath: `/tmp/opencode-mem0-test-scope-${process.pid}`,
   memory: { defaultScope: undefined as "project" | "all-projects" | undefined },
   webServerEnabled: false,
   autoCaptureEnabled: false,
@@ -180,4 +181,8 @@ describe("tool memory scope", () => {
 
     mockClient.deleteMemory = () => ({ success: true });
   });
+});
+
+afterAll(() => {
+  rmSync(`/tmp/opencode-mem0-test-scope-${process.pid}`, { recursive: true, force: true });
 });
