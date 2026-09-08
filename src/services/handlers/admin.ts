@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { embeddingService } from "../embedding.js";
 import { shardManager, getAllShards } from "../sqlite/shard-manager.js";
 import { vectorSearch } from "../sqlite/vector-search.js";
@@ -365,5 +366,45 @@ export async function handleRunTagMigrationBatch(
   } catch (error) {
     log("Tag migration batch failed", { error: String(error) });
     return { success: false, error: "Internal error in handleRunTagMigrationBatch" };
+  }
+}
+
+export function handleEmbeddingCacheStats(): ApiResponse<{
+  size: number;
+  maxSize: number;
+  hits: number;
+  misses: number;
+  rate: number;
+}> {
+  try {
+    const stats = embeddingService.getCacheStats();
+    return { success: true, data: stats };
+  } catch (error) {
+    log("handleEmbeddingCacheStats: error", { error: String(error) });
+    return { success: false, error: "Internal error in handleEmbeddingCacheStats" };
+  }
+}
+
+export function handleApiStatus(): ApiResponse<{
+  mode: "full" | "text-only";
+  warmedUp: boolean;
+  ready: boolean;
+}> {
+  try {
+    const mode = embeddingService.embeddingAvailable ? "full" : "text-only";
+    const warmedUp = embeddingService.isWarmedUp;
+    let ready = false;
+    try {
+      const metadataPath = join(CONFIG.storagePath, "metadata.db");
+      const db = connectionManager.getConnection(metadataPath);
+      const row = db.prepare("SELECT COUNT(*) as count FROM shards").get() as { count: number };
+      ready = row.count > 0;
+    } catch {
+      ready = false;
+    }
+    return { success: true, data: { mode, warmedUp, ready } };
+  } catch (error) {
+    log("handleApiStatus: error", { error: String(error) });
+    return { success: false, error: "Internal error in handleApiStatus" };
   }
 }

@@ -5,7 +5,7 @@ vi.mock("../src/services/logger.js", () => ({
   setLogLevel: () => {},
 }));
 
-vi.mock("../src/services/api-handlers.js", () => ({
+vi.mock("../src/services/handlers/memory.js", () => ({
   handleListTags: () => ({ success: true, data: { project: [] } }),
   handleListMemories: () => ({
     success: true,
@@ -16,16 +16,20 @@ vi.mock("../src/services/api-handlers.js", () => ({
   handleDeleteMemory: () => ({ success: true, data: { deletedPrompt: false } }),
   handleBulkDelete: () => ({ success: true, data: { deleted: 1 } }),
   handleUpdateMemory: () => ({ success: true }),
+  handlePinMemory: () => ({ success: true }),
+  handleUnpinMemory: () => ({ success: true }),
+}));
+vi.mock("../src/services/handlers/search.js", () => ({
   handleSearch: () => ({
     success: true,
     data: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 },
   }),
+}));
+vi.mock("../src/services/handlers/admin.js", () => ({
   handleStats: () => ({
     success: true,
     data: { total: 0, byScope: { user: 0, project: 0 }, byType: {} },
   }),
-  handlePinMemory: () => ({ success: true }),
-  handleUnpinMemory: () => ({ success: true }),
   handleRunCleanup: () => ({
     success: true,
     data: { deletedCount: 0, userCount: 0, projectCount: 0 },
@@ -68,18 +72,28 @@ vi.mock("../src/services/api-handlers.js", () => ({
   }),
   handleDeletePrompt: () => ({ success: true, data: { deletedMemory: false } }),
   handleBulkDeletePrompts: () => ({ success: true, data: { deleted: 1 } }),
-  handleGetUserProfile: () => ({ success: true, data: { exists: false } }),
-  handleGetProfileChangelog: () => ({ success: true, data: [] }),
-  handleGetProfileSnapshot: () => ({ success: true, data: { version: 1, profileData: {} } }),
-  handleRefreshProfile: () => ({ success: true, data: { message: "ok" } }),
-  handleListConflicts: () => ({ success: true, data: [] }),
-  handleResolveConflict: () => ({ success: true, data: { mergedMemoryId: "mem-1" } }),
-  handleConflictStats: () => ({ success: true, data: { unresolved: 0, resolved: 0 } }),
   handleEmbeddingCacheStats: () => ({
     success: true,
     data: { size: 0, maxSize: 1000, hits: 0, misses: 0, rate: 0 },
   }),
+  handleApiStatus: () => ({
+    success: true,
+    data: { status: "ok", version: "1.0.0" },
+  }),
+}));
+vi.mock("../src/services/handlers/profile.js", () => ({
+  handleGetUserProfile: () => ({ success: true, data: { exists: false } }),
+  handleGetProfileChangelog: () => ({ success: true, data: [] }),
+  handleGetProfileSnapshot: () => ({ success: true, data: { version: 1, profileData: {} } }),
+  handleRefreshProfile: () => ({ success: true, data: { message: "ok" } }),
   handleUpdateUserProfile: () => ({ success: true, data: { message: "ok" } }),
+}));
+vi.mock("../src/services/handlers/conflicts.js", () => ({
+  handleListConflicts: () => ({ success: true, data: [] }),
+  handleResolveConflict: () => ({ success: true, data: { mergedMemoryId: "mem-1" } }),
+  handleConflictStats: () => ({ success: true, data: { unresolved: 0, resolved: 0 } }),
+}));
+vi.mock("../src/services/handlers/transcripts.js", () => ({
   handleSearchTranscripts: () => ({
     success: true,
     data: { items: [], total: 0 },
@@ -88,15 +102,13 @@ vi.mock("../src/services/api-handlers.js", () => ({
     success: true,
     data: { items: [], total: 0 },
   }),
+}));
+vi.mock("../src/services/handlers/config.js", () => ({
   handleGetConfig: () => ({
     success: true,
     data: { memoryProvider: "openai-chat", memoryApiKeyMasked: "" },
   }),
   handleUpdateConfig: () => ({ success: true, data: {} }),
-  handleApiStatus: () => ({
-    success: true,
-    data: { status: "ok", version: "1.0.0" },
-  }),
 }));
 
 const { WebServer } = await import("../src/services/web-server.js");

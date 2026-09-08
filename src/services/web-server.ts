@@ -14,12 +14,13 @@ import {
   handleDeleteMemory,
   handleBulkDelete,
   handleUpdateMemory,
-  handleSearch,
-  handleSearchTranscripts,
-  handleListTranscripts,
-  handleStats,
   handlePinMemory,
   handleUnpinMemory,
+} from "./handlers/memory.js";
+import { handleSearch } from "./handlers/search.js";
+import { handleSearchTranscripts, handleListTranscripts } from "./handlers/transcripts.js";
+import {
+  handleStats,
   handleRunCleanup,
   handleRunDeduplication,
   handleDetectMigration,
@@ -29,20 +30,23 @@ import {
   handleGetTagMigrationProgress,
   handleDeletePrompt,
   handleBulkDeletePrompts,
+  handleEmbeddingCacheStats,
+  handleApiStatus,
+} from "./handlers/admin.js";
+import {
   handleGetUserProfile,
   handleUpdateUserProfile,
   handleGetProfileChangelog,
   handleGetProfileSnapshot,
   handleRefreshProfile,
+} from "./handlers/profile.js";
+import {
   handleListConflicts,
   handleGetConflict,
   handleResolveConflict,
   handleConflictStats,
-  handleEmbeddingCacheStats,
-  handleApiStatus,
-  handleGetConfig,
-  handleUpdateConfig,
-} from "./api-handlers.js";
+} from "./handlers/conflicts.js";
+import { handleGetConfig, handleUpdateConfig } from "./handlers/config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

@@ -37,7 +37,7 @@ graph TD
     EM -->|local| HF[HuggingFace Transformers<br>Xenova/nomic-embed-text-v1]
     EM -->|remote| API[OpenAI-compatible API]
 
-    WS --> AH[API Handlers<br>src/services/api-handlers.ts]
+    WS --> AH[API Handlers<br>src/services/handlers/]
     AH --> MC
 ```
 
@@ -135,7 +135,7 @@ src/
 │   ├── cleanup-service.ts      # Old memory and transcript cleanup
 │   ├── migration-service.ts    # V1→V2 data migration
 │   ├── web-server.ts           # HTTP server for web UI + REST API
-│   ├── api-handlers.ts         # REST API endpoint handlers
+│   ├── handlers/               # REST API endpoint handlers
 │   ├── platform-server.ts      # Platform-agnostic HTTP server abstraction
 │   ├── logger.ts               # Structured logging with level control
 │   ├── privacy.ts              # Private content stripping (API keys, tokens)

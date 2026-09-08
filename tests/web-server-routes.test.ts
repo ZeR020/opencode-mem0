@@ -17,7 +17,7 @@ vi.mock("../src/services/platform-server.js", () => ({
   serve: vi.fn(),
 }));
 
-vi.mock("../src/services/api-handlers.js", () => ({
+vi.mock("../src/services/handlers/memory.js", () => ({
   handleListTags: vi.fn(),
   handleListMemories: vi.fn(),
   handleGetMemory: vi.fn(),
@@ -25,12 +25,18 @@ vi.mock("../src/services/api-handlers.js", () => ({
   handleDeleteMemory: vi.fn(),
   handleBulkDelete: vi.fn(),
   handleUpdateMemory: vi.fn(),
-  handleSearch: vi.fn(),
-  handleSearchTranscripts: vi.fn(),
-  handleListTranscripts: vi.fn(),
-  handleStats: vi.fn(),
   handlePinMemory: vi.fn(),
   handleUnpinMemory: vi.fn(),
+}));
+vi.mock("../src/services/handlers/search.js", () => ({
+  handleSearch: vi.fn(),
+}));
+vi.mock("../src/services/handlers/transcripts.js", () => ({
+  handleSearchTranscripts: vi.fn(),
+  handleListTranscripts: vi.fn(),
+}));
+vi.mock("../src/services/handlers/admin.js", () => ({
+  handleStats: vi.fn(),
   handleRunCleanup: vi.fn(),
   handleRunDeduplication: vi.fn(),
   handleDetectMigration: vi.fn(),
@@ -40,16 +46,22 @@ vi.mock("../src/services/api-handlers.js", () => ({
   handleGetTagMigrationProgress: vi.fn(),
   handleDeletePrompt: vi.fn(),
   handleBulkDeletePrompts: vi.fn(),
+  handleEmbeddingCacheStats: vi.fn(),
+  handleApiStatus: vi.fn(),
+}));
+vi.mock("../src/services/handlers/profile.js", () => ({
   handleGetUserProfile: vi.fn(),
   handleUpdateUserProfile: vi.fn(),
   handleGetProfileChangelog: vi.fn(),
   handleGetProfileSnapshot: vi.fn(),
   handleRefreshProfile: vi.fn(),
+}));
+vi.mock("../src/services/handlers/conflicts.js", () => ({
   handleListConflicts: vi.fn(),
   handleResolveConflict: vi.fn(),
   handleConflictStats: vi.fn(),
-  handleEmbeddingCacheStats: vi.fn(),
-  handleApiStatus: vi.fn(),
+}));
+vi.mock("../src/services/handlers/config.js", () => ({
   handleGetConfig: vi.fn(),
   handleUpdateConfig: vi.fn(),
 }));
@@ -63,15 +75,16 @@ import {
   handleDeleteMemory,
   handleBulkDelete,
   handleUpdateMemory,
-  handleSearch,
-  handleSearchTranscripts,
-  handleListTranscripts,
-  handleStats,
   handlePinMemory,
   handleUnpinMemory,
-  handleResolveConflict,
-  handleListConflicts,
-  handleConflictStats,
+} from "../src/services/handlers/memory.js";
+import { handleSearch } from "../src/services/handlers/search.js";
+import {
+  handleSearchTranscripts,
+  handleListTranscripts,
+} from "../src/services/handlers/transcripts.js";
+import {
+  handleStats,
   handleRunCleanup,
   handleRunDeduplication,
   handleDetectMigration,
@@ -81,14 +94,20 @@ import {
   handleGetTagMigrationProgress,
   handleDeletePrompt,
   handleBulkDeletePrompts,
+  handleEmbeddingCacheStats,
+} from "../src/services/handlers/admin.js";
+import {
   handleGetUserProfile,
   handleGetProfileChangelog,
   handleGetProfileSnapshot,
   handleRefreshProfile,
-  handleEmbeddingCacheStats,
-  handleGetConfig,
-  handleUpdateConfig,
-} from "../src/services/api-handlers.js";
+} from "../src/services/handlers/profile.js";
+import {
+  handleResolveConflict,
+  handleListConflicts,
+  handleConflictStats,
+} from "../src/services/handlers/conflicts.js";
+import { handleGetConfig, handleUpdateConfig } from "../src/services/handlers/config.js";
 
 describe("WebServer Routes", () => {
   let server: WebServer;
