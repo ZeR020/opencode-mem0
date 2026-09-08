@@ -610,7 +610,10 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
             if (!args.memoryId)
               return JSON.stringify({ success: false, error: "memoryId required" });
             const delRes = await memoryClient.deleteMemory(args.memoryId);
-            return JSON.stringify({ success: delRes.success, message: "Memory removed" });
+            return JSON.stringify({
+              success: delRes.success,
+              message: delRes.success ? "Memory removed" : (delRes.error || "Memory removal failed"),
+            });
           }
 
           try {
