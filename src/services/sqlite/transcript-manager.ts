@@ -175,6 +175,13 @@ export class TranscriptManager {
   ): { transcripts: TranscriptRecord[]; total: number } {
     if (!CONFIG.transcriptStorage.enabled) return { transcripts: [], total: 0 };
 
+    const safeFtsQuery = query
+      .replace(/[*^:\-+?()"]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 500);
+    if (safeFtsQuery.length === 0) return { transcripts: [], total: 0 };
+
     try {
       const db = this.getDb();
 
@@ -184,12 +191,12 @@ export class TranscriptManager {
         SELECT count(*) as total FROM transcripts_fts WHERE transcripts_fts MATCH ?
       `
         )
-        .get(query) as { total: number } | null;
+        .get(safeFtsQuery) as { total: number } | null;
 
       const rows = db
         .prepare(
           `
-        SELECT t.${TRANSCRIPT_FIELDS}
+        SELECT t.id, t.session_id, t.project_path, t.messages, t.created_at, t.token_count
         FROM transcripts t
         JOIN transcripts_fts fts ON fts.rowid = t.rowid
         WHERE transcripts_fts MATCH ?
@@ -197,7 +204,7 @@ export class TranscriptManager {
         LIMIT ? OFFSET ?
       `
         )
-        .all(query, limit, offset) as any[];
+        .all(safeFtsQuery, limit, offset) as any[];
 
       return {
         transcripts: rows.map(rowToTranscript),
