@@ -650,11 +650,12 @@ export class VectorSearch {
 
     db.run("BEGIN IMMEDIATE");
     try {
-      this.getStmt(db, "UPDATE memories SET vector = ?, tags_vector = ? WHERE id = ?").run(
-        toBlob(vector),
-        toBlob(tagsVector),
-        memoryId
-      );
+      // COALESCE keeps the existing tags_vector when this call only re-embeds
+      // content — passing undefined must not wipe semantic tag search.
+      this.getStmt(
+        db,
+        "UPDATE memories SET vector = ?, tags_vector = COALESCE(?, tags_vector) WHERE id = ?"
+      ).run(toBlob(vector), toBlob(tagsVector), memoryId);
       db.run("COMMIT");
     } catch (error) {
       try {
