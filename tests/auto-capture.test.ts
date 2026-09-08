@@ -329,6 +329,35 @@ describe("auto-capture helpers", () => {
     expect(mockMemoryClient.addMemory).not.toHaveBeenCalled();
   });
 
+  it("releases claim on early return after claimPrompt", async () => {
+    const prompt = { id: "p1", messageId: "m1", content: "test" };
+    let capturedState = 0;
+    mockUserPromptManager.getLastUncapturedPrompt.mockImplementation(() =>
+      capturedState === 0 ? prompt : null
+    );
+    mockUserPromptManager.claimPrompt.mockImplementation(() => {
+      if (capturedState !== 0) return false;
+      capturedState = 2;
+      return true;
+    });
+    mockUserPromptManager.resetPromptClaim.mockImplementation(() => {
+      if (capturedState === 2) capturedState = 0;
+    });
+    const ctx = {
+      client: {
+        session: { messages: () => ({ data: undefined }) },
+      },
+    } as any;
+
+    await performAutoCapture(ctx, "sess-1", "/test");
+    expect(mockUserPromptManager.resetPromptClaim).toHaveBeenCalledWith("p1");
+
+    await performAutoCapture(ctx, "sess-1", "/test");
+    expect(mockUserPromptManager.getLastUncapturedPrompt).toHaveBeenCalledTimes(2);
+    expect(mockUserPromptManager.claimPrompt).toHaveBeenCalledTimes(2);
+    expect(mockUserPromptManager.getLastUncapturedPrompt).toHaveNthReturnedWith(2, prompt);
+  });
+
   it("returns early when AI response has only tool calls with no text", async () => {
     mockUserPromptManager.getLastUncapturedPrompt.mockReturnValue({
       id: "p1",
