@@ -152,4 +152,12 @@ describe("WAL batch write API", () => {
       .all() as any[];
     expect(rows2).toHaveLength(1);
   });
+
+  it("flushBatch after eviction does not drop queued writes", () => {
+    connectionManager.closeConnection(dbPath);
+    connectionManager.batchWrite(dbPath, "INSERT INTO test_table (value) VALUES (?)", ["evicted"]);
+    connectionManager.flushBatch(dbPath);
+    const rows = getDb().prepare("SELECT * FROM test_table WHERE value = 'evicted'").all() as any[];
+    expect(rows).toHaveLength(1);
+  });
 });
