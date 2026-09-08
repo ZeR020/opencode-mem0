@@ -1,6 +1,6 @@
 import { StmtCache, type Database } from "./sqlite-bootstrap.js";
 import { connectionManager } from "./connection-manager.js";
-import { log } from "../logger.js";
+import { log, warn } from "../logger.js";
 import { CONFIG } from "../../config.js";
 import type { MemoryMetadata, MemoryRecord, SearchResult, ShardInfo } from "./types.js";
 import { createVectorBackend } from "../vector-backends/backend-factory.js";
@@ -136,10 +136,24 @@ export class VectorSearch {
     // about existing sqlite rows, so first use must rebuild once. Without
     // this, vector search silently returned [] after every restart until a
     // new insert happened to land in that shard/kind.
-    if (this.rebuildDirty.get(key) !== false) {
-      await backend.rebuildFromShard({ db, shard, kind });
+    const state = this.rebuildDirty.get(key);
+    if (state !== false) {
+      // state === undefined: first use in this process (bootstrap rebuild).
+      // state === true: a backend mutation failed after COMMIT — force a
+      // full repair pass that replaces the initialized index.
+      await backend.rebuildFromShard({ db, shard, kind, force: state === true });
       this.rebuildDirty.set(key, false);
     }
+  }
+
+  /**
+   * Marks a shard's backend indexes as needing a force rebuild on next
+   * search. Used by re-embed migrations: sqlite is the durable truth, and
+   * any initialized in-memory index may hold stale (old-dimension) vectors.
+   */
+  markShardDirty(shard: ShardInfo): void {
+    this.rebuildDirty.set(`${shard.id}:content`, true);
+    this.rebuildDirty.set(`${shard.id}:tags`, true);
   }
 
   async insertVector(db: Database, record: MemoryRecord, shard?: ShardInfo): Promise<void> {
@@ -165,7 +179,17 @@ export class VectorSearch {
         if (record.tagsVector) {
           await backend.insert({ id: record.id, vector: record.tagsVector, shard, kind: "tags" });
         }
-      } finally {
+      } catch (error) {
+        // The sqlite row is durable — the post-commit index mutation is
+        // not. A failing backend insert used to reject the whole call even
+        // though the memory was persisted, so callers retried into
+        // duplicates. Mark the shard dirty instead; the next search rebuilds
+        // it from sqlite (force pass replaces the initialized index).
+        warn("Vector backend insert failed after COMMIT — index marked dirty for rebuild", {
+          shardId: shard.id,
+          memoryId: record.id,
+          error: String(error),
+        });
         this.rebuildDirty.set(`${shard.id}:content`, true);
         this.rebuildDirty.set(`${shard.id}:tags`, true);
       }
@@ -675,9 +699,13 @@ export class VectorSearch {
           await backend.delete({ id: memoryId, shard, kind: "tags" });
         }
       } catch (error) {
+        warn("Vector backend update failed after COMMIT — index marked dirty for rebuild", {
+          shardId: shard.id,
+          memoryId,
+          error: String(error),
+        });
         this.rebuildDirty.set(`${shard.id}:content`, true);
         this.rebuildDirty.set(`${shard.id}:tags`, true);
-        throw error;
       }
     }
   }
@@ -714,9 +742,15 @@ export class VectorSearch {
           await backend.insert({ id: record.id, vector: record.tagsVector, shard, kind: "tags" });
         }
       } catch (error) {
+        // Same honesty as insertVector: the sqlite mutation is durable;
+        // mark dirty for a force rebuild instead of rejecting a committed write.
+        warn("Vector backend update failed after COMMIT — index marked dirty for rebuild", {
+          shardId: shard.id,
+          memoryId: record.id,
+          error: String(error),
+        });
         this.rebuildDirty.set(`${shard.id}:content`, true);
         this.rebuildDirty.set(`${shard.id}:tags`, true);
-        throw error;
       }
     }
   }
