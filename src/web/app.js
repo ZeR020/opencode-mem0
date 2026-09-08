@@ -154,11 +154,10 @@ function itemTypeBadge(item) {
  * Final barrier for every HTML string that hits a DOM sink. Per-value esc()
  * plus DOMPurify for markdown, already covers interpolation; sanitizing again
  * at the sink is defense-in-depth (and what CodeQL recognizes as an XSS
- * barrier). Falls back to the raw string when DOMPurify hasn't loaded
- * (e.g. unit smoke harness without vendor scripts).
+ * barrier). Falls back to escaped text when DOMPurify hasn't loaded.
  */
 function sanitizeHtml(html) {
-  return window.DOMPurify ? DOMPurify.sanitize(html) : html;
+  return window.DOMPurify ? DOMPurify.sanitize(html) : esc(html);
 }
 
 // ── API client ─────────────────────────────────────────────────────────────
