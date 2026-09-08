@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Auto-capture no longer strands prompts in captured=2 state when capture is skipped after claiming** — early returns now release the claim for the next idle cycle.
+- **Plugin now implements the opencode `dispose` hook** — all timers, jobs, the web server, and sqlite connections are cleaned up when the host disposes or reloads the plugin.
 
 ## [2.23.1] - 2026-09-07
 
