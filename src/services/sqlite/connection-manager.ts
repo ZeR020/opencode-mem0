@@ -16,6 +16,18 @@ class ConnectionManager {
   private isClosing = false;
   private readonly batches: Map<string, Array<{ sql: string; params: any[] }>> = new Map();
   private readonly stmtCache = new WeakMap<Database, Map<string, any>>();
+  private readonly inTxn = new Set<string>();
+
+  private trackTransactions(dbPath: string, db: Database): void {
+    const origRun = db.run.bind(db);
+    db.run = (sql: string, ...params: unknown[]) => {
+      const result = origRun(sql, ...params);
+      const kind = sql.trim().split(/\s+/, 1)[0]?.toUpperCase();
+      if (kind === "BEGIN") this.inTxn.add(dbPath);
+      else if (kind === "COMMIT" || kind === "ROLLBACK") this.inTxn.delete(dbPath);
+      return result;
+    };
+  }
 
   private touchAccessOrder(dbPath: string): void {
     this.accessOrder = this.accessOrder.filter((p) => p !== dbPath);
@@ -141,10 +153,12 @@ class ConnectionManager {
 
     try {
       if (this.connections.size >= MAX_CONNECTIONS) {
-        const oldestPath = this.accessOrder.shift();
-        if (oldestPath) {
-          this.closeConnection(oldestPath);
-          log("ConnectionManager: evicted oldest connection", { path: oldestPath });
+        const idlePath = this.accessOrder.find((p) => !this.inTxn.has(p));
+        if (idlePath) {
+          this.closeConnection(idlePath);
+          log("ConnectionManager: evicted oldest idle connection", { path: idlePath });
+        } else {
+          log("ConnectionManager: skipped eviction, all connections in transaction");
         }
       }
 
@@ -160,6 +174,7 @@ class ConnectionManager {
       }
 
       const db = new DB(dbPath);
+      this.trackTransactions(dbPath, db);
       this.connections.set(dbPath, db);
       this.accessOrder.push(dbPath);
       this.initDatabase(db);
@@ -183,6 +198,7 @@ class ConnectionManager {
       this.connections.delete(dbPath);
     }
     this.accessOrder = this.accessOrder.filter((p) => p !== dbPath);
+    this.inTxn.delete(dbPath);
   }
 
   closeAll(): void {
@@ -201,6 +217,7 @@ class ConnectionManager {
       }
       this.connections.clear();
       this.accessOrder = [];
+      this.inTxn.clear();
     } finally {
       this.isClosing = false;
     }
